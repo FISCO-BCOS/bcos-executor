@@ -54,6 +54,7 @@ include(CompilerSettings)
 include(InstallBcosFrameworkDependencies)
 
 add_subdirectory(libstate)
+add_subdirectory(libprecompiled)
 
 set(STORAGE_TARGET "bcos-executor")
 

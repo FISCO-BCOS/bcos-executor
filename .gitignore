@@ -33,8 +33,10 @@
 
 # depencies and config files
 cmake/scripts/**
+cmake/scripts**
 cmake/deps/**
 build/**
 .clang-format
 .vscode/**
+.idea/**
 .DS_Store
