@@ -49,14 +49,21 @@ project(bcos-executor)
 include(Options)
 configure_project()
 include(CompilerSettings)
+include(ProjectEVMC)
+include(ProjectEVMONE)
+include(ProjectHera)
+include(ProjectWABT)
+# SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--allow-multiple-definition")
 
 # install bcos-framework
 include(InstallBcosFrameworkDependencies)
 
 add_subdirectory(libstate)
 add_subdirectory(libprecompiled)
+add_subdirectory(libmetering)
+add_subdirectory(libvm)
 
-set(STORAGE_TARGET "bcos-executor")
+set(EXECUTOR_TARGET "bcos-executor")
 
 if (TESTS)
     enable_testing()

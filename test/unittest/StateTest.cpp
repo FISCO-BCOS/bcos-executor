@@ -25,8 +25,8 @@
 #include "bcos-framework/libprotocol/protobuf/PBTransactionFactory.h"
 #include "bcos-framework/libprotocol/protobuf/PBTransactionReceiptFactory.h"
 #include "bcos-framework/libtable/TableFactory.h"
-#include "bcos-framework/testutils/HashImpl.h"
-#include "bcos-framework/testutils/SignatureImpl.h"
+#include "bcos-framework/testutils/crypto/HashImpl.h"
+#include "bcos-framework/testutils/crypto/SignatureImpl.h"
 #include <boost/test/unit_test.hpp>
 
 using namespace std;
@@ -110,12 +110,12 @@ BOOST_AUTO_TEST_CASE(Storage)
     string addr1("0x100001");
     state->addBalance(addr1, u256(10));
     state->storageRoot(addr1);
-    auto value = state->storage(addr1, u256(123));
+    auto value = state->storage(addr1, "123");
     BOOST_TEST(value == u256());
-    state->setStorage(addr1, u256(123), u256(456));
-    value = state->storage(addr1, u256(123));
+    state->setStorage(addr1, "123", "456");
+    value = state->storage(addr1, "123");
     BOOST_TEST(value == u256(456));
-    state->setStorage(addr1, u256(123), u256(567));
+    state->setStorage(addr1, "123", "567");
     state->clearStorage(addr1);
 }
 

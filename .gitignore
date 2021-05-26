@@ -40,3 +40,4 @@ build/**
 .vscode/**
 .idea/**
 .DS_Store
+deps/**

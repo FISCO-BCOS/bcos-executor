@@ -30,7 +30,7 @@ namespace bcos
 {
 namespace executor
 {
-bool State::addressInUse(const std::string& _address) const
+bool State::addressInUse(const std::string_view& _address) const
 {
     auto table = getTable(_address);
     if (table)
@@ -40,7 +40,7 @@ bool State::addressInUse(const std::string& _address) const
     return false;
 }
 
-bool State::accountNonemptyAndExisting(const std::string& _address) const
+bool State::accountNonemptyAndExisting(const std::string_view& _address) const
 {
     auto table = getTable(_address);
     if (table)
@@ -52,7 +52,7 @@ bool State::accountNonemptyAndExisting(const std::string& _address) const
     return false;
 }
 
-bool State::addressHasCode(const std::string& _address) const
+bool State::addressHasCode(const std::string_view& _address) const
 {
     auto table = getTable(_address);
     if (table)
@@ -66,7 +66,7 @@ bool State::addressHasCode(const std::string& _address) const
     return false;
 }
 
-u256 State::balance(const std::string& _address) const
+u256 State::balance(const std::string_view& _address) const
 {
     auto table = getTable(_address);
     if (table)
@@ -80,7 +80,7 @@ u256 State::balance(const std::string& _address) const
     return 0;
 }
 
-void State::addBalance(const std::string& _address, u256 const& _amount)
+void State::addBalance(const std::string_view& _address, u256 const& _amount)
 {
     if (_amount == 0)
     {
@@ -105,7 +105,7 @@ void State::addBalance(const std::string& _address, u256 const& _amount)
     }
 }
 
-void State::subBalance(const std::string& _address, u256 const& _amount)
+void State::subBalance(const std::string_view& _address, u256 const& _amount)
 {
     auto table = getTable(_address);
     if (table)
@@ -128,7 +128,7 @@ void State::subBalance(const std::string& _address, u256 const& _amount)
     }
 }
 
-void State::setBalance(const std::string& _address, u256 const& _amount)
+void State::setBalance(const std::string_view& _address, u256 const& _amount)
 {
     auto table = getTable(_address);
     if (table)
@@ -155,7 +155,7 @@ void State::transferBalance(const std::string& _from, const std::string& _to, u2
     addBalance(_to, _value);
 }
 
-crypto::HashType State::storageRoot(const std::string& _address) const
+crypto::HashType State::storageRoot(const std::string_view& _address) const
 {
     auto table = getTable(_address);
     if (table)
@@ -165,12 +165,12 @@ crypto::HashType State::storageRoot(const std::string& _address) const
     return crypto::HashType();
 }
 
-u256 State::storage(const std::string& _address, u256 const& _key)
+u256 State::storage(const std::string_view& _address, const std::string_view& _key)
 {
     auto table = getTable(_address);
     if (table)
     {
-        auto entry = table->getRow(_key.str());
+        auto entry = table->getRow(string(_key));
         if (entry)
         {
             return u256(entry->getField(STORAGE_VALUE));
@@ -179,21 +179,22 @@ u256 State::storage(const std::string& _address, u256 const& _key)
     return u256(0);
 }
 
-void State::setStorage(const std::string& _address, u256 const& _location, u256 const& _value)
+void State::setStorage(
+    const std::string_view& _address, const std::string_view& _location, const std::string_view& _value)
 {
     auto table = getTable(_address);
     if (table)
     {
         auto entry = table->newEntry();
-        entry->setField(STORAGE_KEY, _location.str());
-        entry->setField(STORAGE_VALUE, _value.str());
-        table->setRow(_location.str(), entry);
+        entry->setField(STORAGE_KEY, string(_location));
+        entry->setField(STORAGE_VALUE, string(_value));
+        table->setRow(string(_location), entry);
     }
 }
 
-void State::clearStorage(const std::string&) {}
+void State::clearStorage(const std::string_view&) {}
 
-void State::setCode(const std::string& _address, bytesConstRef _code)
+void State::setCode(const std::string_view& _address, bytesConstRef _code)
 {
     auto table = getTable(_address);
     if (table)
@@ -208,7 +209,7 @@ void State::setCode(const std::string& _address, bytesConstRef _code)
     }
 }
 
-void State::kill(const string& _address)
+void State::kill(const string_view& _address)
 {
     auto table = getTable(_address);
     if (table)
@@ -237,7 +238,7 @@ void State::kill(const string& _address)
     clear();
 }
 
-shared_ptr<bytes> State::code(const std::string& _address) const
+shared_ptr<bytes> State::code(const std::string_view& _address) const
 {  // FIXME: return
     if (codeHash(_address) == m_hashImpl->emptyHash())
         return nullptr;
@@ -254,7 +255,7 @@ shared_ptr<bytes> State::code(const std::string& _address) const
     return nullptr;
 }
 
-crypto::HashType State::codeHash(const std::string& _address) const
+crypto::HashType State::codeHash(const std::string_view& _address) const
 {
     auto table = getTable(_address);
     if (table)
@@ -269,7 +270,7 @@ crypto::HashType State::codeHash(const std::string& _address) const
     return m_hashImpl->emptyHash();
 }
 
-bool State::frozen(const std::string& _contract) const
+bool State::frozen(const std::string_view& _contract) const
 {
     auto table = getTable(_contract);
     if (table)
@@ -290,17 +291,17 @@ bool State::frozen(const std::string& _contract) const
     }
 }
 
-size_t State::codeSize(const std::string& _address) const
+size_t State::codeSize(const std::string_view& _address) const
 {  // TODO: code should be cached
     return code(_address)->size();
 }
 
-void State::createContract(const std::string& _address)
+void State::createContract(const std::string_view& _address)
 {
     createAccount(_address, m_accountStartNonce);
 }
 
-void State::incNonce(const std::string& _address)
+void State::incNonce(const std::string_view& _address)
 {
     auto table = getTable(_address);
     if (table)
@@ -319,7 +320,7 @@ void State::incNonce(const std::string& _address)
         createAccount(_address, m_accountStartNonce + 1);
 }
 
-void State::setNonce(const std::string& _address, u256 const& _newNonce)
+void State::setNonce(const std::string_view& _address, u256 const& _newNonce)
 {
     auto table = getTable(_address);
     if (table)
@@ -332,7 +333,7 @@ void State::setNonce(const std::string& _address, u256 const& _newNonce)
         createAccount(_address, _newNonce);
 }
 
-u256 State::getNonce(const std::string& _address) const
+u256 State::getNonce(const std::string_view& _address) const
 {
     auto table = getTable(_address);
     if (table)
@@ -383,9 +384,9 @@ bool State::checkAuthority(const std::string& _origin, const std::string& _calle
     return m_tableFactory->checkAuthority(_origin, _caller);
 }
 
-void State::createAccount(const std::string& _address, u256 const& _nonce, u256 const& _amount)
+void State::createAccount(const std::string_view& _address, u256 const& _nonce, u256 const& _amount)
 {
-    std::string tableName("c_" + _address);
+    std::string tableName("c_" + string(_address));
     auto ret = m_tableFactory->createTable(tableName, STORAGE_KEY, STORAGE_VALUE);
     if (!ret)
     {
@@ -421,9 +422,9 @@ void State::createAccount(const std::string& _address, u256 const& _nonce, u256 
     table->setRow(ACCOUNT_ALIVE, entry);
 }
 
-inline storage::TableInterface::Ptr State::getTable(const std::string& _address) const
+inline storage::TableInterface::Ptr State::getTable(const std::string_view& _address) const
 {
-    std::string tableName("c_" + _address);
+    std::string tableName("c_" + string(_address));
     return m_tableFactory->openTable(tableName);
 }
 }  // namespace executor
