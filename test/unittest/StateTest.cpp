@@ -194,7 +194,6 @@ BOOST_AUTO_TEST_CASE(Operate)
     // BOOST_TEST(state->addressInUse(addr1) == false);
     state->commit();
     state->clear();
-    state->setRoot(h256());
 
     state->commit();
 }

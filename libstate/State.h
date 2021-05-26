@@ -86,7 +86,7 @@ public:
      * @param _to Account to which @a _value will be added.
      * @param _value Amount to be transferred.
      */
-    void transferBalance(const std::string& _from, const std::string& _to, u256 const& _value) override;
+    void transferBalance(const std::string_view& _from, const std::string_view& _to, u256 const& _value) override;
 
     /// Get the root of the storage of an account.
     crypto::HashType storageRoot(const std::string_view& _address) const override;
@@ -152,9 +152,6 @@ public:
     /// Commit all changes waiting in the address cache to the DB.
     /// @param _commitBehaviour whether or not to remove empty accounts during commit.
     void commit() override;
-
-    /// Resets any uncommitted changes to the cache. Return a new root in params &root
-    void setRoot(crypto::HashType const& _root) override;
 
     /// Get the account start nonce. May be required.
     u256 const& accountStartNonce() const override;

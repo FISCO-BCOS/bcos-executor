@@ -22,8 +22,8 @@
 #include "Executive.h"
 #include "../libexecutor/ExecutiveContext.h"
 #include "EVMHostInterface.h"
-#include "VMFactory.h"
 #include "HostContext.h"
+#include "VMFactory.h"
 #include "VMInstance.h"
 #include "bcos-framework/interfaces/protocol/Exceptions.h"
 #include "bcos-framework/interfaces/storage/TableInterface.h"
@@ -119,10 +119,10 @@ bool Executive::call(const std::string_view& _receiveAddress,
     return call(params, _senderAddress);
 }
 
-void Executive::updateGas(std::shared_ptr<precompiled::PrecompiledExecResult> _callResult)
+void Executive::updateGas(std::shared_ptr<precompiled::PrecompiledExecResult>)
 {
-    // TODO: calculate gas
-    #if 0
+// TODO: calculate gas
+#if 0
     auto gasUsed = _callResult->calGasCost();
     if (m_gas < gasUsed)
     {
@@ -135,7 +135,7 @@ void Executive::updateGas(std::shared_ptr<precompiled::PrecompiledExecResult> _c
                              ", leftGas:" + boost::lexical_cast<std::string>(m_gas)));
     }
     m_gas -= gasUsed;
-    #endif
+#endif
 }
 
 bool Executive::call(CallParameters const& _p, const std::string_view& _origin)
@@ -143,7 +143,6 @@ bool Executive::call(CallParameters const& _p, const std::string_view& _origin)
     // no nonce increase
 
     m_savepoint = m_s->savepoint();
-    m_tableFactorySavepoint = m_envInfo.Context()->getTableFactory()->savepoint();
     m_gas = _p.gas;
 
     if (m_t && m_s->frozen(_origin))
@@ -240,7 +239,7 @@ bool Executive::call(CallParameters const& _p, const std::string_view& _origin)
 
 bool Executive::create(const std::string_view& _txSender, u256 const& _gas, bytesConstRef _init,
     const std::string_view& _origin)
-{
+{  // FIXME: if wasm deploy, then call precompiled of wasm deploy
     // Contract creation by an external account is the same as CREATE opcode
     return createOpcode(_txSender, _gas, _init, _origin);
 }
@@ -264,8 +263,7 @@ bool Executive::create2Opcode(const std::string_view& _sender, u256 const& _gas,
 }
 
 bool Executive::executeCreate(const std::string_view& _sender, u256 const& _gas,
-    bytesConstRef _init, const std::string_view& _origin,
-    bytesConstRef constructorParams )
+    bytesConstRef _init, const std::string_view& _origin, bytesConstRef constructorParams)
 {
     // check authority for deploy contract
     auto memoryTableFactory = m_envInfo.Context()->getTableFactory();
@@ -295,7 +293,6 @@ bool Executive::executeCreate(const std::string_view& _sender, u256 const& _gas,
     m_s->incNonce(_sender);
 
     m_savepoint = m_s->savepoint();
-    m_tableFactorySavepoint = m_envInfo.Context()->getTableFactory()->savepoint();
 
     m_isCreation = true;
 
@@ -442,8 +439,8 @@ bool Executive::go()
                 return shared_ptr<evmc_message>(
                     new evmc_message{kind, flags, static_cast<int32_t>(m_context->depth()), leftGas,
                         toEvmC(m_context->myAddress()), toEvmC(m_context->caller()),
-                        m_context->data().data(), m_context->data().size(),
-                        toEvmC(m_context->value()), toEvmC(0x0_cppui256)});
+                        m_context->data().data(), m_context->data().size(), toEvmC(h256(0)),
+                        toEvmC(0x0_cppui256)});
             };
             // Create VM instance.
             auto vmKind = VMKind::evmone;
@@ -581,13 +578,6 @@ bool Executive::finalize()
         m_context->sub().refunds +=
             m_context->evmSchedule().suicideRefundGas * m_context->sub().suicides.size();
 
-// SSTORE refunds...
-// must be done before the sealer gets the fees.
-#if 0
-    m_refunded = m_context ? min((m_t->gas() - m_gas) / 2, m_context->sub().refunds) : 0;
-    m_gas += m_refunded;
-#endif
-
     // Suicides...
     if (m_context)
         for (auto a : m_context->sub().suicides)
@@ -608,8 +598,6 @@ void Executive::revert()
     // Set result address to the null one.
     m_newAddress = {};
     m_s->rollback(m_savepoint);
-    auto memoryTableFactory = m_envInfo.Context()->getTableFactory();
-    memoryTableFactory->rollback(m_tableFactorySavepoint);
 }
 
 void Executive::parseEVMCResult(std::shared_ptr<Result> _result)
@@ -680,9 +668,8 @@ void Executive::parseEVMCResult(std::shared_ptr<Result> _result)
     {
         m_gas = 0;
         EXECUTIVE_LOG(WARNING) << LOG_DESC("VM error, BufferOverrun");
-        m_excepted = TransactionStatus::Unknown;
+        m_excepted = TransactionStatus::StackUnderflow;
         revert();
-        // BOOST_THROW_EXCEPTION(BufferOverrun());
         break;
     }
     case EVMC_STATIC_MODE_VIOLATION:
@@ -691,11 +678,10 @@ void Executive::parseEVMCResult(std::shared_ptr<Result> _result)
         EXECUTIVE_LOG(WARNING) << LOG_DESC("VM error, DisallowedStateChange");
         m_excepted = TransactionStatus::Unknown;
         revert();
-        // BOOST_THROW_EXCEPTION(DisallowedStateChange());
         break;
     }
     case EVMC_CONTRACT_VALIDATION_FAILURE:
-    {  // FIXME: deal with compatibility
+    {
         EXECUTIVE_LOG(WARNING) << LOG_DESC(
             "WASM validation failed, contract hash algorithm dose not match host.");
         m_excepted = TransactionStatus::WASMValidationFailuer;
@@ -703,14 +689,14 @@ void Executive::parseEVMCResult(std::shared_ptr<Result> _result)
         break;
     }
     case EVMC_ARGUMENT_OUT_OF_RANGE:
-    {  // FIXME: deal with compatibility
+    {
         EXECUTIVE_LOG(WARNING) << LOG_DESC("WASM Argument Out Of Range");
         m_excepted = TransactionStatus::WASMArgumentOutOfRange;
         revert();
         break;
     }
     case EVMC_WASM_UNREACHABLE_INSTRUCTION:
-    {  // FIXME: deal with compatibility
+    {
         EXECUTIVE_LOG(WARNING) << LOG_DESC("WASM Unreacheable Instruction");
         m_excepted = TransactionStatus::WASMUnreacheableInstruction;
         revert();

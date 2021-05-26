@@ -28,15 +28,8 @@
 #include "bcos-framework/libprotocol/TransactionStatus.h"
 #include <functional>
 
-namespace Json
-{
-class Value;
-}
-
 namespace bcos
 {
-class OverlayDB;
-
 namespace storage
 {
 class TableFactoryInterface;
@@ -143,9 +136,6 @@ public:
     /// @returns the new address for the created contract in the CREATE operation.
     std::string newAddress() const { return m_newAddress; }
 
-    /// @returns The exception that has happened during the execution if any.
-    protocol::TransactionStatus getException() const noexcept { return m_excepted; }
-
     /// Revert all changes made to the state by this execution.
     void revert();
 
@@ -161,11 +151,9 @@ public:
         m_exceptionReason.clear();
         m_baseGasRequired = 0;
         m_gas = 0;
-        m_refunded = 0;
         m_isCreation = false;
         m_newAddress = std::string();
         m_savepoint = 0;
-        m_tableFactorySavepoint = 0;
         m_logs->clear();
         m_t.reset();
     }
@@ -204,17 +192,14 @@ private:
     int64_t m_baseGasRequired;  ///< The base amount of gas requried for executing this transaction.
     u256 m_gas = 0;       ///< The gas for EVM code execution. Initial amount before go() execution,
                           ///< final amount after go() execution.
-    u256 m_refunded = 0;  ///< The amount of gas refunded.
 
     protocol::Transaction::Ptr m_t;  ///< The original transaction. Set by setup().
     protocol::LogEntriesPtr m_logs;  ///< The log entries created by this transaction. Set by
                                      ///< finalize().
 
-
     bool m_isCreation = false;
     std::string m_newAddress;
     size_t m_savepoint = 0;
-    size_t m_tableFactorySavepoint = 0;
 
     std::shared_ptr<wasm::GasInjector> m_gasInjector;
 };

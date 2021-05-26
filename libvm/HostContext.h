@@ -133,7 +133,6 @@ public:
     virtual const std::string& myAddress() { return m_myAddress; }
     virtual const std::string& caller() { return m_caller; }
     virtual const std::string& origin() { return m_origin; }
-    virtual u256 const& value() { return m_value; }
     virtual bytesConstRef const& data() { return m_data; }
     virtual std::shared_ptr<bytes> const& code() { return m_code; }
     virtual h256 const& codeHash() { return m_codeHash; }
@@ -158,7 +157,6 @@ private:
     std::string m_caller;       ///< address which sent the message (either equal to origin or a
                                 ///< contract).
     std::string m_origin;       ///< Original transactor.
-    u256 m_value;               ///< Value (in Wei) that was passed to this address.
     bytesConstRef m_data;       ///< Current input data.
     std::shared_ptr<bytes> m_code;               ///< Current code that is executing.
     h256 m_codeHash;            ///< Keccak256 hash of the executing code

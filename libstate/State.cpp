@@ -149,7 +149,7 @@ void State::setBalance(const std::string_view& _address, u256 const& _amount)
     }
 }
 
-void State::transferBalance(const std::string& _from, const std::string& _to, u256 const& _value)
+void State::transferBalance(const std::string_view& _from, const std::string_view& _to, u256 const& _value)
 {
     subBalance(_from, _value);
     addBalance(_to, _value);
@@ -356,8 +356,6 @@ void State::commit()
 {
     m_tableFactory->commit();
 }
-
-void State::setRoot(crypto::HashType const&) {}
 
 u256 const& State::accountStartNonce() const
 {

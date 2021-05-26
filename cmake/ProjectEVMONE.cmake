@@ -17,7 +17,7 @@ ExternalProject_Add(evmone
         BUILD_IN_SOURCE 1
         LOG_DOWNLOAD 1
         LOG_CONFIGURE 1
-        LOG_BUILD 0
+        LOG_BUILD 1
         LOG_INSTALL 1
         BUILD_BYPRODUCTS <INSTALL_DIR>/lib/libevmone.a
 )

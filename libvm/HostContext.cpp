@@ -164,7 +164,7 @@ void generateCreateResult(evmc_result* o_result, evmc_status_code status, u256 g
         generateCallResult(o_result, status, gas, std::move(output));
 }
 
-evmc_status_code transactionExceptionToEvmcStatusCode(TransactionStatus ex) noexcept
+evmc_status_code transactionStatusToEvmcStatus(TransactionStatus ex) noexcept
 {
     switch (ex)
     {
@@ -200,8 +200,15 @@ namespace bcos
 {
 namespace executor
 {
+namespace
+{
 evmc_gas_metrics ethMetrics{32000, 20000, 5000, 200, 9000, 2300, 25000};
-evmc_bytes32 sm3Hash(const uint8_t* data, size_t size);
+crypto::Hash::Ptr g_hashImpl = nullptr;
+evmc_bytes32 evm_hash_fn(const uint8_t* data, size_t size)
+{
+    return toEvmC(g_hashImpl->hash(bytesConstRef(data, size)));
+}
+}  // namespace
 
 
 HostContext::HostContext(std::shared_ptr<StateInterface> _s, executor::EnvInfo const& _envInfo,
@@ -222,18 +229,9 @@ HostContext::HostContext(std::shared_ptr<StateInterface> _s, executor::EnvInfo c
 {
     m_tableFactory = m_envInfo.Context()->getTableFactory();
     interface = getHostInterface();
-    sm3_hash_fn = nullptr;
-    if (m_envInfo.isSMCrypto())
-    {  // FIXME: implement sm3Hash
-        sm3_hash_fn = [](const uint8_t* data, size_t size) -> evmc_bytes32 {
-            // TODO: if the return value of hashImpl->hash is not h256,modify the vm
-            evmc_bytes32 hash;
-            // sm3(data, size, hash.bytes);
-            // auto ret = hashImpl->hash(bytesConstRef(data, size));
-            // memcpy(hash.bytes, ret.data(), 32);
-            return hash;
-        };
-    }
+    g_hashImpl = m_envInfo.hashHandler();
+    // FIXME: rename sm3_hash_fn to evm_hash_fn and add a context pointer to get hashImpl
+    sm3_hash_fn = evm_hash_fn;
     // FIXME: refactor version used in evmone and hash to remove use of m_envInfo.useSMCrypto()
     version = 0x03000000;
 
@@ -253,8 +251,8 @@ evmc_result HostContext::call(CallParameters& _p)
     _p.gas = e.gas();
 
     evmc_result evmcResult;
-    generateCallResult(&evmcResult, transactionExceptionToEvmcStatusCode(e.getException()), _p.gas,
-        e.takeOutput());
+    generateCallResult(
+        &evmcResult, transactionStatusToEvmcStatus(e.status()), _p.gas, e.takeOutput());
     return evmcResult;
 }
 
@@ -290,7 +288,7 @@ void HostContext::setStore(u256 const& _n, u256 const& _v)
 }
 
 evmc_result HostContext::create(u256& io_gas, bytesConstRef _code, evmc_opcode _op, u256 _salt)
-{
+{  // TODO: if liquid support contract create contract add a branch
     Executive e{m_s, envInfo(), depth() + 1};
     // Note: When create initializes Executive, the flags of evmc context must be passed in
     bool result = false;
@@ -310,8 +308,8 @@ evmc_result HostContext::create(u256& io_gas, bytesConstRef _code, evmc_opcode _
     }
     io_gas = e.gas();
     evmc_result evmcResult;
-    generateCreateResult(&evmcResult, transactionExceptionToEvmcStatusCode(e.getException()),
-        io_gas, e.takeOutput(), e.newAddress());
+    generateCreateResult(&evmcResult, transactionStatusToEvmcStatus(e.status()), io_gas,
+        e.takeOutput(), e.newAddress());
     return evmcResult;
 }
 

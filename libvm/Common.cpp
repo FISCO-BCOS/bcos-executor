@@ -20,7 +20,7 @@
  */
 
 #include "Common.h"
-// #include "bcos-framework/libutilities/Common.h"
+
 namespace bcos
 {
     bool hasWasmPreamble(const bytes& _input)
