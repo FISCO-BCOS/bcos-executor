@@ -18,10 +18,11 @@
  * @date 2021-05-31
  */
 
-#include "Common.h"
-#include "Utilities.h"
 #include "EntriesPrecompiled.h"
+#include "Common.h"
 #include "EntryPrecompiled.h"
+#include "PrecompiledResult.h"
+#include "Utilities.h"
 #include <bcos-framework/libcodec/abi/ContractABICodec.h>
 
 using namespace bcos;
@@ -42,8 +43,8 @@ std::string EntriesPrecompiled::toString()
     return "Entries";
 }
 PrecompiledExecResult::Ptr EntriesPrecompiled::call(
-    std::shared_ptr<executor::ExecutiveContext> _context, bytesConstRef _param,
-    const std::string&, const std::string&, u256& _remainGas)
+    std::shared_ptr<executor::ExecutiveContext> _context, bytesConstRef _param, const std::string&,
+    const std::string&, u256& _remainGas)
 {
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
@@ -62,7 +63,7 @@ PrecompiledExecResult::Ptr EntriesPrecompiled::call(
         Entry::Ptr entry = getEntriesPtr()->at(num.convert_to<size_t>());
         EntryPrecompiled::Ptr entryPrecompiled = std::make_shared<EntryPrecompiled>();
         entryPrecompiled->setEntry(entry);
-        Address address = _context->registerPrecompiled(entryPrecompiled);
+        Address address = Address(_context->registerPrecompiled(entryPrecompiled));
         callResult->setExecResult(abi.abiIn("", address));
     }
     else if (func == name2Selector[ENTRIES_SIZE])

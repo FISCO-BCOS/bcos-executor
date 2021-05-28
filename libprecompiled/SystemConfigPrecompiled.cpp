@@ -19,6 +19,7 @@
  */
 
 #include "SystemConfigPrecompiled.h"
+#include "PrecompiledResult.h"
 #include "Utilities.h"
 #include <bcos-framework/libcodec/abi/ContractABIType.h>
 #include <bcos-framework/libcodec/abi/ContractABICodec.h>

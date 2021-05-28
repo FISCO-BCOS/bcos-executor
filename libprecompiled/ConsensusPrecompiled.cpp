@@ -19,10 +19,11 @@
  */
 
 #include "ConsensusPrecompiled.h"
+#include "PrecompiledResult.h"
 #include "Utilities.h"
-#include <bcos-framework/libcodec/abi/ContractABICodec.h>
 #include <bcos-framework/interfaces/ledger/LedgerTypeDef.h>
 #include <bcos-framework/interfaces/protocol/CommonError.h>
+#include <bcos-framework/libcodec/abi/ContractABICodec.h>
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
 
@@ -86,16 +87,16 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
                 boost::lexical_cast<std::string>(_context->blockInfo().number + 1));
             newEntry->setField(NODE_WEIGHT, weight);
 
-            if(_context->getTableFactory()->checkAuthority(ledger::SYS_CONSENSUS, _origin))
+            if (_context->getTableFactory()->checkAuthority(ledger::SYS_CONSENSUS, _origin))
             {
                 table->setRow(nodeID, newEntry);
                 auto commitResult = _context->getTableFactory()->commit();
-                if(!commitResult.second||commitResult.second->errorCode()==0)
+                if (!commitResult.second || commitResult.second->errorCode() == 0)
                 {
                     result = int(commitResult.first);
                     PRECOMPILED_LOG(DEBUG)
-                            << LOG_BADGE("ConsensusPrecompiled")
-                            << LOG_DESC("addSealer successfully insert") << LOG_KV("result", result);
+                        << LOG_BADGE("ConsensusPrecompiled")
+                        << LOG_DESC("addSealer successfully insert") << LOG_KV("result", result);
                 }
                 else
                 {
@@ -111,7 +112,7 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
             else
             {
                 PRECOMPILED_LOG(DEBUG)
-                        << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("permission denied");
+                    << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("permission denied");
                 // FIXME: add unify error code
                 result = -1;
             }
@@ -142,9 +143,9 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
             auto newEntry = table->newEntry();
             newEntry->setField(NODE_TYPE, ledger::CONSENSUS_OBSERVER);
             newEntry->setField(NODE_ENABLE_NUMBER,
-                               boost::lexical_cast<std::string>(_context->blockInfo().number + 1));
+                boost::lexical_cast<std::string>(_context->blockInfo().number + 1));
             newEntry->setField(NODE_WEIGHT, weight);
-            if(_context->getTableFactory()->checkAuthority(ledger::SYS_CONSENSUS, _origin))
+            if (_context->getTableFactory()->checkAuthority(ledger::SYS_CONSENSUS, _origin))
             {
                 if (checkIsLastSealer(table, nodeID))
                 {
@@ -180,7 +181,7 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
             else
             {
                 PRECOMPILED_LOG(DEBUG)
-                        << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("permission denied");
+                    << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("permission denied");
                 // FIXME: add unify error code
                 result = -1;
             }
@@ -205,7 +206,7 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
         {
             auto table = _context->getTableFactory()->openTable(ledger::SYS_CONSENSUS);
 
-            if(_context->getTableFactory()->checkAuthority(ledger::SYS_CONSENSUS, _origin))
+            if (_context->getTableFactory()->checkAuthority(ledger::SYS_CONSENSUS, _origin))
             {
                 if (checkIsLastSealer(table, nodeID))
                 {
@@ -240,7 +241,7 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
             else
             {
                 PRECOMPILED_LOG(DEBUG)
-                        << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("permission denied");
+                    << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("permission denied");
                 // FIXME: add unify error code
                 result = -1;
             }
@@ -278,12 +279,12 @@ void ConsensusPrecompiled::showConsensusTable(std::shared_ptr<executor::Executiv
                            << LOG_KV("consensusTable", s.str());
 }
 
-std::shared_ptr<std::map<std::string, storage::Entry::Ptr>>ConsensusPrecompiled::getRowsByNodeType(
+std::shared_ptr<std::map<std::string, storage::Entry::Ptr>> ConsensusPrecompiled::getRowsByNodeType(
     bcos::storage::TableInterface::Ptr _table, std::string const& _nodeType)
 {
     auto result = std::make_shared<std::map<std::string, storage::Entry::Ptr>>();
     auto keys = _table->getPrimaryKeys(nullptr);
-    for (auto& key: keys)
+    for (auto& key : keys)
     {
         auto entry = _table->getRow(key);
         if (entry->getField(NODE_TYPE) == _nodeType)
@@ -294,7 +295,8 @@ std::shared_ptr<std::map<std::string, storage::Entry::Ptr>>ConsensusPrecompiled:
     return result;
 }
 
-bool ConsensusPrecompiled::checkIsLastSealer(storage::TableInterface::Ptr _table, std::string const& nodeID)
+bool ConsensusPrecompiled::checkIsLastSealer(
+    storage::TableInterface::Ptr _table, std::string const& nodeID)
 {
     // Check is last sealer or not.
     auto entryMap = getRowsByNodeType(_table, ledger::CONSENSUS_SEALER);

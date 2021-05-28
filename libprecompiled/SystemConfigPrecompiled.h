@@ -20,7 +20,7 @@
 
 #pragma once
 #include "Common.h"
-#include "Precompiled.h"
+#include "../libvm/Precompiled.h"
 namespace bcos
 {
 namespace precompiled
@@ -39,7 +39,7 @@ public:
     using Ptr  = std::shared_ptr<SystemConfigPrecompiled>;
     SystemConfigPrecompiled();
     virtual ~SystemConfigPrecompiled(){};
-    PrecompiledExecResult::Ptr call(std::shared_ptr<executor::ExecutiveContext> _context, bytesConstRef _param,
+    std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::ExecutiveContext> _context, bytesConstRef _param,
         const std::string& _origin, const std::string& _sender, u256& _remainGas) override;
     std::string toString() override;
 

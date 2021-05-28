@@ -19,6 +19,7 @@
  */
 
 #include "GroupSigPrecompiled.h"
+#include "../PrecompiledResult.h"
 #include "../Utilities.h"
 #include <bcos-framework/libcodec/abi/ContractABICodec.h>
 //#include <group_sig/algorithm/GroupSig.h>

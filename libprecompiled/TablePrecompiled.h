@@ -21,7 +21,7 @@
 #pragma once
 
 #include "Common.h"
-#include "Precompiled.h"
+#include "../libvm/Precompiled.h"
 #include <bcos-framework/interfaces/storage/TableInterface.h>
 #include <bcos-framework/interfaces/crypto/CommonType.h>
 
@@ -57,7 +57,7 @@ public:
 
     std::string toString() override;
 
-    PrecompiledExecResult::Ptr call(std::shared_ptr<executor::ExecutiveContext> _context,
+    std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::ExecutiveContext> _context,
         bytesConstRef _param, const std::string& _origin, const std::string& _sender,
         u256& _remainGas) override;
 

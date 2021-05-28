@@ -21,7 +21,7 @@
 #pragma once
 
 #include "Common.h"
-#include "../libexecutor/ExecutiveContext.h"
+#include "../libvm/ExecutiveContext.h"
 #include <bcos-framework/libutilities/Common.h>
 #include <bcos-framework/interfaces/storage/TableInterface.h>
 #include <bcos-framework/libcodec/abi/ContractABICodec.h>

@@ -20,7 +20,8 @@
 
 #include "HelloWorldPrecompiled.h"
 #include "HelloWorldPrecompiled.h"
-#include "../../libexecutor/ExecutiveContext.h"
+#include "../PrecompiledResult.h"
+#include "../../libvm/ExecutiveContext.h"
 #include "../Utilities.h"
 #include <bcos-framework/libcodec/abi/ContractABICodec.h>
 

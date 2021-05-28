@@ -19,8 +19,9 @@
  */
 
 #include "KVTableFactoryPrecompiled.h"
-#include "KVTablePrecompiled.h"
 #include "Common.h"
+#include "KVTablePrecompiled.h"
+#include "PrecompiledResult.h"
 #include "Utilities.h"
 #include <bcos-framework/interfaces/protocol/Exceptions.h>
 #include <bcos-framework/libcodec/abi/ContractABICodec.h>
@@ -79,14 +80,15 @@ PrecompiledExecResult::Ptr KVTableFactoryPrecompiled::call(
         {
             auto kvTablePrecompiled = std::make_shared<KVTablePrecompiled>();
             kvTablePrecompiled->setTable(table);
-            address = _context->registerPrecompiled(kvTablePrecompiled);
+            address = Address(_context->registerPrecompiled(kvTablePrecompiled));
         }
         else
         {
             PRECOMPILED_LOG(WARNING)
                 << LOG_BADGE("KVTableFactoryPrecompiled") << LOG_DESC("Open new table failed")
                 << LOG_KV("table name", tableName);
-            BOOST_THROW_EXCEPTION(PrecompiledError() <<errinfo_comment(tableName + " does not exist"));
+            BOOST_THROW_EXCEPTION(
+                PrecompiledError() << errinfo_comment(tableName + " does not exist"));
         }
         callResult->setExecResult(abi.abiIn("", address));
     }
@@ -98,7 +100,8 @@ PrecompiledExecResult::Ptr KVTableFactoryPrecompiled::call(
                 << LOG_BADGE("KVTableFactoryPrecompiled") << LOG_DESC("permission denied")
                 << LOG_KV("origin", _origin) << LOG_KV("contract", _sender);
             BOOST_THROW_EXCEPTION(
-                PrecompiledError() << errinfo_comment("Permission denied. " + _origin + " can't call contract " + _sender));
+                PrecompiledError() << errinfo_comment(
+                    "Permission denied. " + _origin + " can't call contract " + _sender));
         }
         std::string tableName;
         std::string keyField;

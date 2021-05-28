@@ -24,6 +24,7 @@
 #include "../libmetering/GasInjector.h"
 #include "../libprecompiled/PrecompiledResult.h"
 #include "Common.h"
+#include "ExecutiveContext.h"
 #include "bcos-framework/interfaces/protocol/BlockHeader.h"
 #include "bcos-framework/interfaces/protocol/Transaction.h"
 #include "bcos-framework/libprotocol/TransactionStatus.h"
@@ -87,7 +88,7 @@ public:
     Executive(Executive const&) = delete;
     void operator=(Executive) = delete;
 
-    void initialize(protocol::Transaction::Ptr _transaction);
+    void initialize(protocol::Transaction::ConstPtr _transaction);
     /// Finalise a transaction previously set up with initialize().
     /// @warning Only valid after initialize() and execute(), and possibly go().
     /// @returns true if the outermost execution halted normally, false if exceptionally halted.
@@ -98,7 +99,7 @@ public:
     bool execute();
     /// @returns the transaction from initialize().
     /// @warning Only valid after initialize().
-    protocol::Transaction::Ptr tx() const { return m_t; }
+    protocol::Transaction::ConstPtr tx() const { return m_t; }
     /// @returns the log entries created by this operation.
     /// @warning Only valid after finalise().
     protocol::LogEntriesPtr const& logs() const { return m_logs; }
@@ -120,9 +121,9 @@ public:
         const std::string_view& _originAddress, u256 const& _salt);
     /// Set up the executive for evaluating a bare CALL (message call) operation.
     /// @returns false iff go() must be called (and thus a VM execution in required).
-    bool call(const std::string_view& _receiveAddress, const std::string_view& _txSender,
+    bool call(const std::string& _receiveAddress, const std::string& _txSender,
         bytesConstRef _txData, u256 const& _gas);
-    bool call(executor::CallParameters const& _cp, const std::string_view& _origin);
+    bool call(executor::CallParameters const& _cp, const std::string& _origin);
     /// Finalise an operation through accruing the substate into the parent context.
     void accrueSubState(SubState& _parentContext);
 
@@ -132,7 +133,7 @@ public:
 
     /// @returns gas remaining after the transaction/operation. Valid after the transaction has been
     /// executed.
-    u256 gas() const { return m_gas; }
+    u256 gas() const { return m_remainGas; }
     protocol::TransactionStatus status() const { return m_excepted; }
     /// @returns the new address for the created contract in the CREATE operation.
     std::string newAddress() const { return m_newAddress; }
@@ -151,7 +152,7 @@ public:
         m_excepted = protocol::TransactionStatus::None;
         m_exceptionReason.clear();
         m_baseGasRequired = 0;
-        m_gas = 0;
+        m_remainGas = 0;
         m_isCreation = false;
         m_newAddress = std::string();
         m_savepoint = 0;
@@ -165,8 +166,7 @@ private:
     bool executeCreate(const std::string_view& _txSender, u256 const& _gas, bytesConstRef _code,
         const std::string_view& _originAddress, bytesConstRef constructorParams = bytesConstRef());
 
-    void grantContractStatusManager(
-        std::shared_ptr<storage::TableFactoryInterface> memoryTableFactory,
+    void grantContractStatusManager(std::shared_ptr<storage::TableFactoryInterface> tableFactory,
         const std::string& newAddress, const std::string& sender, const std::string& origin);
 
     void writeErrInfoToOutput(std::string const& errInfo);
@@ -179,10 +179,10 @@ private:
     executor::EnvInfo m_envInfo;  ///< Information on the runtime environment.
     crypto::Hash::Ptr m_hashImpl;
     std::shared_ptr<HostContext> m_context;  ///< The VM externality object for the VM execution
-                                               ///< or null if no VM is required. shared_ptr used
-                                               ///< only to allow HostContext forward reference.
-                                               ///< This field does *NOT* survive this object.
-    owning_bytes_ref m_output;                 ///< Execution output.
+                                             ///< or null if no VM is required. shared_ptr used
+                                             ///< only to allow HostContext forward reference.
+                                             ///< This field does *NOT* survive this object.
+    owning_bytes_ref m_output;               ///< Execution output.
 
     unsigned m_depth = 0;  ///< The context's call-depth.
     protocol::TransactionStatus m_excepted =
@@ -191,10 +191,10 @@ private:
     std::stringstream m_exceptionReason;
 
     int64_t m_baseGasRequired;  ///< The base amount of gas requried for executing this transaction.
-    u256 m_gas = 0;       ///< The gas for EVM code execution. Initial amount before go() execution,
-                          ///< final amount after go() execution.
+    u256 m_remainGas = 0;  ///< The gas for EVM code execution. Initial amount before go() execution,
+                     ///< final amount after go() execution.
 
-    protocol::Transaction::Ptr m_t;  ///< The original transaction. Set by setup().
+    protocol::Transaction::ConstPtr m_t;  ///< The original transaction. Set by setup().
     protocol::LogEntriesPtr m_logs;  ///< The log entries created by this transaction. Set by
                                      ///< finalize().
 

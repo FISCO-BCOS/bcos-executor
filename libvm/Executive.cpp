@@ -20,8 +20,8 @@
  */
 
 #include "Executive.h"
-#include "../libexecutor/ExecutiveContext.h"
 #include "EVMHostInterface.h"
+#include "ExecutiveContext.h"
 #include "HostContext.h"
 #include "VMFactory.h"
 #include "VMInstance.h"
@@ -46,7 +46,7 @@ using errinfo_evmcStatusCode = boost::error_info<struct tag_evmcStatusCode, evmc
 
 u256 Executive::gasUsed() const
 {
-    return m_envInfo.Context()->txGasLimit() - m_gas;
+    return m_envInfo.Context()->txGasLimit() - m_remainGas;
 }
 
 void Executive::accrueSubState(SubState& _parentContext)
@@ -55,7 +55,7 @@ void Executive::accrueSubState(SubState& _parentContext)
         _parentContext += m_context->sub();
 }
 
-void Executive::initialize(Transaction::Ptr _transaction)
+void Executive::initialize(Transaction::ConstPtr _transaction)
 {
     m_t = _transaction;
 
@@ -112,8 +112,8 @@ bool Executive::execute()
     }
 }
 
-bool Executive::call(const std::string_view& _receiveAddress,
-    const std::string_view& _senderAddress, bytesConstRef _data, u256 const& _gas)
+bool Executive::call(const std::string& _receiveAddress,
+    const std::string& _senderAddress, bytesConstRef _data, u256 const& _gas)
 {
     CallParameters params{_senderAddress, _receiveAddress, _receiveAddress, _gas, _data};
     return call(params, _senderAddress);
@@ -124,26 +124,26 @@ void Executive::updateGas(std::shared_ptr<precompiled::PrecompiledExecResult>)
 // TODO: calculate gas
 #if 0
     auto gasUsed = _callResult->calGasCost();
-    if (m_gas < gasUsed)
+    if (m_remainGas < gasUsed)
     {
         m_excepted = TransactionStatus::OutOfGas;
         EXECUTIVE_LOG(WARNING) << LOG_DESC("OutOfGas when executing precompiled Contract")
-                               << LOG_KV("gasUsed", gasUsed) << LOG_KV("curGas", m_gas);
+                               << LOG_KV("gasUsed", gasUsed) << LOG_KV("curGas", m_remainGas);
         BOOST_THROW_EXCEPTION(
             PrecompiledError("OutOfGas when executing precompiled Contract, gasUsed: " +
                              boost::lexical_cast<std::string>(gasUsed) +
-                             ", leftGas:" + boost::lexical_cast<std::string>(m_gas)));
+                             ", leftGas:" + boost::lexical_cast<std::string>(m_remainGas)));
     }
-    m_gas -= gasUsed;
+    m_remainGas -= gasUsed;
 #endif
 }
 
-bool Executive::call(CallParameters const& _p, const std::string_view& _origin)
+bool Executive::call(CallParameters const& _p, const std::string& _origin)
 {
     // no nonce increase
 
     m_savepoint = m_s->savepoint();
-    m_gas = _p.gas;
+    m_remainGas = _p.gas;
 
     if (m_t && m_s->frozen(_origin))
     {
@@ -158,7 +158,7 @@ bool Executive::call(CallParameters const& _p, const std::string_view& _origin)
     if (m_envInfo.Context() && m_envInfo.Context()->isEthereumPrecompiled(_p.codeAddress))
     {
         auto gas = m_envInfo.Context()->costOfPrecompiled(_p.codeAddress, _p.data);
-        if (m_gas < gas)
+        if (m_remainGas < gas)
         {
             m_excepted = TransactionStatus::OutOfGas;
             // true actually means "all finished - nothing more to be done regarding go().
@@ -166,7 +166,7 @@ bool Executive::call(CallParameters const& _p, const std::string_view& _origin)
         }
         else
         {
-            m_gas = (u256)(_p.gas - gas);
+            m_remainGas = (u256)(_p.gas - gas);
         }
         bytes output;
         bool success;
@@ -176,7 +176,7 @@ bool Executive::call(CallParameters const& _p, const std::string_view& _origin)
         m_output = owning_bytes_ref{std::move(output), 0, outputSize};
         if (!success)
         {
-            m_gas = 0;
+            m_remainGas = 0;
             m_excepted = TransactionStatus::RevertInstruction;
             return true;  // true means no need to run go().
         }
@@ -185,8 +185,8 @@ bool Executive::call(CallParameters const& _p, const std::string_view& _origin)
     {
         try
         {
-            auto callResult =
-                m_envInfo.Context()->call(_p.codeAddress, _p.data, _origin, _p.senderAddress);
+            auto callResult = m_envInfo.Context()->call(
+                _p.codeAddress, _p.data, _origin, _p.senderAddress, m_remainGas);
             // TODO: calculate gas for the precompiled contract
             // updateGas(callResult);
             size_t outputSize = callResult->m_execResult.size();
@@ -266,12 +266,12 @@ bool Executive::executeCreate(const std::string_view& _sender, u256 const& _gas,
     bytesConstRef _init, const std::string_view& _origin, bytesConstRef constructorParams)
 {
     // check authority for deploy contract
-    auto memoryTableFactory = m_envInfo.Context()->getTableFactory();
-    if (!memoryTableFactory->checkAuthority(SYS_TABLE, string(_origin)))
+    auto tableFactory = m_envInfo.Context()->getTableFactory();
+    if (!tableFactory->checkAuthority(SYS_TABLE, string(_origin)))
     {
         EXECUTIVE_LOG(WARNING) << "Executive deploy contract checkAuthority of " << _origin
                                << " failed!";
-        m_gas = 0;
+        m_remainGas = 0;
         m_excepted = TransactionStatus::PermissionDenied;
         revert();
         m_context = {};
@@ -283,7 +283,7 @@ bool Executive::executeCreate(const std::string_view& _sender, u256 const& _gas,
         EXECUTIVE_LOG(DEBUG) << LOG_DESC("deploy contract failed for account frozen")
                              << LOG_KV("account", _origin);
         writeErrInfoToOutput("Frozen account:0x" + string(_origin));
-        m_gas = 0;
+        m_remainGas = 0;
         revert();
         m_excepted = TransactionStatus::AccountFrozen;
         m_context = {};
@@ -299,13 +299,13 @@ bool Executive::executeCreate(const std::string_view& _sender, u256 const& _gas,
     // We can allow for the reverted state (i.e. that with which m_context is constructed) to
     // contain the m_orig.address, since we delete it explicitly if we decide we need to revert.
 
-    m_gas = _gas;
+    m_remainGas = _gas;
     bool accountAlreadyExist =
         (m_s->addressHasCode(m_newAddress) || m_s->getNonce(m_newAddress) > 0);
     if (accountAlreadyExist)
     {
         EXECUTIVE_LOG(TRACE) << "Executive address already used: " << m_newAddress;
-        m_gas = 0;
+        m_remainGas = 0;
         m_excepted = TransactionStatus::ContractAddressAlreadyUsed;
         revert();
         m_context = {};  // cancel the _init execution if there are any scheduled.
@@ -316,7 +316,7 @@ bool Executive::executeCreate(const std::string_view& _sender, u256 const& _gas,
     // account if it does not exist yet.
     m_s->setNonce(m_newAddress, m_s->accountStartNonce());
 
-    grantContractStatusManager(memoryTableFactory, m_newAddress, string(_sender), string(_origin));
+    grantContractStatusManager(tableFactory, m_newAddress, string(_sender), string(_origin));
 
     // Schedule _init execution if not empty.
     if (!_init.empty())
@@ -345,14 +345,14 @@ bool Executive::executeCreate(const std::string_view& _sender, u256 const& _gas,
     return !m_context;
 }
 
-void Executive::grantContractStatusManager(TableFactoryInterface::Ptr memoryTableFactory,
+void Executive::grantContractStatusManager(TableFactoryInterface::Ptr tableFactory,
     const std::string& newAddress, const std::string& sender, const std::string& origin)
 {
     EXECUTIVE_LOG(DEBUG) << LOG_DESC("grantContractStatusManager") << LOG_KV("contract", newAddress)
                          << LOG_KV("sender", sender) << LOG_KV("origin", origin);
 
     std::string tableName = getContractTableName(newAddress);
-    auto table = memoryTableFactory->openTable(tableName);
+    auto table = tableFactory->openTable(tableName);
 
     if (!table)
     {
@@ -372,7 +372,7 @@ void Executive::grantContractStatusManager(TableFactoryInterface::Ptr memoryTabl
     {
         // grant authorization of sender contract
         std::string senderTableName = getContractTableName(sender);
-        auto senderTable = memoryTableFactory->openTable(senderTableName);
+        auto senderTable = tableFactory->openTable(senderTableName);
         if (!senderTable)
         {
             EXECUTIVE_LOG(ERROR) << LOG_DESC("grantContractStatusManager get sender table error!");
@@ -422,9 +422,9 @@ bool Executive::go()
                 // can be controlled by the programmers
                 assert(m_context->envInfo().number() >= 0);
                 constexpr int64_t int64max = std::numeric_limits<int64_t>::max();
-                if (m_gas > int64max || m_context->envInfo().gasLimit() > int64max)
+                if (m_remainGas > int64max || m_context->envInfo().gasLimit() > int64max)
                 {
-                    EXECUTIVE_LOG(ERROR) << LOG_DESC("Gas overflow") << LOG_KV("gas", m_gas)
+                    EXECUTIVE_LOG(ERROR) << LOG_DESC("Gas overflow") << LOG_KV("gas", m_remainGas)
                                          << LOG_KV("gasLimit", m_context->envInfo().gasLimit())
                                          << LOG_KV("max gas/gasLimit", int64max);
                     BOOST_THROW_EXCEPTION(GasOverflow());
@@ -435,7 +435,7 @@ bool Executive::go()
                 uint32_t flags = m_context->staticCall() ? EVMC_STATIC : 0;
                 // this is ensured by solidity compiler
                 assert(flags != EVMC_STATIC || kind == EVMC_CALL);  // STATIC implies a CALL.
-                auto leftGas = static_cast<int64_t>(m_gas);
+                auto leftGas = static_cast<int64_t>(m_remainGas);
                 return shared_ptr<evmc_message>(
                     new evmc_message{kind, flags, static_cast<int32_t>(m_context->depth()), leftGas,
                         toEvmC(m_context->myAddress()), toEvmC(m_context->caller()),
@@ -465,9 +465,9 @@ bool Executive::go()
                                       << LOG_KV("size", outputRef.size());
                     BOOST_THROW_EXCEPTION(OutOfGas());
                 }
-                else if (outputRef.size() * m_context->evmSchedule().createDataGas <= m_gas)
+                else if (outputRef.size() * m_context->evmSchedule().createDataGas <= m_remainGas)
                 {
-                    m_gas -= outputRef.size() * m_context->evmSchedule().createDataGas;
+                    m_remainGas -= outputRef.size() * m_context->evmSchedule().createDataGas;
                 }
                 else
                 {
@@ -512,7 +512,7 @@ bool Executive::go()
         catch (VMException const& _e)
         {
             EXECUTIVE_LOG(TRACE) << "Safe VM Exception. " << diagnostic_information(_e);
-            m_gas = 0;
+            m_remainGas = 0;
             m_excepted = toTransactionStatus(_e);
             revert();
         }
@@ -608,7 +608,7 @@ void Executive::parseEVMCResult(std::shared_ptr<Result> _result)
     {
     case EVMC_SUCCESS:
     {
-        m_gas = _result->gasLeft();
+        m_remainGas = _result->gasLeft();
         if (!m_isCreation)
         {
             m_output = owning_bytes_ref(
@@ -619,7 +619,7 @@ void Executive::parseEVMCResult(std::shared_ptr<Result> _result)
     case EVMC_REVERT:
     {
         // FIXME: Copy the output for now, but copyless version possible.
-        m_gas = _result->gasLeft();
+        m_remainGas = _result->gasLeft();
         revert();
         m_output = owning_bytes_ref(
             bytes(outputRef.data(), outputRef.data() + outputRef.size()), 0, outputRef.size());
@@ -637,7 +637,7 @@ void Executive::parseEVMCResult(std::shared_ptr<Result> _result)
     case EVMC_INVALID_INSTRUCTION:  // NOTE: this could have its own exception
     case EVMC_UNDEFINED_INSTRUCTION:
     {
-        m_gas = 0;
+        m_remainGas = 0;
         m_excepted = TransactionStatus::BadInstruction;
         revert();
         break;
@@ -645,28 +645,28 @@ void Executive::parseEVMCResult(std::shared_ptr<Result> _result)
 
     case EVMC_BAD_JUMP_DESTINATION:
     {
-        m_gas = 0;
+        m_remainGas = 0;
         m_excepted = TransactionStatus::BadJumpDestination;
         revert();
         break;
     }
     case EVMC_STACK_OVERFLOW:
     {
-        m_gas = 0;
+        m_remainGas = 0;
         m_excepted = TransactionStatus::OutOfStack;
         revert();
         break;
     }
     case EVMC_STACK_UNDERFLOW:
     {
-        m_gas = 0;
+        m_remainGas = 0;
         m_excepted = TransactionStatus::StackUnderflow;
         revert();
         break;
     }
     case EVMC_INVALID_MEMORY_ACCESS:
     {
-        m_gas = 0;
+        m_remainGas = 0;
         EXECUTIVE_LOG(WARNING) << LOG_DESC("VM error, BufferOverrun");
         m_excepted = TransactionStatus::StackUnderflow;
         revert();
@@ -674,7 +674,7 @@ void Executive::parseEVMCResult(std::shared_ptr<Result> _result)
     }
     case EVMC_STATIC_MODE_VIOLATION:
     {
-        m_gas = 0;
+        m_remainGas = 0;
         EXECUTIVE_LOG(WARNING) << LOG_DESC("VM error, DisallowedStateChange");
         m_excepted = TransactionStatus::Unknown;
         revert();

@@ -86,6 +86,7 @@ const char* const PARALLEL_CONFIG_ADDRESS = "0x1006";
 const char* const CONTRACT_LIFECYCLE_ADDRESS = "0x1007";
 const char* const CHAIN_GOVERNANCE_ADDRESS = "0x1008";
 const char* const KV_TABLE_FACTORY_ADDRESS = "0x1009";
+const char* const CRYPTO_ADDRESS = "0x100a";
 const char* const WORKING_SEALER_MGR_ADDRESS = "0x1010";
 
 const int CODE_NO_AUTHORIZED = -50000;

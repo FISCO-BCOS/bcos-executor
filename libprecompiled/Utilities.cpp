@@ -152,6 +152,7 @@ uint32_t bcos::precompiled::getFuncSelector(std::string const& _functionName)
     s_name2SelectCache.insert(std::make_pair(_functionName, selector));
     return selector;
 }
+
 uint32_t bcos::precompiled::getParamFunc(bytesConstRef _param)
 {
   auto funcBytes = _param.getCroppedData(0, 4);

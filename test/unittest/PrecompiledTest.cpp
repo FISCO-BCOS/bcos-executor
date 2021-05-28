@@ -18,7 +18,7 @@
  * @date 2021-05-25
  */
 
-#include "libprecompiled/Precompiled.h"
+#include "libvm/Precompiled.h"
 #include "libprecompiled/Common.h"
 #include "libprecompiled/extension/UserPrecompiled.h"
 

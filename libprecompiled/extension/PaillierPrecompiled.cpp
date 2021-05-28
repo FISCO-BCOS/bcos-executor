@@ -19,8 +19,9 @@
  */
 
 #include "PaillierPrecompiled.h"
-#include <bcos-framework/libcodec/abi/ContractABICodec.h>
+#include "../PrecompiledResult.h"
 #include "../Utilities.h"
+#include <bcos-framework/libcodec/abi/ContractABICodec.h>
 //#include <paillier/callpaillier.h>
 
 using namespace bcos;
@@ -35,10 +36,8 @@ PaillierPrecompiled::PaillierPrecompiled()
     name2Selector[PAILLIER_METHOD_SET_STR] = getFuncSelector(PAILLIER_METHOD_SET_STR);
 }
 
-PrecompiledExecResult::Ptr PaillierPrecompiled::call(
-    std::shared_ptr<executor::ExecutiveContext>,
-    bytesConstRef _param, const std::string&, const std::string&,
-    u256& _remainGas)
+PrecompiledExecResult::Ptr PaillierPrecompiled::call(std::shared_ptr<executor::ExecutiveContext>,
+    bytesConstRef _param, const std::string&, const std::string&, u256& _remainGas)
 {
     PRECOMPILED_LOG(TRACE) << LOG_BADGE("PaillierPrecompiled") << LOG_DESC("call")
                            << LOG_KV("param", toHexString(_param));
@@ -59,19 +58,19 @@ PrecompiledExecResult::Ptr PaillierPrecompiled::call(
         std::string result;
 
         // TODO: it depends on bcos-crypto
-//        try
-//        {
-//            result = m_callPaillier->paillierAdd(cipher1, cipher2);
-//            callResult->gasPricer()->appendOperation(InterfaceOpcode::PaillierAdd);
-//        }
-//        catch (CallException& e)
-//        {
-//            PRECOMPILED_LOG(ERROR)
-//                    << LOG_BADGE("PaillierPrecompiled") << LOG_DESC(std::string(e.what()))
-//                    << LOG_KV("cipher1", cipher1) << LOG_KV("cipher2", cipher2);
-//            getErrorCodeOut(callResult->mutableExecResult(), CODE_INVALID_CIPHERS);
-//            return callResult;
-//        }
+        //        try
+        //        {
+        //            result = m_callPaillier->paillierAdd(cipher1, cipher2);
+        //            callResult->gasPricer()->appendOperation(InterfaceOpcode::PaillierAdd);
+        //        }
+        //        catch (CallException& e)
+        //        {
+        //            PRECOMPILED_LOG(ERROR)
+        //                    << LOG_BADGE("PaillierPrecompiled") << LOG_DESC(std::string(e.what()))
+        //                    << LOG_KV("cipher1", cipher1) << LOG_KV("cipher2", cipher2);
+        //            getErrorCodeOut(callResult->mutableExecResult(), CODE_INVALID_CIPHERS);
+        //            return callResult;
+        //        }
         callResult->setExecResult(abi.abiIn("", result));
     }
     else

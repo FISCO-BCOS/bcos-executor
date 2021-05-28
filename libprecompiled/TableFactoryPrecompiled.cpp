@@ -21,6 +21,7 @@
 #include "TableFactoryPrecompiled.h"
 #include "Common.h"
 #include "Utilities.h"
+#include "PrecompiledResult.h"
 #include "TablePrecompiled.h"
 #include <bcos-framework/libcodec/abi/ContractABICodec.h>
 #include <bcos-framework/interfaces/protocol/Exceptions.h>
@@ -74,7 +75,7 @@ PrecompiledExecResult::Ptr TableFactoryPrecompiled::call(
         {
             TablePrecompiled::Ptr tablePrecompiled = std::make_shared<TablePrecompiled>();
             tablePrecompiled->setTable(table);
-            address = _context->registerPrecompiled(tablePrecompiled);
+            address = Address(_context->registerPrecompiled(tablePrecompiled));
         }
         else
         {

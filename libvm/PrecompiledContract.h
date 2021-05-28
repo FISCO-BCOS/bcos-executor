@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "Precompiled.h"
+#include "../libvm/Precompiled.h"
 #include "bcos-framework/libutilities/Common.h"
 
 namespace bcos

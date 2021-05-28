@@ -19,6 +19,7 @@
  */
 
 #include "CNSPrecompiled.h"
+#include "PrecompiledResult.h"
 #include "Utilities.h"
 #include <json/json.h>
 #include <bcos-framework/libcodec/abi/ContractABICodec.h>

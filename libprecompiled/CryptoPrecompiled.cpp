@@ -19,13 +19,14 @@
  */
 
 #include "CryptoPrecompiled.h"
+#include "PrecompiledResult.h"
 #include "Utilities.h"
-#include <bcos-crypto/hash/SM3.h>
 #include <bcos-crypto/hash/Keccak256.h>
-#include <bcos-crypto/signature/sm2/SM2Crypto.h>
+#include <bcos-crypto/hash/SM3.h>
 #include <bcos-crypto/signature/ed25519/Ed25519Crypto.h>
-#include <bcos-framework/libcodec/abi/ContractABICodec.h>
+#include <bcos-crypto/signature/sm2/SM2Crypto.h>
 #include <bcos-framework/interfaces/crypto/Signature.h>
+#include <bcos-framework/libcodec/abi/ContractABICodec.h>
 
 using namespace bcos;
 using namespace bcos::codec;
@@ -54,10 +55,8 @@ CryptoPrecompiled::CryptoPrecompiled()
         getFuncSelector(CRYPTO_METHOD_CURVE25519_VRF_VERIFY_STR);
 }
 
-PrecompiledExecResult::Ptr CryptoPrecompiled::call(
-    std::shared_ptr<executor::ExecutiveContext>,
-    bytesConstRef _param, const std::string&, const std::string&,
-    u256& _remainGas)
+PrecompiledExecResult::Ptr CryptoPrecompiled::call(std::shared_ptr<executor::ExecutiveContext>,
+    bytesConstRef _param, const std::string&, const std::string&, u256& _remainGas)
 {
     auto funcSelector = getParamFunc(_param);
     auto paramData = getParamData(_param);
@@ -122,7 +121,7 @@ void CryptoPrecompiled::sm2Verify(bytesConstRef _paramData, PrecompiledExecResul
         if (!publicKey)
         {
             PRECOMPILED_LOG(DEBUG)
-                    << LOG_DESC("CryptoPrecompiled: sm2Verify failed for recover public key failed");
+                << LOG_DESC("CryptoPrecompiled: sm2Verify failed for recover public key failed");
             _callResult->setExecResult(abi.abiIn("", false, account));
             return;
         }
@@ -143,33 +142,35 @@ void CryptoPrecompiled::sm2Verify(bytesConstRef _paramData, PrecompiledExecResul
     }
 }
 
-void CryptoPrecompiled::curve25519VRFVerify(
-    bytesConstRef, PrecompiledExecResult::Ptr _callResult)
+void CryptoPrecompiled::curve25519VRFVerify(bytesConstRef, PrecompiledExecResult::Ptr _callResult)
 {
     PRECOMPILED_LOG(TRACE) << LOG_DESC("CryptoPrecompiled: curve25519VRFVerify");
     codec::abi::ContractABICodec abi(nullptr);
     try
     {
         // TODO: it depends bcos-crypto
-//        std::string vrfPublicKey;
-//        std::string vrfInput;
-//        std::string vrfProof;
-//        abi.abiOut(_paramData, vrfInput, vrfPublicKey, vrfProof);
-//        u256 randomValue = 0;
-//        // check the public key and verify the proof
-//        if (0 == curve25519_vrf_is_valid_pubkey(vrfPublicKey.c_str()) &&
-//            0 == curve25519_vrf_verify(vrfPublicKey.c_str(), vrfInput.c_str(), vrfProof.c_str()))
-//        {
-//            // get the random hash
-//            auto hexVRFHash = curve25519_vrf_proof_to_hash(vrfProof.c_str());
-//            randomValue = (u256)(h256(hexVRFHash));
-//            _callResult->setExecResult(abi.abiIn("", true, randomValue));
-//            PRECOMPILED_LOG(DEBUG) << LOG_DESC("CryptoPrecompiled: curve25519VRFVerify succ")
-//                                   << LOG_KV("vrfHash", hexVRFHash);
-//            return;
-//        }
-//        _callResult->setExecResult(abi.abiIn("", false, randomValue));
-//        PRECOMPILED_LOG(DEBUG) << LOG_DESC("CryptoPrecompiled: curve25519VRFVerify failed");
+        //        std::string vrfPublicKey;
+        //        std::string vrfInput;
+        //        std::string vrfProof;
+        //        abi.abiOut(_paramData, vrfInput, vrfPublicKey, vrfProof);
+        //        u256 randomValue = 0;
+        //        // check the public key and verify the proof
+        //        if (0 == curve25519_vrf_is_valid_pubkey(vrfPublicKey.c_str()) &&
+        //            0 == curve25519_vrf_verify(vrfPublicKey.c_str(), vrfInput.c_str(),
+        //            vrfProof.c_str()))
+        //        {
+        //            // get the random hash
+        //            auto hexVRFHash = curve25519_vrf_proof_to_hash(vrfProof.c_str());
+        //            randomValue = (u256)(h256(hexVRFHash));
+        //            _callResult->setExecResult(abi.abiIn("", true, randomValue));
+        //            PRECOMPILED_LOG(DEBUG) << LOG_DESC("CryptoPrecompiled: curve25519VRFVerify
+        //            succ")
+        //                                   << LOG_KV("vrfHash", hexVRFHash);
+        //            return;
+        //        }
+        //        _callResult->setExecResult(abi.abiIn("", false, randomValue));
+        //        PRECOMPILED_LOG(DEBUG) << LOG_DESC("CryptoPrecompiled: curve25519VRFVerify
+        //        failed");
     }
     catch (std::exception const& e)
     {

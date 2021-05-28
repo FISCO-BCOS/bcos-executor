@@ -19,6 +19,7 @@
  */
 
 #include "EntryPrecompiled.h"
+#include "PrecompiledResult.h"
 #include "Utilities.h"
 #include <bcos-framework/interfaces/storage/TableInterface.h>
 #include <bcos-framework/libcodec/abi/ContractABICodec.h>

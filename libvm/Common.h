@@ -32,11 +32,9 @@ namespace bcos
 {
 DERIVE_BCOS_EXCEPTION(PermissionDenied);
 DERIVE_BCOS_EXCEPTION(InternalVMError);
+DERIVE_BCOS_EXCEPTION(InvalidInputSize);
+DERIVE_BCOS_EXCEPTION(InvalidEncoding);
 
-namespace executor
-{
-class ExecutiveContext;
-}
 namespace executor
 {
 #define EXECUTIVE_LOG(LEVEL) LOG(LEVEL) << "[EXECUTIVE]"
@@ -235,59 +233,7 @@ static const EVMSchedule EWASMSchedule = [] {
 
 static const EVMSchedule DefaultSchedule = FiscoBcosScheduleV3;
 
-/// the information related to the EVM
-class EnvInfo
-{
-public:
-    typedef std::function<crypto::HashType(int64_t x)> CallBackFunction;
 
-    // Constructor with custom gasLimit - used in some synthetic scenarios like eth_estimateGas RPC
-    // method
-    EnvInfo(protocol::BlockHeader::Ptr const& _current, CallBackFunction _callback,
-        u256 const& _gasLimit)
-      : EnvInfo(_current, _callback)
-    {
-        m_gasLimit = _gasLimit;
-    }
-
-    EnvInfo(protocol::BlockHeader::Ptr const& _current, CallBackFunction _callback)
-      : m_headerInfo(_current), m_numberHash(_callback)
-    {}
-
-    /// @return block header
-    protocol::BlockHeader::Ptr const& header() const { return m_headerInfo; }
-
-    /// @return block number
-    int64_t number() const { return m_headerInfo->number(); }
-
-    /// @return timestamp
-    uint64_t timestamp() const { return m_headerInfo->timestamp(); }
-
-    /// @return gasLimit of the block header
-    u256 const& gasLimit() const { return m_gasLimit; }
-
-    crypto::HashType numberHash(int64_t x) const { return m_numberHash(x); }
-
-    EVMSchedule const& evmSchedule() const { return *m_schedule; }
-
-    std::shared_ptr<executor::ExecutiveContext> Context() const { return m_executiveEngine; }
-
-    void setContext(std::shared_ptr<executor::ExecutiveContext> executiveEngine)
-    {
-        m_executiveEngine = executiveEngine;
-    }
-    bool isSMCrypto() const { return useSMCrypto; }
-    crypto::Hash::Ptr hashHandler() const { return m_hashImpl;}
-
-private:
-    protocol::BlockHeader::Ptr m_headerInfo;
-    CallBackFunction m_numberHash;
-    std::shared_ptr<const EVMSchedule> m_schedule = nullptr;
-    u256 m_gasLimit;
-    std::shared_ptr<executor::ExecutiveContext> m_executiveEngine;
-    bool useSMCrypto = false;
-    crypto::Hash::Ptr m_hashImpl;
-};
 
 struct ImportRequirements
 {
@@ -362,9 +308,9 @@ inline std::string fromBytes(const bytes& _addr)
     return std::string((char*)_addr.data(), _addr.size());
 }
 
-inline std::string_view fromBytes(const bytesConstRef& _addr)
+inline std::string fromBytes(const bytesConstRef& _addr)
 {
-    return std::string_view((char*)_addr.data(), _addr.size());
+    return _addr.toString();
 }
 
 inline bytes toBytes(const std::string_view& _addr)

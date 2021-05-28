@@ -20,6 +20,7 @@
 
 #include "KVTablePrecompiled.h"
 #include "Common.h"
+#include "PrecompiledResult.h"
 #include "EntryPrecompiled.h"
 #include "Utilities.h"
 #include <bcos-framework/interfaces/protocol/Exceptions.h>
@@ -83,7 +84,7 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
             auto entryPrecompiled = std::make_shared<EntryPrecompiled>();
             // CachedStorage return entry use copy from
             entryPrecompiled->setEntry(entry);
-            auto newAddress = _context->registerPrecompiled(entryPrecompiled);
+            auto newAddress = Address(_context->registerPrecompiled(entryPrecompiled));
             callResult->setExecResult(abi.abiIn("", true, newAddress));
         }
     }
@@ -132,7 +133,7 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
         auto entryPrecompiled = std::make_shared<EntryPrecompiled>();
         entryPrecompiled->setEntry(entry);
 
-        auto newAddress = _context->registerPrecompiled(entryPrecompiled);
+        auto newAddress = Address(_context->registerPrecompiled(entryPrecompiled));
         callResult->setExecResult(abi.abiIn("", newAddress));
     }
     else

@@ -21,6 +21,7 @@
 #include "DagTransferPrecompiled.h"
 #include "../TableFactoryPrecompiled.h"
 #include "../Utilities.h"
+#include "../PrecompiledResult.h"
 #include <bcos-framework/libcodec/abi/ContractABICodec.h>
 
 using namespace bcos;
@@ -193,7 +194,7 @@ PrecompiledExecResult::Ptr DagTransferPrecompiled::call(
     }
     else
     {
-         PRECOMPILED_LOG(ERROR) << LOG_BADGE("DagTransferPrecompiled") << LOG_DESC("error func")
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("DagTransferPrecompiled") << LOG_DESC("error func")
                                << LOG_KV("func", func);
     }
     gasPricer->updateMemUsed(callResult->m_execResult.size());
@@ -235,7 +236,7 @@ void DagTransferPrecompiled::userAddCall(std::shared_ptr<executor::ExecutiveCont
             break;
         }
 
-        if(!_context->getTableFactory()->checkAuthority(DAG_TRANSFER, _origin))
+        if (!_context->getTableFactory()->checkAuthority(DAG_TRANSFER, _origin))
         {
             strErrorMsg = "permission denied";
             ret = CODE_NO_AUTHORIZED;
@@ -247,7 +248,8 @@ void DagTransferPrecompiled::userAddCall(std::shared_ptr<executor::ExecutiveCont
         newEntry->setField(DAG_TRANSFER_FIELD_BALANCE, amount.str());
         table->setRow(user, newEntry);
         auto commitResult = _context->getTableFactory()->commit();
-        if(commitResult.second && commitResult.second->errorCode() != protocol::CommonError::SUCCESS)
+        if (commitResult.second &&
+            commitResult.second->errorCode() != protocol::CommonError::SUCCESS)
         {
             ret = -1;
             strErrorMsg = commitResult.second->errorMessage();
@@ -255,7 +257,7 @@ void DagTransferPrecompiled::userAddCall(std::shared_ptr<executor::ExecutiveCont
         }
         ret = 0;
     } while (false);
-    if(!strErrorMsg.empty())
+    if (!strErrorMsg.empty())
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("DagTransferPrecompiled") << LOG_DESC(strErrorMsg)
                                << LOG_KV("errorCode", ret);
@@ -303,7 +305,8 @@ void DagTransferPrecompiled::userSaveCall(std::shared_ptr<executor::ExecutiveCon
         auto entry = table->getRow(user);
         if (!entry)
         {
-            // If user is not exist, insert it. With this strategy, we can also add user by save operation.
+            // If user is not exist, insert it. With this strategy, we can also add user by save
+            // operation.
             auto newEntry = table->newEntry();
             newEntry->setField(DAG_TRANSFER_FIELD_BALANCE, amount.str());
             if (!_context->getTableFactory()->checkAuthority(DAG_TRANSFER, _origin))
@@ -314,7 +317,8 @@ void DagTransferPrecompiled::userSaveCall(std::shared_ptr<executor::ExecutiveCon
             }
             table->setRow(user, newEntry);
             auto commitResult = _context->getTableFactory()->commit();
-            if(commitResult.second && commitResult.second->errorCode() != protocol::CommonError::SUCCESS)
+            if (commitResult.second &&
+                commitResult.second->errorCode() != protocol::CommonError::SUCCESS)
             {
                 ret = -1;
                 strErrorMsg = commitResult.second->errorMessage();
@@ -344,7 +348,8 @@ void DagTransferPrecompiled::userSaveCall(std::shared_ptr<executor::ExecutiveCon
             }
             table->setRow(user, updateEntry);
             auto commitResult = _context->getTableFactory()->commit();
-            if(commitResult.second && commitResult.second->errorCode() != protocol::CommonError::SUCCESS)
+            if (commitResult.second &&
+                commitResult.second->errorCode() != protocol::CommonError::SUCCESS)
             {
                 ret = -1;
                 strErrorMsg = commitResult.second->errorMessage();
@@ -354,7 +359,7 @@ void DagTransferPrecompiled::userSaveCall(std::shared_ptr<executor::ExecutiveCon
 
         ret = 0;
     } while (false);
-    if(!strErrorMsg.empty())
+    if (!strErrorMsg.empty())
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("DagTransferPrecompiled") << LOG_DESC(strErrorMsg)
                                << LOG_KV("errorCode", ret);
@@ -424,7 +429,8 @@ void DagTransferPrecompiled::userDrawCall(std::shared_ptr<executor::ExecutiveCon
         }
         table->setRow(user, newEntry);
         auto commitResult = _context->getTableFactory()->commit();
-        if(commitResult.second && commitResult.second->errorCode() != protocol::CommonError::SUCCESS)
+        if (commitResult.second &&
+            commitResult.second->errorCode() != protocol::CommonError::SUCCESS)
         {
             ret = -1;
             strErrorMsg = commitResult.second->errorMessage();
@@ -432,7 +438,7 @@ void DagTransferPrecompiled::userDrawCall(std::shared_ptr<executor::ExecutiveCon
         }
         ret = 0;
     } while (false);
-    if(!strErrorMsg.empty())
+    if (!strErrorMsg.empty())
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("DagTransferPrecompiled") << LOG_DESC(strErrorMsg)
                                << LOG_KV("errorCode", ret);
@@ -440,8 +446,8 @@ void DagTransferPrecompiled::userDrawCall(std::shared_ptr<executor::ExecutiveCon
     _out = abi.abiIn("", u256(ret));
 }
 
-void DagTransferPrecompiled::userBalanceCall(std::shared_ptr<executor::ExecutiveContext> _context,
-    bytesConstRef _data, bytes& _out)
+void DagTransferPrecompiled::userBalanceCall(
+    std::shared_ptr<executor::ExecutiveContext> _context, bytesConstRef _data, bytes& _out)
 {
     std::string user;
     codec::abi::ContractABICodec abi(nullptr);
@@ -480,7 +486,7 @@ void DagTransferPrecompiled::userBalanceCall(std::shared_ptr<executor::Executive
         balance = u256(entry->getField(DAG_TRANSFER_FIELD_BALANCE));
         ret = 0;
     } while (false);
-    if(!strErrorMsg.empty())
+    if (!strErrorMsg.empty())
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("DagTransferPrecompiled") << LOG_DESC(strErrorMsg)
                                << LOG_KV("errorCode", ret);
@@ -560,7 +566,8 @@ void DagTransferPrecompiled::userTransferCall(std::shared_ptr<executor::Executiv
             }
             table->setRow(toUser, newEntry);
             auto commitResult = _context->getTableFactory()->commit();
-            if(commitResult.second && commitResult.second->errorCode() != protocol::CommonError::SUCCESS)
+            if (commitResult.second &&
+                commitResult.second->errorCode() != protocol::CommonError::SUCCESS)
             {
                 ret = -1;
                 strErrorMsg = commitResult.second->errorMessage();
@@ -601,7 +608,8 @@ void DagTransferPrecompiled::userTransferCall(std::shared_ptr<executor::Executiv
         table->setRow(fromUser, entry);
 
         auto commitResult = _context->getTableFactory()->commit();
-        if(commitResult.second && commitResult.second->errorCode() != protocol::CommonError::SUCCESS)
+        if (commitResult.second &&
+            commitResult.second->errorCode() != protocol::CommonError::SUCCESS)
         {
             ret = -1;
             strErrorMsg = commitResult.second->errorMessage();
@@ -610,7 +618,7 @@ void DagTransferPrecompiled::userTransferCall(std::shared_ptr<executor::Executiv
         // end with success
         ret = 0;
     } while (false);
-    if(!strErrorMsg.empty())
+    if (!strErrorMsg.empty())
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("DagTransferPrecompiled") << LOG_DESC(strErrorMsg)
                                << LOG_KV("errorCode", ret);

@@ -19,6 +19,7 @@
  */
 
 #include "ParallelConfigPrecompiled.h"
+#include "PrecompiledResult.h"
 #include "Utilities.h"
 #include "Common.h"
 #include <bcos-framework/interfaces/protocol/Exceptions.h>

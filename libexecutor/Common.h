@@ -26,18 +26,12 @@
 #include <memory>
 
 #define EXECUTOR_LOG(LEVEL) LOG(LEVEL) << LOG_BADGE("EXECUTOR")
-#define EXECUTIVECONTEXT_LOG(LEVEL) LOG(LEVEL) << LOG_BADGE("EXECUTIVECONTEXT")
 #define PARA_LOG(LEVEL) LOG(LEVEL) << LOG_BADGE("PARA") << LOG_BADGE(utcTime())
 
 namespace bcos
 {
 namespace executor
 {
-struct BlockInfo
-{
-    h256 hash;
-    int64_t number;
-    h256 stateRoot;
-};
+
 }  // namespace executor
 }  // namespace bcos

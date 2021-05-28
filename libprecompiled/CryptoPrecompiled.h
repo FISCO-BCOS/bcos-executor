@@ -20,7 +20,7 @@
 
 #pragma once
 #include "Common.h"
-#include "Precompiled.h"
+#include "../libvm/Precompiled.h"
 
 namespace bcos
 {
@@ -41,13 +41,13 @@ public:
     using Ptr = std::shared_ptr<CryptoPrecompiled>;
     CryptoPrecompiled();
     virtual ~CryptoPrecompiled() {}
-    PrecompiledExecResult::Ptr call(std::shared_ptr<executor::ExecutiveContext> _context,
+    std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::ExecutiveContext> _context,
         bytesConstRef _param, const std::string& _origin, const std::string& _sender,
         u256& _remainGas) override;
 
 private:
-    void sm2Verify(bytesConstRef _paramData, PrecompiledExecResult::Ptr _callResult);
-    void curve25519VRFVerify(bytesConstRef _paramData, PrecompiledExecResult::Ptr _callResult);
+    void sm2Verify(bytesConstRef _paramData, std::shared_ptr<PrecompiledExecResult> _callResult);
+    void curve25519VRFVerify(bytesConstRef _paramData, std::shared_ptr<PrecompiledExecResult> _callResult);
 };
 }  // namespace precompiled
 }  // namespace bcos

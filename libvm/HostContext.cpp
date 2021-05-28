@@ -19,11 +19,10 @@
  * @date: 2021-05-24
  */
 
-
 #include "HostContext.h"
-#include "../libexecutor/ExecutiveContext.h"
 #include "../libstate/StateInterface.h"
 #include "EVMHostInterface.h"
+#include "ExecutiveContext.h"
 #include "bcos-framework/interfaces/storage/TableInterface.h"
 #include "evmc/evmc.hpp"
 #include <boost/algorithm/string/split.hpp>
@@ -258,7 +257,7 @@ evmc_result HostContext::call(CallParameters& _p)
 
 size_t HostContext::codeSizeAt(const std::string_view& _a)
 {
-    if (m_envInfo.Context()->isPrecompiled(_a))
+    if (m_envInfo.Context()->isPrecompiled(string(_a)))
     {
         return 1;
     }

@@ -19,6 +19,7 @@
  */
 
 #include "RingSigPrecompiled.h"
+#include "../PrecompiledResult.h"
 #include "../Utilities.h"
 //#include <group_sig/algorithm/RingSig.h>
 #include <bcos-framework/libcodec/abi/ContractABICodec.h>
@@ -34,9 +35,8 @@ RingSigPrecompiled::RingSigPrecompiled()
     name2Selector[RingSig_METHOD_SET_STR] = getFuncSelector(RingSig_METHOD_SET_STR);
 }
 
-PrecompiledExecResult::Ptr RingSigPrecompiled::call(
-    std::shared_ptr<executor::ExecutiveContext>, bytesConstRef _param,
-    const std::string&, const std::string&, u256& _remainGas)
+PrecompiledExecResult::Ptr RingSigPrecompiled::call(std::shared_ptr<executor::ExecutiveContext>,
+    bytesConstRef _param, const std::string&, const std::string&, u256& _remainGas)
 {
     PRECOMPILED_LOG(TRACE) << LOG_BADGE("RingSigPrecompiled") << LOG_DESC("call")
                            << LOG_KV("param", toHexString(_param));
@@ -58,19 +58,22 @@ PrecompiledExecResult::Ptr RingSigPrecompiled::call(
         bool result = false;
 
         // TODO: it depends on bcos-crypto
-//        try
-//        {
-//            result = RingSigApi::LinkableRingSig::ring_verify(signature, message, paramInfo);
-//            callResult->gasPricer()->appendOperation(InterfaceOpcode::RingSigVerify);
-//        }
-//        catch (std::string& errorMsg)
-//        {
-//            PRECOMPILED_LOG(ERROR) << LOG_BADGE("RingSigPrecompiled") << LOG_DESC(errorMsg)
-//                                   << LOG_KV("signature", signature) << LOG_KV("message", message)
-//                                   << LOG_KV("paramInfo", paramInfo);
-//            getErrorCodeOut(callResult->mutableExecResult(), VERIFY_RING_SIG_FAILED);
-//            return callResult;
-//        }
+        //        try
+        //        {
+        //            result = RingSigApi::LinkableRingSig::ring_verify(signature, message,
+        //            paramInfo);
+        //            callResult->gasPricer()->appendOperation(InterfaceOpcode::RingSigVerify);
+        //        }
+        //        catch (std::string& errorMsg)
+        //        {
+        //            PRECOMPILED_LOG(ERROR) << LOG_BADGE("RingSigPrecompiled") <<
+        //            LOG_DESC(errorMsg)
+        //                                   << LOG_KV("signature", signature) << LOG_KV("message",
+        //                                   message)
+        //                                   << LOG_KV("paramInfo", paramInfo);
+        //            getErrorCodeOut(callResult->mutableExecResult(), VERIFY_RING_SIG_FAILED);
+        //            return callResult;
+        //        }
         callResult->setExecResult(abi.abiIn("", result));
     }
     else

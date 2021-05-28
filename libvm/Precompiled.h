@@ -20,6 +20,7 @@
 
 #pragma once
 #include "bcos-framework/libutilities/Exceptions.h"
+#include "bcos-framework/interfaces/storage/TableInterface.h"
 #include <functional>
 #include <unordered_map>
 
@@ -27,6 +28,7 @@ namespace bcos
 {
 namespace executor
 {
+class ExecutiveContext;
 using PrecompiledExecutor = std::function<std::pair<bool, bytes>(bytesConstRef _in)>;
 using PrecompiledPricer = std::function<bigint(bytesConstRef _in)>;
 
@@ -76,15 +78,51 @@ private:
 // TODO: unregister on unload with a static object.
 #define ETH_REGISTER_PRECOMPILED(Name)                                                        \
     static std::pair<bool, bytes> __eth_registerPrecompiledFunction##Name(bytesConstRef _in); \
-    static PrecompiledExecutor __eth_registerPrecompiledFactory##Name =                       \
-        ::dev::eth::PrecompiledRegistrar::registerExecutor(                                   \
+    static bcos::executor::PrecompiledExecutor __eth_registerPrecompiledFactory##Name =                       \
+        ::bcos::executor::PrecompiledRegistrar::registerExecutor(                             \
             #Name, &__eth_registerPrecompiledFunction##Name);                                 \
     static std::pair<bool, bytes> __eth_registerPrecompiledFunction##Name
 #define ETH_REGISTER_PRECOMPILED_PRICER(Name)                            \
     static bigint __eth_registerPricerFunction##Name(bytesConstRef _in); \
-    static PrecompiledPricer __eth_registerPricerFactory##Name =         \
-        ::dev::eth::PrecompiledRegistrar::registerPricer(                \
+    static bcos::executor::PrecompiledPricer __eth_registerPricerFactory##Name =         \
+        ::bcos::executor::PrecompiledRegistrar::registerPricer(          \
             #Name, &__eth_registerPricerFunction##Name);                 \
     static bigint __eth_registerPricerFunction##Name
-}  // namespace eth
-}  // namespace dev
+}  // namespace executor
+namespace precompiled
+{
+struct PrecompiledExecResult;
+class PrecompiledGasFactory;
+class Precompiled : public std::enable_shared_from_this<Precompiled>
+{
+public:
+    using Ptr = std::shared_ptr<Precompiled>;
+
+    virtual ~Precompiled() = default;
+    virtual std::string toString() { return ""; }
+    virtual std::shared_ptr<PrecompiledExecResult> call(
+        std::shared_ptr<executor::ExecutiveContext> _context, bytesConstRef _param,
+        const std::string& _origin, const std::string& _sender, u256& _remainGas) = 0;
+
+    virtual bool isParallelPrecompiled() { return false; }
+    virtual std::vector<std::string> getParallelTag(bytesConstRef /*param*/)
+    {
+        return std::vector<std::string>();
+    }
+
+protected:
+    std::map<std::string, uint32_t> name2Selector;
+
+protected:
+    bcos::storage::TableInterface::Ptr createTable(
+        storage::TableFactoryInterface::Ptr _tableFactory, const std::string& _tableName,
+        const std::string& _keyField, const std::string& _valueField);
+
+    bool checkAuthority(storage::TableFactoryInterface::Ptr _tableFactory,
+        const std::string& _origin, const std::string& _contract);
+
+    std::shared_ptr<PrecompiledGasFactory> m_precompiledGasFactory;
+};
+
+}  // namespace precompiled
+}  // namespace bcos

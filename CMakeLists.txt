@@ -53,15 +53,18 @@ include(ProjectEVMC)
 include(ProjectEVMONE)
 include(ProjectHera)
 include(ProjectWABT)
+include(ProjectLibFF)
+include(ProjectSecp256k1)
 # SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--allow-multiple-definition")
 
-# install bcos-framework
+include(InstallBcosCryptoDependencies)
 include(InstallBcosFrameworkDependencies)
 
 add_subdirectory(libstate)
 add_subdirectory(libprecompiled)
 add_subdirectory(libmetering)
 add_subdirectory(libvm)
+add_subdirectory(libexecutor)
 
 set(EXECUTOR_TARGET "bcos-executor")
 

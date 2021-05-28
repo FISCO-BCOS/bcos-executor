@@ -19,6 +19,7 @@
  */
 
 #include "ConditionPrecompiled.h"
+#include "PrecompiledResult.h"
 #include "Utilities.h"
 #include <bcos-framework/libcodec/abi/ContractABICodec.h>
 
@@ -59,9 +60,8 @@ std::string ConditionPrecompiled::toString()
     return "Condition";
 }
 
-PrecompiledExecResult::Ptr ConditionPrecompiled::call(
-    std::shared_ptr<executor::ExecutiveContext>, bytesConstRef _param,
-    const std::string&, const std::string&, u256& _remainGas)
+PrecompiledExecResult::Ptr ConditionPrecompiled::call(std::shared_ptr<executor::ExecutiveContext>,
+    bytesConstRef _param, const std::string&, const std::string&, u256& _remainGas)
 {
     // parse function name
     uint32_t func = getParamFunc(_param);
