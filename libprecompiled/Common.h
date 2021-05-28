@@ -22,6 +22,7 @@
 
 #include <bcos-framework/libutilities/Log.h>
 #include <bcos-framework/interfaces/protocol/Exceptions.h>
+#include <bcos-framework/interfaces/protocol/CommonError.h>
 #include <memory>
 #include <string>
 
@@ -29,11 +30,25 @@ namespace bcos {
 namespace precompiled {
 #define PRECOMPILED_LOG(LEVEL) LOG(LEVEL) << "[PRECOMPILED]"
 
-/// _sys_table_access_ table fields
+/// SYS_ACCESS_TABLE table
+const char* const SYS_ACCESS_TABLE = "s_table_access";
+/// SYS_ACCESS_TABLE table fields
 const char* const SYS_AC_TABLE_NAME = "table_name";
-/// \brief for liquid is name, for solidity is address
-const char* const SYS_AC_CONTRACT_NAME = "contract_name";
+const char* const SYS_AC_ADDRESS = "address";
 const char* const SYS_AC_ENABLE_NUM = "enable_num";
+
+/// SYS_CNS table
+const char* const SYS_CNS = "s_cns";
+
+/// SYS_CONFIG table fields
+static const char* const SYS_VALUE = "value";
+static const char* const SYS_KEY = "key";
+static const char* const SYS_CONFIG_ENABLE_BLOCK_NUMBER = "enable_block_number";
+
+/// SYS_CONSENSUS table fields
+static const char* const NODE_TYPE = "type";
+static const char* const NODE_WEIGHT = "weight";
+static const char* const NODE_ENABLE_NUMBER = "enable_block_number";
 
 const int SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH = 64;
 const int SYS_TABLE_VALUE_FIELD_MAX_LENGTH = 1024;
@@ -70,6 +85,21 @@ const char* const CONTRACT_LIFECYCLE_ADDRESS = "0x1007";
 const char* const CHAIN_GOVERNANCE_ADDRESS = "0x1008";
 const char* const KV_TABLE_FACTORY_ADDRESS = "0x1009";
 const char* const WORKING_SEALER_MGR_ADDRESS = "0x1010";
+
+const int CODE_NO_AUTHORIZED = -50000;
+const int CODE_TABLE_NAME_ALREADY_EXIST = -50001;
+const int CODE_TABLE_NAME_LENGTH_OVERFLOW = -50002;
+const int CODE_TABLE_FIELD_LENGTH_OVERFLOW = -50003;
+const int CODE_TABLE_FIELD_TOTAL_LENGTH_OVERFLOW = -50004;
+const int CODE_TABLE_KEY_VALUE_LENGTH_OVERFLOW = -50005;
+const int CODE_TABLE_FIELD_VALUE_LENGTH_OVERFLOW = -50006;
+const int CODE_TABLE_DUPLICATE_FIELD = -50007;
+const int CODE_TABLE_INVALIDATE_FIELD = -50008;
+
+const int TX_COUNT_LIMIT_MIN = 1;
+const int TX_GAS_LIMIT_MIN = 100000;
+const unsigned SYSTEM_CONSENSUS_TIMEOUT_MIN = 3;
+const unsigned SYSTEM_CONSENSUS_TIMEOUT_MAX = (UINT_MAX / 1000);
 
 enum PrecompiledErrorCode : int {
   // ChainGovernancePrecompiled -52099 ~ -52000

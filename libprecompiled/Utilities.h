@@ -21,17 +21,24 @@
 #pragma once
 
 #include "Common.h"
+#include "../libexecutor/ExecutiveContext.h"
 #include <bcos-framework/libutilities/Common.h>
 #include <bcos-framework/interfaces/storage/TableInterface.h>
+#include <bcos-framework/libcodec/abi/ContractABICodec.h>
 
 namespace bcos {
-namespace executor{
-class ExecutiveContext;
-}
 namespace precompiled {
     static const std::string USER_TABLE_PREFIX_SHORT = "u_";
     static const std::string CONTRACT_TABLE_PREFIX_SHORT = "c_";
-    void getErrorCodeOut(bytes &out, int const &result);
+    inline void getErrorCodeOut(bytes &out, int const &result){
+        bcos::codec::abi::ContractABICodec abi(nullptr);
+        if (result >= 0 && result < 128)
+        {
+            out = abi.abiIn("", u256(result));
+            return;
+        }
+        out = abi.abiIn("", s256(result));
+    }
     inline std::string getTableName(const std::string &_tableName) {
         return USER_TABLE_PREFIX_SHORT + _tableName;
     }
@@ -44,12 +51,14 @@ namespace precompiled {
                            std::vector<std::string> &valueFieldList);
     int checkLengthValidate(const std::string &field_value, int32_t max_length,
                             int32_t errorCode);
+
+    uint32_t getFuncSelector(std::string const& _functionName);
     uint32_t getParamFunc(bytesConstRef _param);
     uint32_t getFuncSelectorByFunctionName(std::string const &_functionName);
 
     bcos::precompiled::ContractStatus
-    getContractStatus(std::shared_ptr<bcos::executor::ExecutiveContext> context,
-                      std::string const &tableName);
+    getContractStatus(std::shared_ptr<bcos::executor::ExecutiveContext> _context,
+                      std::string const& _tableName);
 
     bytesConstRef getParamData(bytesConstRef _param);
 

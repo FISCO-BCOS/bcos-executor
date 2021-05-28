@@ -20,15 +20,11 @@
 
 #pragma once
 #include "PrecompiledResult.h"
-#include <bcos-framework/interfaces/executor/ExecutorInterface.h>
+#include "../libexecutor/ExecutiveContext.h"
 #include <bcos-framework/interfaces/storage/TableInterface.h>
 
 namespace bcos
 {
-namespace executor
-{
-class ExecutiveContext;
-}
 namespace precompiled
 {
 class Precompiled : public std::enable_shared_from_this<Precompiled>
@@ -42,8 +38,6 @@ public:
   call(std::shared_ptr<executor::ExecutiveContext> _context,
        bytesConstRef _param, const std::string &_origin,
        const std::string &_sender, u256& _remainGas) = 0;
-
-  virtual uint32_t getFuncSelector(std::string const& _functionName);
 
   void setPrecompiledExecResultFactory(
       PrecompiledExecResultFactory::Ptr _precompiledExecResultFactory)
@@ -73,6 +67,7 @@ protected:
                       const std::string &_origin, const std::string &_contract);
 
   PrecompiledExecResultFactory::Ptr m_precompiledExecResultFactory;
+  PrecompiledGasFactory::Ptr m_precompiledGasFactory;
 };
 
 } // namespace precompiled

@@ -25,28 +25,15 @@ namespace bcos
 {
 namespace precompiled
 {
-class PrecompiledExecResult
+struct PrecompiledExecResult
 {
-public:
   using Ptr = std::shared_ptr<PrecompiledExecResult>;
   PrecompiledExecResult() = default;
-  virtual ~PrecompiledExecResult() {}
+  ~PrecompiledExecResult() {}
   bytes const& execResult() const { return m_execResult; }
   bytes& mutableExecResult() { return m_execResult; }
-
   void setExecResult(bytes const& _execResult) { m_execResult = _execResult; }
-
-  PrecompiledGas::Ptr gasPricer() { return m_gasPricer; }
-  void setGasPricer(PrecompiledGas::Ptr _gasPricer) { m_gasPricer = _gasPricer; }
-  virtual u256 calGasCost()
-  {
-    m_gasPricer->updateMemUsed(m_execResult.size());
-    return m_gasPricer->calTotalGas();
-  }
-
-private:
   bytes m_execResult;
-  PrecompiledGas::Ptr m_gasPricer;
 };
 
 class PrecompiledExecResultFactory
@@ -63,7 +50,6 @@ public:
   PrecompiledExecResult::Ptr createPrecompiledResult()
   {
     auto result = std::make_shared<PrecompiledExecResult>();
-    result->setGasPricer(m_precompiledGasFactory->createPrecompiledGas());
     return result;
   }
 

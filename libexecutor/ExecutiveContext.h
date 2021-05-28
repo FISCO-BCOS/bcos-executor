@@ -55,10 +55,7 @@ class Precompiled;
 class PrecompiledExecResultFactory;
 class ParallelConfigPrecompiled;
 struct ParallelConfig;
-struct PrecompiledExecResult
-{
-    bytes output;
-};
+struct PrecompiledExecResult;
 }  // namespace precompiled
 namespace executor
 {

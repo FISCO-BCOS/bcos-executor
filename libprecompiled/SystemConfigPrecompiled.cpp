@@ -1,0 +1,151 @@
+/**
+ *  Copyright (C) 2021 FISCO BCOS.
+ *  SPDX-License-Identifier: Apache-2.0
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ * @file SystemConfigPrecompiled.cpp
+ * @author: kyonRay
+ * @date 2021-05-26
+ */
+
+#include "SystemConfigPrecompiled.h"
+#include "Utilities.h"
+#include <bcos-framework/libcodec/abi/ContractABIType.h>
+#include <bcos-framework/libcodec/abi/ContractABICodec.h>
+#include <bcos-framework/interfaces/ledger/LedgerTypeDef.h>
+
+using namespace bcos;
+using namespace bcos::storage;
+using namespace bcos::precompiled;
+using namespace bcos::executor;
+using namespace bcos::codec::abi;
+
+const char* const SYSCONFIG_METHOD_SET_STR = "setValueByKey(string,string)";
+
+SystemConfigPrecompiled::SystemConfigPrecompiled()
+{
+    name2Selector[SYSCONFIG_METHOD_SET_STR] = getFuncSelector(SYSCONFIG_METHOD_SET_STR);
+}
+
+PrecompiledExecResult::Ptr SystemConfigPrecompiled::call(
+    std::shared_ptr<executor::ExecutiveContext> _context, bytesConstRef _param,
+    const std::string& _origin, const std::string&, u256& _remainGas)
+{
+    // parse function name
+    uint32_t func = getParamFunc(_param);
+    bytesConstRef data = getParamData(_param);
+
+    // FIXME: is necessary for hash impl in abi constructor?
+    codec::abi::ContractABICodec abi(nullptr);
+    auto callResult = m_precompiledExecResultFactory->createPrecompiledResult();
+    auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
+    int result = 0;
+    if (func == name2Selector[SYSCONFIG_METHOD_SET_STR])
+    {
+        // setValueByKey(string,string)
+        std::string configKey, configValue;
+        abi.abiOut(data, configKey, configValue);
+        // Uniform lowercase configKey
+        boost::to_lower(configKey);
+        PRECOMPILED_LOG(DEBUG) << LOG_BADGE("SystemConfigPrecompiled")
+                               << LOG_DESC("setValueByKey func") << LOG_KV("configKey", configKey)
+                               << LOG_KV("configValue", configValue);
+
+        if (!checkValueValid(configKey, configValue))
+        {
+            PRECOMPILED_LOG(DEBUG)
+                    << LOG_BADGE("SystemConfigPrecompiled") << LOG_DESC("set invalid value")
+                    << LOG_KV("configKey", configKey) << LOG_KV("configValue", configValue);
+            getErrorCodeOut(callResult->mutableExecResult(), CODE_INVALID_CONFIGURATION_VALUES);
+            return callResult;
+        }
+
+        auto tableFactory = _context->getTableFactory();
+        auto table = tableFactory->openTable(ledger::SYS_CONFIG);
+
+        auto entries = table->getRow(configKey);
+        auto entry = table->newEntry();
+        entry->setField(SYS_KEY, configKey);
+        entry->setField(SYS_VALUE, configValue);
+        entry->setField(SYS_CONFIG_ENABLE_BLOCK_NUMBER,
+                        boost::lexical_cast<std::string>(_context->blockInfo().number + 1));
+        if (tableFactory->checkAuthority(ledger::SYS_CONFIG, _origin))
+        {
+            table->setRow(configKey, entry);
+            auto ret = tableFactory->commit();
+            if (!ret.second && ret.second->errorCode() != 0)
+            {
+                PRECOMPILED_LOG(ERROR)
+                    << LOG_BADGE("SystemConfigPrecompiled") << LOG_DESC("table commit occurs error")
+                    << LOG_KV("errorCode", ret.second->errorCode())
+                    << LOG_KV("errorMsg", ret.second->errorMessage())
+                    << LOG_KV("configKey", configKey);
+                // FIXME: use unified code to return
+                result = ret.second->errorCode();
+            }
+            else
+            {
+                PRECOMPILED_LOG(DEBUG) << LOG_BADGE("SystemConfigPrecompiled")
+                                       << LOG_DESC("setValueByKey successfully");
+                result = 0;
+            }
+        }
+        else
+        {
+            PRECOMPILED_LOG(DEBUG)
+                    << LOG_BADGE("SystemConfigPrecompiled") << LOG_DESC("permission denied");
+            // FIXME: use unified code to return
+            result = -1;
+        }
+    }
+    else
+    {
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("SystemConfigPrecompiled")
+                               << LOG_DESC("call undefined function") << LOG_KV("func", func);
+    }
+    getErrorCodeOut(callResult->mutableExecResult(), result);
+    gasPricer->updateMemUsed(callResult->m_execResult.size());
+    _remainGas -= gasPricer->calTotalGas();
+    return callResult;
+}
+
+std::string SystemConfigPrecompiled::toString()
+{
+    return "SystemConfigPrecompiled";
+}
+
+bool SystemConfigPrecompiled::checkValueValid(std::string const& key, std::string const& value)
+{
+    int64_t configuredValue = 0;
+    try
+    {
+        configuredValue = boost::lexical_cast<int64_t>(value);
+    }
+    catch (std::exception const& e)
+    {
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("SystemConfigPrecompiled")
+                               << LOG_DESC("checkValueValid failed") << LOG_KV("key", key)
+                               << LOG_KV("value", value) << LOG_KV("errorInfo", e.what());
+        return false;
+    }
+    if (ledger::SYSTEM_KEY_TX_COUNT_LIMIT == key)
+    {
+        return (configuredValue >= TX_COUNT_LIMIT_MIN);
+    }
+    else if (ledger::SYSTEM_KEY_CONSENSUS_TIMEOUT == key)
+    {
+        return (configuredValue >= SYSTEM_CONSENSUS_TIMEOUT_MIN &&
+                configuredValue < SYSTEM_CONSENSUS_TIMEOUT_MAX);
+    }
+    return false;
+}

@@ -26,20 +26,6 @@ using namespace bcos;
 using namespace bcos::precompiled;
 using namespace bcos::executor;
 
-static tbb::concurrent_unordered_map<std::string, uint32_t> s_name2SelectCache;
-
-uint32_t Precompiled::getFuncSelector(std::string const& _functionName)
-{
-  // global function selector cache
-  if (s_name2SelectCache.count(_functionName))
-  {
-    return s_name2SelectCache[_functionName];
-  }
-  auto selector = getFuncSelectorByFunctionName(_functionName);
-  s_name2SelectCache.insert(std::make_pair(_functionName, selector));
-  return selector;
-}
-
 storage::TableInterface::Ptr Precompiled::createTable(
         storage::TableFactoryInterface::Ptr _tableFactory, const std::string& tableName,
     const std::string& keyField, const std::string& valueField)
