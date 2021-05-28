@@ -189,8 +189,8 @@ bool Executive::call(CallParameters const& _p, const std::string_view& _origin)
                 m_envInfo.Context()->call(_p.codeAddress, _p.data, _origin, _p.senderAddress);
             // TODO: calculate gas for the precompiled contract
             // updateGas(callResult);
-            size_t outputSize = callResult->output.size();
-            m_output = owning_bytes_ref{std::move(callResult->output), 0, outputSize};
+            size_t outputSize = callResult->m_execResult.size();
+            m_output = owning_bytes_ref{std::move(callResult->m_execResult), 0, outputSize};
         }
         catch (protocol::PrecompiledError& e)
         {

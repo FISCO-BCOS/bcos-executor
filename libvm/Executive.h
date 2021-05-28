@@ -22,6 +22,7 @@
 #pragma once
 
 #include "../libmetering/GasInjector.h"
+#include "../libprecompiled/PrecompiledResult.h"
 #include "Common.h"
 #include "bcos-framework/interfaces/protocol/BlockHeader.h"
 #include "bcos-framework/interfaces/protocol/Transaction.h"
