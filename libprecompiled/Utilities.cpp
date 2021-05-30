@@ -151,10 +151,11 @@ bytesConstRef bcos::precompiled::getParamData(bytesConstRef _param)
 
 uint32_t bcos::precompiled::getFuncSelectorByFunctionName(std::string const& _functionName)
 {
-  uint32_t func = *(uint32_t*)(crypto::HashType (_functionName).ref().getCroppedData(0, 4).data());
-  uint32_t selector = ((func & 0x000000FF) << 24) | ((func & 0x0000FF00) << 8) |
-                      ((func & 0x00FF0000) >> 8) | ((func & 0xFF000000) >> 24);
-  return selector;
+    // FIXME: use hash function
+    uint32_t func = *(uint32_t*)(crypto::HashType(_functionName).ref().getCroppedData(0, 4).data());
+    uint32_t selector = ((func & 0x000000FF) << 24) | ((func & 0x0000FF00) << 8) |
+                        ((func & 0x00FF0000) >> 8) | ((func & 0xFF000000) >> 24);
+    return selector;
 }
 
 bcos::precompiled::ContractStatus bcos::precompiled::getContractStatus(

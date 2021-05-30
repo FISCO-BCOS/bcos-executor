@@ -13,20 +13,32 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  *
- * @file PrecompiledTest.cpp
+ * @file HelloWorldPrecompiled.h
  * @author: kyonRay
- * @date 2021-05-25
+ * @date 2021-05-30
  */
 
-#include "libprecompiled/Precompiled.h"
-#include "libprecompiled/Common.h"
-#include "libprecompiled/extension/UserPrecompiled.h"
+#pragma once
 
-using namespace bcos;
-using namespace bcos::precompiled;
+#include "../Common.h"
+#include "../Precompiled.h"
 
-namespace bcos {
-namespace test {
+namespace bcos
+{
+namespace precompiled
+{
+class HelloWorldPrecompiled : public bcos::precompiled::Precompiled
+{
+public:
+    using Ptr = std::shared_ptr<HelloWorldPrecompiled>;
+    HelloWorldPrecompiled();
+    virtual ~HelloWorldPrecompiled(){};
 
-}
-}
+    std::string toString() override;
+
+    PrecompiledExecResult::Ptr call(std::shared_ptr<executor::ExecutiveContext> _context,
+        bytesConstRef _param, const std::string& _origin, const std::string& _sender,
+        u256& _remainGas) override;
+};
+}  // namespace precompiled
+}  // namespace bcos

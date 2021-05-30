@@ -13,20 +13,13 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  *
- * @file PrecompiledTest.cpp
+ * @file UserPrecompiled.h
  * @author: kyonRay
- * @date 2021-05-25
+ * @date 2021-05-30
  */
 
-#include "libprecompiled/Precompiled.h"
-#include "libprecompiled/Common.h"
-#include "libprecompiled/extension/UserPrecompiled.h"
-
-using namespace bcos;
-using namespace bcos::precompiled;
-
-namespace bcos {
-namespace test {
-
-}
-}
+#include "DagTransferPrecompiled.h"
+#include "GroupSigPrecompiled.h"
+#include "HelloWorldPrecompiled.h"
+#include "PaillierPrecompiled.h"
+#include "RingSigPrecompiled.h"

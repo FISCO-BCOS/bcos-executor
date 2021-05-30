@@ -35,13 +35,12 @@ struct ParallelConfig
     std::string functionName;
     u256 criticalSize;
 };
-const std::string PARA_CONFIG_TABLE_PREFIX = "_contract_parafunc_";
 const std::string PARA_CONFIG_TABLE_PREFIX_SHORT = "cp_";
 
 class ParallelConfigPrecompiled : public bcos::precompiled::Precompiled
 {
 public:
-    typedef std::shared_ptr<ParallelConfigPrecompiled> Ptr;
+    using Ptr = std::shared_ptr<ParallelConfigPrecompiled>;
     ParallelConfigPrecompiled();
     virtual ~ParallelConfigPrecompiled(){};
 
@@ -58,7 +57,7 @@ public:
 private:
     void registerParallelFunction(std::shared_ptr<executor::ExecutiveContext> _context,
         bytesConstRef _data, std::string const& _origin, bytes& _out);
-    void unregisterParallelFunction(std::shared_ptr<executor::ExecutiveContext> context,
+    void unregisterParallelFunction(std::shared_ptr<executor::ExecutiveContext> _context,
         bytesConstRef _data, std::string const& _origin, bytes& _out);
 
 public:
