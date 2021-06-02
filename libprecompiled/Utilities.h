@@ -30,7 +30,49 @@ namespace bcos {
 namespace precompiled {
     static const std::string USER_TABLE_PREFIX_SHORT = "u_";
     static const std::string CONTRACT_TABLE_PREFIX_SHORT = "c_";
-    inline void getErrorCodeOut(bytes &out, int const &result){
+
+enum class Comparator
+{
+    EQ,
+    NE,
+    GT,
+    GE,
+    LT,
+    LE,
+};
+struct CompareTriple
+{
+    CompareTriple(const std::string& _left, const std::string& _right, Comparator _cmp)
+        : left(_left), right(_right), cmp(_cmp){};
+
+    std::string left;
+    std::string right;
+    Comparator cmp;
+};
+struct Condition : public std::enable_shared_from_this<Condition>
+{
+    using Ptr = std::shared_ptr<Condition>;
+    Condition() = default;
+    void EQ(const std::string& key, const std::string& value);
+    void NE(const std::string& key, const std::string& value);
+
+    void GT(const std::string& key, const std::string& value);
+    void GE(const std::string& key, const std::string& value);
+
+    void LT(const std::string& key, const std::string& value);
+    void LE(const std::string& key, const std::string& value);
+
+    void limit(size_t count);
+    void limit(size_t start, size_t end);
+
+    bool filter(storage::Entry::Ptr entry);
+    std::vector<CompareTriple> m_conditions;
+    std::pair<size_t, size_t> m_limit;
+};
+void addCondition(const std::string& key, const std::string& value,
+    std::vector<CompareTriple>& _cond, Comparator _cmp);
+
+inline void getErrorCodeOut(bytes &out, int const &result){
         bcos::codec::abi::ContractABICodec abi(nullptr);
         if (result >= 0 && result < 128)
         {
@@ -47,7 +89,7 @@ namespace precompiled {
         return CONTRACT_TABLE_PREFIX_SHORT + _contractAddress;
     }
 
-    void checkNameValidate(const std::string &tableName, std::string &keyField,
+    void checkNameValidate(const std::string &tableName, std::vector<std::string>& keyFieldList,
                            std::vector<std::string> &valueFieldList);
     int checkLengthValidate(const std::string &field_value, int32_t max_length,
                             int32_t errorCode);
@@ -61,6 +103,8 @@ namespace precompiled {
                       std::string const& _tableName);
 
     bytesConstRef getParamData(bytesConstRef _param);
+
+    void sortKeyValue(std::vector<std::string>& _v);
 
 } // namespace precompiled
 } // namespace bcos

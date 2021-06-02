@@ -124,6 +124,7 @@ public:
 
     std::shared_ptr<storage::Storage> stateStorage();
     void setStateStorage(std::shared_ptr<storage::Storage> _stateStorage);
+    bool isWasm() const { return m_isWasm; }
 
 private:
     tbb::concurrent_unordered_map<std::string, std::shared_ptr<precompiled::Precompiled>,
@@ -135,6 +136,7 @@ private:
     std::unordered_map<std::string, PrecompiledContract> m_precompiledContract;
     std::shared_ptr<storage::TableFactoryInterface> m_tableFactory;
     uint64_t m_txGasLimit = 300000000;
+    bool m_isWasm = false;
 
     std::shared_ptr<precompiled::PrecompiledExecResultFactory> m_precompiledExecResultFactory;
     std::shared_ptr<precompiled::ParallelConfigPrecompiled> m_parallelConfigPrecompiled;

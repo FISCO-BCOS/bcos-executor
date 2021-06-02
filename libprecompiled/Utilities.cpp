@@ -31,79 +31,97 @@ using namespace bcos::crypto;
 
 static tbb::concurrent_unordered_map<std::string, uint32_t> s_name2SelectCache;
 
-void bcos::precompiled::checkNameValidate(
-        const std::string &tableName, std::string &keyField,
-        std::vector<std::string> &valueFieldList) {
-
+void bcos::precompiled::checkNameValidate(const std::string& tableName,
+    std::vector<std::string>& keyFieldList, std::vector<std::string>& valueFieldList)
+{
     std::set<std::string> valueFieldSet;
-    boost::trim(keyField);
-    valueFieldSet.insert(keyField);
+    std::set<std::string> keyFieldSet;
     std::vector<char> allowChar = {'$', '_', '@'};
+    std::vector<char> tableAllowChar = {'$', '_', '@', '/'};
     std::string allowCharString = "{$, _, @}";
-    auto checkTableNameValidate =
-            [&allowChar, &allowCharString](const std::string &tableName) {
-                size_t iSize = tableName.size();
-                for (size_t i = 0; i < iSize; i++) {
-                    if (!isalnum(tableName[i]) &&
-                        (allowChar.end() ==
-                         find(allowChar.begin(), allowChar.end(), tableName[i]))) {
-                        std::stringstream errorMsg;
-                        errorMsg << "Invalid table name \"" << tableName
-                                 << "\", the table name must be letters or numbers, and "
-                                    "only supports \""
-                                 << allowCharString << "\" as special character set";
-                        STORAGE_LOG(ERROR) << LOG_DESC(errorMsg.str());
-                        // Note: the StorageException and PrecompiledException content can't
-                        // be modified at will for the information will be write to the
-                        // blockchain
-                        BOOST_THROW_EXCEPTION(PrecompiledError() << errinfo_comment(
-                                                      "invalid table name:" + tableName));
-                    }
-                }
-            };
+    std::string tableAllowCharString = "{$, _, @, /}";
+    auto checkTableNameValidate = [&tableAllowChar, &tableAllowCharString](const std::string& tableName) {
+        size_t iSize = tableName.size();
+        for (size_t i = 0; i < iSize; i++)
+        {
+            if (!isalnum(tableName[i]) &&
+                (tableAllowChar.end() == find(tableAllowChar.begin(), tableAllowChar.end(), tableName[i])))
+            {
+                std::stringstream errorMsg;
+                errorMsg << "Invalid table name \"" << tableName
+                         << "\", the table name must be letters or numbers, and "
+                            "only supports \""
+                         << tableAllowCharString << "\" as special character set";
+                STORAGE_LOG(ERROR) << LOG_DESC(errorMsg.str());
+                // Note: the StorageException and PrecompiledException content can't
+                // be modified at will for the information will be write to the
+                // blockchain
+                BOOST_THROW_EXCEPTION(
+                    PrecompiledError() << errinfo_comment("invalid table name:" + tableName));
+            }
+        }
+    };
 
-    auto checkFieldNameValidate =
-            [allowChar, allowCharString](
-                    const std::string &tableName, const std::string &fieldName) {
-                if (fieldName.empty() || fieldName[0] == '_') {
-                    std::stringstream errorMessage;
-                    errorMessage << "Invalid field \"" + fieldName
-                                 << "\", the size of the field must be larger than 0 and "
-                                    "the field can't start with \"_\"";
-                    STORAGE_LOG(ERROR)
-                            << LOG_DESC(errorMessage.str()) << LOG_KV("field name", fieldName)
-                            << LOG_KV("table name", tableName);
-                    BOOST_THROW_EXCEPTION(
-                            PrecompiledError() << errinfo_comment("invalid field: " + fieldName));
-                }
-                size_t iSize = fieldName.size();
-                for (size_t i = 0; i < iSize; i++) {
-                    if (!isalnum(fieldName[i]) &&
-                        (allowChar.end() ==
-                         find(allowChar.begin(), allowChar.end(), fieldName[i]))) {
-                        std::stringstream errorMessage;
-                        errorMessage << "Invalid field \"" << fieldName << "\", the field name must be letters or numbers, and only supports \"" << allowCharString << "\" as special character set";
+    auto checkFieldNameValidate = [&allowChar, &allowCharString](
+                                      const std::string& tableName, const std::string& fieldName) {
+        if (fieldName.empty() || fieldName[0] == '_')
+        {
+            std::stringstream errorMessage;
+            errorMessage << "Invalid field \"" + fieldName
+                         << "\", the size of the field must be larger than 0 and "
+                            "the field can't start with \"_\"";
+            STORAGE_LOG(ERROR) << LOG_DESC(errorMessage.str()) << LOG_KV("field name", fieldName)
+                               << LOG_KV("table name", tableName);
+            BOOST_THROW_EXCEPTION(
+                PrecompiledError() << errinfo_comment("invalid field: " + fieldName));
+        }
+        size_t iSize = fieldName.size();
+        for (size_t i = 0; i < iSize; i++)
+        {
+            if (!isalnum(fieldName[i]) &&
+                (allowChar.end() == find(allowChar.begin(), allowChar.end(), fieldName[i])))
+            {
+                std::stringstream errorMessage;
+                errorMessage
+                    << "Invalid field \"" << fieldName
+                    << "\", the field name must be letters or numbers, and only supports \""
+                    << allowCharString << "\" as special character set";
 
-                        STORAGE_LOG(ERROR) << LOG_DESC(errorMessage.str())
-                                           << LOG_KV("field name", fieldName)
-                                           << LOG_KV("table name", tableName);
-                        BOOST_THROW_EXCEPTION(
-                                PrecompiledError() << errinfo_comment("invalid filed: " + fieldName));
-                    }
-                }
-            };
+                STORAGE_LOG(ERROR)
+                    << LOG_DESC(errorMessage.str()) << LOG_KV("field name", fieldName)
+                    << LOG_KV("table name", tableName);
+                BOOST_THROW_EXCEPTION(
+                    PrecompiledError() << errinfo_comment("invalid filed: " + fieldName));
+            }
+        }
+    };
 
     checkTableNameValidate(tableName);
-    checkFieldNameValidate(tableName, keyField);
 
-    for (auto &valueField : valueFieldList) {
-        auto ret = valueFieldSet.insert(valueField);
-        if (!ret.second) {
+    for (auto& keyField : keyFieldList)
+    {
+        auto ret = keyFieldSet.insert(keyField);
+        if (!ret.second)
+        {
             PRECOMPILED_LOG(ERROR)
-                    << LOG_DESC("duplicated field") << LOG_KV("field name", valueField)
+                    << LOG_DESC("duplicated key") << LOG_KV("key name", keyField)
                     << LOG_KV("table name", tableName);
             BOOST_THROW_EXCEPTION(
-                    PrecompiledError() << errinfo_comment("duplicated field: " + valueField));
+                PrecompiledError() << errinfo_comment("duplicated key: " + keyField));
+        }
+        checkFieldNameValidate(tableName, keyField);
+    }
+
+    for (auto& valueField : valueFieldList)
+    {
+        auto ret = valueFieldSet.insert(valueField);
+        if (!ret.second)
+        {
+            PRECOMPILED_LOG(ERROR)
+                << LOG_DESC("duplicated field") << LOG_KV("field name", valueField)
+                << LOG_KV("table name", tableName);
+            BOOST_THROW_EXCEPTION(
+                PrecompiledError() << errinfo_comment("duplicated field: " + valueField));
         }
         checkFieldNameValidate(tableName, valueField);
     }
@@ -119,7 +137,6 @@ int bcos::precompiled::checkLengthValidate(
     BOOST_THROW_EXCEPTION(PrecompiledError()
                           << errinfo_comment ("size of value/key greater than" + std::to_string(maxLength))
                           << errinfo_comment(std::to_string(errorCode)));
-
     return errorCode;
   }
   return 0;
@@ -188,4 +205,159 @@ bcos::precompiled::ContractStatus bcos::precompiled::getContractStatus(
     PRECOMPILED_LOG(ERROR) << LOG_DESC("getContractStatus error")
                            << LOG_KV("table name", _tableName);
     return ContractStatus::Invalid;
+}
+
+void bcos::precompiled::sortKeyValue(std::vector<std::string>& _v)
+{
+    if(_v.size()<=1){
+        return;
+    }
+    std::sort(_v.begin(), _v.end());
+}
+void Condition::EQ(const std::string& key, const std::string& value)
+{
+    addCondition(key, value, m_conditions, Comparator::EQ);
+}
+
+void Condition::NE(const std::string& key, const std::string& value)
+{
+    // not equal contains two area
+    addCondition(key, value, m_conditions, Comparator::NE);
+}
+
+void Condition::GT(const std::string& key, const std::string& value)
+{
+    addCondition(key, value, m_conditions, Comparator::GT);
+}
+
+void Condition::GE(const std::string& key, const std::string& value)
+{
+    addCondition(key, value, m_conditions, Comparator::GE);
+}
+
+void Condition::LT(const std::string& key, const std::string& value)
+{
+    addCondition(key, value, m_conditions, Comparator::LT);
+}
+
+void Condition::LE(const std::string& key, const std::string& value)
+{
+    addCondition(key, value, m_conditions, Comparator::LE);
+}
+
+bool Condition::filter(storage::Entry::Ptr _entry)
+{
+    if(_entry->getStatus() == storage::Entry::Status::DELETED)
+    {
+        return false;
+    }
+    if (!m_conditions.empty())
+    {
+        for (auto &condition: m_conditions)
+        {
+            auto fieldIt = _entry->find(condition.left);
+            if (fieldIt != _entry->end())
+            {
+                switch (condition.cmp)
+                {
+                case Comparator::EQ:
+                    if(fieldIt->second != condition.right)
+                    {
+                        return false;
+                    }
+                    break;
+                case Comparator::NE:
+                    if(fieldIt->second == condition.right)
+                    {
+                        return false;
+                    }
+                    break;
+                case Comparator::GT:
+                {
+                    auto lhs = boost::lexical_cast<int64_t>(condition.right);
+                    auto rhs = (int64_t)0;
+                    if (!fieldIt->second.empty())
+                    {
+                        rhs = boost::lexical_cast<int64_t>(fieldIt->second);
+                    }
+                    if (lhs <= rhs)
+                    {
+                        return false;
+                    }
+                }
+                break;
+                case Comparator::GE:
+                {
+                    auto lhs = boost::lexical_cast<int64_t>(condition.right);
+                    auto rhs = (int64_t)0;
+                    if (!fieldIt->second.empty())
+                    {
+                        rhs = boost::lexical_cast<int64_t>(fieldIt->second);
+                    }
+                    if (lhs < rhs)
+                    {
+                        return false;
+                    }
+                }
+                break;
+                case Comparator::LT:
+                {
+                    auto lhs = boost::lexical_cast<int64_t>(condition.right);
+                    auto rhs = (int64_t)0;
+                    if (!fieldIt->second.empty())
+                    {
+                        rhs = boost::lexical_cast<int64_t>(fieldIt->second);
+                    }
+                    if (lhs >= rhs)
+                    {
+                        return false;
+                    }
+                }
+                break;
+                case Comparator::LE:
+                {
+                    auto lhs = boost::lexical_cast<int64_t>(condition.right);
+                    auto rhs = (int64_t)0;
+                    if (!fieldIt->second.empty())
+                    {
+                        rhs = boost::lexical_cast<int64_t>(fieldIt->second);
+                    }
+                    if (lhs > rhs)
+                    {
+                        return false;
+                    }
+                }
+                break;
+                }
+            }
+        }
+    }
+    return true;
+}
+
+void Condition::limit(size_t count)
+{
+    limit(0, count);
+}
+
+void Condition::limit(size_t start, size_t end)
+{
+    m_limit = {start, end};
+}
+
+void precompiled::addCondition(const std::string& key, const std::string& value,
+    std::vector<CompareTriple>& _cond, Comparator _cmp)
+{
+    auto it = std::find_if(_cond.begin(), _cond.end(),
+        [key](const CompareTriple& item) -> bool { return item.left == key; });
+    if (it != _cond.end())
+    {
+        it->left = key;
+        it->right = value;
+        it->cmp = _cmp;
+    }
+    else
+    {
+        _cond.emplace_back(CompareTriple(key, value, _cmp));
+    }
 }

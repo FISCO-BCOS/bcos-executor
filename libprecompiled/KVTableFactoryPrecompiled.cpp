@@ -128,7 +128,8 @@ PrecompiledExecResult::Ptr KVTableFactoryPrecompiled::call(
             }
         }
 
-        checkNameValidate(tableName, keyField, fieldNameList);
+        std::vector<std::string> keyFieldList{keyField};
+        checkNameValidate(tableName, keyFieldList, fieldNameList);
 
         valueFiled = boost::join(fieldNameList, ",");
         if (valueFiled.size() > (size_t)SYS_TABLE_VALUE_FIELD_MAX_LENGTH)

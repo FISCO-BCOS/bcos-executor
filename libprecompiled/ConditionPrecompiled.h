@@ -22,6 +22,7 @@
 
 #include "Common.h"
 #include "Precompiled.h"
+#include "Utilities.h"
 #include "../libexecutor//ExecutiveContext.h"
 
 namespace bcos
@@ -79,13 +80,13 @@ public:
         m_exeEngine = engine;
     }
 
-    void setCondition(storage::Condition::Ptr condition) { m_condition = condition; }
-    storage::Condition::Ptr getCondition() { return m_condition; }
+    void setCondition(precompiled::Condition::Ptr condition) { m_condition = condition; }
+    precompiled::Condition::Ptr getCondition() { return m_condition; }
 
 private:
     std::shared_ptr<executor::ExecutiveContext> m_exeEngine;
     // condition must been set
-    storage::Condition::Ptr m_condition;
+    precompiled::Condition::Ptr m_condition;
 };
 }  // namespace precompiled
 }  // namespace bcos

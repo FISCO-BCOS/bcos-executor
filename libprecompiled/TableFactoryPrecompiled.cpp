@@ -49,7 +49,6 @@ std::string TableFactoryPrecompiled::toString()
     return "TableFactory";
 }
 
-
 PrecompiledExecResult::Ptr TableFactoryPrecompiled::call(
     std::shared_ptr<executor::ExecutiveContext> _context, bytesConstRef _param,
     const std::string& _origin, const std::string& _sender, u256& _remainGas)
@@ -102,9 +101,10 @@ PrecompiledExecResult::Ptr TableFactoryPrecompiled::call(
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("TableFactory") << LOG_KV("createTable", tableName)
                                << LOG_KV("keyField", keyField) << LOG_KV("valueFiled", valueFiled);
 
+        std::vector<std::string> keyNameList;
+        boost::split(keyNameList, keyField, boost::is_any_of(","));
         std::vector<std::string> fieldNameList;
         boost::split(fieldNameList, valueFiled, boost::is_any_of(","));
-        boost::trim(keyField);
 
         if (keyField.size() > (size_t)SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH)
         {  // mysql TableName and fieldName length limit is 64
@@ -112,6 +112,20 @@ PrecompiledExecResult::Ptr TableFactoryPrecompiled::call(
                                       "table field name length overflow " +
                                       std::to_string(SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH)));
         }
+        for (auto& str : keyNameList)
+        {
+            boost::trim(str);
+            if (str.size() > (size_t)SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH)
+            {  // mysql TableName and fieldName length limit is 64
+                BOOST_THROW_EXCEPTION(
+                    protocol::PrecompiledError()
+                        << errinfo_comment(
+                            "errorCode" + std::to_string(CODE_TABLE_FIELD_LENGTH_OVERFLOW))
+                        << errinfo_comment(std::string("table key name length overflow ") +
+                                           std::to_string(SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH)));
+            }
+        }
+
         for (auto& str : fieldNameList)
         {
             boost::trim(str);
@@ -126,9 +140,16 @@ PrecompiledExecResult::Ptr TableFactoryPrecompiled::call(
             }
         }
 
-        checkNameValidate(tableName, keyField, fieldNameList);
+        checkNameValidate(tableName, keyNameList, fieldNameList);
 
+        keyField = boost::join(keyNameList, ",");
         valueFiled = boost::join(fieldNameList, ",");
+        if (keyField.size() > (size_t)SYS_TABLE_KEY_FIELD_MAX_LENGTH)
+        {
+            BOOST_THROW_EXCEPTION(protocol::PrecompiledError() << errinfo_comment(
+                std::string("total table key name length overflow ") +
+                std::to_string(SYS_TABLE_KEY_FIELD_MAX_LENGTH)));
+        }
         if (valueFiled.size() > (size_t)SYS_TABLE_VALUE_FIELD_MAX_LENGTH)
         {
             BOOST_THROW_EXCEPTION(protocol::PrecompiledError() << errinfo_comment(
@@ -141,13 +162,11 @@ PrecompiledExecResult::Ptr TableFactoryPrecompiled::call(
             (tableName.size() > (size_t)USER_TABLE_NAME_MAX_LENGTH_S))
         {
             // mysql TableName and fieldName length limit is 64
-            // 2.2.0 user tableName length limit is 50-2=48
             BOOST_THROW_EXCEPTION(protocol::PrecompiledError()
                                   << errinfo_comment("errorCode: "+ std::to_string(CODE_TABLE_NAME_LENGTH_OVERFLOW))
                                   << errinfo_comment(std::string("tableName length overflow ") +
                                                      std::to_string(USER_TABLE_NAME_MAX_LENGTH)));
         }
-
         int result = 0;
         try
         {

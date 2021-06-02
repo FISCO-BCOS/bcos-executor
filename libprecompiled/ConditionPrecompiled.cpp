@@ -19,3 +19,171 @@
  */
 
 #include "ConditionPrecompiled.h"
+#include "Utilities.h"
+#include <bcos-framework/libcodec/abi/ContractABICodec.h>
+
+using namespace bcos;
+using namespace bcos::executor;
+using namespace bcos::precompiled;
+using namespace bcos::protocol;
+
+const char* const CONDITION_METHOD_EQ_STR_INT = "EQ(string,int256)";
+const char* const CONDITION_METHOD_EQ_STR_STR = "EQ(string,string)";
+const char* const CONDITION_METHOD_EQ_STR_ADDR = "EQ(string,address)";
+const char* const CONDITION_METHOD_GE_STR_INT = "GE(string,int256)";
+const char* const CONDITION_METHOD_GT_STR_INT = "GT(string,int256)";
+const char* const CONDITION_METHOD_LE_STR_INT = "LE(string,int256)";
+const char* const CONDITION_METHOD_LT_STR_INT = "LT(string,int256)";
+const char* const CONDITION_METHOD_NE_STR_INT = "NE(string,int256)";
+const char* const CONDITION_METHOD_NE_STR_STR = "NE(string,string)";
+const char* const CONDITION_METHOD_LIMIT_INT = "limit(int256)";
+const char* const CONDITION_METHOD_LIMIT_2INT = "limit(int256,int256)";
+
+ConditionPrecompiled::ConditionPrecompiled()
+{
+    name2Selector[CONDITION_METHOD_EQ_STR_INT] = getFuncSelector(CONDITION_METHOD_EQ_STR_INT);
+    name2Selector[CONDITION_METHOD_EQ_STR_STR] = getFuncSelector(CONDITION_METHOD_EQ_STR_STR);
+    name2Selector[CONDITION_METHOD_EQ_STR_ADDR] = getFuncSelector(CONDITION_METHOD_EQ_STR_ADDR);
+    name2Selector[CONDITION_METHOD_GE_STR_INT] = getFuncSelector(CONDITION_METHOD_GE_STR_INT);
+    name2Selector[CONDITION_METHOD_GT_STR_INT] = getFuncSelector(CONDITION_METHOD_GT_STR_INT);
+    name2Selector[CONDITION_METHOD_LE_STR_INT] = getFuncSelector(CONDITION_METHOD_LE_STR_INT);
+    name2Selector[CONDITION_METHOD_LT_STR_INT] = getFuncSelector(CONDITION_METHOD_LT_STR_INT);
+    name2Selector[CONDITION_METHOD_NE_STR_INT] = getFuncSelector(CONDITION_METHOD_NE_STR_INT);
+    name2Selector[CONDITION_METHOD_NE_STR_STR] = getFuncSelector(CONDITION_METHOD_NE_STR_STR);
+    name2Selector[CONDITION_METHOD_LIMIT_INT] = getFuncSelector(CONDITION_METHOD_LIMIT_INT);
+    name2Selector[CONDITION_METHOD_LIMIT_2INT] = getFuncSelector(CONDITION_METHOD_LIMIT_2INT);
+}
+
+std::string ConditionPrecompiled::toString()
+{
+    return "Condition";
+}
+
+PrecompiledExecResult::Ptr ConditionPrecompiled::call(
+    std::shared_ptr<executor::ExecutiveContext>, bytesConstRef _param,
+    const std::string&, const std::string&, u256& _remainGas)
+{
+    // parse function name
+    uint32_t func = getParamFunc(_param);
+    bytesConstRef data = getParamData(_param);
+
+    STORAGE_LOG(DEBUG) << "func:" << std::hex << func;
+    codec::abi::ContractABICodec abi(nullptr);
+    auto callResult = m_precompiledExecResultFactory->createPrecompiledResult();
+    auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
+    gasPricer->setMemUsed(_param.size());
+    assert(m_condition);
+    if (func == name2Selector[CONDITION_METHOD_EQ_STR_INT])
+    {
+        // EQ(string,int256)
+        std::string str;
+        s256 num;
+        abi.abiOut(data, str, num);
+
+        m_condition->EQ(str, boost::lexical_cast<std::string>(num));
+        gasPricer->appendOperation(InterfaceOpcode::EQ);
+    }
+    else if (func == name2Selector[CONDITION_METHOD_EQ_STR_STR])
+    {
+        // EQ(string,string)
+        std::string str;
+        std::string value;
+        abi.abiOut(data, str, value);
+
+        m_condition->EQ(str, value);
+        gasPricer->appendOperation(InterfaceOpcode::EQ);
+    }
+    else if (func == name2Selector[CONDITION_METHOD_EQ_STR_ADDR])
+    {
+        // EQ(string,address)
+        std::string str;
+        Address value;
+        abi.abiOut(data, str, value);
+        m_condition->EQ(str, value.hex());
+        gasPricer->appendOperation(InterfaceOpcode::EQ);
+    }
+    else if (func == name2Selector[CONDITION_METHOD_GE_STR_INT])
+    {  // GE(string,int256)
+        std::string str;
+        s256 value;
+        abi.abiOut(data, str, value);
+
+        m_condition->GE(str, boost::lexical_cast<std::string>(value));
+        gasPricer->appendOperation(InterfaceOpcode::GE);
+    }
+    else if (func == name2Selector[CONDITION_METHOD_GT_STR_INT])
+    {
+        // GT(string,int256)
+        std::string str;
+        s256 value;
+        abi.abiOut(data, str, value);
+
+        m_condition->GT(str, boost::lexical_cast<std::string>(value));
+        gasPricer->appendOperation(InterfaceOpcode::GT);
+    }
+    else if (func == name2Selector[CONDITION_METHOD_LE_STR_INT])
+    {
+        // LE(string,int256)
+        std::string str;
+        s256 value;
+        abi.abiOut(data, str, value);
+
+        m_condition->LE(str, boost::lexical_cast<std::string>(value));
+        gasPricer->appendOperation(InterfaceOpcode::LE);
+    }
+    else if (func == name2Selector[CONDITION_METHOD_LT_STR_INT])
+    {
+        // LT(string,int256)
+        std::string str;
+        s256 value;
+        abi.abiOut(data, str, value);
+
+        m_condition->LT(str, boost::lexical_cast<std::string>(value));
+        gasPricer->appendOperation(InterfaceOpcode::LT);
+    }
+    else if (func == name2Selector[CONDITION_METHOD_NE_STR_INT])
+    {  // NE(string,int256)
+        std::string str;
+        s256 num;
+        abi.abiOut(data, str, num);
+
+        m_condition->NE(str, boost::lexical_cast<std::string>(num));
+        gasPricer->appendOperation(InterfaceOpcode::NE);
+    }
+    else if (func == name2Selector[CONDITION_METHOD_NE_STR_STR])
+    {
+        // NE(string,string)
+        std::string str;
+        std::string value;
+        abi.abiOut(data, str, value);
+
+        m_condition->NE(str, value);
+        gasPricer->appendOperation(InterfaceOpcode::NE);
+    }
+    else if (func == name2Selector[CONDITION_METHOD_LIMIT_INT])
+    {  // limit(int256)
+        s256 num;
+        abi.abiOut(data, num);
+
+        m_condition->limit(num.convert_to<size_t>());
+        gasPricer->appendOperation(InterfaceOpcode::Limit);
+    }
+    else if (func == name2Selector[CONDITION_METHOD_LIMIT_2INT])
+    {
+        // limit(int256,int256)
+        s256 start;
+        s256 end;
+        abi.abiOut(data, start, end);
+
+        m_condition->limit(start.convert_to<size_t>(), end.convert_to<size_t>());
+        gasPricer->appendOperation(InterfaceOpcode::Limit);
+    }
+    else
+    {
+        STORAGE_LOG(ERROR) << LOG_BADGE("ConditionPrecompiled")
+                           << LOG_DESC("call undefined function!");
+    }
+    gasPricer->updateMemUsed(callResult->m_execResult.size());
+    _remainGas -= gasPricer->calTotalGas();
+    return callResult;
+}

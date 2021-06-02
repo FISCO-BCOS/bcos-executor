@@ -39,6 +39,7 @@ const char* const SYS_AC_ENABLE_NUM = "enable_num";
 
 /// SYS_CNS table
 const char* const SYS_CNS = "s_cns";
+const char* const SYS_TABLE = "s_tables";
 
 /// SYS_CONFIG table fields
 static const char* const SYS_VALUE = "value";
@@ -51,6 +52,7 @@ static const char* const NODE_WEIGHT = "weight";
 static const char* const NODE_ENABLE_NUMBER = "enable_block_number";
 
 const int SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH = 64;
+const int SYS_TABLE_KEY_FIELD_MAX_LENGTH = 1024;
 const int SYS_TABLE_VALUE_FIELD_MAX_LENGTH = 1024;
 const int CNS_VERSION_MAX_LENGTH = 128;
 const int CNS_CONTRACT_NAME_MAX_LENGTH = 128;
@@ -185,6 +187,12 @@ enum ContractStatus {
   AddressNonExistent,
   NotContractAddress,
   Count
+};
+
+enum CodecType
+{
+    ABI,
+    SCALE
 };
 } // namespace precompiled
 } // namespace bcos

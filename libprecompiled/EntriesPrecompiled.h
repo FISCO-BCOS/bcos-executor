@@ -13,13 +13,13 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  *
- * @file CRUDPrecompiled.h
+ * @file EntriesPrecompiled.h
  * @author: kyonRay
  * @date 2021-05-31
  */
 
 #pragma once
-#include "Common.h"
+
 #include "Precompiled.h"
 #include "../libexecutor/ExecutiveContext.h"
 
@@ -27,12 +27,26 @@ namespace bcos
 {
 namespace precompiled
 {
-class CRUDPrecompiled : public bcos::precompiled::Precompiled
+#if 0
+contract Entries {
+    function get(int) public constant returns(Entry);
+    function size() public constant returns(int);
+}
+{
+    "846719e0": "get(int256)",
+    "949d225d": "size()"
+}
+#endif
+
+class EntriesPrecompiled : public Precompiled
 {
 public:
-    using Ptr = std::shared_ptr<CRUDPrecompiled>;
-    CRUDPrecompiled();
-    virtual ~CRUDPrecompiled(){};
+    using Ptr = std::shared_ptr<EntriesPrecompiled>;
+    using EntriesConstPtr = std::shared_ptr<const std::vector<storage::Entry::Ptr>>;
+    using Entries = std::vector<storage::Entry::Ptr>;
+    using EntriesPtr = std::shared_ptr<std::vector<storage::Entry::Ptr>>;
+    EntriesPrecompiled();
+    virtual ~EntriesPrecompiled(){};
 
     std::string toString() override;
 
@@ -40,10 +54,12 @@ public:
         bytesConstRef _param, const std::string& _origin, const std::string& _sender,
         u256& _remainGas) override;
 
+    void setEntries(const EntriesPtr& entries) { m_entriesConst = entries; }
+    EntriesPtr getEntriesPtr() { return std::const_pointer_cast<Entries>(m_entriesConst); }
+    EntriesConstPtr getEntriesConstPtr() { return m_entriesConst; }
+
 private:
-    int parseEntry(const std::string& entryStr, storage::Entry::Ptr& entry);
-    int parseCondition(const std::string& conditionStr, storage::Condition::Ptr& condition,
-        PrecompiledExecResult::Ptr _execResult);
+    EntriesConstPtr m_entriesConst;
 };
 }  // namespace precompiled
 }  // namespace bcos
