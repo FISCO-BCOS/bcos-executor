@@ -39,15 +39,6 @@ public:
        bytesConstRef _param, const std::string &_origin,
        const std::string &_sender, u256& _remainGas) = 0;
 
-  void setPrecompiledExecResultFactory(
-      PrecompiledExecResultFactory::Ptr _precompiledExecResultFactory)
-  {
-    m_precompiledExecResultFactory = _precompiledExecResultFactory;
-  }
-  PrecompiledExecResultFactory::Ptr precompiledExecResultFactory()
-  {
-    return m_precompiledExecResultFactory;
-  }
   virtual bool isParallelPrecompiled() { return false; }
   virtual std::vector<std::string> getParallelTag(bytesConstRef /*param*/)
   {
@@ -66,7 +57,6 @@ protected:
     bool checkAuthority(storage::TableFactoryInterface::Ptr _tableFactory,
                       const std::string &_origin, const std::string &_contract);
 
-  PrecompiledExecResultFactory::Ptr m_precompiledExecResultFactory;
   PrecompiledGasFactory::Ptr m_precompiledGasFactory;
 };
 

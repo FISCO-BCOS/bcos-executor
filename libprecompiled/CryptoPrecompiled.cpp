@@ -62,7 +62,7 @@ PrecompiledExecResult::Ptr CryptoPrecompiled::call(
     auto funcSelector = getParamFunc(_param);
     auto paramData = getParamData(_param);
     codec::abi::ContractABICodec abi(nullptr);
-    auto callResult = m_precompiledExecResultFactory->createPrecompiledResult();
+    auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->setMemUsed(_param.size());
     if (funcSelector == name2Selector[CRYPTO_METHOD_SM3_STR])

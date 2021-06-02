@@ -35,26 +35,5 @@ struct PrecompiledExecResult
   void setExecResult(bytes const& _execResult) { m_execResult = _execResult; }
   bytes m_execResult;
 };
-
-class PrecompiledExecResultFactory
-{
-public:
-  using Ptr = std::shared_ptr<PrecompiledExecResultFactory>;
-
-  PrecompiledExecResultFactory() = default;
-  virtual ~PrecompiledExecResultFactory() {}
-  void setPrecompiledGasFactory(PrecompiledGasFactory::Ptr _precompiledGasFactory)
-  {
-    m_precompiledGasFactory = _precompiledGasFactory;
-  }
-  PrecompiledExecResult::Ptr createPrecompiledResult()
-  {
-    auto result = std::make_shared<PrecompiledExecResult>();
-    return result;
-  }
-
-private:
-  PrecompiledGasFactory::Ptr m_precompiledGasFactory;
-};
 }  // namespace precompiled
 }  // namespace bcos

@@ -72,39 +72,41 @@ struct Condition : public std::enable_shared_from_this<Condition>
 void addCondition(const std::string& key, const std::string& value,
     std::vector<CompareTriple>& _cond, Comparator _cmp);
 
-inline void getErrorCodeOut(bytes &out, int const &result){
-        bcos::codec::abi::ContractABICodec abi(nullptr);
-        if (result >= 0 && result < 128)
-        {
-            out = abi.abiIn("", u256(result));
-            return;
-        }
-        out = abi.abiIn("", s256(result));
+inline void getErrorCodeOut(bytes& out, int const& result)
+{
+
+    bcos::codec::abi::ContractABICodec abi(nullptr);
+    if (result >= 0 && result < 128)
+    {
+        out = abi.abiIn("", u256(result));
+        return;
     }
-    inline std::string getTableName(const std::string &_tableName) {
-        return USER_TABLE_PREFIX_SHORT + _tableName;
-    }
-    inline std::string getContractTableName(const std::string &_contractAddress) {
+    out = abi.abiIn("", s256(result));
+}
+inline std::string getTableName(const std::string& _tableName)
+{
 
-        return CONTRACT_TABLE_PREFIX_SHORT + _contractAddress;
-    }
+    return USER_TABLE_PREFIX_SHORT + _tableName;
+}
+inline std::string getContractTableName(const std::string& _contractAddress)
+{
 
-    void checkNameValidate(const std::string &tableName, std::vector<std::string>& keyFieldList,
-                           std::vector<std::string> &valueFieldList);
-    int checkLengthValidate(const std::string &field_value, int32_t max_length,
-                            int32_t errorCode);
+    return CONTRACT_TABLE_PREFIX_SHORT + _contractAddress;
+}
 
-    uint32_t getFuncSelector(std::string const& _functionName);
-    uint32_t getParamFunc(bytesConstRef _param);
-    uint32_t getFuncSelectorByFunctionName(std::string const &_functionName);
+void checkNameValidate(const std::string& tableName, std::vector<std::string>& keyFieldList,
+    std::vector<std::string>& valueFieldList);
+int checkLengthValidate(const std::string& field_value, int32_t max_length, int32_t errorCode);
 
-    bcos::precompiled::ContractStatus
-    getContractStatus(std::shared_ptr<bcos::executor::ExecutiveContext> _context,
-                      std::string const& _tableName);
+uint32_t getFuncSelector(std::string const& _functionName);
+uint32_t getParamFunc(bytesConstRef _param);
+uint32_t getFuncSelectorByFunctionName(std::string const& _functionName);
 
-    bytesConstRef getParamData(bytesConstRef _param);
+bcos::precompiled::ContractStatus getContractStatus(
+    std::shared_ptr<bcos::executor::ExecutiveContext> _context, std::string const& _tableName);
 
-    void sortKeyValue(std::vector<std::string>& _v);
+bytesConstRef getParamData(bytesConstRef _param);
 
+void sortKeyValue(std::vector<std::string>& _v);
 } // namespace precompiled
 } // namespace bcos

@@ -52,7 +52,7 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
     bytesConstRef data = getParamData(_param);
 
     bcos::codec::abi::ContractABICodec abi(nullptr);
-    auto callResult = m_precompiledExecResultFactory->createPrecompiledResult();
+    auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
 
     showConsensusTable(_context);

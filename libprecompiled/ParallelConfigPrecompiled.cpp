@@ -76,7 +76,7 @@ PrecompiledExecResult::Ptr ParallelConfigPrecompiled::call(
     bytesConstRef data = getParamData(_param);
 
     codec::abi::ContractABICodec abi(nullptr);
-    auto callResult = m_precompiledExecResultFactory->createPrecompiledResult();
+    auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
 
     if (func == name2Selector[PARA_CONFIG_REGISTER_METHOD_ADDR_STR_UINT])

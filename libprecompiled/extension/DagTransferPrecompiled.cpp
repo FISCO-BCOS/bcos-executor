@@ -167,7 +167,7 @@ PrecompiledExecResult::Ptr DagTransferPrecompiled::call(
     // parse function name
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
-    auto callResult = m_precompiledExecResultFactory->createPrecompiledResult();
+    auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
 
     // user_name user_balance 2 fields in table, the key of table is user_name field

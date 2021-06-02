@@ -70,7 +70,7 @@ PrecompiledExecResult::Ptr HelloWorldPrecompiled::call(
     // parse function name
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
-    auto callResult = m_precompiledExecResultFactory->createPrecompiledResult();
+    auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->setMemUsed(_param.size());
 

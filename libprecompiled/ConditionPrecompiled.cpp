@@ -69,7 +69,7 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(
 
     STORAGE_LOG(DEBUG) << "func:" << std::hex << func;
     codec::abi::ContractABICodec abi(nullptr);
-    auto callResult = m_precompiledExecResultFactory->createPrecompiledResult();
+    auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->setMemUsed(_param.size());
     assert(m_condition);

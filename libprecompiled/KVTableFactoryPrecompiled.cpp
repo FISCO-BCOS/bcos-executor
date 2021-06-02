@@ -62,7 +62,7 @@ PrecompiledExecResult::Ptr KVTableFactoryPrecompiled::call(
                            << LOG_KV("func", func);
 
     codec::abi::ContractABICodec abi(nullptr);
-    auto callResult = m_precompiledExecResultFactory->createPrecompiledResult();
+    auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->setMemUsed(_param.size());
 

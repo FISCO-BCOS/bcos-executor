@@ -48,7 +48,7 @@ PrecompiledExecResult::Ptr PaillierPrecompiled::call(
     bytesConstRef data = getParamData(_param);
 
     codec::abi::ContractABICodec abi(nullptr);
-    auto callResult = m_precompiledExecResultFactory->createPrecompiledResult();
+    auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->setMemUsed(_param.size());
     if (func == name2Selector[PAILLIER_METHOD_SET_STR])

@@ -43,14 +43,14 @@ std::string EntriesPrecompiled::toString()
 }
 PrecompiledExecResult::Ptr EntriesPrecompiled::call(
     std::shared_ptr<executor::ExecutiveContext> _context, bytesConstRef _param,
-    const std::string& _origin, const std::string& _sender, u256& _remainGas)
+    const std::string&, const std::string&, u256& _remainGas)
 {
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
 
     codec::abi::ContractABICodec abi(nullptr);
 
-    auto callResult = m_precompiledExecResultFactory->createPrecompiledResult();
+    auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->setMemUsed(_param.size());
 

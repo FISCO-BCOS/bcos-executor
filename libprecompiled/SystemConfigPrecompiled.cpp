@@ -31,10 +31,12 @@ using namespace bcos::executor;
 using namespace bcos::codec::abi;
 
 const char* const SYSCONFIG_METHOD_SET_STR = "setValueByKey(string,string)";
+const char* const SYSCONFIG_METHOD_GET_STR = "getValueByKey(string)";
 
 SystemConfigPrecompiled::SystemConfigPrecompiled()
 {
     name2Selector[SYSCONFIG_METHOD_SET_STR] = getFuncSelector(SYSCONFIG_METHOD_SET_STR);
+    name2Selector[SYSCONFIG_METHOD_GET_STR] = getFuncSelector(SYSCONFIG_METHOD_GET_STR);
 }
 
 PrecompiledExecResult::Ptr SystemConfigPrecompiled::call(
@@ -47,11 +49,11 @@ PrecompiledExecResult::Ptr SystemConfigPrecompiled::call(
 
     // FIXME: is necessary for hash impl in abi constructor?
     codec::abi::ContractABICodec abi(nullptr);
-    auto callResult = m_precompiledExecResultFactory->createPrecompiledResult();
+    auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
-    int result = 0;
     if (func == name2Selector[SYSCONFIG_METHOD_SET_STR])
     {
+        int result;
         // setValueByKey(string,string)
         std::string configKey, configValue;
         abi.abiOut(data, configKey, configValue);
@@ -73,9 +75,7 @@ PrecompiledExecResult::Ptr SystemConfigPrecompiled::call(
         auto tableFactory = _context->getTableFactory();
         auto table = tableFactory->openTable(ledger::SYS_CONFIG);
 
-        auto entries = table->getRow(configKey);
         auto entry = table->newEntry();
-        entry->setField(SYS_KEY, configKey);
         entry->setField(SYS_VALUE, configValue);
         entry->setField(SYS_CONFIG_ENABLE_BLOCK_NUMBER,
                         boost::lexical_cast<std::string>(_context->blockInfo().number + 1));
@@ -107,13 +107,47 @@ PrecompiledExecResult::Ptr SystemConfigPrecompiled::call(
             // FIXME: use unified code to return
             result = -1;
         }
+        getErrorCodeOut(callResult->mutableExecResult(), result);
+    }
+    else if (func == name2Selector[SYSCONFIG_METHOD_GET_STR])
+    {
+        std::string value;
+        protocol::BlockNumber enableNumber;
+        // setValueByKey(string,string)
+        std::string configKey, configValue;
+        abi.abiOut(data, configKey, configValue);
+        // Uniform lowercase configKey
+        boost::to_lower(configKey);
+        PRECOMPILED_LOG(DEBUG) << LOG_BADGE("SystemConfigPrecompiled")
+                               << LOG_DESC("getValueByKey func") << LOG_KV("configKey", configKey)
+                               << LOG_KV("configValue", configValue);
+
+        auto tableFactory = _context->getTableFactory();
+        auto table = tableFactory->openTable(ledger::SYS_CONFIG);
+
+        auto entry = table->getRow(configKey);
+        if (entry)
+        {
+            value = entry->getField(SYS_VALUE);
+            enableNumber = boost::lexical_cast<protocol::BlockNumber>(
+                entry->getField(SYS_CONFIG_ENABLE_BLOCK_NUMBER));
+        }
+        else
+        {
+            PRECOMPILED_LOG(ERROR)
+                    << LOG_BADGE("SystemConfigPrecompiled") << LOG_DESC("get sys config error")
+                    << LOG_KV("configKey", configKey);
+            // FIXME: use unified code to return
+            value = "";
+            enableNumber = -1;
+        }
+        callResult->setExecResult(abi.abiIn("", value, u256(enableNumber)));
     }
     else
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("SystemConfigPrecompiled")
                                << LOG_DESC("call undefined function") << LOG_KV("func", func);
     }
-    getErrorCodeOut(callResult->mutableExecResult(), result);
     gasPricer->updateMemUsed(callResult->m_execResult.size());
     _remainGas -= gasPricer->calTotalGas();
     return callResult;
