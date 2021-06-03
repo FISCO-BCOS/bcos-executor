@@ -72,24 +72,46 @@ PrecompiledExecResult::Ptr KVTableFactoryPrecompiled::call(
         m_codec->decode(data, tableName);
         tableName = precompiled::getTableName(tableName);
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("KVTableFactory") << LOG_KV("openTable", tableName);
-        Address address;
         auto table = m_memoryTableFactory->openTable(tableName);
         gasPricer->appendOperation(InterfaceOpcode::OpenTable);
-        if (table)
+        if (_context->isWasm())
         {
-            auto kvTablePrecompiled = std::make_shared<KVTablePrecompiled>();
-            kvTablePrecompiled->setTable(table);
-            address = Address(_context->registerPrecompiled(kvTablePrecompiled));
+            std::string address;
+            if (table)
+            {
+                auto kvTablePrecompiled = std::make_shared<KVTablePrecompiled>();
+                kvTablePrecompiled->setTable(table);
+                address = _context->registerPrecompiled(kvTablePrecompiled);
+            }
+            else
+            {
+                PRECOMPILED_LOG(WARNING)
+                        << LOG_BADGE("KVTableFactoryPrecompiled") << LOG_DESC("Open new table failed")
+                        << LOG_KV("table name", tableName);
+                BOOST_THROW_EXCEPTION(
+                    PrecompiledError() << errinfo_comment(tableName + " does not exist"));
+            }
+            callResult->setExecResult(m_codec->encode(address));
         }
         else
         {
-            PRECOMPILED_LOG(WARNING)
-                << LOG_BADGE("KVTableFactoryPrecompiled") << LOG_DESC("Open new table failed")
-                << LOG_KV("table name", tableName);
-            BOOST_THROW_EXCEPTION(
-                PrecompiledError() << errinfo_comment(tableName + " does not exist"));
+            Address address;
+            if (table)
+            {
+                auto kvTablePrecompiled = std::make_shared<KVTablePrecompiled>();
+                kvTablePrecompiled->setTable(table);
+                address = Address(_context->registerPrecompiled(kvTablePrecompiled));
+            }
+            else
+            {
+                PRECOMPILED_LOG(WARNING)
+                        << LOG_BADGE("KVTableFactoryPrecompiled") << LOG_DESC("Open new table failed")
+                        << LOG_KV("table name", tableName);
+                BOOST_THROW_EXCEPTION(
+                    PrecompiledError() << errinfo_comment(tableName + " does not exist"));
+            }
+            callResult->setExecResult(m_codec->encode(address));
         }
-        callResult->setExecResult(m_codec->encode(address));
     }
     else if (func == name2Selector[KV_TABLE_FACTORY_METHOD_CREATE_TABLE])
     {  // createTable(string,string,string)

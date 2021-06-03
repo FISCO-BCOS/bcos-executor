@@ -66,22 +66,62 @@ PrecompiledExecResult::Ptr TableFactoryPrecompiled::call(
         m_codec->decode(data, tableName);
         tableName = precompiled::getTableName(tableName);
 
-        Address address;
         auto table = m_memoryTableFactory->openTable(tableName);
         gasPricer->appendOperation(InterfaceOpcode::OpenTable);
-        if (table)
+        if (_context->isWasm())
         {
-            TablePrecompiled::Ptr tablePrecompiled = std::make_shared<TablePrecompiled>();
-            tablePrecompiled->setTable(table);
-            address = Address(_context->registerPrecompiled(tablePrecompiled));
+            std::string address;
+            if (table)
+            {
+                TablePrecompiled::Ptr tablePrecompiled = std::make_shared<TablePrecompiled>();
+                tablePrecompiled->setTable(table);
+                address = _context->registerPrecompiled(tablePrecompiled);
+            }
+            else
+            {
+                STORAGE_LOG(WARNING) << LOG_BADGE("TableFactoryPrecompiled")
+                                     << LOG_DESC("Open new table failed")
+                                     << LOG_KV("table name", tableName);
+            }
+            callResult->setExecResult(m_codec->encode(address));
         }
         else
         {
-            STORAGE_LOG(WARNING) << LOG_BADGE("TableFactoryPrecompiled")
-                                 << LOG_DESC("Open new table failed")
-                                 << LOG_KV("table name", tableName);
+            if (_context->isWasm())
+            {
+                std::string address;
+                if (table)
+                {
+                    TablePrecompiled::Ptr tablePrecompiled = std::make_shared<TablePrecompiled>();
+                    tablePrecompiled->setTable(table);
+                    address = _context->registerPrecompiled(tablePrecompiled);
+                }
+                else
+                {
+                    STORAGE_LOG(WARNING) << LOG_BADGE("TableFactoryPrecompiled")
+                                         << LOG_DESC("Open new table failed")
+                                         << LOG_KV("table name", tableName);
+                }
+                callResult->setExecResult(m_codec->encode(address));
+            }
+            else
+            {
+                Address address;
+                if (table)
+                {
+                    TablePrecompiled::Ptr tablePrecompiled = std::make_shared<TablePrecompiled>();
+                    tablePrecompiled->setTable(table);
+                    address = Address(_context->registerPrecompiled(tablePrecompiled));
+                }
+                else
+                {
+                    STORAGE_LOG(WARNING) << LOG_BADGE("TableFactoryPrecompiled")
+                                         << LOG_DESC("Open new table failed")
+                                         << LOG_KV("table name", tableName);
+                }
+                callResult->setExecResult(m_codec->encode(address));
+            }
         }
-        callResult->setExecResult(m_codec->encode(address));
     }
     else if (func == name2Selector[TABLE_METHOD_CRT_STR_STR])
     {  // createTable(string,string,string)

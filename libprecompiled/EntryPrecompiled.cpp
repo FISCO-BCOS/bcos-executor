@@ -122,7 +122,7 @@ PrecompiledExecResult::Ptr EntryPrecompiled::call(
         Address value;
         m_codec->decode(data, str, value);
 
-        m_entry->setField(str, *toHexString(value));
+        m_entry->setField(str, value.hex());
         gasPricer->appendOperation(InterfaceOpcode::Set);
     }
     else if (func == name2Selector[ENTRY_GETA_STR])

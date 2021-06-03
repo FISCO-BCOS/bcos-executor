@@ -76,13 +76,23 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
 
         if (!entry)
         {
-            callResult->setExecResult(m_codec->encode(false, Address()));
+            callResult->setExecResult(m_codec->encode(false));
         }
         else
         {
             auto entryPrecompiled = std::make_shared<EntryPrecompiled>();
             // CachedStorage return entry use copy from
             entryPrecompiled->setEntry(entry);
+            if (_context->isWasm())
+            {
+                std::string newAddress = _context->registerPrecompiled(entryPrecompiled);
+                callResult->setExecResult(m_codec->encode(true, newAddress));
+            }
+            else
+            {
+                Address newAddress = Address(_context->registerPrecompiled(entryPrecompiled));
+                callResult->setExecResult(m_codec->encode(true, newAddress));
+            }
             auto newAddress = Address(_context->registerPrecompiled(entryPrecompiled));
             callResult->setExecResult(m_codec->encode(true, newAddress));
         }
@@ -101,8 +111,8 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
         Address entryAddress;
         m_codec->decode(data, key, entryAddress);
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("KVTable") << LOG_KV("set", key);
-        EntryPrecompiled::Ptr entryPrecompiled =
-            std::dynamic_pointer_cast<EntryPrecompiled>(_context->getPrecompiled(entryAddress.hex()));
+        EntryPrecompiled::Ptr entryPrecompiled = std::dynamic_pointer_cast<EntryPrecompiled>(
+            _context->getPrecompiled(std::string((char*)entryAddress.data(), entryAddress.size)));
         auto entry = entryPrecompiled->getEntry();
         checkLengthValidate(
             key, USER_TABLE_KEY_VALUE_MAX_LENGTH, CODE_TABLE_KEY_VALUE_LENGTH_OVERFLOW);

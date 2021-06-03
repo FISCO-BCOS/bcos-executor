@@ -88,8 +88,9 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(
         {
             Address conditionAddress;
             m_codec->decode(data, conditionAddress);
-            conditionPrecompiled = std::dynamic_pointer_cast<ConditionPrecompiled>(
-                _context->getPrecompiled(conditionAddress.hex()));
+            conditionPrecompiled =
+                std::dynamic_pointer_cast<ConditionPrecompiled>(_context->getPrecompiled(
+                    std::string((char*)conditionAddress.data(), conditionAddress.size)));
         }
         precompiled::Condition::Ptr entryCondition = conditionPrecompiled->getCondition();
         storage::Condition::Ptr keyCondition = std::make_shared<storage::Condition>();
@@ -168,8 +169,8 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(
         {
             Address entryAddress;
             m_codec->decode(data, key, entryAddress);
-            entryPrecompiled = std::dynamic_pointer_cast<EntryPrecompiled>(
-                _context->getPrecompiled(entryAddress.hex()));
+            entryPrecompiled = std::dynamic_pointer_cast<EntryPrecompiled>(_context->getPrecompiled(
+                std::string((char*)entryAddress.data(), entryAddress.size)));
         }
         PRECOMPILED_LOG(DEBUG) << LOG_DESC("Table insert") << LOG_KV("key", key);
 
@@ -213,8 +214,16 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(
         auto conditionPrecompiled = std::make_shared<ConditionPrecompiled>();
         conditionPrecompiled->setCondition(condition);
 
-        auto newAddress = _context->registerPrecompiled(conditionPrecompiled);
-        callResult->setExecResult(m_codec->encode(newAddress));
+        if (_context->isWasm())
+        {
+            std::string newAddress = _context->registerPrecompiled(conditionPrecompiled);
+            callResult->setExecResult(m_codec->encode(newAddress));
+        }
+        else
+        {
+            Address newAddress = Address(_context->registerPrecompiled(conditionPrecompiled), FixedBytes<20>::FromBinary);
+            callResult->setExecResult(m_codec->encode(newAddress));
+        }
     }
     else if (func == name2Selector[TABLE_METHOD_NEW_ENTRY])
     {  // newEntry()
@@ -222,8 +231,16 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(
         auto entryPrecompiled = std::make_shared<EntryPrecompiled>();
         entryPrecompiled->setEntry(entry);
 
-        auto newAddress = _context->registerPrecompiled(entryPrecompiled);
-        callResult->setExecResult(m_codec->encode(newAddress));
+        if (_context->isWasm())
+        {
+            std::string newAddress = _context->registerPrecompiled(entryPrecompiled);
+            callResult->setExecResult(m_codec->encode(newAddress));
+        }
+        else
+        {
+            Address newAddress = Address(_context->registerPrecompiled(entryPrecompiled), FixedBytes<20>::FromBinary);
+            callResult->setExecResult(m_codec->encode(newAddress));
+        }
     }
     else if (func == name2Selector[TABLE_METHOD_RE_STR_ADD])
     {
@@ -249,8 +266,9 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(
         {
             Address conditionAddress;
             m_codec->decode(data, key, conditionAddress);
-            conditionPrecompiled = std::dynamic_pointer_cast<ConditionPrecompiled>(
-                _context->getPrecompiled(conditionAddress.hex()));
+            conditionPrecompiled =
+                std::dynamic_pointer_cast<ConditionPrecompiled>(_context->getPrecompiled(
+                    std::string((char*)conditionAddress.data(), conditionAddress.size)));
         }
         PRECOMPILED_LOG(DEBUG) << LOG_DESC("Table remove") << LOG_KV("key", key);
         precompiled::Condition::Ptr entryCondition = conditionPrecompiled->getCondition();
@@ -331,10 +349,11 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(
             Address entryAddress;
             Address conditionAddress;
             m_codec->decode(data, key, entryAddress, conditionAddress);
-            entryPrecompiled = std::dynamic_pointer_cast<EntryPrecompiled>(
-                _context->getPrecompiled(entryAddress.hex()));
-            conditionPrecompiled = std::dynamic_pointer_cast<ConditionPrecompiled>(
-                _context->getPrecompiled(conditionAddress.hex()));
+            entryPrecompiled = std::dynamic_pointer_cast<EntryPrecompiled>(_context->getPrecompiled(
+                std::string((char*)entryAddress.data(), entryAddress.size)));
+            conditionPrecompiled =
+                std::dynamic_pointer_cast<ConditionPrecompiled>(_context->getPrecompiled(
+                    std::string((char*)conditionAddress.data(), conditionAddress.size)));
         }
         PRECOMPILED_LOG(DEBUG) << LOG_DESC("Table update") << LOG_KV("key", key);
         auto entry = entryPrecompiled->getEntry();
