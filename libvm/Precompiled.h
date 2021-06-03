@@ -21,6 +21,7 @@
 #pragma once
 #include "bcos-framework/libutilities/Exceptions.h"
 #include "bcos-framework/interfaces/storage/TableInterface.h"
+#include "../libprecompiled/PrecompiledCodec.h"
 #include <functional>
 #include <unordered_map>
 
@@ -122,6 +123,7 @@ protected:
         const std::string& _origin, const std::string& _contract);
 
     std::shared_ptr<PrecompiledGasFactory> m_precompiledGasFactory;
+    PrecompiledCodec::Ptr m_codec;
 };
 
 }  // namespace precompiled

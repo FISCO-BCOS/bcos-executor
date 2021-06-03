@@ -22,6 +22,7 @@
 
 #include "Common.h"
 #include "../libvm/ExecutiveContext.h"
+#include "PrecompiledCodec.h"
 #include <bcos-framework/libutilities/Common.h>
 #include <bcos-framework/interfaces/storage/TableInterface.h>
 #include <bcos-framework/libcodec/abi/ContractABICodec.h>
@@ -42,6 +43,7 @@ enum class Comparator
 };
 struct CompareTriple
 {
+    using Ptr = std::shared_ptr<Comparator>;
     CompareTriple(const std::string& _left, const std::string& _right, Comparator _cmp)
         : left(_left), right(_right), cmp(_cmp){};
 
@@ -72,16 +74,16 @@ struct Condition : public std::enable_shared_from_this<Condition>
 void addCondition(const std::string& key, const std::string& value,
     std::vector<CompareTriple>& _cond, Comparator _cmp);
 
-inline void getErrorCodeOut(bytes& out, int const& result)
-{
+void transferKeyCond(CompareTriple& _entryCond,  storage::Condition::Ptr& _keyCond);
 
-    bcos::codec::abi::ContractABICodec abi(nullptr);
+inline void getErrorCodeOut(bytes& out, int const& result, const PrecompiledCodec::Ptr& _codec)
+{
     if (result >= 0 && result < 128)
     {
-        out = abi.abiIn("", u256(result));
+        out = _codec->encode(u256(result));
         return;
     }
-    out = abi.abiIn("", s256(result));
+    out = _codec->encode(s256(result));
 }
 inline std::string getTableName(const std::string& _tableName)
 {
@@ -106,6 +108,8 @@ bcos::precompiled::ContractStatus getContractStatus(
     std::shared_ptr<bcos::executor::ExecutiveContext> _context, std::string const& _tableName);
 
 bytesConstRef getParamData(bytesConstRef _param);
+
+uint64_t getEntriesCapacity(precompiled::EntriesConstPtr _entries);
 
 void sortKeyValue(std::vector<std::string>& _v);
 } // namespace precompiled

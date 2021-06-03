@@ -55,35 +55,36 @@ CryptoPrecompiled::CryptoPrecompiled()
         getFuncSelector(CRYPTO_METHOD_CURVE25519_VRF_VERIFY_STR);
 }
 
-PrecompiledExecResult::Ptr CryptoPrecompiled::call(std::shared_ptr<executor::ExecutiveContext>,
-    bytesConstRef _param, const std::string&, const std::string&, u256& _remainGas)
+PrecompiledExecResult::Ptr CryptoPrecompiled::call(
+    std::shared_ptr<executor::ExecutiveContext> _context, bytesConstRef _param, const std::string&,
+    const std::string&, u256& _remainGas)
 {
     auto funcSelector = getParamFunc(_param);
     auto paramData = getParamData(_param);
-    codec::abi::ContractABICodec abi(nullptr);
+    m_codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->setMemUsed(_param.size());
     if (funcSelector == name2Selector[CRYPTO_METHOD_SM3_STR])
     {
         bytes inputData;
-        abi.abiOut(paramData, inputData);
+        m_codec->decode(paramData, inputData);
 
         auto sm3Hash = crypto::sm3Hash(ref(inputData));
         PRECOMPILED_LOG(TRACE) << LOG_DESC("CryptoPrecompiled: sm3")
                                << LOG_KV("input", toHexString(inputData))
                                << LOG_KV("result", toHexString(sm3Hash));
-        callResult->setExecResult(abi.abiIn("", codec::toString32(sm3Hash)));
+        callResult->setExecResult(m_codec->encode(codec::toString32(sm3Hash)));
     }
     else if (funcSelector == name2Selector[CRYPTO_METHOD_KECCAK256_STR])
     {
         bytes inputData;
-        abi.abiOut(paramData, inputData);
+        m_codec->decode(paramData, inputData);
         auto keccak256Hash = crypto::keccak256Hash(ref(inputData));
         PRECOMPILED_LOG(TRACE) << LOG_DESC("CryptoPrecompiled: keccak256")
                                << LOG_KV("input", toHexString(inputData))
                                << LOG_KV("result", toHexString(keccak256Hash));
-        callResult->setExecResult(abi.abiIn("", codec::toString32(keccak256Hash)));
+        callResult->setExecResult(m_codec->encode(codec::toString32(keccak256Hash)));
     }
     else if (funcSelector == name2Selector[CRYPTO_METHOD_SM2_VERIFY_STR])
     {
@@ -98,7 +99,7 @@ PrecompiledExecResult::Ptr CryptoPrecompiled::call(std::shared_ptr<executor::Exe
         // no defined function
         PRECOMPILED_LOG(ERROR) << LOG_DESC("CryptoPrecompiled: undefined method")
                                << LOG_KV("funcSelector", std::to_string(funcSelector));
-        callResult->setExecResult(abi.abiIn("", u256(int(CODE_UNKNOW_FUNCTION_CALL))));
+        callResult->setExecResult(m_codec->encode(u256((int)CODE_UNKNOW_FUNCTION_CALL)));
     }
     gasPricer->updateMemUsed(callResult->m_execResult.size());
     _remainGas -= gasPricer->calTotalGas();
@@ -107,13 +108,11 @@ PrecompiledExecResult::Ptr CryptoPrecompiled::call(std::shared_ptr<executor::Exe
 
 void CryptoPrecompiled::sm2Verify(bytesConstRef _paramData, PrecompiledExecResult::Ptr _callResult)
 {
-    codec::abi::ContractABICodec abi(nullptr);
     try
     {
         bytes message;
         bytes sm2Sign;
-        abi.abiOut(_paramData, message, sm2Sign);
-
+        m_codec->decode(_paramData, message, sm2Sign);
         auto msgHash = HashType(asString(message));
         Address account;
         bool verifySuccess = true;
@@ -122,7 +121,7 @@ void CryptoPrecompiled::sm2Verify(bytesConstRef _paramData, PrecompiledExecResul
         {
             PRECOMPILED_LOG(DEBUG)
                 << LOG_DESC("CryptoPrecompiled: sm2Verify failed for recover public key failed");
-            _callResult->setExecResult(abi.abiIn("", false, account));
+            _callResult->setExecResult(m_codec->encode(false, account));
             return;
         }
 
@@ -131,14 +130,14 @@ void CryptoPrecompiled::sm2Verify(bytesConstRef _paramData, PrecompiledExecResul
                                << LOG_KV("verifySuccess", verifySuccess)
                                << LOG_KV("publicKey", toHexString(publicKey->data()))
                                << LOG_KV("account", account);
-        _callResult->setExecResult(abi.abiIn("", verifySuccess, account));
+        _callResult->setExecResult(m_codec->encode(verifySuccess, account));
     }
     catch (std::exception const& e)
     {
         PRECOMPILED_LOG(WARNING) << LOG_DESC("CryptoPrecompiled: sm2Verify exception")
                                  << LOG_KV("e", boost::diagnostic_information(e));
         Address emptyAccount;
-        _callResult->setExecResult(abi.abiIn("", false, emptyAccount));
+        _callResult->setExecResult(m_codec->encode(false, emptyAccount));
     }
 }
 

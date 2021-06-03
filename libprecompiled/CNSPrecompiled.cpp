@@ -22,7 +22,6 @@
 #include "PrecompiledResult.h"
 #include "Utilities.h"
 #include <json/json.h>
-#include <bcos-framework/libcodec/abi/ContractABICodec.h>
 
 using namespace bcos;
 using namespace bcos::executor;
@@ -123,7 +122,7 @@ PrecompiledExecResult::Ptr CNSPrecompiled::call(
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
 
-    bcos::codec::abi::ContractABICodec abi(nullptr);
+    m_codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
 
@@ -134,7 +133,7 @@ PrecompiledExecResult::Ptr CNSPrecompiled::call(
         // insert(name, version, address, abi), 4 fields in table, the key of table is name field
         std::string contractName, contractVersion, contractAbi;
         Address contractAddress;
-        abi.abiOut(data, contractName, contractVersion, contractAddress, contractAbi);
+        m_codec->decode(data, contractName, contractVersion, contractAddress, contractAbi);
 
         auto table = _context->getTableFactory()->openTable(SYS_CNS);
         gasPricer->appendOperation(InterfaceOpcode::OpenTable);
@@ -214,16 +213,14 @@ PrecompiledExecResult::Ptr CNSPrecompiled::call(
                 result = -1;
             }
         }
-        getErrorCodeOut(callResult->mutableExecResult(), result);
-        gasPricer->updateMemUsed(callResult->m_execResult.size());
-        _remainGas -= gasPricer->calTotalGas();
+        getErrorCodeOut(callResult->mutableExecResult(), result, m_codec);
     }
     else if (func == name2Selector[CNS_METHOD_SLT_STR])
     {
         // selectByName(string) returns(string)
         // Cursor is not considered.
         std::string contractName;
-        abi.abiOut(data, contractName);
+        m_codec->decode(data, contractName);
         auto table = _context->getTableFactory()->openTable(SYS_CNS);
         gasPricer->appendOperation(InterfaceOpcode::OpenTable);
 
@@ -253,15 +250,13 @@ PrecompiledExecResult::Ptr CNSPrecompiled::call(
         }
         Json::FastWriter fastWriter;
         std::string str = fastWriter.write(CNSInfos);
-        callResult->setExecResult(abi.abiIn("", str));
-        gasPricer->updateMemUsed(callResult->m_execResult.size());
-        _remainGas -= gasPricer->calTotalGas();
+        callResult->setExecResult(m_codec->encode(str));
     }
     else if (func == name2Selector[CNS_METHOD_SLT_STR2])
     {
         // selectByNameAndVersion(string,string) returns(string)
         std::string contractName, contractVersion;
-        abi.abiOut(data, contractName, contractVersion);
+        m_codec->decode(data, contractName, contractVersion);
         auto table = _context->getTableFactory()->openTable(SYS_CNS);
         gasPricer->appendOperation(InterfaceOpcode::OpenTable);
         Json::Value CNSInfos(Json::arrayValue);
@@ -290,14 +285,12 @@ PrecompiledExecResult::Ptr CNSPrecompiled::call(
         }
         Json::FastWriter fastWriter;
         std::string str = fastWriter.write(CNSInfos);
-        callResult->setExecResult(abi.abiIn("", str));
-        gasPricer->updateMemUsed(callResult->m_execResult.size());
-        _remainGas -= gasPricer->calTotalGas();
+        callResult->setExecResult(m_codec->encode(str));
     }
     else if (func == name2Selector[CNS_METHOD_GET_CONTRACT_ADDRESS])
     {  // getContractAddress(string,string) returns(address)
         std::string contractName, contractVersion;
-        abi.abiOut(data, contractName, contractVersion);
+        m_codec->decode(data, contractName, contractVersion);
         auto table = _context->getTableFactory()->openTable(SYS_CNS);
         gasPricer->appendOperation(InterfaceOpcode::OpenTable);
 
@@ -318,7 +311,7 @@ PrecompiledExecResult::Ptr CNSPrecompiled::call(
                 ret = Address(key);
             }
         }
-        callResult->setExecResult(abi.abiIn("", ret));
+        callResult->setExecResult(m_codec->encode(ret));
         gasPricer->updateMemUsed(callResult->m_execResult.size());
         _remainGas -= gasPricer->calTotalGas();
     }
@@ -327,6 +320,7 @@ PrecompiledExecResult::Ptr CNSPrecompiled::call(
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("CNSPrecompiled") << LOG_DESC("call undefined function")
                                << LOG_KV("func", func);
     }
-
+    gasPricer->updateMemUsed(callResult->m_execResult.size());
+    _remainGas -= gasPricer->calTotalGas();
     return callResult;
 }

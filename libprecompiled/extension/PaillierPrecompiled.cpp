@@ -21,7 +21,6 @@
 #include "PaillierPrecompiled.h"
 #include "../PrecompiledResult.h"
 #include "../Utilities.h"
-#include <bcos-framework/libcodec/abi/ContractABICodec.h>
 //#include <paillier/callpaillier.h>
 
 using namespace bcos;
@@ -36,8 +35,9 @@ PaillierPrecompiled::PaillierPrecompiled()
     name2Selector[PAILLIER_METHOD_SET_STR] = getFuncSelector(PAILLIER_METHOD_SET_STR);
 }
 
-PrecompiledExecResult::Ptr PaillierPrecompiled::call(std::shared_ptr<executor::ExecutiveContext>,
-    bytesConstRef _param, const std::string&, const std::string&, u256& _remainGas)
+PrecompiledExecResult::Ptr PaillierPrecompiled::call(
+    std::shared_ptr<executor::ExecutiveContext> _context, bytesConstRef _param, const std::string&,
+    const std::string&, u256& _remainGas)
 {
     PRECOMPILED_LOG(TRACE) << LOG_BADGE("PaillierPrecompiled") << LOG_DESC("call")
                            << LOG_KV("param", toHexString(_param));
@@ -45,8 +45,7 @@ PrecompiledExecResult::Ptr PaillierPrecompiled::call(std::shared_ptr<executor::E
     // parse function name
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
-
-    codec::abi::ContractABICodec abi(nullptr);
+    m_codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->setMemUsed(_param.size());
@@ -54,7 +53,7 @@ PrecompiledExecResult::Ptr PaillierPrecompiled::call(std::shared_ptr<executor::E
     {
         // paillierAdd(string,string)
         std::string cipher1, cipher2;
-        abi.abiOut(data, cipher1, cipher2);
+        m_codec->decode(data, cipher1, cipher2);
         std::string result;
 
         // TODO: it depends on bcos-crypto
@@ -71,13 +70,13 @@ PrecompiledExecResult::Ptr PaillierPrecompiled::call(std::shared_ptr<executor::E
         //            getErrorCodeOut(callResult->mutableExecResult(), CODE_INVALID_CIPHERS);
         //            return callResult;
         //        }
-        callResult->setExecResult(abi.abiIn("", result));
+        callResult->setExecResult(m_codec->encode(result));
     }
     else
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("PaillierPrecompiled")
                                << LOG_DESC("call undefined function") << LOG_KV("func", func);
-        getErrorCodeOut(callResult->mutableExecResult(), CODE_UNKNOW_FUNCTION_CALL);
+        getErrorCodeOut(callResult->mutableExecResult(), CODE_UNKNOW_FUNCTION_CALL, m_codec);
     }
     gasPricer->updateMemUsed(callResult->m_execResult.size());
     _remainGas -= gasPricer->calTotalGas();

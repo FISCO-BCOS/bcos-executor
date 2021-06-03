@@ -22,7 +22,6 @@
 #include "../TableFactoryPrecompiled.h"
 #include "../Utilities.h"
 #include "../PrecompiledResult.h"
-#include <bcos-framework/libcodec/abi/ContractABICodec.h>
 
 using namespace bcos;
 using namespace bcos::executor;
@@ -168,6 +167,7 @@ PrecompiledExecResult::Ptr DagTransferPrecompiled::call(
     // parse function name
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
+    m_codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
 
@@ -208,8 +208,7 @@ void DagTransferPrecompiled::userAddCall(std::shared_ptr<executor::ExecutiveCont
     // userAdd(string,uint256)
     std::string user;
     u256 amount;
-    codec::abi::ContractABICodec abi(nullptr);
-    abi.abiOut(_data, user, amount);
+    m_codec->decode(_data, user, amount);
 
     int ret;
     std::string strErrorMsg;
@@ -262,7 +261,7 @@ void DagTransferPrecompiled::userAddCall(std::shared_ptr<executor::ExecutiveCont
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("DagTransferPrecompiled") << LOG_DESC(strErrorMsg)
                                << LOG_KV("errorCode", ret);
     }
-    _out = abi.abiIn("", u256(ret));
+    _out = m_codec->encode(u256(ret));
 }
 
 void DagTransferPrecompiled::userSaveCall(std::shared_ptr<executor::ExecutiveContext> _context,
@@ -271,8 +270,7 @@ void DagTransferPrecompiled::userSaveCall(std::shared_ptr<executor::ExecutiveCon
     // userSave(string,uint256)
     std::string user;
     u256 amount;
-    codec::abi::ContractABICodec abi(nullptr);
-    abi.abiOut(_data, user, amount);
+    m_codec->decode(_data, user, amount);
 
     int ret;
     u256 balance;
@@ -364,7 +362,7 @@ void DagTransferPrecompiled::userSaveCall(std::shared_ptr<executor::ExecutiveCon
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("DagTransferPrecompiled") << LOG_DESC(strErrorMsg)
                                << LOG_KV("errorCode", ret);
     }
-    _out = abi.abiIn("", u256(ret));
+    _out = m_codec->encode(u256(ret));
 }
 
 void DagTransferPrecompiled::userDrawCall(std::shared_ptr<executor::ExecutiveContext> _context,
@@ -372,8 +370,7 @@ void DagTransferPrecompiled::userDrawCall(std::shared_ptr<executor::ExecutiveCon
 {
     std::string user;
     u256 amount;
-    codec::abi::ContractABICodec abi(nullptr);
-    abi.abiOut(_data, user, amount);
+    m_codec->decode(_data, user, amount);
 
     u256 balance;
     int ret;
@@ -443,15 +440,14 @@ void DagTransferPrecompiled::userDrawCall(std::shared_ptr<executor::ExecutiveCon
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("DagTransferPrecompiled") << LOG_DESC(strErrorMsg)
                                << LOG_KV("errorCode", ret);
     }
-    _out = abi.abiIn("", u256(ret));
+    _out = m_codec->encode(u256(ret));
 }
 
 void DagTransferPrecompiled::userBalanceCall(
     std::shared_ptr<executor::ExecutiveContext> _context, bytesConstRef _data, bytes& _out)
 {
     std::string user;
-    codec::abi::ContractABICodec abi(nullptr);
-    abi.abiOut(_data, user);
+    m_codec->decode(_data, user);
 
     u256 balance;
     int ret;
@@ -491,7 +487,7 @@ void DagTransferPrecompiled::userBalanceCall(
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("DagTransferPrecompiled") << LOG_DESC(strErrorMsg)
                                << LOG_KV("errorCode", ret);
     }
-    _out = abi.abiIn("", u256(ret), balance);
+    _out = m_codec->encode(u256(ret), balance);
 }
 
 void DagTransferPrecompiled::userTransferCall(std::shared_ptr<executor::ExecutiveContext> _context,
@@ -499,8 +495,7 @@ void DagTransferPrecompiled::userTransferCall(std::shared_ptr<executor::Executiv
 {
     std::string fromUser, toUser;
     u256 amount;
-    codec::abi::ContractABICodec abi(nullptr);
-    abi.abiOut(_data, fromUser, toUser, amount);
+    m_codec->decode(_data, fromUser, toUser, amount);
 
     u256 fromUserBalance, newFromUserBalance;
     u256 toUserBalance, newToUserBalance;
@@ -623,5 +618,5 @@ void DagTransferPrecompiled::userTransferCall(std::shared_ptr<executor::Executiv
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("DagTransferPrecompiled") << LOG_DESC(strErrorMsg)
                                << LOG_KV("errorCode", ret);
     }
-    _out = abi.abiIn("", u256(ret));
+    _out = m_codec->encode(u256(ret));
 }

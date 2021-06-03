@@ -19,6 +19,7 @@
  */
 
 #include "Utilities.h"
+#include "EntriesPrecompiled.h"
 #include "../libstate/State.h"
 #include "Common.h"
 #include <bcos-framework/interfaces/crypto/Hash.h>
@@ -346,6 +347,30 @@ void Condition::limit(size_t start, size_t end)
     m_limit = {start, end};
 }
 
+void precompiled::transferKeyCond(CompareTriple& _entryCond, storage::Condition::Ptr& _keyCond)
+{
+    switch (_entryCond.cmp)
+    {
+    case Comparator::EQ:
+        break;
+    case Comparator::NE:
+        _keyCond->NE(_entryCond.right);
+        break;
+    case Comparator::GT:
+        _keyCond->GT(_entryCond.right);
+        break;
+    case Comparator::GE:
+        _keyCond->GE(_entryCond.right);
+        break;
+    case Comparator::LT:
+        _keyCond->LT(_entryCond.right);
+        break;
+    case Comparator::LE:
+        _keyCond->LE(_entryCond.right);
+        break;
+    }
+}
+
 void precompiled::addCondition(const std::string& key, const std::string& value,
     std::vector<CompareTriple>& _cond, Comparator _cmp)
 {
@@ -361,4 +386,15 @@ void precompiled::addCondition(const std::string& key, const std::string& value,
     {
         _cond.emplace_back(CompareTriple(key, value, _cmp));
     }
+}
+
+uint64_t precompiled::getEntriesCapacity(precompiled::EntriesConstPtr _entries)
+{
+    int64_t totalCapacity = 0;
+    int64_t entriesSize = _entries->size();
+    for (int64_t i = 0; i < entriesSize; i++)
+    {
+        totalCapacity += _entries->at(i)->capacityOfHashField();
+    }
+    return totalCapacity;
 }

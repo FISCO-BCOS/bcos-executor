@@ -23,7 +23,6 @@
 #include "Utilities.h"
 #include "PrecompiledResult.h"
 #include "TablePrecompiled.h"
-#include <bcos-framework/libcodec/abi/ContractABICodec.h>
 #include <bcos-framework/interfaces/protocol/Exceptions.h>
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/classification.hpp>
@@ -56,8 +55,7 @@ PrecompiledExecResult::Ptr TableFactoryPrecompiled::call(
 {
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
-
-    codec::abi::ContractABICodec abi(nullptr);
+    m_codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->setMemUsed(_param.size());
@@ -65,7 +63,7 @@ PrecompiledExecResult::Ptr TableFactoryPrecompiled::call(
     if (func == name2Selector[TABLE_METHOD_OPT_STR])
     {  // openTable(string)
         std::string tableName;
-        abi.abiOut(data, tableName);
+        m_codec->decode(data, tableName);
         tableName = precompiled::getTableName(tableName);
 
         Address address;
@@ -83,7 +81,7 @@ PrecompiledExecResult::Ptr TableFactoryPrecompiled::call(
                                  << LOG_DESC("Open new table failed")
                                  << LOG_KV("table name", tableName);
         }
-        callResult->setExecResult(abi.abiIn("", address));
+        callResult->setExecResult(m_codec->encode(address));
     }
     else if (func == name2Selector[TABLE_METHOD_CRT_STR_STR])
     {  // createTable(string,string,string)
@@ -98,7 +96,7 @@ PrecompiledExecResult::Ptr TableFactoryPrecompiled::call(
         std::string tableName;
         std::string keyField;
         std::string valueFiled;
-        abi.abiOut(data, tableName, keyField, valueFiled);
+        m_codec->decode(data, tableName, keyField, valueFiled);
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("TableFactory") << LOG_KV("createTable", tableName)
                                << LOG_KV("keyField", keyField) << LOG_KV("valueFiled", valueFiled);
 
@@ -187,7 +185,7 @@ PrecompiledExecResult::Ptr TableFactoryPrecompiled::call(
             STORAGE_LOG(ERROR) << "Create table failed: " << boost::diagnostic_information(e);
             result = -1;
         }
-        getErrorCodeOut(callResult->mutableExecResult(), result);
+        getErrorCodeOut(callResult->mutableExecResult(), result, m_codec);
     }
     else
     {

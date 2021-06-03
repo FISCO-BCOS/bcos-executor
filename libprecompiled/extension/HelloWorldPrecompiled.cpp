@@ -19,11 +19,9 @@
  */
 
 #include "HelloWorldPrecompiled.h"
-#include "HelloWorldPrecompiled.h"
 #include "../PrecompiledResult.h"
 #include "../../libvm/ExecutiveContext.h"
 #include "../Utilities.h"
-#include <bcos-framework/libcodec/abi/ContractABICodec.h>
 
 using namespace bcos;
 using namespace bcos::executor;
@@ -71,11 +69,11 @@ PrecompiledExecResult::Ptr HelloWorldPrecompiled::call(
     // parse function name
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
+    m_codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->setMemUsed(_param.size());
 
-    codec::abi::ContractABICodec abi(nullptr);
     auto table =
         _context->getTableFactory()->openTable(precompiled::getTableName(HELLO_WORLD_TABLE_NAME));
     gasPricer->appendOperation(InterfaceOpcode::OpenTable);
@@ -90,7 +88,7 @@ PrecompiledExecResult::Ptr HelloWorldPrecompiled::call(
         {
             PRECOMPILED_LOG(ERROR) << LOG_BADGE("HelloWorldPrecompiled") << LOG_DESC("set")
                                    << LOG_DESC("open table failed.");
-            getErrorCodeOut(callResult->mutableExecResult(), CODE_NO_AUTHORIZED);
+            getErrorCodeOut(callResult->mutableExecResult(), CODE_NO_AUTHORIZED, m_codec);
             return callResult;
         }
     }
@@ -110,13 +108,13 @@ PrecompiledExecResult::Ptr HelloWorldPrecompiled::call(
             PRECOMPILED_LOG(ERROR) << LOG_BADGE("HelloWorldPrecompiled") << LOG_DESC("get")
                                    << LOG_KV("value", retValue);
         }
-        callResult->setExecResult(abi.abiIn("", retValue));
+        callResult->setExecResult(m_codec->encode(retValue));
     }
     else if (func == name2Selector[HELLO_WORLD_METHOD_SET])
     {  // set(string) function call
 
         std::string strValue;
-        abi.abiOut(data, strValue);
+        m_codec->decode(data, strValue);
         auto entry = table->getRow(HELLO_WORLD_KEY_FIELD_NAME);
         gasPricer->updateMemUsed(entry->capacityOfHashField());
         gasPricer->appendOperation(InterfaceOpcode::Select, 1);
@@ -145,13 +143,13 @@ PrecompiledExecResult::Ptr HelloWorldPrecompiled::call(
                 << LOG_KV("errorCode", commitResult.second->errorCode()) << LOG_KV("func", func);
         }
 
-        getErrorCodeOut(callResult->mutableExecResult(), count);
+        getErrorCodeOut(callResult->mutableExecResult(), count, m_codec);
     }
     else
     {  // unknown function call
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("HelloWorldPrecompiled") << LOG_DESC(" unknown function ")
                                << LOG_KV("func", func);
-        callResult->setExecResult(abi.abiIn("", u256((int)CODE_UNKNOW_FUNCTION_CALL)));
+        callResult->setExecResult(m_codec->encode(u256((int)CODE_UNKNOW_FUNCTION_CALL)));
     }
     gasPricer->updateMemUsed(callResult->m_execResult.size());
     _remainGas -= gasPricer->calTotalGas();

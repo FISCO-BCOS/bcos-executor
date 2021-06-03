@@ -49,8 +49,7 @@ PrecompiledExecResult::Ptr EntriesPrecompiled::call(
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
 
-    codec::abi::ContractABICodec abi(nullptr);
-
+    m_codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->setMemUsed(_param.size());
@@ -58,18 +57,18 @@ PrecompiledExecResult::Ptr EntriesPrecompiled::call(
     if (func == name2Selector[ENTRIES_GET_INT])
     {  // get(int256)
         u256 num;
-        abi.abiOut(data, num);
+        m_codec->decode(data, num);
 
         Entry::Ptr entry = getEntriesPtr()->at(num.convert_to<size_t>());
         EntryPrecompiled::Ptr entryPrecompiled = std::make_shared<EntryPrecompiled>();
         entryPrecompiled->setEntry(entry);
         Address address = Address(_context->registerPrecompiled(entryPrecompiled));
-        callResult->setExecResult(abi.abiIn("", address));
+        callResult->setExecResult(m_codec->encode(address));
     }
     else if (func == name2Selector[ENTRIES_SIZE])
     {  // size()
         u256 c = getEntriesConstPtr()->size();
-        callResult->setExecResult(abi.abiIn("", c));
+        callResult->setExecResult(m_codec->encode(c));
     }
     else
     {

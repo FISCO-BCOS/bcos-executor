@@ -25,7 +25,6 @@
 #include "Utilities.h"
 #include <bcos-framework/interfaces/protocol/Exceptions.h>
 #include <bcos-framework/interfaces/storage/TableInterface.h>
-#include <bcos-framework/libcodec/abi/ContractABICodec.h>
 #include <bcos-framework/interfaces/protocol/CommonError.h>
 
 using namespace bcos;
@@ -59,7 +58,7 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
     bytesConstRef data = getParamData(_param);
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("KVTable") << LOG_DESC("call") << LOG_KV("func", func);
 
-    codec::abi::ContractABICodec abi(nullptr);
+    m_codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
 
@@ -68,7 +67,7 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
     if (func == name2Selector[KV_TABLE_METHOD_GET])
     {  // get(string)
         std::string key;
-        abi.abiOut(data, key);
+        m_codec->decode(data, key);
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("KVTable") << LOG_KV("get", key);
 
         auto entry = m_table->getRow(key);
@@ -77,7 +76,7 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
 
         if (!entry)
         {
-            callResult->setExecResult(abi.abiIn("", false, Address()));
+            callResult->setExecResult(m_codec->encode(false, Address()));
         }
         else
         {
@@ -85,7 +84,7 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
             // CachedStorage return entry use copy from
             entryPrecompiled->setEntry(entry);
             auto newAddress = Address(_context->registerPrecompiled(entryPrecompiled));
-            callResult->setExecResult(abi.abiIn("", true, newAddress));
+            callResult->setExecResult(m_codec->encode(true, newAddress));
         }
     }
     else if (func == name2Selector[KV_TABLE_METHOD_SET])
@@ -100,7 +99,7 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
         }
         std::string key;
         Address entryAddress;
-        abi.abiOut(data, key, entryAddress);
+        m_codec->decode(data, key, entryAddress);
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("KVTable") << LOG_KV("set", key);
         EntryPrecompiled::Ptr entryPrecompiled =
             std::dynamic_pointer_cast<EntryPrecompiled>(_context->getPrecompiled(entryAddress.hex()));
@@ -125,7 +124,7 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
                 gasPricer->appendOperation(InterfaceOpcode::Insert, commitResult.first);
             }
         }
-        callResult->setExecResult(abi.abiIn("", s256(commitResult.first)));
+        callResult->setExecResult(m_codec->encode(s256(commitResult.first)));
     }
     else if (func == name2Selector[KV_TABLE_METHOD_NEW_ENTRY])
     {  // newEntry()
@@ -134,7 +133,7 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
         entryPrecompiled->setEntry(entry);
 
         auto newAddress = Address(_context->registerPrecompiled(entryPrecompiled));
-        callResult->setExecResult(abi.abiIn("", newAddress));
+        callResult->setExecResult(m_codec->encode(newAddress));
     }
     else
     {

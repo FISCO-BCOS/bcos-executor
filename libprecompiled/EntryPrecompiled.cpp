@@ -22,12 +22,10 @@
 #include "PrecompiledResult.h"
 #include "Utilities.h"
 #include <bcos-framework/interfaces/storage/TableInterface.h>
-#include <bcos-framework/libcodec/abi/ContractABICodec.h>
 #include <bcos-framework/libutilities/Common.h>
 
 using namespace bcos;
 using namespace bcos::precompiled;
-using namespace bcos::codec::abi;
 using namespace bcos::storage;
 
 const char* const ENTRY_GET_INT = "getInt(string)";
@@ -40,25 +38,6 @@ const char* const ENTRY_GETA_STR = "getAddress(string)";
 const char* const ENTRY_GETB_STR = "getBytes64(string)";
 const char* const ENTRY_GETB_STR32 = "getBytes32(string)";
 const char* const ENTRY_GET_STR = "getString(string)";
-
-std::string setInt(bytesConstRef _data, std::string& _key, bool _isUint = false)
-{
-    bcos::codec::abi::ContractABICodec abi(nullptr);
-    std::string value;
-    if (_isUint)
-    {
-        u256 num;
-        abi.abiOut(_data, _key, num);
-        value = boost::lexical_cast<std::string>(num);
-    }
-    else
-    {
-        s256 num;
-        abi.abiOut(_data, _key, num);
-        value = boost::lexical_cast<std::string>(num);
-    }
-    return value;
-}
 
 EntryPrecompiled::EntryPrecompiled()
 {
@@ -80,13 +59,13 @@ std::string EntryPrecompiled::toString()
 }
 
 PrecompiledExecResult::Ptr EntryPrecompiled::call(
-    std::shared_ptr<executor::ExecutiveContext>, bytesConstRef _param,
+    std::shared_ptr<executor::ExecutiveContext> _context, bytesConstRef _param,
     const std::string&, const std::string&, u256& _remainGas)
 {
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
 
-    bcos::codec::abi::ContractABICodec abi(nullptr);
+    m_codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->setMemUsed(_param.size());
@@ -94,30 +73,34 @@ PrecompiledExecResult::Ptr EntryPrecompiled::call(
     if (func == name2Selector[ENTRY_GET_INT])
     {  // getInt(string)
         std::string str;
-        abi.abiOut(data, str);
+        m_codec->decode(data, str);
         s256 num = boost::lexical_cast<s256>(m_entry->getField(str));
         gasPricer->appendOperation(InterfaceOpcode::GetInt);
-        callResult->setExecResult(abi.abiIn("", num));
+        callResult->setExecResult(m_codec->encode(num));
     }
     else if (func == name2Selector[ENTRY_GET_UINT])
     {  // getUInt(string)
         std::string str;
-        abi.abiOut(data, str);
+        m_codec->decode(data, str);
         u256 num = boost::lexical_cast<u256>(m_entry->getField(str));
         gasPricer->appendOperation(InterfaceOpcode::GetInt);
-        callResult->setExecResult(abi.abiIn("", num));
+        callResult->setExecResult(m_codec->encode(num));
     }
     else if (func == name2Selector[ENTRY_SET_STR_INT])
     {  // set(string,int256)
         std::string key;
-        std::string value(setInt(data, key));
+        s256 num;
+        m_codec->decode(data, key, num);
+        auto value = boost::lexical_cast<std::string>(num);
         m_entry->setField(key, value);
         gasPricer->appendOperation(InterfaceOpcode::Set);
     }
     else if (func == name2Selector[ENTRY_SET_STR_UINT])
     {  // set(string,uint256)
         std::string key;
-        std::string value(setInt(data, key, true));
+        u256 num;
+        m_codec->decode(key, num);
+        auto value = boost::lexical_cast<std::string>(num);
         m_entry->setField(key, value);
         gasPricer->appendOperation(InterfaceOpcode::Set);
     }
@@ -125,7 +108,7 @@ PrecompiledExecResult::Ptr EntryPrecompiled::call(
     {  // set(string,string)
         std::string str;
         std::string value;
-        abi.abiOut(data, str, value);
+        m_codec->decode(data, str, value);
 
         m_entry->setField(str, value);
         gasPricer->appendOperation(InterfaceOpcode::Set);
@@ -134,7 +117,7 @@ PrecompiledExecResult::Ptr EntryPrecompiled::call(
     {  // set(string,address)
         std::string str;
         Address value;
-        abi.abiOut(data, str, value);
+        m_codec->decode(data, str, value);
 
         m_entry->setField(str, *toHexString(value));
         gasPricer->appendOperation(InterfaceOpcode::Set);
@@ -142,17 +125,17 @@ PrecompiledExecResult::Ptr EntryPrecompiled::call(
     else if (func == name2Selector[ENTRY_GETA_STR])
     {  // getAddress(string)
         std::string str;
-        abi.abiOut(data, str);
+        m_codec->decode(data, str);
 
         std::string value = m_entry->getField(str);
         Address ret = Address(value);
-        callResult->setExecResult(abi.abiIn("", ret));
+        callResult->setExecResult(m_codec->encode(ret));
         gasPricer->appendOperation(InterfaceOpcode::GetAddr);
     }
     else if (func == name2Selector[ENTRY_GETB_STR])
     {  // getBytes64(string)
         std::string str;
-        abi.abiOut(data, str);
+        m_codec->decode(data, str);
 
         std::string value = m_entry->getField(str);
 
@@ -164,26 +147,26 @@ PrecompiledExecResult::Ptr EntryPrecompiled::call(
 
         for (unsigned i = 32; i < 64; ++i)
             ret1[i - 32] = (i < value.size() ? value[i] : 0);
-        callResult->setExecResult(abi.abiIn("", ret0, ret1));
+        callResult->setExecResult(m_codec->encode(ret0, ret1));
         gasPricer->appendOperation(InterfaceOpcode::GetByte64);
     }
     else if (func == name2Selector[ENTRY_GETB_STR32])
     {  // getBytes32(string)
         std::string str;
-        abi.abiOut(data, str);
+        m_codec->decode(data, str);
 
         std::string value = m_entry->getField(str);
         bcos::string32 s32 = bcos::codec::toString32(value);
-        callResult->setExecResult(abi.abiIn("", s32));
+        callResult->setExecResult(m_codec->encode(s32));
         gasPricer->appendOperation(InterfaceOpcode::GetByte32);
     }
     else if (func == name2Selector[ENTRY_GET_STR])
     {  // getString(string)
         std::string str;
-        abi.abiOut(data, str);
+        m_codec->decode(data, str);
 
         std::string value = m_entry->getField(str);
-        callResult->setExecResult(abi.abiIn("", value));
+        callResult->setExecResult(m_codec->encode(value));
         gasPricer->appendOperation(InterfaceOpcode::GetString);
     }
     else

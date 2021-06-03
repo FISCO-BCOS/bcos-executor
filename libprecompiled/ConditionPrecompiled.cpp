@@ -21,7 +21,6 @@
 #include "ConditionPrecompiled.h"
 #include "PrecompiledResult.h"
 #include "Utilities.h"
-#include <bcos-framework/libcodec/abi/ContractABICodec.h>
 
 using namespace bcos;
 using namespace bcos::executor;
@@ -60,15 +59,16 @@ std::string ConditionPrecompiled::toString()
     return "Condition";
 }
 
-PrecompiledExecResult::Ptr ConditionPrecompiled::call(std::shared_ptr<executor::ExecutiveContext>,
-    bytesConstRef _param, const std::string&, const std::string&, u256& _remainGas)
+PrecompiledExecResult::Ptr ConditionPrecompiled::call(
+    std::shared_ptr<executor::ExecutiveContext> _context, bytesConstRef _param,
+    const std::string&, const std::string&, u256& _remainGas)
 {
     // parse function name
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
 
     STORAGE_LOG(DEBUG) << "func:" << std::hex << func;
-    codec::abi::ContractABICodec abi(nullptr);
+    m_codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->setMemUsed(_param.size());
@@ -78,7 +78,7 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(std::shared_ptr<executor::
         // EQ(string,int256)
         std::string str;
         s256 num;
-        abi.abiOut(data, str, num);
+        m_codec->decode(data, str, num);
 
         m_condition->EQ(str, boost::lexical_cast<std::string>(num));
         gasPricer->appendOperation(InterfaceOpcode::EQ);
@@ -88,7 +88,7 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(std::shared_ptr<executor::
         // EQ(string,string)
         std::string str;
         std::string value;
-        abi.abiOut(data, str, value);
+        m_codec->decode(data, str, value);
 
         m_condition->EQ(str, value);
         gasPricer->appendOperation(InterfaceOpcode::EQ);
@@ -98,7 +98,7 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(std::shared_ptr<executor::
         // EQ(string,address)
         std::string str;
         Address value;
-        abi.abiOut(data, str, value);
+        m_codec->decode(data, str, value);
         m_condition->EQ(str, value.hex());
         gasPricer->appendOperation(InterfaceOpcode::EQ);
     }
@@ -106,7 +106,7 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(std::shared_ptr<executor::
     {  // GE(string,int256)
         std::string str;
         s256 value;
-        abi.abiOut(data, str, value);
+        m_codec->decode(data, str, value);
 
         m_condition->GE(str, boost::lexical_cast<std::string>(value));
         gasPricer->appendOperation(InterfaceOpcode::GE);
@@ -116,7 +116,7 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(std::shared_ptr<executor::
         // GT(string,int256)
         std::string str;
         s256 value;
-        abi.abiOut(data, str, value);
+        m_codec->decode(data, str, value);
 
         m_condition->GT(str, boost::lexical_cast<std::string>(value));
         gasPricer->appendOperation(InterfaceOpcode::GT);
@@ -126,7 +126,7 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(std::shared_ptr<executor::
         // LE(string,int256)
         std::string str;
         s256 value;
-        abi.abiOut(data, str, value);
+        m_codec->decode(data, str, value);
 
         m_condition->LE(str, boost::lexical_cast<std::string>(value));
         gasPricer->appendOperation(InterfaceOpcode::LE);
@@ -136,7 +136,7 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(std::shared_ptr<executor::
         // LT(string,int256)
         std::string str;
         s256 value;
-        abi.abiOut(data, str, value);
+        m_codec->decode(data, str, value);
 
         m_condition->LT(str, boost::lexical_cast<std::string>(value));
         gasPricer->appendOperation(InterfaceOpcode::LT);
@@ -145,7 +145,7 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(std::shared_ptr<executor::
     {  // NE(string,int256)
         std::string str;
         s256 num;
-        abi.abiOut(data, str, num);
+        m_codec->decode(data, str, num);
 
         m_condition->NE(str, boost::lexical_cast<std::string>(num));
         gasPricer->appendOperation(InterfaceOpcode::NE);
@@ -155,7 +155,7 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(std::shared_ptr<executor::
         // NE(string,string)
         std::string str;
         std::string value;
-        abi.abiOut(data, str, value);
+        m_codec->decode(data, str, value);
 
         m_condition->NE(str, value);
         gasPricer->appendOperation(InterfaceOpcode::NE);
@@ -163,7 +163,7 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(std::shared_ptr<executor::
     else if (func == name2Selector[CONDITION_METHOD_LIMIT_INT])
     {  // limit(int256)
         s256 num;
-        abi.abiOut(data, num);
+        m_codec->decode(data, num);
 
         m_condition->limit(num.convert_to<size_t>());
         gasPricer->appendOperation(InterfaceOpcode::Limit);
@@ -173,7 +173,7 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(std::shared_ptr<executor::
         // limit(int256,int256)
         s256 start;
         s256 end;
-        abi.abiOut(data, start, end);
+        m_codec->decode(data, start, end);
 
         m_condition->limit(start.convert_to<size_t>(), end.convert_to<size_t>());
         gasPricer->appendOperation(InterfaceOpcode::Limit);

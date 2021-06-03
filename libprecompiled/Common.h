@@ -23,12 +23,17 @@
 #include <bcos-framework/libutilities/Log.h>
 #include <bcos-framework/interfaces/protocol/Exceptions.h>
 #include <bcos-framework/interfaces/protocol/CommonError.h>
+#include <bcos-framework/interfaces/storage/Common.h>
 #include <memory>
 #include <string>
 
 namespace bcos {
 namespace precompiled {
 #define PRECOMPILED_LOG(LEVEL) LOG(LEVEL) << "[PRECOMPILED]"
+
+using EntriesConstPtr = std::shared_ptr<const std::vector<storage::Entry::Ptr>>;
+using Entries = std::vector<storage::Entry::Ptr>;
+using EntriesPtr = std::shared_ptr<std::vector<storage::Entry::Ptr>>;
 
 /// SYS_ACCESS_TABLE table
 const char* const SYS_ACCESS_TABLE = "s_table_access";
@@ -188,12 +193,6 @@ enum ContractStatus {
   AddressNonExistent,
   NotContractAddress,
   Count
-};
-
-enum CodecType
-{
-    ABI,
-    SCALE
 };
 } // namespace precompiled
 } // namespace bcos

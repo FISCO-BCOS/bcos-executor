@@ -129,6 +129,7 @@ public:
     }
     void setTxCriticalsHandler(getTxCriticalsHandler _handler) { m_getTxCriticals = _handler; }
     crypto::Hash::Ptr hashHandler() const { return m_hashImpl; }
+    bool isWasm() const{ return m_isWasm; }
 
 private:
     tbb::concurrent_unordered_map<std::string, std::shared_ptr<precompiled::Precompiled>,
@@ -136,6 +137,7 @@ private:
         m_address2Precompiled;
     std::atomic<int> m_addressCount;
     BlockInfo m_blockInfo;
+    bool m_isWasm = false;
 
     std::shared_ptr<executor::StateInterface> m_stateFace;
     std::unordered_map<std::string, PrecompiledContract> m_precompiledContract;

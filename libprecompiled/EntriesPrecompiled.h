@@ -22,6 +22,7 @@
 
 #include "../libvm/Precompiled.h"
 #include "../libvm/ExecutiveContext.h"
+#include "Common.h"
 
 namespace bcos
 {
@@ -42,9 +43,6 @@ class EntriesPrecompiled : public Precompiled
 {
 public:
     using Ptr = std::shared_ptr<EntriesPrecompiled>;
-    using EntriesConstPtr = std::shared_ptr<const std::vector<storage::Entry::Ptr>>;
-    using Entries = std::vector<storage::Entry::Ptr>;
-    using EntriesPtr = std::shared_ptr<std::vector<storage::Entry::Ptr>>;
     EntriesPrecompiled();
     virtual ~EntriesPrecompiled(){};
 

@@ -21,15 +21,12 @@
 #include "SystemConfigPrecompiled.h"
 #include "PrecompiledResult.h"
 #include "Utilities.h"
-#include <bcos-framework/libcodec/abi/ContractABIType.h>
-#include <bcos-framework/libcodec/abi/ContractABICodec.h>
 #include <bcos-framework/interfaces/ledger/LedgerTypeDef.h>
 
 using namespace bcos;
 using namespace bcos::storage;
 using namespace bcos::precompiled;
 using namespace bcos::executor;
-using namespace bcos::codec::abi;
 
 const char* const SYSCONFIG_METHOD_SET_STR = "setValueByKey(string,string)";
 const char* const SYSCONFIG_METHOD_GET_STR = "getValueByKey(string)";
@@ -48,8 +45,7 @@ PrecompiledExecResult::Ptr SystemConfigPrecompiled::call(
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
 
-    // FIXME: is necessary for hash impl in abi constructor?
-    codec::abi::ContractABICodec abi(nullptr);
+    m_codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     if (func == name2Selector[SYSCONFIG_METHOD_SET_STR])
@@ -57,7 +53,7 @@ PrecompiledExecResult::Ptr SystemConfigPrecompiled::call(
         int result;
         // setValueByKey(string,string)
         std::string configKey, configValue;
-        abi.abiOut(data, configKey, configValue);
+        m_codec->decode(data,configKey, configValue);
         // Uniform lowercase configKey
         boost::to_lower(configKey);
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("SystemConfigPrecompiled")
@@ -69,7 +65,7 @@ PrecompiledExecResult::Ptr SystemConfigPrecompiled::call(
             PRECOMPILED_LOG(DEBUG)
                     << LOG_BADGE("SystemConfigPrecompiled") << LOG_DESC("set invalid value")
                     << LOG_KV("configKey", configKey) << LOG_KV("configValue", configValue);
-            getErrorCodeOut(callResult->mutableExecResult(), CODE_INVALID_CONFIGURATION_VALUES);
+            getErrorCodeOut(callResult->mutableExecResult(), CODE_INVALID_CONFIGURATION_VALUES, m_codec);
             return callResult;
         }
 
@@ -108,7 +104,7 @@ PrecompiledExecResult::Ptr SystemConfigPrecompiled::call(
             // FIXME: use unified code to return
             result = -1;
         }
-        getErrorCodeOut(callResult->mutableExecResult(), result);
+        getErrorCodeOut(callResult->mutableExecResult(), result, m_codec);
     }
     else if (func == name2Selector[SYSCONFIG_METHOD_GET_STR])
     {
@@ -116,7 +112,7 @@ PrecompiledExecResult::Ptr SystemConfigPrecompiled::call(
         protocol::BlockNumber enableNumber;
         // setValueByKey(string,string)
         std::string configKey, configValue;
-        abi.abiOut(data, configKey, configValue);
+        m_codec->decode(data, configKey, configValue);
         // Uniform lowercase configKey
         boost::to_lower(configKey);
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("SystemConfigPrecompiled")
@@ -142,7 +138,7 @@ PrecompiledExecResult::Ptr SystemConfigPrecompiled::call(
             value = "";
             enableNumber = -1;
         }
-        callResult->setExecResult(abi.abiIn("", value, u256(enableNumber)));
+        callResult->setExecResult(m_codec->encode(value, u256(enableNumber)));
     }
     else
     {

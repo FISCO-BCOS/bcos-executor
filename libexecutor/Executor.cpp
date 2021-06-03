@@ -186,7 +186,7 @@ ExecutiveContext::Ptr Executor::parallelExecuteBlock(
                                 << LOG_KV("curTxRoot", block->blockHeader()->txsRoot().abridged())
                                 << LOG_KV("orgState", tmpHeader->stateRoot().abridged())
                                 << LOG_KV("curState", block->blockHeader()->stateRoot().abridged());
-#ifdef FISCO_DEBUG
+#if 0
             auto receipts = block->transactionReceipts();
             for (size_t i = 0; i < receipts->size(); ++i)
             {

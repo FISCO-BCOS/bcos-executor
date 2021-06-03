@@ -24,14 +24,12 @@
 #include "Common.h"
 #include <bcos-framework/interfaces/protocol/Exceptions.h>
 #include <bcos-framework/interfaces/storage/TableInterface.h>
-#include <bcos-framework/libcodec/abi/ContractABICodec.h>
 #include <bcos-framework/interfaces/protocol/CommonError.h>
 #include <boost/algorithm/string.hpp>
 
 using namespace bcos;
 using namespace bcos::storage;
 using namespace bcos::executor;
-using namespace bcos::codec::abi;
 using namespace bcos::precompiled;
 
 /*
@@ -76,7 +74,7 @@ PrecompiledExecResult::Ptr ParallelConfigPrecompiled::call(
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
 
-    codec::abi::ContractABICodec abi(nullptr);
+    m_codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
 
@@ -146,8 +144,7 @@ void ParallelConfigPrecompiled::registerParallelFunction(
     std::string functionName;
     u256 criticalSize;
 
-    codec::abi::ContractABICodec abi(nullptr);
-    abi.abiOut(_data, contractName, functionName, criticalSize);
+    m_codec->decode(_data, contractName, functionName, criticalSize);
     uint32_t selector = getFuncSelector(functionName);
 
     auto table = openTable(_context, contractName, _origin);
@@ -166,7 +163,7 @@ void ParallelConfigPrecompiled::registerParallelFunction(
                 << LOG_DESC("registerParallelFunction success")
                 << LOG_KV(PARA_SELECTOR, std::to_string(selector))
                 << LOG_KV(PARA_FUNC_NAME, functionName) << LOG_KV(PARA_CRITICAL_SIZE, criticalSize);
-            _out = abi.abiIn("", u256(0));
+            _out = m_codec->encode(u256(0));
         }
         else
         {
@@ -192,8 +189,7 @@ void ParallelConfigPrecompiled::unregisterParallelFunction(
     std::string contractAddress;
     std::string functionName;
 
-    codec::abi::ContractABICodec abi(nullptr);
-    abi.abiOut(_data, contractAddress, functionName);
+    m_codec->decode(_data, contractAddress, functionName);
     uint32_t selector = getFuncSelector(functionName);
 
     auto table = _context->getTableFactory()->openTable(contractAddress);
@@ -203,7 +199,7 @@ void ParallelConfigPrecompiled::unregisterParallelFunction(
         auto commitResult = _context->getTableFactory()->commit();
         if(!commitResult.second || commitResult.second->errorCode()==protocol::CommonError::SUCCESS)
         {
-            _out = abi.abiIn("", u256(0));
+            _out = m_codec->encode(u256(0));
             PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ParallelConfigPrecompiled")
                                    << LOG_DESC("unregisterParallelFunction success")
                                    << LOG_KV(PARA_SELECTOR, std::to_string(selector));
@@ -215,7 +211,7 @@ void ParallelConfigPrecompiled::unregisterParallelFunction(
                                    << LOG_KV("errorCode", commitResult.second->errorCode())
                                    << LOG_KV(PARA_SELECTOR, std::to_string(selector));
             // TODO: use unify code
-            _out = abi.abiIn("", u256(-1));
+            _out = m_codec->encode(u256(-1));
         }
     }
 

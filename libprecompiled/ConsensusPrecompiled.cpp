@@ -52,7 +52,7 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
 
-    bcos::codec::abi::ContractABICodec abi(nullptr);
+    m_codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
 
@@ -63,9 +63,8 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
     {
         // addSealer(string)
         std::string nodeID;
-        // TODO: check weight string
-        std::string weight;
-        abi.abiOut(data, nodeID, weight);
+        u256 weight;
+        m_codec->decode(data, nodeID, weight);
         // Uniform lowercase nodeID
         boost::to_lower(nodeID);
 
@@ -85,7 +84,7 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
             newEntry->setField(NODE_TYPE, ledger::CONSENSUS_SEALER);
             newEntry->setField(NODE_ENABLE_NUMBER,
                 boost::lexical_cast<std::string>(_context->blockInfo().number + 1));
-            newEntry->setField(NODE_WEIGHT, weight);
+            newEntry->setField(NODE_WEIGHT, boost::lexical_cast<std::string>(weight));
 
             if (_context->getTableFactory()->checkAuthority(ledger::SYS_CONSENSUS, _origin))
             {
@@ -122,9 +121,8 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
     {
         // addObserver(string)
         std::string nodeID;
-        // TODO: check weight string
-        std::string weight = "-1";
-        abi.abiOut(data, nodeID);
+        u256 weight;
+        m_codec->decode(data, nodeID, weight);
         // Uniform lowercase nodeID
         boost::to_lower(nodeID);
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("addObserver func")
@@ -144,8 +142,8 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
             newEntry->setField(NODE_TYPE, ledger::CONSENSUS_OBSERVER);
             newEntry->setField(NODE_ENABLE_NUMBER,
                 boost::lexical_cast<std::string>(_context->blockInfo().number + 1));
-            newEntry->setField(NODE_WEIGHT, weight);
-            if (_context->getTableFactory()->checkAuthority(ledger::SYS_CONSENSUS, _origin))
+            newEntry->setField(NODE_WEIGHT, boost::lexical_cast<std::string>(weight));
+            if(_context->getTableFactory()->checkAuthority(ledger::SYS_CONSENSUS, _origin))
             {
                 if (checkIsLastSealer(table, nodeID))
                 {
@@ -191,7 +189,7 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
     {
         // remove(string)
         std::string nodeID;
-        abi.abiOut(data, nodeID);
+        m_codec->decode(data, nodeID);
         // Uniform lowercase nodeID
         boost::to_lower(nodeID);
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("remove func")
@@ -252,7 +250,7 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("ConsensusPrecompiled")
                                << LOG_DESC("call undefined function") << LOG_KV("func", func);
     }
-    getErrorCodeOut(callResult->mutableExecResult(), result);
+    getErrorCodeOut(callResult->mutableExecResult(), result, m_codec);
     gasPricer->updateMemUsed(callResult->m_execResult.size());
     _remainGas -= gasPricer->calTotalGas();
     return callResult;

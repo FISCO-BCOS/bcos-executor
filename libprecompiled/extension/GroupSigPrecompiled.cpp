@@ -21,7 +21,6 @@
 #include "GroupSigPrecompiled.h"
 #include "../PrecompiledResult.h"
 #include "../Utilities.h"
-#include <bcos-framework/libcodec/abi/ContractABICodec.h>
 //#include <group_sig/algorithm/GroupSig.h>
 
 using namespace bcos;
@@ -35,7 +34,7 @@ GroupSigPrecompiled::GroupSigPrecompiled()
     name2Selector[GroupSig_METHOD_SET_STR] = getFuncSelector(GroupSig_METHOD_SET_STR);
 }
 
-PrecompiledExecResult::Ptr GroupSigPrecompiled::call(std::shared_ptr<executor::ExecutiveContext>,
+PrecompiledExecResult::Ptr GroupSigPrecompiled::call(std::shared_ptr<executor::ExecutiveContext> _context,
     bytesConstRef _param, const std::string&, const std::string&, u256& _remainGas)
 {
     PRECOMPILED_LOG(TRACE) << LOG_BADGE("GroupSigPrecompiled") << LOG_DESC("call")
@@ -45,7 +44,7 @@ PrecompiledExecResult::Ptr GroupSigPrecompiled::call(std::shared_ptr<executor::E
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
 
-    codec::abi::ContractABICodec abi(nullptr);
+    m_codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->setMemUsed(_param.size());
@@ -54,7 +53,7 @@ PrecompiledExecResult::Ptr GroupSigPrecompiled::call(std::shared_ptr<executor::E
     {
         // groupSigVerify(string)
         std::string signature, message, gpkInfo, paramInfo;
-        abi.abiOut(data, signature, message, gpkInfo, paramInfo);
+        m_codec->decode(data, signature, message, gpkInfo, paramInfo);
         bool result = false;
 
         // TODO: it depends on bcos-crypto
@@ -71,13 +70,13 @@ PrecompiledExecResult::Ptr GroupSigPrecompiled::call(std::shared_ptr<executor::E
 //            getErrorCodeOut(callResult->mutableExecResult(), VERIFY_GROUP_SIG_FAILED);
 //            return callResult;
 //        }
-        callResult->setExecResult(abi.abiIn("", result));
+        callResult->setExecResult(m_codec->encode(result));
     }
     else
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("GroupSigPrecompiled")
                                << LOG_DESC("call undefined function") << LOG_KV("func", func);
-        getErrorCodeOut(callResult->mutableExecResult(), CODE_UNKNOW_FUNCTION_CALL);
+        getErrorCodeOut(callResult->mutableExecResult(), CODE_UNKNOW_FUNCTION_CALL, m_codec);
     }
     gasPricer->updateMemUsed(callResult->m_execResult.size());
     _remainGas -= gasPricer->calTotalGas();

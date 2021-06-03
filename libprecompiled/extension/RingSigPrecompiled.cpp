@@ -22,7 +22,6 @@
 #include "../PrecompiledResult.h"
 #include "../Utilities.h"
 //#include <group_sig/algorithm/RingSig.h>
-#include <bcos-framework/libcodec/abi/ContractABICodec.h>
 
 using namespace bcos;
 using namespace bcos::executor;
@@ -35,8 +34,9 @@ RingSigPrecompiled::RingSigPrecompiled()
     name2Selector[RingSig_METHOD_SET_STR] = getFuncSelector(RingSig_METHOD_SET_STR);
 }
 
-PrecompiledExecResult::Ptr RingSigPrecompiled::call(std::shared_ptr<executor::ExecutiveContext>,
-    bytesConstRef _param, const std::string&, const std::string&, u256& _remainGas)
+PrecompiledExecResult::Ptr RingSigPrecompiled::call(
+    std::shared_ptr<executor::ExecutiveContext> _context, bytesConstRef _param, const std::string&,
+    const std::string&, u256& _remainGas)
 {
     PRECOMPILED_LOG(TRACE) << LOG_BADGE("RingSigPrecompiled") << LOG_DESC("call")
                            << LOG_KV("param", toHexString(_param));
@@ -45,7 +45,7 @@ PrecompiledExecResult::Ptr RingSigPrecompiled::call(std::shared_ptr<executor::Ex
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
 
-    codec::abi::ContractABICodec abi(nullptr);
+    m_codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->setMemUsed(_param.size());
@@ -54,7 +54,7 @@ PrecompiledExecResult::Ptr RingSigPrecompiled::call(std::shared_ptr<executor::Ex
     {
         // ringSigVerify(string,string,string)
         std::string signature, message, paramInfo;
-        abi.abiOut(data, signature, message, paramInfo);
+        m_codec->decode(data, signature, message, paramInfo);
         bool result = false;
 
         // TODO: it depends on bcos-crypto
@@ -74,13 +74,13 @@ PrecompiledExecResult::Ptr RingSigPrecompiled::call(std::shared_ptr<executor::Ex
         //            getErrorCodeOut(callResult->mutableExecResult(), VERIFY_RING_SIG_FAILED);
         //            return callResult;
         //        }
-        callResult->setExecResult(abi.abiIn("", result));
+        callResult->setExecResult(m_codec->encode(result));
     }
     else
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("RingSigPrecompiled")
                                << LOG_DESC("call undefined function") << LOG_KV("func", func);
-        getErrorCodeOut(callResult->mutableExecResult(), CODE_UNKNOW_FUNCTION_CALL);
+        getErrorCodeOut(callResult->mutableExecResult(), CODE_UNKNOW_FUNCTION_CALL, m_codec);
     }
     gasPricer->updateMemUsed(callResult->m_execResult.size());
     _remainGas -= gasPricer->calTotalGas();
