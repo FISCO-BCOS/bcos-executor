@@ -124,7 +124,8 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
                 gasPricer->appendOperation(InterfaceOpcode::Insert, commitResult.first);
             }
         }
-        callResult->setExecResult(m_codec->encode(s256(commitResult.first)));
+        // FIXME: use s256 when scale support
+        callResult->setExecResult(m_codec->encode(u256(commitResult.first)));
     }
     else if (func == name2Selector[KV_TABLE_METHOD_NEW_ENTRY])
     {  // newEntry()

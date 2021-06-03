@@ -71,10 +71,12 @@ PrecompiledExecResult::Ptr EntryPrecompiled::call(
     gasPricer->setMemUsed(_param.size());
 
     if (func == name2Selector[ENTRY_GET_INT])
-    {  // getInt(string)
+    {
+        // getInt(string)
         std::string str;
         m_codec->decode(data, str);
-        s256 num = boost::lexical_cast<s256>(m_entry->getField(str));
+        // FIXME: use s256 when scale support
+        u256 num = boost::lexical_cast<u256>(m_entry->getField(str));
         gasPricer->appendOperation(InterfaceOpcode::GetInt);
         callResult->setExecResult(m_codec->encode(num));
     }
@@ -89,7 +91,8 @@ PrecompiledExecResult::Ptr EntryPrecompiled::call(
     else if (func == name2Selector[ENTRY_SET_STR_INT])
     {  // set(string,int256)
         std::string key;
-        s256 num;
+        // FIXME: use s256 when scale support
+        u256 num;
         m_codec->decode(data, key, num);
         auto value = boost::lexical_cast<std::string>(num);
         m_entry->setField(key, value);
