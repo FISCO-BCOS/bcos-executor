@@ -46,7 +46,7 @@ using errinfo_evmcStatusCode = boost::error_info<struct tag_evmcStatusCode, evmc
 
 u256 Executive::gasUsed() const
 {
-    return m_envInfo.Context()->txGasLimit() - m_remainGas;
+    return m_envInfo->txGasLimit() - m_remainGas;
 }
 
 void Executive::accrueSubState(SubState& _parentContext)
@@ -60,16 +60,16 @@ void Executive::initialize(Transaction::ConstPtr _transaction)
     m_t = _transaction;
 
     m_baseGasRequired = (m_t->type() == protocol::TransactionType::ContractCreation) ?
-                            m_envInfo.evmSchedule().txCreateGas :
-                            m_envInfo.evmSchedule().txGas;
+                            m_envInfo->evmSchedule().txCreateGas :
+                            m_envInfo->evmSchedule().txGas;
     // Calculate the cost of input data.
     // No risk of overflow by using int64 until txDataNonZeroGas is quite small
     // (the value not in billions).
     for (auto i : m_t->input())
         m_baseGasRequired +=
-            i ? m_envInfo.evmSchedule().txDataNonZeroGas : m_envInfo.evmSchedule().txDataZeroGas;
+            i ? m_envInfo->evmSchedule().txDataNonZeroGas : m_envInfo->evmSchedule().txDataZeroGas;
 
-    uint64_t txGasLimit = m_envInfo.Context()->txGasLimit();
+    uint64_t txGasLimit = m_envInfo->txGasLimit();
     // The gas limit is dynamic, not fixed.
     // Pre calculate the gas needed for execution
     if (m_baseGasRequired > (bigint)txGasLimit)
@@ -86,7 +86,7 @@ void Executive::initialize(Transaction::ConstPtr _transaction)
 
 bool Executive::execute()
 {
-    uint64_t txGasLimit = m_envInfo.Context()->txGasLimit();
+    uint64_t txGasLimit = m_envInfo->txGasLimit();
 
     if (txGasLimit < (u256)m_baseGasRequired)
     {
@@ -155,9 +155,9 @@ bool Executive::call(CallParameters const& _p, const std::string& _origin)
         return !m_context;
     }
 
-    if (m_envInfo.Context() && m_envInfo.Context()->isEthereumPrecompiled(_p.codeAddress))
+    if (m_envInfo && m_envInfo->isEthereumPrecompiled(_p.codeAddress))
     {
-        auto gas = m_envInfo.Context()->costOfPrecompiled(_p.codeAddress, _p.data);
+        auto gas = m_envInfo->costOfPrecompiled(_p.codeAddress, _p.data);
         if (m_remainGas < gas)
         {
             m_excepted = TransactionStatus::OutOfGas;
@@ -171,7 +171,7 @@ bool Executive::call(CallParameters const& _p, const std::string& _origin)
         bytes output;
         bool success;
         tie(success, output) =
-            m_envInfo.Context()->executeOriginPrecompiled(_p.codeAddress, _p.data);
+            m_envInfo->executeOriginPrecompiled(_p.codeAddress, _p.data);
         size_t outputSize = output.size();
         m_output = owning_bytes_ref{std::move(output), 0, outputSize};
         if (!success)
@@ -181,11 +181,11 @@ bool Executive::call(CallParameters const& _p, const std::string& _origin)
             return true;  // true means no need to run go().
         }
     }
-    else if (m_envInfo.Context() && m_envInfo.Context()->isPrecompiled(_p.codeAddress))
+    else if (m_envInfo && m_envInfo->isPrecompiled(_p.codeAddress))
     {
         try
         {
-            auto callResult = m_envInfo.Context()->call(
+            auto callResult = m_envInfo->call(
                 _p.codeAddress, _p.data, _origin, _p.senderAddress, m_remainGas);
             // TODO: calculate gas for the precompiled contract
             // updateGas(callResult);
@@ -223,7 +223,7 @@ bool Executive::call(CallParameters const& _p, const std::string& _origin)
     {
         auto c = m_s->code(_p.codeAddress);
         h256 codeHash = m_s->codeHash(_p.codeAddress);
-        m_context = make_shared<HostContext>(m_s, m_envInfo, _p.receiveAddress, _p.senderAddress,
+        m_context = make_shared<HostContext>(m_envInfo, _p.receiveAddress, _p.senderAddress,
             _origin, _p.data, c, codeHash, m_depth, false, _p.staticCall);
     }
     else
@@ -266,7 +266,7 @@ bool Executive::executeCreate(const std::string_view& _sender, u256 const& _gas,
     bytesConstRef _init, const std::string_view& _origin, bytesConstRef constructorParams)
 {
     // check authority for deploy contract
-    auto tableFactory = m_envInfo.Context()->getTableFactory();
+    auto tableFactory = m_envInfo->getTableFactory();
     if (!tableFactory->checkAuthority(SYS_TABLE, string(_origin)))
     {
         EXECUTIVE_LOG(WARNING) << "Executive deploy contract checkAuthority of " << _origin
@@ -339,7 +339,7 @@ bool Executive::executeCreate(const std::string_view& _sender, u256 const& _gas,
                 return !m_context;
             }
         }
-        m_context = make_shared<HostContext>(m_s, m_envInfo, m_newAddress, _sender, _origin,
+        m_context = make_shared<HostContext>(m_envInfo, m_newAddress, _sender, _origin,
             constructorParams, code, m_hashImpl->hash(_init), m_depth, true, false);
     }
     return !m_context;
@@ -420,12 +420,12 @@ bool Executive::go()
             auto getEVMCMessage = [=]() -> shared_ptr<evmc_message> {
                 // the block number will be larger than 0,
                 // can be controlled by the programmers
-                assert(m_context->envInfo().number() >= 0);
+                assert(m_context->envInfo()->currentNumber() >= 0);
                 constexpr int64_t int64max = std::numeric_limits<int64_t>::max();
-                if (m_remainGas > int64max || m_context->envInfo().gasLimit() > int64max)
+                if (m_remainGas > int64max || m_context->envInfo()->gasLimit() > int64max)
                 {
                     EXECUTIVE_LOG(ERROR) << LOG_DESC("Gas overflow") << LOG_KV("gas", m_remainGas)
-                                         << LOG_KV("gasLimit", m_context->envInfo().gasLimit())
+                                         << LOG_KV("gasLimit", m_context->envInfo()->gasLimit())
                                          << LOG_KV("max gas/gasLimit", int64max);
                     BOOST_THROW_EXCEPTION(GasOverflow());
                 }

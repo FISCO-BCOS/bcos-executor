@@ -56,19 +56,20 @@ struct PrecompiledExecResult;
 }  // namespace precompiled
 namespace executor
 {
-struct BlockInfo
-{
-    crypto::HashType hash;
-    protocol::BlockNumber number;
-    crypto::HashType stateRoot;
-};
+typedef std::function<crypto::HashType(int64_t x)> CallBackFunction;
 class ExecutiveContext : public std::enable_shared_from_this<ExecutiveContext>
 {
 public:
     typedef std::shared_ptr<ExecutiveContext> Ptr;
-    ExecutiveContext(
-        std::shared_ptr<storage::TableFactoryInterface> _tableFactory, crypto::Hash::Ptr _hashImpl)
-      : m_addressCount(0x10000), m_tableFactory(_tableFactory), m_hashImpl(_hashImpl)
+
+    ExecutiveContext(std::shared_ptr<storage::TableFactoryInterface> _tableFactory,
+        crypto::Hash::Ptr _hashImpl, protocol::BlockHeader::Ptr const& _current,
+        CallBackFunction _callback)
+      : m_addressCount(0x10000),
+        m_currentHeader(_current),
+        m_numberHash(_callback),
+        m_tableFactory(_tableFactory),
+        m_hashImpl(_hashImpl)
     {}
     using getTxCriticalsHandler = std::function<std::shared_ptr<std::vector<std::string>>(
         const protocol::Transaction::ConstPtr& _tx)>;
@@ -80,22 +81,18 @@ public:
         }
     };
 
-    virtual std::shared_ptr<precompiled::PrecompiledExecResult> call(
-        const std::string& address, bytesConstRef param, const std::string& origin,
-        const std::string& sender, u256& _remainGas);
+    virtual std::shared_ptr<precompiled::PrecompiledExecResult> call(const std::string& address,
+        bytesConstRef param, const std::string& origin, const std::string& sender,
+        u256& _remainGas);
 
     virtual std::string registerPrecompiled(std::shared_ptr<precompiled::Precompiled> p);
 
     virtual bool isPrecompiled(const std::string& _address) const;
 
-    std::shared_ptr<precompiled::Precompiled> getPrecompiled(
-        const std::string& _address) const;
+    std::shared_ptr<precompiled::Precompiled> getPrecompiled(const std::string& _address) const;
 
     void setAddress2Precompiled(
         const std::string& _address, std::shared_ptr<precompiled::Precompiled> precompiled);
-
-    BlockInfo const& blockInfo() { return m_blockInfo; }
-    void setBlockInfo(BlockInfo blockInfo) { m_blockInfo = blockInfo; }
 
     std::shared_ptr<executor::StateInterface> getState();
     void setState(std::shared_ptr<executor::StateInterface> state);
@@ -112,68 +109,26 @@ public:
 
     void commit();
 
-    void setMemoryTableFactory(std::shared_ptr<storage::TableFactoryInterface> tableFactory)
-    {
-        m_tableFactory = tableFactory;
-    }
-
     std::shared_ptr<storage::TableFactoryInterface> getTableFactory() { return m_tableFactory; }
 
     uint64_t txGasLimit() const { return m_txGasLimit; }
     void setTxGasLimit(uint64_t _txGasLimit) { m_txGasLimit = _txGasLimit; }
 
     // Get transaction criticals, return nullptr if critical to all
-    std::shared_ptr<std::vector<std::string>> getTxCriticals(const protocol::Transaction::ConstPtr& _tx)
+    std::shared_ptr<std::vector<std::string>> getTxCriticals(
+        const protocol::Transaction::ConstPtr& _tx)
     {
         return m_getTxCriticals(_tx);
     }
     void setTxCriticalsHandler(getTxCriticalsHandler _handler) { m_getTxCriticals = _handler; }
     crypto::Hash::Ptr hashHandler() const { return m_hashImpl; }
-    bool isWasm() const{ return m_isWasm; }
-
-private:
-    tbb::concurrent_unordered_map<std::string, std::shared_ptr<precompiled::Precompiled>,
-        std::hash<std::string>>
-        m_address2Precompiled;
-    std::atomic<int> m_addressCount;
-    BlockInfo m_blockInfo;
-    bool m_isWasm = false;
-
-    std::shared_ptr<executor::StateInterface> m_stateFace;
-    std::unordered_map<std::string, PrecompiledContract> m_precompiledContract;
-    uint64_t m_txGasLimit = 300000000;
-    getTxCriticalsHandler m_getTxCriticals = nullptr;
-    std::shared_ptr<storage::TableFactoryInterface> m_tableFactory;
-    crypto::Hash::Ptr m_hashImpl;
-};
-
-/// the information related to the EVM
-class EnvInfo
-{
-public:
-    typedef std::function<crypto::HashType(int64_t x)> CallBackFunction;
-
-    // Constructor with custom gasLimit - used in some synthetic scenarios like eth_estimateGas RPC
-    // method
-    EnvInfo(protocol::BlockHeader::Ptr const& _current, CallBackFunction _callback,
-        u256 const& _gasLimit)
-      : EnvInfo(_current, _callback)
-    {
-        m_gasLimit = _gasLimit;
-    }
-
-    EnvInfo(protocol::BlockHeader::Ptr const& _current, CallBackFunction _callback)
-      : m_headerInfo(_current), m_numberHash(_callback)
-    {}
-
-    /// @return block header
-    protocol::BlockHeader::Ptr const& header() const { return m_headerInfo; }
-
+    bool isSMCrypto() const { return useSMCrypto; }
+    bool isWasm() const { return m_isWasm; }
     /// @return block number
-    int64_t number() const { return m_headerInfo->number(); }
+    int64_t currentNumber() const { return m_currentHeader->number(); }
 
     /// @return timestamp
-    uint64_t timestamp() const { return m_headerInfo->timestamp(); }
+    uint64_t timestamp() const { return m_currentHeader->timestamp(); }
 
     /// @return gasLimit of the block header
     u256 const& gasLimit() const { return m_gasLimit; }
@@ -182,23 +137,25 @@ public:
 
     EVMSchedule const& evmSchedule() const { return *m_schedule; }
 
-    std::shared_ptr<executor::ExecutiveContext> Context() const { return m_executiveContext; }
-
-    void setContext(std::shared_ptr<executor::ExecutiveContext> _executiveContext)
-    {
-        m_executiveContext = _executiveContext;
-    }
-    bool isSMCrypto() const { return useSMCrypto; }
-    crypto::Hash::Ptr hashHandler() const { return m_executiveContext->hashHandler(); }
-
 private:
-    protocol::BlockHeader::Ptr m_headerInfo;
+    tbb::concurrent_unordered_map<std::string, std::shared_ptr<precompiled::Precompiled>,
+        std::hash<std::string>>
+        m_address2Precompiled;
+    std::atomic<int> m_addressCount;
+    protocol::BlockHeader::Ptr m_currentHeader;
     CallBackFunction m_numberHash;
     std::shared_ptr<const EVMSchedule> m_schedule = nullptr;
     u256 m_gasLimit;
-    std::shared_ptr<executor::ExecutiveContext> m_executiveContext;
     bool useSMCrypto = false;
+    bool m_isWasm = false;
+    std::shared_ptr<executor::StateInterface> m_stateFace;
+    std::unordered_map<std::string, PrecompiledContract> m_precompiledContract;
+    uint64_t m_txGasLimit = 300000000;
+    getTxCriticalsHandler m_getTxCriticals = nullptr;
+    std::shared_ptr<storage::TableFactoryInterface> m_tableFactory;
+    crypto::Hash::Ptr m_hashImpl;
 };
+
 }  // namespace executor
 
 }  // namespace bcos

@@ -44,7 +44,7 @@ class HostContext : public evmc_host_context
 {
 public:
     /// Full constructor.
-    HostContext(std::shared_ptr<executor::StateInterface> _s, executor::EnvInfo const& _envInfo,
+    HostContext(const std::shared_ptr<ExecutiveContext>& _envInfo,
         const std::string_view& _myAddress, const std::string_view& _caller,
         const std::string_view& _origin, bytesConstRef _data, const std::shared_ptr<bytes>& _code, h256 const& _codeHash,
         unsigned _depth, bool _isCreate, bool _staticCall);
@@ -109,7 +109,7 @@ public:
     virtual void suicide(const std::string_view& _a);
 
     /// Return the EVM gas-price schedule for this execution context.
-    virtual EVMSchedule const& evmSchedule() const { return m_envInfo.evmSchedule(); }
+    virtual EVMSchedule const& evmSchedule() const { return m_envInfo->evmSchedule(); }
 
     virtual std::shared_ptr<executor::StateInterface> const& state() const { return m_s; }
 
@@ -119,7 +119,7 @@ public:
     virtual bool isPermitted();
 
     /// Get the execution environment information.
-    virtual EnvInfo const& envInfo() const { return m_envInfo; }
+    virtual std::shared_ptr<ExecutiveContext> const& envInfo() const { return m_envInfo; }
 
     /// Revert any changes made (by any of the other calls).
     virtual void log(h256s&& _topics, bytesConstRef _data)
@@ -149,7 +149,7 @@ private:
         uint64_t _assetID, const std::string& _uri);
 
 protected:
-    EnvInfo const& m_envInfo;
+    std::shared_ptr<ExecutiveContext> m_envInfo;
 
 private:
     std::string m_myAddress;    ///< address associated with executing code (a contract, or

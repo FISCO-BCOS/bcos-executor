@@ -82,8 +82,8 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
 
             auto newEntry = table->newEntry();
             newEntry->setField(NODE_TYPE, ledger::CONSENSUS_SEALER);
-            newEntry->setField(NODE_ENABLE_NUMBER,
-                boost::lexical_cast<std::string>(_context->blockInfo().number + 1));
+            newEntry->setField(
+                NODE_ENABLE_NUMBER, boost::lexical_cast<std::string>(_context->currentNumber()));
             newEntry->setField(NODE_WEIGHT, boost::lexical_cast<std::string>(weight));
 
             if (_context->getTableFactory()->checkAuthority(ledger::SYS_CONSENSUS, _origin))
@@ -140,10 +140,10 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
 
             auto newEntry = table->newEntry();
             newEntry->setField(NODE_TYPE, ledger::CONSENSUS_OBSERVER);
-            newEntry->setField(NODE_ENABLE_NUMBER,
-                boost::lexical_cast<std::string>(_context->blockInfo().number + 1));
+            newEntry->setField(
+                NODE_ENABLE_NUMBER, boost::lexical_cast<std::string>(_context->currentNumber()));
             newEntry->setField(NODE_WEIGHT, boost::lexical_cast<std::string>(weight));
-            if(_context->getTableFactory()->checkAuthority(ledger::SYS_CONSENSUS, _origin))
+            if (_context->getTableFactory()->checkAuthority(ledger::SYS_CONSENSUS, _origin))
             {
                 if (checkIsLastSealer(table, nodeID))
                 {

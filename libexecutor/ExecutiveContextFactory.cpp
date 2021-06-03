@@ -47,11 +47,13 @@ using namespace bcos::storage;
 using namespace bcos::executor;
 using namespace bcos::precompiled;
 
-ExecutiveContext::Ptr ExecutiveContextFactory::createExecutiveContext(BlockInfo blockInfo)
+ExecutiveContext::Ptr ExecutiveContextFactory::createExecutiveContext(
+    const protocol::BlockHeader::Ptr& currentHeader, const CallBackFunction& _pNumberHash)
 {
     auto tableFactory =
-        std::make_shared<TableFactory>(m_stateStorage, m_hashImpl, blockInfo.number);
-    ExecutiveContext::Ptr context = make_shared<ExecutiveContext>(tableFactory, m_hashImpl);
+        std::make_shared<TableFactory>(m_stateStorage, m_hashImpl, currentHeader->number());
+    ExecutiveContext::Ptr context =
+        make_shared<ExecutiveContext>(tableFactory, m_hashImpl, currentHeader, _pNumberHash);
     auto tableFactoryPrecompiled = std::make_shared<precompiled::TableFactoryPrecompiled>();
     tableFactoryPrecompiled->setMemoryTableFactory(tableFactory);
     context->setAddress2Precompiled(
@@ -77,8 +79,6 @@ ExecutiveContext::Ptr ExecutiveContextFactory::createExecutiveContext(BlockInfo 
 
     // register User developed Precompiled contract
     registerUserPrecompiled(context);
-    context->setMemoryTableFactory(tableFactory);
-    context->setBlockInfo(blockInfo);
     context->setPrecompiledContract(m_precompiledContract);
     auto state = make_shared<State>(tableFactory, m_hashImpl);
     context->setState(state);

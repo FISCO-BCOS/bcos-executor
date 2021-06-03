@@ -75,7 +75,7 @@ PrecompiledExecResult::Ptr SystemConfigPrecompiled::call(
         auto entry = table->newEntry();
         entry->setField(SYS_VALUE, configValue);
         entry->setField(SYS_CONFIG_ENABLE_BLOCK_NUMBER,
-                        boost::lexical_cast<std::string>(_context->blockInfo().number + 1));
+                        boost::lexical_cast<std::string>(_context->currentNumber()));
         if (tableFactory->checkAuthority(ledger::SYS_CONFIG, _origin))
         {
             table->setRow(configKey, entry);

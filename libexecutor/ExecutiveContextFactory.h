@@ -64,7 +64,7 @@ public:
     };
     virtual ~ExecutiveContextFactory(){};
 
-    virtual std::shared_ptr<ExecutiveContext> createExecutiveContext(BlockInfo blockInfo);
+    virtual std::shared_ptr<ExecutiveContext> createExecutiveContext(const protocol::BlockHeader::Ptr& blockInfo, const CallBackFunction& _pNumberHash);
 
     virtual void setStateStorage(storage::StorageInterface::Ptr stateStorage);
 

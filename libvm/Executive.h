@@ -76,11 +76,10 @@ class Executive
 public:
     using Ptr = std::shared_ptr<Executive>;
     /// Simple constructor; executive will operate on given state, with the given environment info.
-    Executive(
-        std::shared_ptr<StateInterface> _s, executor::EnvInfo const& _envInfo, unsigned _level = 0)
-      : m_s(_s),
+    Executive(const std::shared_ptr<ExecutiveContext> & _envInfo, unsigned _level = 0)
+      : m_s(_envInfo->getState()),
         m_envInfo(_envInfo),
-        m_hashImpl(_envInfo.hashHandler()),
+        m_hashImpl(_envInfo->hashHandler()),
         m_depth(_level),
         m_gasInjector(std::make_shared<wasm::GasInjector>(wasm::GetInstructionTable()))
     {}
@@ -175,8 +174,7 @@ private:
 
     std::shared_ptr<StateInterface> m_s;  ///< The state to which this operation/transaction is
                                           ///< applied.
-    // TODO: consider changign to EnvInfo const& to avoid LastHashes copy at every CALL/CREATE
-    executor::EnvInfo m_envInfo;  ///< Information on the runtime environment.
+    std::shared_ptr<ExecutiveContext>  m_envInfo;  ///< Information on the runtime environment.
     crypto::Hash::Ptr m_hashImpl;
     std::shared_ptr<HostContext> m_context;  ///< The VM externality object for the VM execution
                                              ///< or null if no VM is required. shared_ptr used

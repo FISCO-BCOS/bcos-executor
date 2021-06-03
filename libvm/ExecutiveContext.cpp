@@ -74,7 +74,6 @@ string ExecutiveContext::registerPrecompiled(std::shared_ptr<precompiled::Precom
     return address;
 }
 
-
 bool ExecutiveContext::isPrecompiled(const std::string& address) const
 {
     return (m_address2Precompiled.count(address));

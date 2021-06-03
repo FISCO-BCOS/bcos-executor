@@ -210,10 +210,11 @@ evmc_bytes32 evm_hash_fn(const uint8_t* data, size_t size)
 }  // namespace
 
 
-HostContext::HostContext(std::shared_ptr<StateInterface> _s, executor::EnvInfo const& _envInfo,
-    const std::string_view& _myAddress, const std::string_view& _caller,
-    const std::string_view& _origin, bytesConstRef _data, const std::shared_ptr<bytes>& _code,
-    h256 const& _codeHash, unsigned _depth, bool _isCreate, bool _staticCall)
+HostContext::HostContext(
+    const std::shared_ptr<ExecutiveContext>& _envInfo, const std::string_view& _myAddress,
+    const std::string_view& _caller, const std::string_view& _origin, bytesConstRef _data,
+    const std::shared_ptr<bytes>& _code, h256 const& _codeHash, unsigned _depth, bool _isCreate,
+    bool _staticCall)
   : m_envInfo(_envInfo),
     m_myAddress(_myAddress),
     m_caller(_caller),
@@ -224,14 +225,14 @@ HostContext::HostContext(std::shared_ptr<StateInterface> _s, executor::EnvInfo c
     m_depth(_depth),
     m_isCreate(_isCreate),
     m_staticCall(_staticCall),
-    m_s(_s)
+    m_s(_envInfo->getState())
 {
-    m_tableFactory = m_envInfo.Context()->getTableFactory();
+    m_tableFactory = m_envInfo->getTableFactory();
     interface = getHostInterface();
-    g_hashImpl = m_envInfo.hashHandler();
+    g_hashImpl = m_envInfo->hashHandler();
     // FIXME: rename sm3_hash_fn to evm_hash_fn and add a context pointer to get hashImpl
     sm3_hash_fn = evm_hash_fn;
-    // FIXME: refactor version used in evmone and hash to remove use of m_envInfo.useSMCrypto()
+    // FIXME: refactor version used in evmone and hash to remove use of m_envInfo->useSMCrypto()
     version = 0x03000000;
 
     metrics = &ethMetrics;
@@ -239,7 +240,7 @@ HostContext::HostContext(std::shared_ptr<StateInterface> _s, executor::EnvInfo c
 
 evmc_result HostContext::call(CallParameters& _p)
 {
-    Executive e{m_s, envInfo(), depth() + 1};
+    Executive e{envInfo(), depth() + 1};
     stringstream ss;
     // Note: When create initializes Executive, the flags of evmc context must be passed in
     if (!e.call(_p, origin()))
@@ -257,7 +258,7 @@ evmc_result HostContext::call(CallParameters& _p)
 
 size_t HostContext::codeSizeAt(const std::string_view& _a)
 {
-    if (m_envInfo.Context()->isPrecompiled(string(_a)))
+    if (m_envInfo->isPrecompiled(string(_a)))
     {
         return 1;
     }
@@ -288,7 +289,7 @@ void HostContext::setStore(u256 const& _n, u256 const& _v)
 
 evmc_result HostContext::create(u256& io_gas, bytesConstRef _code, evmc_opcode _op, u256 _salt)
 {  // TODO: if liquid support contract create contract add a branch
-    Executive e{m_s, envInfo(), depth() + 1};
+    Executive e{ envInfo(), depth() + 1};
     // Note: When create initializes Executive, the flags of evmc context must be passed in
     bool result = false;
     if (_op == evmc_opcode::OP_CREATE)
@@ -331,7 +332,7 @@ void HostContext::suicide(const std::string_view& _a)
 
 h256 HostContext::blockHash(int64_t _number)
 {
-    return envInfo().numberHash(_number);
+    return envInfo()->numberHash(_number);
 }
 
 bool HostContext::registerAsset(const std::string& _assetName, const std::string_view& _addr,

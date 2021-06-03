@@ -49,14 +49,14 @@ class Executor : public std::enable_shared_from_this<Executor>
 {
 public:
     typedef std::shared_ptr<Executor> Ptr;
-    typedef std::function<h256(int64_t x)> NumberHashCallBackFunction;
+    typedef std::function<h256(int64_t x)> CallBackFunction;
     Executor() { m_threadNum = std::max(std::thread::hardware_concurrency(), (unsigned int)1); }
 
     virtual ~Executor() {}
 
-    ExecutiveContext::Ptr executeBlock(const protocol::Block::Ptr& block, BlockInfo const& parentBlockInfo);
+    ExecutiveContext::Ptr executeBlock(const protocol::Block::Ptr& block, const protocol::BlockHeader::Ptr& parentBlockInfo);
     ExecutiveContext::Ptr parallelExecuteBlock(
-        const protocol::Block::Ptr& block, BlockInfo const& parentBlockInfo);
+        const protocol::Block::Ptr& block, const protocol::BlockHeader::Ptr& parentBlockInfo);
 
 
     protocol::TransactionReceipt::Ptr executeTransaction(
@@ -72,18 +72,16 @@ public:
         m_executiveContextFactory = executiveContextFactory;
     }
     ExecutiveContextFactory::Ptr getExecutiveContextFactory() { return m_executiveContextFactory; }
-    void setNumberHash(const NumberHashCallBackFunction& _pNumberHash)
+    void setNumberHash(const CallBackFunction& _pNumberHash)
     {
         m_pNumberHash = _pNumberHash;
     }
 
-    std::shared_ptr<executor::Executive> createAndInitExecutive(
-        std::shared_ptr<executor::StateInterface> _s, executor::EnvInfo const& _envInfo);
     void stop() { m_stop.store(true); }
 
 private:
     ExecutiveContextFactory::Ptr m_executiveContextFactory;
-    NumberHashCallBackFunction m_pNumberHash;
+    CallBackFunction m_pNumberHash;
     unsigned int m_threadNum = -1;
 
     std::mutex m_executingMutex;

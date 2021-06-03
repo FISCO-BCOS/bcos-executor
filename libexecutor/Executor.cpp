@@ -35,7 +35,7 @@ using namespace bcos::protocol;
 using namespace bcos::storage;
 
 ExecutiveContext::Ptr Executor::executeBlock(
-    const protocol::Block::Ptr& block, BlockInfo const& parentBlockInfo)
+    const protocol::Block::Ptr& block, const protocol::BlockHeader::Ptr& parentBlockInfo)
 {
     // return nullptr prepare to exit when m_stop is true
     if (m_stop.load())
@@ -67,25 +67,24 @@ ExecutiveContext::Ptr Executor::executeBlock(
 }
 
 ExecutiveContext::Ptr Executor::parallelExecuteBlock(
-    const protocol::Block::Ptr& block, BlockInfo const& parentBlockInfo)
+    const protocol::Block::Ptr& block, const protocol::BlockHeader::Ptr& parentBlockInfo)
 
 {
     EXECUTOR_LOG(INFO) << LOG_DESC("[executeBlock]Executing block")
                        << LOG_KV("txNum", block->transactionsSize())
                        << LOG_KV("num", block->blockHeader()->number())
-                       << LOG_KV("parentHash", parentBlockInfo.hash)
-                       << LOG_KV("parentNum", parentBlockInfo.number)
-                       << LOG_KV("parentStateRoot", parentBlockInfo.stateRoot);
+                       << LOG_KV("parentHash", parentBlockInfo->hash())
+                       << LOG_KV("parentNum", parentBlockInfo->number())
+                       << LOG_KV("parentStateRoot", parentBlockInfo->stateRoot());
 
     auto start_time = utcTime();
     auto record_time = utcTime();
     ExecutiveContext::Ptr executiveContext =
-        m_executiveContextFactory->createExecutiveContext(parentBlockInfo);
+        m_executiveContextFactory->createExecutiveContext(block->blockHeader(), m_pNumberHash);
 
     auto initExeCtx_time_cost = utcTime() - record_time;
     record_time = utcTime();
 
-    auto tmpHeader = block->blockHeader();
     // FIXME: check logic below
     // block->clearAllReceipts();
     // block->resizeTransactionReceipt(block->transactionsSize());
@@ -113,9 +112,7 @@ ExecutiveContext::Ptr Executor::parallelExecuteBlock(
         tbb::parallel_for(tbb::blocked_range<unsigned int>(0, m_threadNum),
             [&](const tbb::blocked_range<unsigned int>& _r) {
                 (void)_r;
-                EnvInfo envInfo(block->blockHeader(), m_pNumberHash, 0);
-                envInfo.setContext(executiveContext);
-                auto executive = createAndInitExecutive(executiveContext->getState(), envInfo);
+                auto executive = std::make_shared<Executive>(executiveContext);
 
                 while (!txDag->hasFinished())
                 {
@@ -171,20 +168,20 @@ ExecutiveContext::Ptr Executor::parallelExecuteBlock(
     record_time = utcTime();
     // Consensus module execute block, receiptRoot is empty, skip this judgment
     // The sync module execute block, receiptRoot is not empty, need to compare BlockHeader
-    if (tmpHeader->receiptRoot() != h256())
+    if (block->blockHeader()->receiptRoot() != h256())
     {
-        if (tmpHeader != block->blockHeader())
+        if (block->blockHeader() != block->blockHeader())
         {
             EXECUTOR_LOG(ERROR) << "Invalid Block with bad stateRoot or receiptRoot"
                                 << LOG_KV("blkNum", block->blockHeader()->number())
-                                << LOG_KV("originHash", tmpHeader->hash().abridged())
+                                << LOG_KV("originHash", block->blockHeader()->hash().abridged())
                                 << LOG_KV("curHash", block->blockHeader()->hash().abridged())
-                                << LOG_KV("orgReceipt", tmpHeader->receiptRoot().abridged())
+                                << LOG_KV("orgReceipt", block->blockHeader()->receiptRoot().abridged())
                                 << LOG_KV(
                                        "curRecepit", block->blockHeader()->receiptRoot().abridged())
-                                << LOG_KV("orgTxRoot", tmpHeader->txsRoot().abridged())
+                                << LOG_KV("orgTxRoot", block->blockHeader()->txsRoot().abridged())
                                 << LOG_KV("curTxRoot", block->blockHeader()->txsRoot().abridged())
-                                << LOG_KV("orgState", tmpHeader->stateRoot().abridged())
+                                << LOG_KV("orgState", block->blockHeader()->stateRoot().abridged())
                                 << LOG_KV("curState", block->blockHeader()->stateRoot().abridged());
 #if 0
             auto receipts = block->transactionReceipts();
@@ -220,15 +217,11 @@ ExecutiveContext::Ptr Executor::parallelExecuteBlock(
 
 
 TransactionReceipt::Ptr Executor::executeTransaction(
-    const protocol::BlockHeader::Ptr& blockHeader, protocol::Transaction::ConstPtr _t)
+    const protocol::BlockHeader::Ptr& currentBlockInfo, protocol::Transaction::ConstPtr _t)
 {
-    BlockInfo blockInfo{blockHeader->hash(), blockHeader->number(), blockHeader->stateRoot()};
     ExecutiveContext::Ptr executiveContext =
-        m_executiveContextFactory->createExecutiveContext(blockInfo);
-
-    EnvInfo envInfo(blockHeader, m_pNumberHash, 0);
-    envInfo.setContext(executiveContext);
-    auto executive = createAndInitExecutive(executiveContext->getState(), envInfo);
+        m_executiveContextFactory->createExecutiveContext(currentBlockInfo, m_pNumberHash);
+    auto executive = std::make_shared<Executive>(executiveContext);
     // only Rpc::call will use executeTransaction, RPC do catch exception
     return execute(_t, executiveContext, executive);
 }
@@ -272,10 +265,4 @@ protocol::TransactionReceipt::Ptr Executor::execute(protocol::Transaction::Const
     //     executive->gasUsed(), executive->logs(), executive->status(),
     //     executive->takeOutput().takeBytes(), executive->newAddress());
     return nullptr;
-}
-
-executor::Executive::Ptr Executor::createAndInitExecutive(
-    std::shared_ptr<StateInterface> _s, executor::EnvInfo const& _envInfo)
-{
-    return std::make_shared<Executive>(_s, _envInfo);
 }
