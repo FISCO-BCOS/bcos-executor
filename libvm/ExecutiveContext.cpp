@@ -20,6 +20,7 @@
  */
 
 #include "ExecutiveContext.h"
+#include "../libstate/State.h"
 #include "bcos-framework/interfaces/protocol/Exceptions.h"
 #include "bcos-framework/interfaces/storage/StorageInterface.h"
 #include "bcos-framework/libcodec/abi/ContractABICodec.h"
@@ -32,6 +33,19 @@ using namespace std;
 
 namespace bcos
 {
+ExecutiveContext::ExecutiveContext(std::shared_ptr<storage::TableFactoryInterface> _tableFactory,
+    crypto::Hash::Ptr _hashImpl, protocol::BlockHeader::Ptr const& _current,
+    CallBackFunction _callback, bool _isWasm)
+  : m_addressCount(0x10000),
+    m_currentHeader(_current),
+    m_numberHash(_callback),
+    m_tableFactory(_tableFactory),
+    m_isWasm(_isWasm),
+    m_hashImpl(_hashImpl)
+{
+    m_state = make_shared<State>(m_tableFactory, m_hashImpl);
+}
+
 shared_ptr<PrecompiledExecResult> ExecutiveContext::call(const string& address, bytesConstRef param,
     const string& origin, const string& sender, u256& _remainGas)
 {
@@ -93,11 +107,11 @@ std::shared_ptr<precompiled::Precompiled> ExecutiveContext::getPrecompiled(
 
 std::shared_ptr<executor::StateInterface> ExecutiveContext::getState()
 {
-    return m_stateFace;
+    return m_state;
 }
 void ExecutiveContext::setState(std::shared_ptr<executor::StateInterface> state)
 {
-    m_stateFace = state;
+    m_state = state;
 }
 
 bool ExecutiveContext::isEthereumPrecompiled(const string& _a) const
@@ -117,7 +131,7 @@ bigint ExecutiveContext::costOfPrecompiled(const string& _a, bytesConstRef _in) 
 }
 
 void ExecutiveContext::setPrecompiledContract(
-    std::unordered_map<std::string, PrecompiledContract> const& precompiledContract)
+    std::map<std::string, PrecompiledContract> const& precompiledContract)
 {
     m_precompiledContract = precompiledContract;
 }
@@ -129,7 +143,7 @@ void ExecutiveContext::setAddress2Precompiled(
 
 void ExecutiveContext::commit()
 {
-    m_stateFace->commit();
+    m_state->commit();
 }
 
 }  // namespace bcos

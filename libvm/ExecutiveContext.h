@@ -64,13 +64,7 @@ public:
 
     ExecutiveContext(std::shared_ptr<storage::TableFactoryInterface> _tableFactory,
         crypto::Hash::Ptr _hashImpl, protocol::BlockHeader::Ptr const& _current,
-        CallBackFunction _callback)
-      : m_addressCount(0x10000),
-        m_currentHeader(_current),
-        m_numberHash(_callback),
-        m_tableFactory(_tableFactory),
-        m_hashImpl(_hashImpl)
-    {}
+        CallBackFunction _callback, bool _isWasm);
     using getTxCriticalsHandler = std::function<std::shared_ptr<std::vector<std::string>>(
         const protocol::Transaction::ConstPtr& _tx)>;
     virtual ~ExecutiveContext()
@@ -105,7 +99,7 @@ public:
     virtual bigint costOfPrecompiled(const std::string& _a, bytesConstRef _in) const;
 
     void setPrecompiledContract(
-        std::unordered_map<std::string, PrecompiledContract> const& precompiledContract);
+        std::map<std::string, PrecompiledContract> const& precompiledContract);
 
     void commit();
 
@@ -122,7 +116,6 @@ public:
     }
     void setTxCriticalsHandler(getTxCriticalsHandler _handler) { m_getTxCriticals = _handler; }
     crypto::Hash::Ptr hashHandler() const { return m_hashImpl; }
-    bool isSMCrypto() const { return useSMCrypto; }
     bool isWasm() const { return m_isWasm; }
     /// @return block number
     int64_t currentNumber() const { return m_currentHeader->number(); }
@@ -146,10 +139,9 @@ private:
     CallBackFunction m_numberHash;
     std::shared_ptr<const EVMSchedule> m_schedule = nullptr;
     u256 m_gasLimit;
-    bool useSMCrypto = false;
     bool m_isWasm = false;
-    std::shared_ptr<executor::StateInterface> m_stateFace;
-    std::unordered_map<std::string, PrecompiledContract> m_precompiledContract;
+    std::shared_ptr<executor::StateInterface> m_state;
+    std::map<std::string, PrecompiledContract> m_precompiledContract;
     uint64_t m_txGasLimit = 300000000;
     getTxCriticalsHandler m_getTxCriticals = nullptr;
     std::shared_ptr<storage::TableFactoryInterface> m_tableFactory;

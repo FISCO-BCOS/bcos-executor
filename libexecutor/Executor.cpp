@@ -19,54 +19,97 @@
  * @date: 2021-05-27
  */
 #include "Executor.h"
+#include "../libprecompiled/Utilities.h"
+#include "../libstate/State.h"
 #include "../libvm/Executive.h"
 #include "../libvm/ExecutiveContext.h"
+#include "Common.h"
 #include "TxDAG.h"
 #include "bcos-framework/interfaces/protocol/TransactionReceipt.h"
 #include "bcos-framework/libtable/Table.h"
+#include "bcos-framework/libtable/TableFactory.h"
 #include <tbb/parallel_for.h>
 #include <exception>
 #include <thread>
+// #include "include/UserPrecompiled.h"
+#include "../libprecompiled/CNSPrecompiled.h"
+// #include "../libprecompiled/CRUDPrecompiled.h"
+// #include "../libprecompiled/ChainGovernancePrecompiled.h"
+#include "../libprecompiled/ConsensusPrecompiled.h"
+// #include "../libprecompiled/ContractLifeCyclePrecompiled.h"
+#include "../libprecompiled/KVTableFactoryPrecompiled.h"
+#include "../libprecompiled/ParallelConfigPrecompiled.h"
+// #include "../libprecompiled/PermissionPrecompiled.h"
+#include "../libprecompiled/CryptoPrecompiled.h"
+#include "../libprecompiled/PrecompiledResult.h"
+#include "../libprecompiled/SystemConfigPrecompiled.h"
+#include "../libprecompiled/TableFactoryPrecompiled.h"
+// #include "../libprecompiled/WorkingSealerManagerPrecompiled.h"
+#include "../libprecompiled/extension/DagTransferPrecompiled.h"
+#include "../libvm/ExecutiveContext.h"
+#include "bcos-framework/libcodec/abi/ContractABIType.h"
 
 using namespace bcos;
 using namespace std;
 using namespace bcos::executor;
 using namespace bcos::protocol;
 using namespace bcos::storage;
+using namespace bcos::precompiled;
 
-ExecutiveContext::Ptr Executor::executeBlock(
-    const protocol::Block::Ptr& block, const protocol::BlockHeader::Ptr& parentBlockInfo)
+Executor::Executor(const protocol::BlockFactory::Ptr& _blockFactory,
+    const ledger::LedgerInterface::Ptr& _ledger,
+    const storage::StorageInterface::Ptr& _stateStorage, bool _isWasm)
+  : m_blockFactory(_blockFactory),
+    m_ledger(_ledger),
+    m_stateStorage(_stateStorage),
+    m_isWasm(_isWasm)
 {
-    // return nullptr prepare to exit when m_stop is true
-    if (m_stop.load())
-    {
-        return nullptr;
-    }
-    if (block->blockHeader()->number() < m_executingNumber)
-    {
-        return nullptr;
-    }
-    std::lock_guard<std::mutex> l(m_executingMutex);
-    if (block->blockHeader()->number() < m_executingNumber)
-    {
-        return nullptr;
-    }
-    ExecutiveContext::Ptr context = nullptr;
-    try
-    {
-        context = parallelExecuteBlock(block, parentBlockInfo);
-    }
-    catch (exception& e)
-    {
-        EXECUTOR_LOG(ERROR) << LOG_BADGE("executeBlock") << LOG_DESC("executeBlock exception")
-                            << LOG_KV("blockNumber", block->blockHeader()->number());
-        return nullptr;
-    }
-    m_executingNumber = block->blockHeader()->number();
-    return context;
+    m_threadNum = std::max(std::thread::hardware_concurrency(), (unsigned int)1);
+    m_hashImpl = m_blockFactory->cryptoSuite()->hashImpl();
+    // FIXME: CallBackFunction convert ledger asyncGetBlockHashByNumber to sync
+    m_precompiledContract.insert(std::make_pair(std::string("0x1"),
+        PrecompiledContract(3000, 0, PrecompiledRegistrar::executor("ecrecover"))));
+    m_precompiledContract.insert(std::make_pair(
+        std::string("0x2"), PrecompiledContract(60, 12, PrecompiledRegistrar::executor("sha256"))));
+    m_precompiledContract.insert(std::make_pair(std::string("0x3"),
+        PrecompiledContract(600, 120, PrecompiledRegistrar::executor("ripemd160"))));
+    m_precompiledContract.insert(std::make_pair(std::string("0x4"),
+        PrecompiledContract(15, 3, PrecompiledRegistrar::executor("identity"))));
+    m_precompiledContract.insert(
+        {std::string("0x5"), PrecompiledContract(PrecompiledRegistrar::pricer("modexp"),
+                                 PrecompiledRegistrar::executor("modexp"))});
+    m_precompiledContract.insert({std::string("0x6"),
+        PrecompiledContract(150, 0, PrecompiledRegistrar::executor("alt_bn128_G1_add"))});
+    m_precompiledContract.insert({std::string("0x7"),
+        PrecompiledContract(6000, 0, PrecompiledRegistrar::executor("alt_bn128_G1_mul"))});
+    m_precompiledContract.insert({std::string("0x8"),
+        PrecompiledContract(PrecompiledRegistrar::pricer("alt_bn128_pairing_product"),
+            PrecompiledRegistrar::executor("alt_bn128_pairing_product"))});
+    m_precompiledContract.insert(
+        {std::string("0x9"), PrecompiledContract(PrecompiledRegistrar::pricer("blake2_compression"),
+                                 PrecompiledRegistrar::executor("blake2_compression"))});
 }
 
-ExecutiveContext::Ptr Executor::parallelExecuteBlock(
+void Executor::asyncGetCode(std::shared_ptr<std::string> _address,
+    std::function<void(const Error::Ptr&, const std::shared_ptr<bytes>&)> _callback)
+{
+    (void)_address;
+    (void)_callback;
+}
+
+void Executor::asyncExecuteTransaction(const protocol::Transaction::ConstPtr& _tx,
+    std::function<void(const Error::Ptr&, const protocol::TransactionReceipt::ConstPtr&)> _callback)
+{
+    // FIXME: fake a block info to execute transaction
+    ExecutiveContext::Ptr executiveContext = createExecutiveContext(nullptr);
+    auto executive = std::make_shared<Executive>(executiveContext);
+    // only Rpc::call will use executeTransaction, RPC do catch exception
+    auto receipt = executeTransaction(_tx, executiveContext, executive);
+    _callback(nullptr, receipt);
+    // FIXME: make this interface async
+}
+
+ExecutiveContext::Ptr Executor::executeBlock(
     const protocol::Block::Ptr& block, const protocol::BlockHeader::Ptr& parentBlockInfo)
 
 {
@@ -76,15 +119,20 @@ ExecutiveContext::Ptr Executor::parallelExecuteBlock(
                        << LOG_KV("parentHash", parentBlockInfo->hash())
                        << LOG_KV("parentNum", parentBlockInfo->number())
                        << LOG_KV("parentStateRoot", parentBlockInfo->stateRoot());
-
+    // return nullptr prepare to exit when m_stop is true
+    if (m_stop.load())
+    {
+        return nullptr;
+    }
     auto start_time = utcTime();
     auto record_time = utcTime();
-    ExecutiveContext::Ptr executiveContext =
-        m_executiveContextFactory->createExecutiveContext(block->blockHeader(), m_pNumberHash);
+    ExecutiveContext::Ptr executiveContext = createExecutiveContext(block->blockHeader());
 
     auto initExeCtx_time_cost = utcTime() - record_time;
     record_time = utcTime();
-
+    auto tempReceiptRoot = block->blockHeader()->receiptRoot();
+    auto tempStateRoot = block->blockHeader()->stateRoot();
+    auto tempHeaderHash = block->blockHeader()->hash();
     // FIXME: check logic below
     // block->clearAllReceipts();
     // block->resizeTransactionReceipt(block->transactionsSize());
@@ -95,7 +143,7 @@ ExecutiveContext::Ptr Executor::parallelExecuteBlock(
     txDag->init(executiveContext, block);
 
     txDag->setTxExecuteFunc([&](Transaction::ConstPtr _tr, ID _txId, Executive::Ptr _executive) {
-        auto resultReceipt = execute(_tr, executiveContext, _executive);
+        auto resultReceipt = executeTransaction(_tr, executiveContext, _executive);
 
         block->setReceipt(_txId, resultReceipt);
         executiveContext->getState()->commit();
@@ -168,30 +216,19 @@ ExecutiveContext::Ptr Executor::parallelExecuteBlock(
     record_time = utcTime();
     // Consensus module execute block, receiptRoot is empty, skip this judgment
     // The sync module execute block, receiptRoot is not empty, need to compare BlockHeader
-    if (block->blockHeader()->receiptRoot() != h256())
+    if (tempReceiptRoot != h256())
     {
-        if (block->blockHeader() != block->blockHeader())
+        if (tempHeaderHash != block->blockHeader()->hash())
         {
             EXECUTOR_LOG(ERROR) << "Invalid Block with bad stateRoot or receiptRoot"
                                 << LOG_KV("blkNum", block->blockHeader()->number())
-                                << LOG_KV("originHash", block->blockHeader()->hash().abridged())
-                                << LOG_KV("curHash", block->blockHeader()->hash().abridged())
-                                << LOG_KV("orgReceipt", block->blockHeader()->receiptRoot().abridged())
+                                << LOG_KV("Hash", tempHeaderHash.abridged())
+                                << LOG_KV("myHash", block->blockHeader()->hash().abridged())
+                                << LOG_KV("Receipt", tempReceiptRoot.abridged())
                                 << LOG_KV(
-                                       "curRecepit", block->blockHeader()->receiptRoot().abridged())
-                                << LOG_KV("orgTxRoot", block->blockHeader()->txsRoot().abridged())
-                                << LOG_KV("curTxRoot", block->blockHeader()->txsRoot().abridged())
-                                << LOG_KV("orgState", block->blockHeader()->stateRoot().abridged())
-                                << LOG_KV("curState", block->blockHeader()->stateRoot().abridged());
-#if 0
-            auto receipts = block->transactionReceipts();
-            for (size_t i = 0; i < receipts->size(); ++i)
-            {
-                EXECUTOR_LOG(ERROR) << LOG_BADGE("FISCO_DEBUG") << LOG_KV("index", i)
-                                    << LOG_KV("hash", block->transaction(i)->hash())
-                                    << ",receipt=" << *receipts->at(i);
-            }
-#endif
+                                       "myRecepit", block->blockHeader()->receiptRoot().abridged())
+                                << LOG_KV("State", tempStateRoot.abridged())
+                                << LOG_KV("myState", block->blockHeader()->stateRoot().abridged());
             BOOST_THROW_EXCEPTION(InvalidBlockWithBadRoot() << errinfo_comment(
                                       "Invalid Block with bad stateRoot or ReciptRoot"));
         }
@@ -215,18 +252,7 @@ ExecutiveContext::Ptr Executor::parallelExecuteBlock(
     return executiveContext;
 }
 
-
-TransactionReceipt::Ptr Executor::executeTransaction(
-    const protocol::BlockHeader::Ptr& currentBlockInfo, protocol::Transaction::ConstPtr _t)
-{
-    ExecutiveContext::Ptr executiveContext =
-        m_executiveContextFactory->createExecutiveContext(currentBlockInfo, m_pNumberHash);
-    auto executive = std::make_shared<Executive>(executiveContext);
-    // only Rpc::call will use executeTransaction, RPC do catch exception
-    return execute(_t, executiveContext, executive);
-}
-
-protocol::TransactionReceipt::Ptr Executor::execute(protocol::Transaction::ConstPtr _t,
+protocol::TransactionReceipt::Ptr Executor::executeTransaction(protocol::Transaction::ConstPtr _t,
     executor::ExecutiveContext::Ptr executiveContext, Executive::Ptr executive)
 {
     (void)executiveContext;
@@ -265,4 +291,145 @@ protocol::TransactionReceipt::Ptr Executor::execute(protocol::Transaction::Const
     //     executive->gasUsed(), executive->logs(), executive->status(),
     //     executive->takeOutput().takeBytes(), executive->newAddress());
     return nullptr;
+}
+
+ExecutiveContext::Ptr Executor::createExecutiveContext(
+    const protocol::BlockHeader::Ptr& currentHeader)
+{
+    // FIXME: if wasm use the SYS_CONFIG_NAME as address
+    // FIXME: TableFactory maybe need sa member to continues execute block without write to DB
+    auto tableFactory =
+        std::make_shared<TableFactory>(m_stateStorage, m_hashImpl, currentHeader->number());
+    ExecutiveContext::Ptr context = make_shared<ExecutiveContext>(
+        tableFactory, m_hashImpl, currentHeader, m_pNumberHash, m_isWasm);
+    auto tableFactoryPrecompiled = std::make_shared<precompiled::TableFactoryPrecompiled>();
+    tableFactoryPrecompiled->setMemoryTableFactory(tableFactory);
+    context->setAddress2Precompiled(
+        SYS_CONFIG_ADDRESS, std::make_shared<precompiled::SystemConfigPrecompiled>());
+    context->setAddress2Precompiled(TABLE_FACTORY_ADDRESS, tableFactoryPrecompiled);
+    // context->setAddress2Precompiled(CRUD_ADDRESS,
+    // std::make_shared<precompiled::CRUDPrecompiled>());
+    context->setAddress2Precompiled(
+        CONSENSUS_ADDRESS, std::make_shared<precompiled::ConsensusPrecompiled>());
+    context->setAddress2Precompiled(CNS_ADDRESS, std::make_shared<precompiled::CNSPrecompiled>());
+    // context->setAddress2Precompiled(
+    //     PERMISSION_ADDRESS, std::make_shared<precompiled::PermissionPrecompiled>());
+
+    auto parallelConfigPrecompiled = std::make_shared<precompiled::ParallelConfigPrecompiled>();
+    context->setAddress2Precompiled(PARALLEL_CONFIG_ADDRESS, parallelConfigPrecompiled);
+    // context->setAddress2Precompiled(
+    // CONTRACT_LIFECYCLE_ADDRESS, std::make_shared<precompiled::ContractLifeCyclePrecompiled>());
+    auto kvTableFactoryPrecompiled = std::make_shared<precompiled::KVTableFactoryPrecompiled>();
+    kvTableFactoryPrecompiled->setMemoryTableFactory(tableFactory);
+    context->setAddress2Precompiled(KV_TABLE_FACTORY_ADDRESS, kvTableFactoryPrecompiled);
+    // context->setAddress2Precompiled(
+    //     CHAINGOVERNANCE_ADDRESS, std::make_shared<precompiled::ChainGovernancePrecompiled>());
+
+    // FIXME: register User developed Precompiled contract
+    // registerUserPrecompiled(context);
+
+    context->setPrecompiledContract(m_precompiledContract);
+    auto state = make_shared<State>(tableFactory, m_hashImpl);
+    context->setState(state);
+
+    // FIXME: setTxGasLimitToContext
+    // setTxGasLimitToContext(context);
+
+    // register workingSealerManagerPrecompiled for VRF-based-rPBFT
+
+    // context->setAddress2Precompiled(WORKING_SEALER_MGR_ADDRESS,
+    //     std::make_shared<precompiled::WorkingSealerManagerPrecompiled>());
+    context->setAddress2Precompiled(CRYPTO_ADDRESS, std::make_shared<CryptoPrecompiled>());
+    context->setTxCriticalsHandler([&](const protocol::Transaction::ConstPtr& _tx)
+                                       -> std::shared_ptr<std::vector<std::string>> {
+        if (_tx->type() == protocol::TransactionType::ContractCreation)
+        {
+            // Not to parallel contract creation transaction
+            return nullptr;
+        }
+
+        auto p = context->getPrecompiled(_tx->to().toString());
+        if (p)
+        {
+            // Precompile transaction
+            if (p->isParallelPrecompiled())
+            {
+                auto ret = make_shared<vector<string>>(p->getParallelTag(_tx->input()));
+                for (string& critical : *ret)
+                {
+                    critical += _tx->to().toString();
+                }
+                return ret;
+            }
+            else
+            {
+                return nullptr;
+            }
+        }
+        else
+        {
+            uint32_t selector = precompiled::getParamFunc(_tx->input());
+
+            auto receiveAddress = _tx->to().toString();
+            std::shared_ptr<precompiled::ParallelConfig> config = nullptr;
+            // hit the cache, fetch ParallelConfig from the cache directly
+            // Note: Only when initializing DAG, get ParallelConfig, will not get ParallelConfig
+            // during transaction execution
+            auto parallelKey = std::make_pair(receiveAddress, selector);
+            config = parallelConfigPrecompiled->getParallelConfig(
+                context, receiveAddress, selector, _tx->sender().toString());
+
+            if (config == nullptr)
+            {
+                return nullptr;
+            }
+            else
+            {
+                // Testing code
+                auto res = make_shared<vector<string>>();
+
+                codec::abi::ABIFunc af;
+                bool isOk = af.parser(config->functionName);
+                if (!isOk)
+                {
+                    EXECUTOR_LOG(DEBUG)
+                        << LOG_DESC("[getTxCriticals] parser function signature failed, ")
+                        << LOG_KV("func signature", config->functionName);
+
+                    return nullptr;
+                }
+
+                auto paramTypes = af.getParamsType();
+                if (paramTypes.size() < (size_t)config->criticalSize)
+                {
+                    EXECUTOR_LOG(DEBUG)
+                        << LOG_DESC("[getTxCriticals] params type less than  criticalSize")
+                        << LOG_KV("func signature", config->functionName)
+                        << LOG_KV("func criticalSize", config->criticalSize);
+
+                    return nullptr;
+                }
+
+                paramTypes.resize((size_t)config->criticalSize);
+
+                codec::abi::ContractABICodec abi(m_hashImpl);
+                isOk = abi.abiOutByFuncSelector(_tx->input().getCroppedData(4), paramTypes, *res);
+                if (!isOk)
+                {
+                    EXECUTOR_LOG(DEBUG) << LOG_DESC("[getTxCriticals] abiout failed, ")
+                                        << LOG_KV("func signature", config->functionName);
+
+                    return nullptr;
+                }
+
+                for (string& critical : *res)
+                {
+                    critical += _tx->to().toString();
+                }
+
+                return res;
+            }
+        }
+    });
+    return context;
 }

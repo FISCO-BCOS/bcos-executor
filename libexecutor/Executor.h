@@ -21,10 +21,14 @@
 #pragma once
 
 #include "../libvm/Precompiled.h"
-#include "ExecutiveContextFactory.h"
+#include "bcos-framework/interfaces/executor/ExecutorInterface.h"
+#include "bcos-framework/interfaces/ledger/LedgerInterface.h"
 #include "bcos-framework/interfaces/protocol/Block.h"
+#include "bcos-framework/interfaces/protocol/BlockFactory.h"
 #include "bcos-framework/interfaces/protocol/Transaction.h"
 #include "bcos-framework/interfaces/protocol/TransactionReceipt.h"
+#include "bcos-framework/interfaces/storage/StorageInterface.h"
+#include "libvm/PrecompiledContract.h"
 #include <boost/function.hpp>
 #include <algorithm>
 #include <functional>
@@ -33,60 +37,59 @@
 
 namespace bcos
 {
-    DERIVE_BCOS_EXCEPTION(InvalidBlockWithBadRoot);
-    DERIVE_BCOS_EXCEPTION(BlockExecutionFailed);
+DERIVE_BCOS_EXCEPTION(InvalidBlockWithBadRoot);
+DERIVE_BCOS_EXCEPTION(BlockExecutionFailed);
 
 namespace protocol
 {
 class TransactionReceipt;
 
-}  // namespace executor
+}  // namespace protocol
 
 namespace executor
 {
 class Executive;
-class Executor : public std::enable_shared_from_this<Executor>
+class ExecutiveContext;
+class Executor : public ExecutorInterface
 {
 public:
     typedef std::shared_ptr<Executor> Ptr;
     typedef std::function<h256(int64_t x)> CallBackFunction;
-    Executor() { m_threadNum = std::max(std::thread::hardware_concurrency(), (unsigned int)1); }
+    Executor(const protocol::BlockFactory::Ptr& _blockFactory,
+        const ledger::LedgerInterface::Ptr& _ledger,
+        const storage::StorageInterface::Ptr& _stateStorage, bool _isWasm);
 
     virtual ~Executor() {}
 
-    ExecutiveContext::Ptr executeBlock(const protocol::Block::Ptr& block, const protocol::BlockHeader::Ptr& parentBlockInfo);
-    ExecutiveContext::Ptr parallelExecuteBlock(
+    std::shared_ptr<ExecutiveContext> executeBlock(
         const protocol::Block::Ptr& block, const protocol::BlockHeader::Ptr& parentBlockInfo);
 
-
-    protocol::TransactionReceipt::Ptr executeTransaction(
-        const protocol::BlockHeader::Ptr& blockHeader, protocol::Transaction::ConstPtr _t);
-
-    protocol::TransactionReceipt::Ptr execute(protocol::Transaction::ConstPtr _t,
-        executor::ExecutiveContext::Ptr executiveContext,
+    protocol::TransactionReceipt::Ptr executeTransaction(protocol::Transaction::ConstPtr _t,
+        std::shared_ptr<ExecutiveContext> executiveContext,
         std::shared_ptr<executor::Executive> executive);
 
+    void asyncGetCode(std::shared_ptr<std::string> _address,
+        std::function<void(const Error::Ptr&, const std::shared_ptr<bytes>&)> _callback) override;
+    void asyncExecuteTransaction(const protocol::Transaction::ConstPtr& _tx,
+        std::function<void(const Error::Ptr&, const protocol::TransactionReceipt::ConstPtr&)>
+            _callback) override;
 
-    void setExecutiveContextFactory(ExecutiveContextFactory::Ptr executiveContextFactory)
-    {
-        m_executiveContextFactory = executiveContextFactory;
-    }
-    ExecutiveContextFactory::Ptr getExecutiveContextFactory() { return m_executiveContextFactory; }
-    void setNumberHash(const CallBackFunction& _pNumberHash)
-    {
-        m_pNumberHash = _pNumberHash;
-    }
+    void setNumberHash(const CallBackFunction& _pNumberHash) { m_pNumberHash = _pNumberHash; }
 
-    void stop() { m_stop.store(true); }
+    void stop() override { m_stop.store(true); }
 
 private:
-    ExecutiveContextFactory::Ptr m_executiveContextFactory;
+    std::shared_ptr<ExecutiveContext> createExecutiveContext(
+        const protocol::BlockHeader::Ptr& _currentHeader);
+    protocol::BlockFactory::Ptr m_blockFactory;
+    ledger::LedgerInterface::Ptr m_ledger;
+    storage::StorageInterface::Ptr m_stateStorage;
     CallBackFunction m_pNumberHash;
+    crypto::Hash::Ptr m_hashImpl;
     unsigned int m_threadNum = -1;
-
-    std::mutex m_executingMutex;
-    std::atomic<int64_t> m_executingNumber = {0};
+    bool m_isWasm = false;
     std::atomic_bool m_stop = {false};
+    std::map<std::string, PrecompiledContract> m_precompiledContract;
 };
 
 }  // namespace executor
