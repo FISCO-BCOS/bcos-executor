@@ -77,10 +77,10 @@ struct GasMetrics {
   std::map<InterfaceOpcode, int64_t> OpCode2GasCost;
 
   using Ptr = std::shared_ptr<GasMetrics>;
-  GasMetrics() = default;
+  GasMetrics() {init();};
   virtual ~GasMetrics() = default;
 
-  virtual void init() {
+  void init() {
     OpCode2GasCost = {{InterfaceOpcode::EQ, VeryLow},
                       {InterfaceOpcode::GE, VeryLow},
                       {InterfaceOpcode::GT, VeryLow},
@@ -149,19 +149,14 @@ private:
 class PrecompiledGasFactory {
 public:
   using Ptr = std::shared_ptr<PrecompiledGasFactory>;
-  PrecompiledGasFactory(executor::VMFlagType const &_vmFlags) { createMetric(_vmFlags); }
-
   PrecompiledGas::Ptr createPrecompiledGas() {
     auto gasPricer = std::make_shared<PrecompiledGas>();
+    m_gasMetric = std::make_shared<GasMetrics>();
     gasPricer->setGasMetric(m_gasMetric);
     return gasPricer;
   }
 
   GasMetrics::Ptr gasMetric() { return m_gasMetric; }
-
-private:
-  void createMetric(executor::VMFlagType const &_vmFlagType);
-
 private:
   GasMetrics::Ptr m_gasMetric;
 };

@@ -42,6 +42,8 @@ public:
     std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::ExecutiveContext> _context, bytesConstRef _param,
         const std::string& _origin, const std::string& _sender, u256& _remainGas) override;
     std::string toString() override;
+    std::pair<std::string, protocol::BlockNumber> getSysConfigByKey(
+        const std::string& _key, const storage::TableFactoryInterface::Ptr& _tableFactory) const;
 
 private:
     bool checkValueValid(std::string const& key, std::string const& value);

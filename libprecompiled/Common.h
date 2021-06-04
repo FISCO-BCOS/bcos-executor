@@ -47,6 +47,7 @@ const char* const SYS_CNS = "s_cns";
 const char* const SYS_TABLE = "s_tables";
 
 /// SYS_CONFIG table fields
+static const char* const SYS_CONFIG = "s_config";
 static const char* const SYS_VALUE = "value";
 static const char* const SYS_KEY = "key";
 static const char* const SYS_CONFIG_ENABLE_BLOCK_NUMBER = "enable_block_number";

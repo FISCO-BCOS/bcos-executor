@@ -22,6 +22,17 @@
 #include "Common.h"
 using namespace bcos;
 using namespace bcos::precompiled;
+
+const int64_t GasMetrics::Zero = 0;
+const int64_t GasMetrics::Base = 2;
+const int64_t GasMetrics::VeryLow = 3;
+const int64_t GasMetrics::Low = 5;
+const int64_t GasMetrics::Mid = 8;
+const int64_t GasMetrics::High = 10;
+// Every 256 bytes is a memory gas calculation unit
+const unsigned GasMetrics::MemGas = 3;
+const unsigned GasMetrics::MemUnitSize = 32;
+
 void PrecompiledGas::appendOperation(InterfaceOpcode const& _opType, unsigned const& _opSize)
 {
   m_operationList->push_back(std::make_pair(_opType, _opSize));
@@ -37,7 +48,7 @@ void PrecompiledGas::updateMemUsed(uint64_t const& _newMemSize)
 
 u256 PrecompiledGas::calTotalGas()
 {
-  return (calComputationGas() + calMemGas());
+    return (calComputationGas() + calMemGas());
 }
 
 
@@ -68,30 +79,3 @@ u256 PrecompiledGas::calMemGas()
   return (GasMetrics::MemGas * memSize) + (memSize * memSize) / 512;
 }
 
-const int64_t GasMetrics::Zero = 0;
-const int64_t GasMetrics::Base = 2;
-const int64_t GasMetrics::VeryLow = 3;
-const int64_t GasMetrics::Low = 5;
-const int64_t GasMetrics::Mid = 8;
-const int64_t GasMetrics::High = 10;
-// Every 256 bytes is a memory gas calculation unit
-const unsigned GasMetrics::MemGas = 3;
-const unsigned GasMetrics::MemUnitSize = 32;
-
-
-void PrecompiledGasFactory::createMetric(executor::VMFlagType const& _vmFlagType)
-{
-  PRECOMPILED_LOG(INFO) << LOG_DESC("createGasMetric") << LOG_KV("vmFlagType", _vmFlagType);
-  // the FreeStorageGasMetrics enabled
-//  if (enableFreeStorage(_vmFlagType))
-//  {
-//    PrecompiledGas_LOG(INFO) << LOG_DESC("createGasMetric: FreeStorageGasMetrics");
-//    m_gasMetric = std::make_shared<FreeStorageGasMetrics>();
-//  }
-//  else
-//  {
-  PRECOMPILED_LOG(INFO) << LOG_DESC("createGasMetric");
-  m_gasMetric = std::make_shared<GasMetrics>();
-//  }
-  m_gasMetric->init();
-}

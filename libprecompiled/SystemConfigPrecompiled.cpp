@@ -108,37 +108,18 @@ PrecompiledExecResult::Ptr SystemConfigPrecompiled::call(
     }
     else if (func == name2Selector[SYSCONFIG_METHOD_GET_STR])
     {
-        std::string value;
-        protocol::BlockNumber enableNumber;
-        // setValueByKey(string,string)
-        std::string configKey, configValue;
-        m_codec->decode(data, configKey, configValue);
+        // getValueByKey(string)
+        std::string configKey;
+        m_codec->decode(data, configKey);
         // Uniform lowercase configKey
         boost::to_lower(configKey);
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("SystemConfigPrecompiled")
-                               << LOG_DESC("getValueByKey func") << LOG_KV("configKey", configKey)
-                               << LOG_KV("configValue", configValue);
+                               << LOG_DESC("getValueByKey func") << LOG_KV("configKey", configKey);
 
-        auto tableFactory = _context->getTableFactory();
-        auto table = tableFactory->openTable(ledger::SYS_CONFIG);
+        auto valueNumberPair = getSysConfigByKey(configKey, _context->getTableFactory());
 
-        auto entry = table->getRow(configKey);
-        if (entry)
-        {
-            value = entry->getField(SYS_VALUE);
-            enableNumber = boost::lexical_cast<protocol::BlockNumber>(
-                entry->getField(SYS_CONFIG_ENABLE_BLOCK_NUMBER));
-        }
-        else
-        {
-            PRECOMPILED_LOG(ERROR)
-                    << LOG_BADGE("SystemConfigPrecompiled") << LOG_DESC("get sys config error")
-                    << LOG_KV("configKey", configKey);
-            // FIXME: use unified code to return
-            value = "";
-            enableNumber = -1;
-        }
-        callResult->setExecResult(m_codec->encode(value, u256(enableNumber)));
+        callResult->setExecResult(
+            m_codec->encode(valueNumberPair.first, u256(valueNumberPair.second)));
     }
     else
     {
@@ -179,4 +160,26 @@ bool SystemConfigPrecompiled::checkValueValid(std::string const& key, std::strin
                 configuredValue < SYSTEM_CONSENSUS_TIMEOUT_MAX);
     }
     return false;
+}
+
+std::pair<std::string, protocol::BlockNumber> SystemConfigPrecompiled::getSysConfigByKey(
+    const std::string& _key, const storage::TableFactoryInterface::Ptr& _tableFactory) const
+{
+    auto table = _tableFactory->openTable(SYS_CONFIG);
+    auto entry = table->getRow(_key);
+    if (entry)
+    {
+        auto value = entry->getField(SYS_VALUE);
+        auto enableNumber = boost::lexical_cast<protocol::BlockNumber>(
+            entry->getField(SYS_CONFIG_ENABLE_BLOCK_NUMBER));
+        return {value, enableNumber};
+    }
+    else
+    {
+        PRECOMPILED_LOG(ERROR)
+                << LOG_BADGE("SystemConfigPrecompiled") << LOG_DESC("get sys config error")
+                << LOG_KV("configKey", _key);
+        // FIXME: use unified code to return
+        return {"", -1};
+    }
 }
