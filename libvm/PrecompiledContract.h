@@ -30,6 +30,7 @@ namespace executor
 class PrecompiledContract
 {
 public:
+    typedef std::shared_ptr<PrecompiledContract> Ptr;
     PrecompiledContract() = default;
     PrecompiledContract(PrecompiledPricer const& _cost, PrecompiledExecutor const& _exec,
         u256 const& _startingBlock = 0)

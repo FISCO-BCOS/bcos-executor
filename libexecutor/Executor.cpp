@@ -23,6 +23,8 @@
 #include "../libstate/State.h"
 #include "../libvm/Executive.h"
 #include "../libvm/ExecutiveContext.h"
+#include "../libvm/Precompiled.h"
+#include "../libvm/PrecompiledContract.h"
 #include "Common.h"
 #include "TxDAG.h"
 #include "bcos-framework/interfaces/protocol/TransactionReceipt.h"
@@ -68,25 +70,25 @@ Executor::Executor(const protocol::BlockFactory::Ptr& _blockFactory,
     m_hashImpl = m_blockFactory->cryptoSuite()->hashImpl();
     // FIXME: CallBackFunction convert ledger asyncGetBlockHashByNumber to sync
     m_precompiledContract.insert(std::make_pair(std::string("0x1"),
-        PrecompiledContract(3000, 0, PrecompiledRegistrar::executor("ecrecover"))));
+        make_shared<PrecompiledContract>(3000, 0, PrecompiledRegistrar::executor("ecrecover"))));
     m_precompiledContract.insert(std::make_pair(
-        std::string("0x2"), PrecompiledContract(60, 12, PrecompiledRegistrar::executor("sha256"))));
+        std::string("0x2"), make_shared<PrecompiledContract>(60, 12, PrecompiledRegistrar::executor("sha256"))));
     m_precompiledContract.insert(std::make_pair(std::string("0x3"),
-        PrecompiledContract(600, 120, PrecompiledRegistrar::executor("ripemd160"))));
+        make_shared<PrecompiledContract>(600, 120, PrecompiledRegistrar::executor("ripemd160"))));
     m_precompiledContract.insert(std::make_pair(std::string("0x4"),
-        PrecompiledContract(15, 3, PrecompiledRegistrar::executor("identity"))));
+        make_shared<PrecompiledContract>(15, 3, PrecompiledRegistrar::executor("identity"))));
     m_precompiledContract.insert(
-        {std::string("0x5"), PrecompiledContract(PrecompiledRegistrar::pricer("modexp"),
+        {std::string("0x5"), make_shared<PrecompiledContract>(PrecompiledRegistrar::pricer("modexp"),
                                  PrecompiledRegistrar::executor("modexp"))});
     m_precompiledContract.insert({std::string("0x6"),
-        PrecompiledContract(150, 0, PrecompiledRegistrar::executor("alt_bn128_G1_add"))});
+        make_shared<PrecompiledContract>(150, 0, PrecompiledRegistrar::executor("alt_bn128_G1_add"))});
     m_precompiledContract.insert({std::string("0x7"),
-        PrecompiledContract(6000, 0, PrecompiledRegistrar::executor("alt_bn128_G1_mul"))});
+        make_shared<PrecompiledContract>(6000, 0, PrecompiledRegistrar::executor("alt_bn128_G1_mul"))});
     m_precompiledContract.insert({std::string("0x8"),
-        PrecompiledContract(PrecompiledRegistrar::pricer("alt_bn128_pairing_product"),
+        make_shared<PrecompiledContract>(PrecompiledRegistrar::pricer("alt_bn128_pairing_product"),
             PrecompiledRegistrar::executor("alt_bn128_pairing_product"))});
     m_precompiledContract.insert(
-        {std::string("0x9"), PrecompiledContract(PrecompiledRegistrar::pricer("blake2_compression"),
+        {std::string("0x9"), make_shared<PrecompiledContract>(PrecompiledRegistrar::pricer("blake2_compression"),
                                  PrecompiledRegistrar::executor("blake2_compression"))});
 }
 

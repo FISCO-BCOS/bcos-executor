@@ -20,7 +20,6 @@
  */
 #pragma once
 
-#include "../libvm/Precompiled.h"
 #include "bcos-framework/interfaces/executor/ExecutorInterface.h"
 #include "bcos-framework/interfaces/ledger/LedgerInterface.h"
 #include "bcos-framework/interfaces/protocol/Block.h"
@@ -28,7 +27,6 @@
 #include "bcos-framework/interfaces/protocol/Transaction.h"
 #include "bcos-framework/interfaces/protocol/TransactionReceipt.h"
 #include "bcos-framework/interfaces/storage/StorageInterface.h"
-#include "libvm/PrecompiledContract.h"
 #include <boost/function.hpp>
 #include <algorithm>
 #include <functional>
@@ -50,6 +48,7 @@ namespace executor
 {
 class Executive;
 class ExecutiveContext;
+class PrecompiledContract;
 class Executor : public ExecutorInterface
 {
 public:
@@ -89,7 +88,7 @@ private:
     unsigned int m_threadNum = -1;
     bool m_isWasm = false;
     std::atomic_bool m_stop = {false};
-    std::map<std::string, PrecompiledContract> m_precompiledContract;
+    std::map<std::string, std::shared_ptr<PrecompiledContract>> m_precompiledContract;
 };
 
 }  // namespace executor

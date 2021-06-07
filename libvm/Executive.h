@@ -21,7 +21,7 @@
 
 #pragma once
 
-#include "../libmetering/GasInjector.h"
+#include "gas_meter/GasInjector.h"
 #include "../libprecompiled/PrecompiledResult.h"
 #include "Common.h"
 #include "ExecutiveContext.h"

@@ -99,7 +99,7 @@ public:
     virtual bigint costOfPrecompiled(const std::string& _a, bytesConstRef _in) const;
 
     void setPrecompiledContract(
-        std::map<std::string, PrecompiledContract> const& precompiledContract);
+        std::map<std::string, PrecompiledContract::Ptr> const& precompiledContract);
 
     void commit();
 
@@ -141,7 +141,7 @@ private:
     u256 m_gasLimit;
     bool m_isWasm = false;
     std::shared_ptr<executor::StateInterface> m_state;
-    std::map<std::string, PrecompiledContract> m_precompiledContract;
+    std::map<std::string, PrecompiledContract::Ptr> m_precompiledContract;
     uint64_t m_txGasLimit = 300000000;
     getTxCriticalsHandler m_getTxCriticals = nullptr;
     std::shared_ptr<storage::TableFactoryInterface> m_tableFactory;

@@ -43,12 +43,13 @@ HunterGate(
 cmake_policy(VERSION 3.12)
 cmake_policy(SET CMP0074 NEW)
 
-project(bcos-executor)
+project(bcos-executor VERSION "3.0.0")
 
 # basic setting
 include(Options)
 configure_project()
 include(CompilerSettings)
+include(InstallConfig)
 include(ProjectEVMC)
 include(ProjectEVMONE)
 include(ProjectHera)
@@ -62,7 +63,6 @@ include(InstallBcosFrameworkDependencies)
 
 add_subdirectory(libstate)
 add_subdirectory(libprecompiled)
-add_subdirectory(libmetering)
 add_subdirectory(libvm)
 add_subdirectory(libexecutor)
 

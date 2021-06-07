@@ -7,3 +7,18 @@ add_library(executor ${SRC_LIST} ${HEADERS})
 
 target_include_directories(executor PRIVATE ..)
 target_link_libraries(executor PUBLIC precompiled vm state)
+
+install(
+    DIRECTORY "./"
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${CMAKE_PROJECT_NAME}"
+    FILES_MATCHING PATTERN "*.h"
+)
+
+install(
+    TARGETS executor
+    EXPORT "${TARGETS_EXPORT_NAME}"
+    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+    INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+)

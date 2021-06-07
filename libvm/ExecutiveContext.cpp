@@ -39,8 +39,8 @@ ExecutiveContext::ExecutiveContext(std::shared_ptr<storage::TableFactoryInterfac
   : m_addressCount(0x10000),
     m_currentHeader(_current),
     m_numberHash(_callback),
-    m_tableFactory(_tableFactory),
     m_isWasm(_isWasm),
+    m_tableFactory(_tableFactory),
     m_hashImpl(_hashImpl)
 {
     m_state = make_shared<State>(m_tableFactory, m_hashImpl);
@@ -122,16 +122,16 @@ bool ExecutiveContext::isEthereumPrecompiled(const string& _a) const
 std::pair<bool, bytes> ExecutiveContext::executeOriginPrecompiled(
     const string& _a, bytesConstRef _in) const
 {
-    return m_precompiledContract.at(_a).execute(_in);
+    return m_precompiledContract.at(_a)->execute(_in);
 }
 
 bigint ExecutiveContext::costOfPrecompiled(const string& _a, bytesConstRef _in) const
 {
-    return m_precompiledContract.at(_a).cost(_in);
+    return m_precompiledContract.at(_a)->cost(_in);
 }
 
 void ExecutiveContext::setPrecompiledContract(
-    std::map<std::string, PrecompiledContract> const& precompiledContract)
+    std::map<std::string, PrecompiledContract::Ptr> const& precompiledContract)
 {
     m_precompiledContract = precompiledContract;
 }
