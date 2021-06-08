@@ -60,12 +60,16 @@ using namespace bcos::storage;
 using namespace bcos::precompiled;
 
 Executor::Executor(const protocol::BlockFactory::Ptr& _blockFactory,
+    const dispatcher::DispatcherInterface::Ptr& _dispatcher,
     const ledger::LedgerInterface::Ptr& _ledger,
-    const storage::StorageInterface::Ptr& _stateStorage, bool _isWasm, size_t _poolSize)
+    const storage::StorageInterface::Ptr& _stateStorage, bool _isWasm, ExecutorVersion _version,
+    size_t _poolSize)
   : m_blockFactory(_blockFactory),
+    m_dispatcher(_dispatcher),
     m_ledger(_ledger),
     m_stateStorage(_stateStorage),
-    m_isWasm(_isWasm)
+    m_isWasm(_isWasm),
+    m_version(_version)
 {
     m_threadNum = std::max(std::thread::hardware_concurrency(), (unsigned int)1);
     m_hashImpl = m_blockFactory->cryptoSuite()->hashImpl();
@@ -97,26 +101,114 @@ Executor::Executor(const protocol::BlockFactory::Ptr& _blockFactory,
     m_pNumberHash = [this](protocol::BlockNumber _number) -> crypto::HashType {
         std::promise<crypto::HashType> prom;
         auto returnHandler = [&prom](Error::Ptr error, crypto::HashType const& hash) {
-            if (!error)
+            if (error)
             {
-                prom.set_value(hash);
+                EXECUTOR_LOG(WARNING)
+                    << LOG_BADGE("executor") << LOG_DESC("asyncGetBlockHashByNumber failed")
+                    << LOG_KV("message", error->errorMessage());
             }
+            prom.set_value(hash);
         };
         m_ledger->asyncGetBlockHashByNumber(_number, returnHandler);
         auto fut = prom.get_future();
         return fut.get();
     };
     m_threadPool = std::make_shared<bcos::ThreadPool>("asyncTasks", _poolSize);
+    m_tableFactory = std::make_shared<TableFactory>(m_stateStorage, m_hashImpl, 1);
 }
 
-void Executor::asyncGetCode(std::shared_ptr<std::string> _address,
+void Executor::start()
+{
+    m_stop.store(false);
+    m_worker = make_unique<thread>([&]() {
+        while (!m_stop.load())
+        {
+            std::promise<protocol::Block::Ptr> prom;
+            auto returnHandler = [&prom](
+                                     const Error::Ptr& error, const protocol::Block::Ptr& block) {
+                if (error)
+                {
+                    EXECUTOR_LOG(WARNING)
+                        << LOG_BADGE("executor") << LOG_DESC("asyncGetLatestBlock failed")
+                        << LOG_KV("message", error->errorMessage());
+                }
+                prom.set_value(block);
+            };
+            m_dispatcher->asyncGetLatestBlock(returnHandler);
+            auto fut = prom.get_future();
+            auto currentBlock = fut.get();
+            // set current block header's ParentInfo use setParentInfo
+            currentBlock->blockHeader()->setParentInfo(
+                {{m_lastHeader->number(), m_lastHeader->hash()}});
+
+            // execute current block
+            ExecutiveContext::Ptr context = nullptr;
+            try
+            {
+                context = executeBlock(currentBlock, m_lastHeader);
+            }
+            catch (exception& e)
+            {
+                EXECUTOR_LOG(ERROR) << LOG_BADGE("executor") << LOG_DESC("executeBlock failed")
+                                    << LOG_KV("message", e.what());
+                continue;
+            }
+
+            // copy TableFactory for next block
+            auto data = context->getTableFactory()->exportData();
+            // use ledger to commit receipts
+            std::promise<Error::Ptr> errorProm;
+            auto storeReceiptsHandler = [&errorProm](
+                                            Error::Ptr error) { errorProm.set_value(error); };
+            m_ledger->asyncStoreReceipts(
+                context->getTableFactory(), currentBlock, storeReceiptsHandler);
+            auto error = errorProm.get_future().get();
+            if (error)
+            {
+                EXECUTOR_LOG(ERROR)
+                    << LOG_BADGE("executor") << LOG_DESC("asyncStoreReceipts failed")
+                    << LOG_KV("message", error->errorMessage());
+                continue;
+            }
+
+            // async notify dispatcher
+            std::promise<Error::Ptr> barrier;
+            auto notifyResultHandler = [&barrier](
+                                           const Error::Ptr& error) { barrier.set_value(error); };
+            m_dispatcher->asyncNotifyExecutionResult(
+                nullptr, currentBlock->blockHeader(), notifyResultHandler);
+            error = barrier.get_future().get();
+            if (!error)
+            {
+                // set m_lastHeader to current block header
+                m_lastHeader = currentBlock->blockHeader();
+                // create a new TableFactory and import data with new blocknumber
+                m_tableFactory = std::make_shared<TableFactory>(
+                    m_stateStorage, m_hashImpl, m_lastHeader->number() + 1);
+                m_tableFactory->importData(data.first, data.second);
+            }
+            else
+            {
+                EXECUTOR_LOG(ERROR)
+                    << LOG_BADGE("executor") << LOG_DESC("asyncNotifyExecutionResult failed")
+                    << LOG_KV("message", error->errorMessage());
+            }
+        }
+    });
+}
+
+void Executor::stop()
+{
+    m_stop.store(true);
+    m_threadPool->stop();
+}
+
+void Executor::asyncGetCode(const std::string_view& _address,
     std::function<void(const Error::Ptr&, const std::shared_ptr<bytes>&)> _callback)
 {
-    auto tableFactory =
-        std::make_shared<TableFactory>(m_stateStorage, m_hashImpl, 0);
-    auto state = make_shared<State>(tableFactory, m_hashImpl);
-    m_threadPool->enqueue([state, _address, _callback]() {
-        auto code = state->code(*_address);
+    auto state = make_shared<State>(m_tableFactory, m_hashImpl);
+    m_threadPool->enqueue([state, address = string(_address), _callback]() {
+        auto code = state->code(address);
         _callback(nullptr, code);
     });
 }
@@ -127,27 +219,29 @@ void Executor::asyncExecuteTransaction(const protocol::Transaction::ConstPtr& _t
     // FIXME: fake a block info to execute transaction
     ExecutiveContext::Ptr executiveContext = createExecutiveContext(nullptr);
     auto executive = std::make_shared<Executive>(executiveContext);
-    // only Rpc::call will use executeTransaction, RPC do catch exception
-    auto receipt = executeTransaction(_tx, executiveContext, executive);
-    _callback(nullptr, receipt);
-    // FIXME: make this interface async
+    m_threadPool->enqueue([&, executiveContext, executive, _tx, _callback]() {
+        // only Rpc::call will use executeTransaction, RPC do catch exception
+        auto receipt = executeTransaction(_tx, executiveContext, executive);
+        _callback(nullptr, receipt);
+    });
 }
 
 ExecutiveContext::Ptr Executor::executeBlock(
-    const protocol::Block::Ptr& block, const protocol::BlockHeader::Ptr& parentBlockInfo)
+    const protocol::Block::Ptr& block, const protocol::BlockHeader::Ptr& parentBlockHeader)
 
 {
-    EXECUTOR_LOG(INFO) << LOG_DESC("[executeBlock]Executing block")
-                       << LOG_KV("txNum", block->transactionsSize())
-                       << LOG_KV("num", block->blockHeader()->number())
-                       << LOG_KV("parentHash", parentBlockInfo->hash())
-                       << LOG_KV("parentNum", parentBlockInfo->number())
-                       << LOG_KV("parentStateRoot", parentBlockInfo->stateRoot());
     // return nullptr prepare to exit when m_stop is true
     if (m_stop.load())
     {
         return nullptr;
     }
+    EXECUTOR_LOG(INFO) << LOG_DESC("[executeBlock]Executing block")
+                       << LOG_KV("txNum", block->transactionsSize())
+                       << LOG_KV("num", block->blockHeader()->number())
+                       << LOG_KV("parentHash", parentBlockHeader->hash())
+                       << LOG_KV("parentNum", parentBlockHeader->number())
+                       << LOG_KV("parentStateRoot", parentBlockHeader->stateRoot());
+
     auto start_time = utcTime();
     auto record_time = utcTime();
     ExecutiveContext::Ptr executiveContext = createExecutiveContext(block->blockHeader());
@@ -157,9 +251,6 @@ ExecutiveContext::Ptr Executor::executeBlock(
     auto tempReceiptRoot = block->blockHeader()->receiptRoot();
     auto tempStateRoot = block->blockHeader()->stateRoot();
     auto tempHeaderHash = block->blockHeader()->hash();
-    // FIXME: check logic below
-    // block->clearAllReceipts();
-    // block->resizeTransactionReceipt(block->transactionsSize());
     auto perpareBlock_time_cost = utcTime() - record_time;
     record_time = utcTime();
 
@@ -217,25 +308,16 @@ ExecutiveContext::Ptr Executor::executeBlock(
     }
     auto exe_time_cost = utcTime() - record_time;
     record_time = utcTime();
-
-    h256 stateRoot = executiveContext->getState()->rootHash();
+    // stateRoot same as executiveContext->getTableFactory()->hash()
+    auto stateRoot = executiveContext->getState()->rootHash();
     auto getRootHash_time_cost = utcTime() - record_time;
-    record_time = utcTime();
-
-    // FIXME: check logic below
-    // block->setStateRootToAllReceipt(stateRoot);
-    // block->updateSequenceReceiptGas();
-    auto setAllReceipt_time_cost = utcTime() - record_time;
     record_time = utcTime();
 
     block->calculateReceiptRoot(true);
     auto getReceiptRoot_time_cost = utcTime() - record_time;
     record_time = utcTime();
 
-    // FIXME: stateRoot = executiveContext->getTableFactory()->hash()
     block->blockHeader()->setStateRoot(stateRoot);
-    // block->blockHeader()->setDBhash(executiveContext->getTableFactory()->hash());
-
     auto setStateRoot_time_cost = utcTime() - record_time;
     record_time = utcTime();
     // Consensus module execute block, receiptRoot is empty, skip this judgment
@@ -270,7 +352,6 @@ ExecutiveContext::Ptr Executor::executeBlock(
                         << LOG_KV("initDagTimeCost", initDag_time_cost)
                         << LOG_KV("exeTimeCost", exe_time_cost)
                         << LOG_KV("getRootHashTimeCost", getRootHash_time_cost)
-                        << LOG_KV("setAllReceiptTimeCost", setAllReceipt_time_cost)
                         << LOG_KV("getReceiptRootTimeCost", getReceiptRoot_time_cost)
                         << LOG_KV("setStateRootTimeCost", setStateRoot_time_cost);
     return executiveContext;
@@ -308,26 +389,23 @@ protocol::TransactionReceipt::Ptr Executor::executeTransaction(protocol::Transac
     }
 
     executive->loggingException();
-    // FIXME: use the true transactionReceipt, use receiptFactory to create
-    // FIXME: the receiptFactory from blockFactory
-
-    // return std::make_shared<TransactionReceipt>(executiveContext->getState()->rootHash(false),
-    //     executive->gasUsed(), executive->logs(), executive->status(),
-    //     executive->takeOutput().takeBytes(), executive->newAddress());
-    return nullptr;
+    // use receiptFactory to create the receiptFactory from blockFactory
+    auto receiptFactory = m_blockFactory->receiptFactory();
+    return receiptFactory->createReceipt(executive->gasUsed(), toBytes(executive->newAddress()),
+        executive->logs(), (int32_t)executive->status(), executive->takeOutput().takeBytes(),
+        executiveContext->currentNumber());
 }
 
 ExecutiveContext::Ptr Executor::createExecutiveContext(
     const protocol::BlockHeader::Ptr& currentHeader)
 {
     // FIXME: if wasm use the SYS_CONFIG_NAME as address
-    // FIXME: TableFactory maybe need as member to continues execute block without write to DB
-    auto tableFactory =
-        std::make_shared<TableFactory>(m_stateStorage, m_hashImpl, currentHeader->number());
+    // TableFactory is member to continues execute block without write to DB
+    (void)m_version;  // FIXME: accord to m_version to chose schedule
     ExecutiveContext::Ptr context = make_shared<ExecutiveContext>(
-        tableFactory, m_hashImpl, currentHeader, FiscoBcosScheduleV3, m_pNumberHash, m_isWasm);
+        m_tableFactory, m_hashImpl, currentHeader, FiscoBcosScheduleV3, m_pNumberHash, m_isWasm);
     auto tableFactoryPrecompiled = std::make_shared<precompiled::TableFactoryPrecompiled>();
-    tableFactoryPrecompiled->setMemoryTableFactory(tableFactory);
+    tableFactoryPrecompiled->setMemoryTableFactory(m_tableFactory);
     auto sysConfig = std::make_shared<precompiled::SystemConfigPrecompiled>();
     context->setAddress2Precompiled(SYS_CONFIG_ADDRESS, sysConfig);
     context->setAddress2Precompiled(TABLE_FACTORY_ADDRESS, tableFactoryPrecompiled);
@@ -344,7 +422,7 @@ ExecutiveContext::Ptr Executor::createExecutiveContext(
     // context->setAddress2Precompiled(
     // CONTRACT_LIFECYCLE_ADDRESS, std::make_shared<precompiled::ContractLifeCyclePrecompiled>());
     auto kvTableFactoryPrecompiled = std::make_shared<precompiled::KVTableFactoryPrecompiled>();
-    kvTableFactoryPrecompiled->setMemoryTableFactory(tableFactory);
+    kvTableFactoryPrecompiled->setMemoryTableFactory(m_tableFactory);
     context->setAddress2Precompiled(KV_TABLE_FACTORY_ADDRESS, kvTableFactoryPrecompiled);
     // context->setAddress2Precompiled(
     //     CHAINGOVERNANCE_ADDRESS, std::make_shared<precompiled::ChainGovernancePrecompiled>());
@@ -353,11 +431,11 @@ ExecutiveContext::Ptr Executor::createExecutiveContext(
     // registerUserPrecompiled(context);
 
     context->setPrecompiledContract(m_precompiledContract);
-    auto state = make_shared<State>(tableFactory, m_hashImpl);
+    auto state = make_shared<State>(m_tableFactory, m_hashImpl);
     context->setState(state);
 
     // getTxGasLimitToContext from precompiled and set to context
-    auto ret = sysConfig->getSysConfigByKey("tx_gas_limit", tableFactory);
+    auto ret = sysConfig->getSysConfigByKey("tx_gas_limit", m_tableFactory);
     context->setTxGasLimit(boost::lexical_cast<uint64_t>(ret.first));
 
     // register workingSealerManagerPrecompiled for VRF-based-rPBFT

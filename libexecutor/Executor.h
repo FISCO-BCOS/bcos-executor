@@ -20,6 +20,7 @@
  */
 #pragma once
 
+#include "bcos-framework/interfaces/dispatcher/DispatcherInterface.h"
 #include "bcos-framework/interfaces/executor/ExecutorInterface.h"
 #include "bcos-framework/interfaces/ledger/LedgerInterface.h"
 #include "bcos-framework/interfaces/protocol/Block.h"
@@ -50,16 +51,30 @@ namespace executor
 class Executive;
 class ExecutiveContext;
 class PrecompiledContract;
+
+enum ExecutorVersion : int32_t
+{
+    Version_3_0_0 = 1,
+};
 class Executor : public ExecutorInterface
 {
 public:
     typedef std::shared_ptr<Executor> Ptr;
     typedef std::function<crypto::HashType(protocol::BlockNumber x)> CallBackFunction;
     Executor(const protocol::BlockFactory::Ptr& _blockFactory,
+        const dispatcher::DispatcherInterface::Ptr& _dispatcher,
         const ledger::LedgerInterface::Ptr& _ledger,
-        const storage::StorageInterface::Ptr& _stateStorage, bool _isWasm, size_t _poolSize = 2);
+        const storage::StorageInterface::Ptr& _stateStorage, bool _isWasm,
+        ExecutorVersion _version = Version_3_0_0, size_t _poolSize = 2);
 
-    virtual ~Executor() {}
+    virtual ~Executor()
+    {
+        if (m_worker)
+        {
+            m_stop.store(true);
+            m_worker->join();
+        }
+    }
 
     std::shared_ptr<ExecutiveContext> executeBlock(
         const protocol::Block::Ptr& block, const protocol::BlockHeader::Ptr& parentBlockInfo);
@@ -68,18 +83,21 @@ public:
         std::shared_ptr<ExecutiveContext> executiveContext,
         std::shared_ptr<executor::Executive> executive);
 
-    void asyncGetCode(std::shared_ptr<std::string> _address,
+    void asyncGetCode(const std::string_view& _address,
         std::function<void(const Error::Ptr&, const std::shared_ptr<bytes>&)> _callback) override;
     void asyncExecuteTransaction(const protocol::Transaction::ConstPtr& _tx,
         std::function<void(const Error::Ptr&, const protocol::TransactionReceipt::ConstPtr&)>
             _callback) override;
-    void stop() override { m_stop.store(true); }
+    void stop() override;
+    void start() override;
 
 private:
     std::shared_ptr<ExecutiveContext> createExecutiveContext(
         const protocol::BlockHeader::Ptr& _currentHeader);
     protocol::BlockFactory::Ptr m_blockFactory;
+    dispatcher::DispatcherInterface::Ptr m_dispatcher;
     ledger::LedgerInterface::Ptr m_ledger;
+    storage::TableFactoryInterface::Ptr m_tableFactory;
     storage::StorageInterface::Ptr m_stateStorage;
     std::shared_ptr<ThreadPool> m_threadPool = nullptr;
     CallBackFunction m_pNumberHash;
@@ -87,6 +105,9 @@ private:
     unsigned int m_threadNum = -1;
     bool m_isWasm = false;
     std::atomic_bool m_stop = {false};
+    protocol::BlockHeader::Ptr m_lastHeader;
+    std::unique_ptr<std::thread> m_worker = nullptr;
+    ExecutorVersion m_version;
     std::map<std::string, std::shared_ptr<PrecompiledContract>> m_precompiledContract;
 };
 
