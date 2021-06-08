@@ -232,7 +232,6 @@ HostContext::HostContext(
     g_hashImpl = m_envInfo->hashHandler();
     // FIXME: rename sm3_hash_fn to evm_hash_fn and add a context pointer to get hashImpl
     sm3_hash_fn = evm_hash_fn;
-    // FIXME: refactor version used in evmone and hash to remove use of m_envInfo->useSMCrypto()
     version = 0x03000000;
 
     metrics = &ethMetrics;

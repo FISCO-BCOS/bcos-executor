@@ -233,8 +233,6 @@ static const EVMSchedule EWASMSchedule = [] {
 
 static const EVMSchedule DefaultSchedule = FiscoBcosScheduleV3;
 
-
-
 struct ImportRequirements
 {
     using value = unsigned;

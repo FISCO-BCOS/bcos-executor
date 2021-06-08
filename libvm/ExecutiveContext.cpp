@@ -35,10 +35,11 @@ namespace bcos
 {
 ExecutiveContext::ExecutiveContext(std::shared_ptr<storage::TableFactoryInterface> _tableFactory,
     crypto::Hash::Ptr _hashImpl, protocol::BlockHeader::Ptr const& _current,
-    CallBackFunction _callback, bool _isWasm)
+    const EVMSchedule& _schedule, CallBackFunction _callback, bool _isWasm)
   : m_addressCount(0x10000),
     m_currentHeader(_current),
     m_numberHash(_callback),
+    m_schedule(_schedule),
     m_isWasm(_isWasm),
     m_tableFactory(_tableFactory),
     m_hashImpl(_hashImpl)

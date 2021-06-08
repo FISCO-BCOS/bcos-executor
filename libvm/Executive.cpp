@@ -239,7 +239,7 @@ bool Executive::call(CallParameters const& _p, const std::string& _origin)
 
 bool Executive::create(const std::string_view& _txSender, u256 const& _gas, bytesConstRef _init,
     const std::string_view& _origin)
-{  // FIXME: if wasm deploy, then call precompiled of wasm deploy
+{
     // Contract creation by an external account is the same as CREATE opcode
     return createOpcode(_txSender, _gas, _init, _origin);
 }
@@ -323,7 +323,7 @@ bool Executive::executeCreate(const std::string_view& _sender, u256 const& _gas,
     {
         auto code = make_shared<bytes>(_init.data(), _init.data() + _init.size());
         if (hasWasmPreamble(*code))
-        {  // FIXME: get the constructor parameters from outside
+        {  // FIXME: the wasm deploy use a precompiled so inject meter in thatprecompiled
             // callData = bytesConstRef(m_t->extraData().data(), m_t->extraData().size());
             auto result = m_gasInjector->InjectMeter(*code);
             if (result.status == wasm::GasInjector::Status::Success)

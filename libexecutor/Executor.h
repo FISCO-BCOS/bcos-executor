@@ -38,6 +38,7 @@ namespace bcos
 DERIVE_BCOS_EXCEPTION(InvalidBlockWithBadRoot);
 DERIVE_BCOS_EXCEPTION(BlockExecutionFailed);
 
+class ThreadPool;
 namespace protocol
 {
 class TransactionReceipt;
@@ -53,10 +54,10 @@ class Executor : public ExecutorInterface
 {
 public:
     typedef std::shared_ptr<Executor> Ptr;
-    typedef std::function<h256(int64_t x)> CallBackFunction;
+    typedef std::function<crypto::HashType(protocol::BlockNumber x)> CallBackFunction;
     Executor(const protocol::BlockFactory::Ptr& _blockFactory,
         const ledger::LedgerInterface::Ptr& _ledger,
-        const storage::StorageInterface::Ptr& _stateStorage, bool _isWasm);
+        const storage::StorageInterface::Ptr& _stateStorage, bool _isWasm, size_t _poolSize = 2);
 
     virtual ~Executor() {}
 
@@ -72,9 +73,6 @@ public:
     void asyncExecuteTransaction(const protocol::Transaction::ConstPtr& _tx,
         std::function<void(const Error::Ptr&, const protocol::TransactionReceipt::ConstPtr&)>
             _callback) override;
-
-    void setNumberHash(const CallBackFunction& _pNumberHash) { m_pNumberHash = _pNumberHash; }
-
     void stop() override { m_stop.store(true); }
 
 private:
@@ -83,6 +81,7 @@ private:
     protocol::BlockFactory::Ptr m_blockFactory;
     ledger::LedgerInterface::Ptr m_ledger;
     storage::StorageInterface::Ptr m_stateStorage;
+    std::shared_ptr<ThreadPool> m_threadPool = nullptr;
     CallBackFunction m_pNumberHash;
     crypto::Hash::Ptr m_hashImpl;
     unsigned int m_threadNum = -1;

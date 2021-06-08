@@ -64,7 +64,8 @@ public:
 
     ExecutiveContext(std::shared_ptr<storage::TableFactoryInterface> _tableFactory,
         crypto::Hash::Ptr _hashImpl, protocol::BlockHeader::Ptr const& _current,
-        CallBackFunction _callback, bool _isWasm);
+        const EVMSchedule& _schedule, CallBackFunction _callback,
+        bool _isWasm);
     using getTxCriticalsHandler = std::function<std::shared_ptr<std::vector<std::string>>(
         const protocol::Transaction::ConstPtr& _tx)>;
     virtual ~ExecutiveContext()
@@ -128,7 +129,7 @@ public:
 
     crypto::HashType numberHash(int64_t x) const { return m_numberHash(x); }
 
-    EVMSchedule const& evmSchedule() const { return *m_schedule; }
+    EVMSchedule const& evmSchedule() const { return m_schedule; }
 
 private:
     tbb::concurrent_unordered_map<std::string, std::shared_ptr<precompiled::Precompiled>,
@@ -137,7 +138,7 @@ private:
     std::atomic<int> m_addressCount;
     protocol::BlockHeader::Ptr m_currentHeader;
     CallBackFunction m_numberHash;
-    std::shared_ptr<const EVMSchedule> m_schedule = nullptr;
+    EVMSchedule m_schedule;
     u256 m_gasLimit;
     bool m_isWasm = false;
     std::shared_ptr<executor::StateInterface> m_state;

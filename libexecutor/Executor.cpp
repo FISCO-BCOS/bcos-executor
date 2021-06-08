@@ -19,7 +19,16 @@
  * @date: 2021-05-27
  */
 #include "Executor.h"
+#include "../libprecompiled/CNSPrecompiled.h"
+#include "../libprecompiled/ConsensusPrecompiled.h"
+#include "../libprecompiled/CryptoPrecompiled.h"
+#include "../libprecompiled/KVTableFactoryPrecompiled.h"
+#include "../libprecompiled/ParallelConfigPrecompiled.h"
+#include "../libprecompiled/PrecompiledResult.h"
+#include "../libprecompiled/SystemConfigPrecompiled.h"
+#include "../libprecompiled/TableFactoryPrecompiled.h"
 #include "../libprecompiled/Utilities.h"
+#include "../libprecompiled/extension/DagTransferPrecompiled.h"
 #include "../libstate/State.h"
 #include "../libvm/Executive.h"
 #include "../libvm/ExecutiveContext.h"
@@ -28,28 +37,20 @@
 #include "Common.h"
 #include "TxDAG.h"
 #include "bcos-framework/interfaces/protocol/TransactionReceipt.h"
+#include "bcos-framework/libcodec/abi/ContractABIType.h"
 #include "bcos-framework/libtable/Table.h"
 #include "bcos-framework/libtable/TableFactory.h"
+#include "bcos-framework/libutilities/ThreadPool.h"
 #include <tbb/parallel_for.h>
 #include <exception>
+#include <future>
 #include <thread>
 // #include "include/UserPrecompiled.h"
-#include "../libprecompiled/CNSPrecompiled.h"
 // #include "../libprecompiled/CRUDPrecompiled.h"
-// #include "../libprecompiled/ChainGovernancePrecompiled.h"
-#include "../libprecompiled/ConsensusPrecompiled.h"
-// #include "../libprecompiled/ContractLifeCyclePrecompiled.h"
-#include "../libprecompiled/KVTableFactoryPrecompiled.h"
-#include "../libprecompiled/ParallelConfigPrecompiled.h"
 // #include "../libprecompiled/PermissionPrecompiled.h"
-#include "../libprecompiled/CryptoPrecompiled.h"
-#include "../libprecompiled/PrecompiledResult.h"
-#include "../libprecompiled/SystemConfigPrecompiled.h"
-#include "../libprecompiled/TableFactoryPrecompiled.h"
+// #include "../libprecompiled/ChainGovernancePrecompiled.h"
+// #include "../libprecompiled/ContractLifeCyclePrecompiled.h"
 // #include "../libprecompiled/WorkingSealerManagerPrecompiled.h"
-#include "../libprecompiled/extension/DagTransferPrecompiled.h"
-#include "../libvm/ExecutiveContext.h"
-#include "bcos-framework/libcodec/abi/ContractABIType.h"
 
 using namespace bcos;
 using namespace std;
@@ -60,7 +61,7 @@ using namespace bcos::precompiled;
 
 Executor::Executor(const protocol::BlockFactory::Ptr& _blockFactory,
     const ledger::LedgerInterface::Ptr& _ledger,
-    const storage::StorageInterface::Ptr& _stateStorage, bool _isWasm)
+    const storage::StorageInterface::Ptr& _stateStorage, bool _isWasm, size_t _poolSize)
   : m_blockFactory(_blockFactory),
     m_ledger(_ledger),
     m_stateStorage(_stateStorage),
@@ -68,35 +69,56 @@ Executor::Executor(const protocol::BlockFactory::Ptr& _blockFactory,
 {
     m_threadNum = std::max(std::thread::hardware_concurrency(), (unsigned int)1);
     m_hashImpl = m_blockFactory->cryptoSuite()->hashImpl();
-    // FIXME: CallBackFunction convert ledger asyncGetBlockHashByNumber to sync
     m_precompiledContract.insert(std::make_pair(std::string("0x1"),
         make_shared<PrecompiledContract>(3000, 0, PrecompiledRegistrar::executor("ecrecover"))));
-    m_precompiledContract.insert(std::make_pair(
-        std::string("0x2"), make_shared<PrecompiledContract>(60, 12, PrecompiledRegistrar::executor("sha256"))));
+    m_precompiledContract.insert(std::make_pair(std::string("0x2"),
+        make_shared<PrecompiledContract>(60, 12, PrecompiledRegistrar::executor("sha256"))));
     m_precompiledContract.insert(std::make_pair(std::string("0x3"),
         make_shared<PrecompiledContract>(600, 120, PrecompiledRegistrar::executor("ripemd160"))));
     m_precompiledContract.insert(std::make_pair(std::string("0x4"),
         make_shared<PrecompiledContract>(15, 3, PrecompiledRegistrar::executor("identity"))));
+    m_precompiledContract.insert({std::string("0x5"),
+        make_shared<PrecompiledContract>(
+            PrecompiledRegistrar::pricer("modexp"), PrecompiledRegistrar::executor("modexp"))});
     m_precompiledContract.insert(
-        {std::string("0x5"), make_shared<PrecompiledContract>(PrecompiledRegistrar::pricer("modexp"),
-                                 PrecompiledRegistrar::executor("modexp"))});
-    m_precompiledContract.insert({std::string("0x6"),
-        make_shared<PrecompiledContract>(150, 0, PrecompiledRegistrar::executor("alt_bn128_G1_add"))});
-    m_precompiledContract.insert({std::string("0x7"),
-        make_shared<PrecompiledContract>(6000, 0, PrecompiledRegistrar::executor("alt_bn128_G1_mul"))});
+        {std::string("0x6"), make_shared<PrecompiledContract>(
+                                 150, 0, PrecompiledRegistrar::executor("alt_bn128_G1_add"))});
+    m_precompiledContract.insert(
+        {std::string("0x7"), make_shared<PrecompiledContract>(
+                                 6000, 0, PrecompiledRegistrar::executor("alt_bn128_G1_mul"))});
     m_precompiledContract.insert({std::string("0x8"),
         make_shared<PrecompiledContract>(PrecompiledRegistrar::pricer("alt_bn128_pairing_product"),
             PrecompiledRegistrar::executor("alt_bn128_pairing_product"))});
-    m_precompiledContract.insert(
-        {std::string("0x9"), make_shared<PrecompiledContract>(PrecompiledRegistrar::pricer("blake2_compression"),
-                                 PrecompiledRegistrar::executor("blake2_compression"))});
+    m_precompiledContract.insert({std::string("0x9"),
+        make_shared<PrecompiledContract>(PrecompiledRegistrar::pricer("blake2_compression"),
+            PrecompiledRegistrar::executor("blake2_compression"))});
+
+    // CallBackFunction convert ledger asyncGetBlockHashByNumber to sync
+    m_pNumberHash = [this](protocol::BlockNumber _number) -> crypto::HashType {
+        std::promise<crypto::HashType> prom;
+        auto returnHandler = [&prom](Error::Ptr error, crypto::HashType const& hash) {
+            if (!error)
+            {
+                prom.set_value(hash);
+            }
+        };
+        m_ledger->asyncGetBlockHashByNumber(_number, returnHandler);
+        auto fut = prom.get_future();
+        return fut.get();
+    };
+    m_threadPool = std::make_shared<bcos::ThreadPool>("asyncTasks", _poolSize);
 }
 
 void Executor::asyncGetCode(std::shared_ptr<std::string> _address,
     std::function<void(const Error::Ptr&, const std::shared_ptr<bytes>&)> _callback)
 {
-    (void)_address;
-    (void)_callback;
+    auto tableFactory =
+        std::make_shared<TableFactory>(m_stateStorage, m_hashImpl, 0);
+    auto state = make_shared<State>(tableFactory, m_hashImpl);
+    m_threadPool->enqueue([state, _address, _callback]() {
+        auto code = state->code(*_address);
+        _callback(nullptr, code);
+    });
 }
 
 void Executor::asyncExecuteTransaction(const protocol::Transaction::ConstPtr& _tx,
@@ -299,15 +321,15 @@ ExecutiveContext::Ptr Executor::createExecutiveContext(
     const protocol::BlockHeader::Ptr& currentHeader)
 {
     // FIXME: if wasm use the SYS_CONFIG_NAME as address
-    // FIXME: TableFactory maybe need sa member to continues execute block without write to DB
+    // FIXME: TableFactory maybe need as member to continues execute block without write to DB
     auto tableFactory =
         std::make_shared<TableFactory>(m_stateStorage, m_hashImpl, currentHeader->number());
     ExecutiveContext::Ptr context = make_shared<ExecutiveContext>(
-        tableFactory, m_hashImpl, currentHeader, m_pNumberHash, m_isWasm);
+        tableFactory, m_hashImpl, currentHeader, FiscoBcosScheduleV3, m_pNumberHash, m_isWasm);
     auto tableFactoryPrecompiled = std::make_shared<precompiled::TableFactoryPrecompiled>();
     tableFactoryPrecompiled->setMemoryTableFactory(tableFactory);
-    context->setAddress2Precompiled(
-        SYS_CONFIG_ADDRESS, std::make_shared<precompiled::SystemConfigPrecompiled>());
+    auto sysConfig = std::make_shared<precompiled::SystemConfigPrecompiled>();
+    context->setAddress2Precompiled(SYS_CONFIG_ADDRESS, sysConfig);
     context->setAddress2Precompiled(TABLE_FACTORY_ADDRESS, tableFactoryPrecompiled);
     // context->setAddress2Precompiled(CRUD_ADDRESS,
     // std::make_shared<precompiled::CRUDPrecompiled>());
@@ -334,8 +356,9 @@ ExecutiveContext::Ptr Executor::createExecutiveContext(
     auto state = make_shared<State>(tableFactory, m_hashImpl);
     context->setState(state);
 
-    // FIXME: setTxGasLimitToContext
-    // setTxGasLimitToContext(context);
+    // getTxGasLimitToContext from precompiled and set to context
+    auto ret = sysConfig->getSysConfigByKey("tx_gas_limit", tableFactory);
+    context->setTxGasLimit(boost::lexical_cast<uint64_t>(ret.first));
 
     // register workingSealerManagerPrecompiled for VRF-based-rPBFT
 
