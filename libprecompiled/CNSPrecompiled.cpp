@@ -43,7 +43,6 @@ CNSPrecompiled::CNSPrecompiled()
         getFuncSelector(CNS_METHOD_GET_CONTRACT_ADDRESS);
 }
 
-
 std::string CNSPrecompiled::toString()
 {
     return "CNS";
@@ -51,10 +50,13 @@ std::string CNSPrecompiled::toString()
 
 // check param of the cns
 bool CNSPrecompiled::checkCNSParam(ExecutiveContext::Ptr _context, Address const& _contractAddress,
-    std::string const& _contractName, std::string const& _contractAbi)
+    std::string const& _contractName, std::string const& _contractVersion,
+    std::string const& _contractAbi)
 {
     try
     {
+        boost::trim(_contractName);
+        boost::trim(_contractVersion);
         // check the status of the contract(only print the error message to the log)
         std::string tableName = precompiled::getContractTableName(_contractAddress.hex());
         ContractStatus contractStatus = getContractStatus(_context, tableName);
@@ -100,12 +102,26 @@ bool CNSPrecompiled::checkCNSParam(ExecutiveContext::Ptr _context, Address const
                                  << LOG_KV("contractName", _contractName)
                                  << LOG_KV("e", boost::diagnostic_information(_e));
     }
-
+    if (_contractVersion.size() > CNS_VERSION_MAX_LENGTH)
+    {
+        PRECOMPILED_LOG(ERROR)
+                << LOG_BADGE("CNSPrecompiled") << LOG_DESC("version length overflow 128")
+                << LOG_KV("contractName", _contractName) << LOG_KV("address", _contractAddress.hex())
+                << LOG_KV("version", _contractVersion);
+        return false;
+    }
+    if (_contractVersion.find(',') != std::string::npos ||
+        _contractName.find(',') != std::string::npos)
+    {
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("CNSPrecompiled") << LOG_DESC("version or name contains \",\"")
+                               << LOG_KV("contractName", _contractName)
+                               << LOG_KV("version", _contractVersion);
+        return false;
+    }
     // check the length of the key
     checkLengthValidate(
         _contractName, CNS_CONTRACT_NAME_MAX_LENGTH, CODE_TABLE_KEY_VALUE_LENGTH_OVERFLOW);
     // check the length of the field value
-    // (since the contract version length will be checked, here no need to check _contractVersion)
     checkLengthValidate(
         _contractAbi, USER_TABLE_FIELD_VALUE_MAX_LENGTH, CODE_TABLE_FIELD_VALUE_LENGTH_OVERFLOW);
     return true;
@@ -137,33 +153,16 @@ PrecompiledExecResult::Ptr CNSPrecompiled::call(
 
         auto table = _context->getTableFactory()->openTable(SYS_CNS);
         gasPricer->appendOperation(InterfaceOpcode::OpenTable);
-
-        bool isValid = checkCNSParam(_context, contractAddress, contractName, contractAbi);
+        bool isValid =
+            checkCNSParam(_context, contractAddress, contractName, contractVersion, contractAbi);
+        auto entry = table->getRow(contractName + "," + contractVersion);
         // check exist or not
-        bool exist = false;
-        auto entry = table->getRow(contractName);
+        bool exist = (entry != nullptr);
         // Note: The selection here is only used as an internal logical judgment,
         // so only calculate the computation gas
         gasPricer->appendOperation(InterfaceOpcode::Select, 1);
-
-        if (!entry)
-        {
-            exist = false;
-        }
-        else if (entry->getField(SYS_CNS_FIELD_VERSION) == contractVersion)
-        {
-            exist = true;
-        }
-        int result = 0;
-        if (contractVersion.size() > CNS_VERSION_MAX_LENGTH)
-        {
-            PRECOMPILED_LOG(ERROR)
-                << LOG_BADGE("CNS") << LOG_DESC("version length overflow 128")
-                << LOG_KV("contractName", contractName) << LOG_KV("address", contractAddress.hex())
-                << LOG_KV("version", contractVersion);
-            result = CODE_VERSION_LENGTH_OVERFLOW;
-        }
-        else if (exist)
+        int result;
+        if (exist)
         {
             PRECOMPILED_LOG(ERROR)
                 << LOG_BADGE("CNSPrecompiled") << LOG_DESC("address and version exist")
@@ -182,10 +181,9 @@ PrecompiledExecResult::Ptr CNSPrecompiled::call(
             if (_context->getTableFactory()->checkAuthority(SYS_CNS, _origin))
             {
                 auto newEntry = table->newEntry();
-                newEntry->setField(SYS_CNS_FIELD_NAME, contractName);
-                newEntry->setField(SYS_CNS_FIELD_VERSION, contractVersion);
+                newEntry->setField(SYS_CNS_FIELD_ADDRESS, contractAddress.hex());
                 newEntry->setField(SYS_CNS_FIELD_ABI, contractAbi);
-                table->setRow(contractAddress.hex(), newEntry);
+                table->setRow(contractName + "," + contractVersion, newEntry);
                 auto commitResult = _context->getTableFactory()->commit();
                 if (!commitResult.second ||
                     commitResult.second->errorCode() == CommonError::SUCCESS)
@@ -218,7 +216,6 @@ PrecompiledExecResult::Ptr CNSPrecompiled::call(
     else if (func == name2Selector[CNS_METHOD_SLT_STR])
     {
         // selectByName(string) returns(string)
-        // Cursor is not considered.
         std::string contractName;
         m_codec->decode(data, contractName);
         auto table = _context->getTableFactory()->openTable(SYS_CNS);
@@ -238,12 +235,16 @@ PrecompiledExecResult::Ptr CNSPrecompiled::call(
             {
                 continue;
             }
-            if(entry->getField(SYS_CNS_FIELD_NAME) == contractName)
+            auto index = key.find(',');
+            // "," must exist, and name,version must be trimmed
+            std::pair<std::string, std::string> nameVersionPair{
+                key.substr(0, index), key.substr(index + 1)};
+            if(nameVersionPair.first == contractName)
             {
                 Json::Value CNSInfo;
-                CNSInfo[SYS_CNS_FIELD_NAME] = entry->getField(SYS_CNS_FIELD_NAME);
-                CNSInfo[SYS_CNS_FIELD_VERSION] = entry->getField(SYS_CNS_FIELD_VERSION);
-                CNSInfo[SYS_CNS_FIELD_ADDRESS] = key;
+                CNSInfo[SYS_CNS_FIELD_NAME] = contractName;
+                CNSInfo[SYS_CNS_FIELD_VERSION] = nameVersionPair.second;
+                CNSInfo[SYS_CNS_FIELD_ADDRESS] = entry->getField(SYS_CNS_FIELD_ADDRESS);
                 CNSInfo[SYS_CNS_FIELD_ABI] = entry->getField(SYS_CNS_FIELD_ABI);
                 CNSInfos.append(CNSInfo);
             }
@@ -254,38 +255,30 @@ PrecompiledExecResult::Ptr CNSPrecompiled::call(
     }
     else if (func == name2Selector[CNS_METHOD_SLT_STR2])
     {
-        // selectByNameAndVersion(string,string) returns(string)
+        // selectByNameAndVersion(string,string) returns(address,string)
         std::string contractName, contractVersion;
         m_codec->decode(data, contractName, contractVersion);
         auto table = _context->getTableFactory()->openTable(SYS_CNS);
         gasPricer->appendOperation(InterfaceOpcode::OpenTable);
         Json::Value CNSInfos(Json::arrayValue);
-
-        // TODO: add traverse gas
-        auto keys = table->getPrimaryKeys(nullptr);
-        gasPricer->appendOperation(InterfaceOpcode::Select, keys.size());
-
-        for (auto& key : keys)
+        boost::trim(contractName);
+        boost::trim(contractVersion);
+        auto entry = table->getRow(contractName + "," + contractVersion);
+        gasPricer->appendOperation(InterfaceOpcode::Select, entry->capacityOfHashField());
+        if(!entry)
         {
-            auto entry = table->getRow(key);
-            if (!entry)
-            {
-                continue;
-            }
-            if (entry->getField(SYS_CNS_FIELD_NAME) == contractName &&
-                entry->getField(SYS_CNS_FIELD_VERSION) == contractVersion)
-            {
-                Json::Value CNSInfo;
-                CNSInfo[SYS_CNS_FIELD_NAME] = contractName;
-                CNSInfo[SYS_CNS_FIELD_VERSION] = entry->getField(SYS_CNS_FIELD_VERSION);
-                CNSInfo[SYS_CNS_FIELD_ADDRESS] = entry->getField(SYS_CNS_FIELD_ADDRESS);
-                CNSInfo[SYS_CNS_FIELD_ABI] = entry->getField(SYS_CNS_FIELD_ABI);
-                CNSInfos.append(CNSInfo);
-            }
+            PRECOMPILED_LOG(DEBUG)
+                << LOG_BADGE("CNSPrecompiled") << LOG_DESC("can't get cns selectByNameAndVersion")
+                << LOG_KV("contractName", contractName)
+                << LOG_KV("contractVersion", contractVersion);
+            callResult->setExecResult(m_codec->encode((int)CODE_ADDRESS_AND_VERSION_EXIST));
         }
-        Json::FastWriter fastWriter;
-        std::string str = fastWriter.write(CNSInfos);
-        callResult->setExecResult(m_codec->encode(str));
+        else
+        {
+            Address contractAddress = toAddress(entry->getField(SYS_CNS_FIELD_ADDRESS));
+            std::string abi = entry->getField(SYS_CNS_FIELD_ABI);
+            callResult->setExecResult(m_codec->encode(contractAddress, abi));
+        }
     }
     else if (func == name2Selector[CNS_METHOD_GET_CONTRACT_ADDRESS])
     {  // getContractAddress(string,string) returns(address)
@@ -293,27 +286,24 @@ PrecompiledExecResult::Ptr CNSPrecompiled::call(
         m_codec->decode(data, contractName, contractVersion);
         auto table = _context->getTableFactory()->openTable(SYS_CNS);
         gasPricer->appendOperation(InterfaceOpcode::OpenTable);
-
-        Address ret;
-        auto keys = table->getPrimaryKeys(nullptr);
-        gasPricer->appendOperation(InterfaceOpcode::Select, keys.size());
-
-        for (auto& key : keys)
+        Json::Value CNSInfos(Json::arrayValue);
+        boost::trim(contractName);
+        boost::trim(contractVersion);
+        auto entry = table->getRow(contractName + "," + contractVersion);
+        gasPricer->appendOperation(InterfaceOpcode::Select, entry->capacityOfHashField());
+        if(!entry)
         {
-            auto entry = table->getRow(key);
-            if (!entry)
-            {
-                continue;
-            }
-            if (entry->getField(SYS_CNS_FIELD_NAME) == contractName &&
-                entry->getField(SYS_CNS_FIELD_VERSION) == contractVersion)
-            {
-                ret = Address(key);
-            }
+            PRECOMPILED_LOG(DEBUG)
+                    << LOG_BADGE("CNSPrecompiled") << LOG_DESC("can't get cns selectByNameAndVersion")
+                    << LOG_KV("contractName", contractName)
+                    << LOG_KV("contractVersion", contractVersion);
+            callResult->setExecResult(m_codec->encode((int)CODE_ADDRESS_AND_VERSION_EXIST));
         }
-        callResult->setExecResult(m_codec->encode(ret));
-        gasPricer->updateMemUsed(callResult->m_execResult.size());
-        _remainGas -= gasPricer->calTotalGas();
+        else
+        {
+            Address contractAddress = toAddress(entry->getField(SYS_CNS_FIELD_ADDRESS));
+            callResult->setExecResult(m_codec->encode(contractAddress));
+        }
     }
     else
     {

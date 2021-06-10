@@ -83,7 +83,6 @@ inline void getErrorCodeOut(bytes& out, int const& result, const PrecompiledCode
         out = _codec->encode(u256(result));
         return;
     }
-    // TODO: use s256 when scale support
     out = _codec->encode(result);
 }
 inline std::string getTableName(const std::string& _tableName)

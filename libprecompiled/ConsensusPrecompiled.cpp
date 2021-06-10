@@ -33,9 +33,10 @@ using namespace bcos::storage;
 using namespace bcos::precompiled;
 using namespace bcos::ledger;
 
-const char* const CSS_METHOD_ADD_SEALER = "addSealer(string,string)";
+const char* const CSS_METHOD_ADD_SEALER = "addSealer(string,uint256)";
 const char* const CSS_METHOD_ADD_SER = "addObserver(string)";
 const char* const CSS_METHOD_REMOVE = "remove(string)";
+const char* const CSS_METHOD_SET_WEIGHT = "setWeight(string,uint256)";
 
 ConsensusPrecompiled::ConsensusPrecompiled()
 {
@@ -61,7 +62,7 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
     int result = 0;
     if (func == name2Selector[CSS_METHOD_ADD_SEALER])
     {
-        // addSealer(string)
+        // addSealer(string, uint256)
         std::string nodeID;
         u256 weight;
         m_codec->decode(data, nodeID, weight);
@@ -74,7 +75,7 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
         {
             PRECOMPILED_LOG(ERROR) << LOG_BADGE("ConsensusPrecompiled")
                                    << LOG_DESC("nodeID length error") << LOG_KV("nodeID", nodeID);
-            result = CODE_INVALID_NODEID;
+            result = CODE_INVALID_NODE_ID;
         }
         else
         {
@@ -131,7 +132,7 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
         {
             PRECOMPILED_LOG(ERROR) << LOG_BADGE("ConsensusPrecompiled")
                                    << LOG_DESC("nodeID length error") << LOG_KV("nodeID", nodeID);
-            result = CODE_INVALID_NODEID;
+            result = CODE_INVALID_NODE_ID;
         }
         else
         {
@@ -198,7 +199,7 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
         {
             PRECOMPILED_LOG(ERROR) << LOG_BADGE("ConsensusPrecompiled")
                                    << LOG_DESC("nodeID length error") << LOG_KV("nodeID", nodeID);
-            result = CODE_INVALID_NODEID;
+            result = CODE_INVALID_NODE_ID;
         }
         else
         {
@@ -240,6 +241,72 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
             {
                 PRECOMPILED_LOG(DEBUG)
                     << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("permission denied");
+                // FIXME: add unify error code
+                result = -1;
+            }
+        }
+    }
+    else if (func == name2Selector[CSS_METHOD_SET_WEIGHT])
+    {
+        // setWeight(string,uint256)
+        std::string nodeID;
+        u256 weight;
+        m_codec->decode(data, nodeID, weight);
+        // Uniform lowercase nodeID
+        boost::to_lower(nodeID);
+        PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("remove func")
+                               << LOG_KV("nodeID", nodeID);
+        if (nodeID.size() != 128u)
+        {
+            PRECOMPILED_LOG(ERROR) << LOG_BADGE("ConsensusPrecompiled")
+                                   << LOG_DESC("nodeID length error") << LOG_KV("nodeID", nodeID);
+            result = CODE_INVALID_NODE_ID;
+        }
+        else if (weight == 0)
+        {
+            PRECOMPILED_LOG(ERROR) << LOG_BADGE("ConsensusPrecompiled")
+                                   << LOG_DESC("weight is 0") << LOG_KV("nodeID", nodeID);
+            result = CODE_INVALID_WEIGHT;
+        }
+        else
+        {
+            auto table = _context->getTableFactory()->openTable(ledger::SYS_CONSENSUS);
+            auto entry = table->getRow(nodeID);
+            if (!entry)
+            {
+                PRECOMPILED_LOG(ERROR) << LOG_BADGE("ConsensusPrecompiled")
+                                       << LOG_DESC("nodeID not exists") << LOG_KV("nodeID", nodeID);
+                result = CODE_NODE_NOT_EXIST;
+            }
+            else if (_context->getTableFactory()->checkAuthority(ledger::SYS_CONSENSUS, _origin))
+            {
+                auto newEntry = table->newEntry();
+                entry->setField(NODE_WEIGHT, boost::lexical_cast<std::string>(weight));
+                table->setRow(nodeID, entry);
+                auto commitResult = _context->getTableFactory()->commit();
+                if (!commitResult.second ||
+                    commitResult.second->errorCode() == protocol::CommonError::SUCCESS)
+                {
+                    result = int(commitResult.first);
+                    PRECOMPILED_LOG(DEBUG)
+                        << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("remove successfully")
+                        << LOG_KV("result", result);
+                }
+                else
+                {
+                    PRECOMPILED_LOG(DEBUG)
+                        << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("remove commit failed")
+                        << LOG_KV("errorCode", commitResult.second->errorCode())
+                        << LOG_KV("errorMsg", commitResult.second->errorMessage())
+                        << LOG_KV("result", result);
+                    // FIXME: add unify error code
+                    result = -1;
+                }
+            }
+            else
+            {
+                PRECOMPILED_LOG(DEBUG)
+                        << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("permission denied");
                 // FIXME: add unify error code
                 result = -1;
             }

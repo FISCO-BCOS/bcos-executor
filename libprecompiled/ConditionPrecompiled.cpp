@@ -77,8 +77,7 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(
     {
         // EQ(string,int256)
         std::string str;
-        // FIXME: use s256 when scale support
-        u256 num;
+        s256 num;
         m_codec->decode(data, str, num);
 
         m_condition->EQ(str, boost::lexical_cast<std::string>(num));
@@ -106,8 +105,7 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(
     else if (func == name2Selector[CONDITION_METHOD_GE_STR_INT])
     {  // GE(string,int256)
         std::string str;
-        // FIXME: use s256 when scale support
-        u256 value;
+        s256 value;
         m_codec->decode(data, str, value);
 
         m_condition->GE(str, boost::lexical_cast<std::string>(value));
@@ -117,8 +115,7 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(
     {
         // GT(string,int256)
         std::string str;
-        // FIXME: use s256 when scale support
-        u256 value;
+        s256 value;
         m_codec->decode(data, str, value);
 
         m_condition->GT(str, boost::lexical_cast<std::string>(value));
@@ -128,8 +125,7 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(
     {
         // LE(string,int256)
         std::string str;
-        // FIXME: use s256 when scale support
-        u256 value;
+        s256 value;
         m_codec->decode(data, str, value);
 
         m_condition->LE(str, boost::lexical_cast<std::string>(value));
@@ -139,8 +135,7 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(
     {
         // LT(string,int256)
         std::string str;
-        // FIXME: use s256 when scale support
-        u256 value;
+        s256 value;
         m_codec->decode(data, str, value);
 
         m_condition->LT(str, boost::lexical_cast<std::string>(value));
@@ -149,8 +144,7 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(
     else if (func == name2Selector[CONDITION_METHOD_NE_STR_INT])
     {  // NE(string,int256)
         std::string str;
-        // FIXME: use s256 when scale support
-        u256 num;
+        s256 num;
         m_codec->decode(data, str, num);
 
         m_condition->NE(str, boost::lexical_cast<std::string>(num));
@@ -168,8 +162,7 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(
     }
     else if (func == name2Selector[CONDITION_METHOD_LIMIT_INT])
     {  // limit(int256)
-        // FIXME: use s256 when scale support
-        u256 num;
+        s256 num;
         m_codec->decode(data, num);
 
         m_condition->limit(size_t(num));
@@ -178,9 +171,8 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(
     else if (func == name2Selector[CONDITION_METHOD_LIMIT_2INT])
     {
         // limit(int256,int256)
-        // FIXME: use s256 when scale support
-        u256 start;
-        u256 end;
+        s256 start;
+        s256 end;
         m_codec->decode(data, start, end);
 
         m_condition->limit(size_t(start), size_t(end));

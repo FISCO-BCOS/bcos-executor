@@ -51,7 +51,7 @@ public:
 
     bool checkCNSParam(std::shared_ptr<executor::ExecutiveContext> _context,
         Address const& _contractAddress, std::string const& _contractName,
-        std::string const& _contractAbi);
+        std::string const& _contractVersion, std::string const& _contractAbi);
 
     std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::ExecutiveContext> _context,
         bytesConstRef _param, const std::string& _origin, const std::string& _sender,
