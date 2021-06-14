@@ -202,7 +202,7 @@ bool Executive::call(CallParameters const& _p, const std::string& _origin)
         {
             writeErrInfoToOutput(e.what());
             revert();
-            m_excepted = toTransactionStatus(e);
+            m_excepted = executor::toTransactionStatus(e);
         }
         catch (std::exception& e)
         {
@@ -513,7 +513,7 @@ bool Executive::go()
         {
             EXECUTIVE_LOG(TRACE) << "Safe VM Exception. " << diagnostic_information(_e);
             m_remainGas = 0;
-            m_excepted = toTransactionStatus(_e);
+            m_excepted = executor::toTransactionStatus(_e);
             revert();
         }
 #endif

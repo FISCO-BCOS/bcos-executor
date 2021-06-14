@@ -6,7 +6,7 @@ file(GLOB HEADERS "*.h")
 add_library(executor ${SRC_LIST} ${HEADERS})
 
 target_include_directories(executor PRIVATE ..)
-target_link_libraries(executor PUBLIC precompiled vm state)
+target_link_libraries(executor PUBLIC vm precompiled state)
 
 install(
     DIRECTORY "./"

@@ -56,7 +56,6 @@ include(ProjectHera)
 include(ProjectWABT)
 include(ProjectLibFF)
 include(ProjectSecp256k1)
-# SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--allow-multiple-definition")
 
 include(InstallBcosCryptoDependencies)
 include(InstallBcosFrameworkDependencies)

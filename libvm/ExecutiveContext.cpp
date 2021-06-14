@@ -110,10 +110,6 @@ std::shared_ptr<executor::StateInterface> ExecutiveContext::getState()
 {
     return m_state;
 }
-void ExecutiveContext::setState(std::shared_ptr<executor::StateInterface> state)
-{
-    m_state = state;
-}
 
 bool ExecutiveContext::isEthereumPrecompiled(const string& _a) const
 {

@@ -6,7 +6,8 @@ find_package(jsoncpp CONFIG REQUIRED)
 
 find_package(bcos-crypto CONFIG QUIET REQUIRED)
 add_library(precompiled ${SRC_LIST} ${HEADERS})
-target_link_libraries(precompiled PUBLIC vm bcos-framework::utilities bcos-crypto::bcos-crypto jsoncpp_lib_static)
+target_link_libraries(precompiled PUBLIC vm bcos-framework::codec bcos-framework::utilities bcos-crypto::bcos-crypto jsoncpp_lib_static)
+target_link_libraries(precompiled PRIVATE vm)
 add_subdirectory(extension)
 
 install(

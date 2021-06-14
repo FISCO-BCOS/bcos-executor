@@ -36,11 +36,11 @@ jobs:
             /Users/runner/.hunter/
             deps/src
             ccache
-          key: hunter-clang-v1-notest-${{ runner.temp }}-${{ github.base_ref }}-${{ hashFiles('.github/workflows/workflow.yml') }}
+          key: hunter-clang-v2-notest-${{ runner.temp }}-${{ github.base_ref }}-${{ hashFiles('.github/workflows/workflow.yml') }}
           restore-keys: |
-            hunter-clang-v1-notest-${{ runner.temp }}-${{ github.base_ref }}-${{ hashFiles('.github/workflows/workflow.yml') }}
-            hunter-clang-v1-notest-${{ runner.temp }}-${{ github.base_ref }}-
-            hunter-clang-v1-notest-${{ runner.temp }}-
+            hunter-clang-v2-notest-${{ runner.temp }}-${{ github.base_ref }}-${{ hashFiles('.github/workflows/workflow.yml') }}
+            hunter-clang-v2-notest-${{ runner.temp }}-${{ github.base_ref }}-
+            hunter-clang-v2-notest-${{ runner.temp }}-
       - name: install macOS dependencies
         if: runner.os == 'macOS'
         run: brew install ccache
@@ -53,7 +53,7 @@ jobs:
       - name: install rust language
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.47.0
+          toolchain: stable
           override: false
       - name: configure
         if: runner.os == 'Linux'
@@ -92,7 +92,7 @@ jobs:
       - name: install rust language
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.47.0
+          toolchain: stable
           override: false
       - name: configure
         run: cmake . -DTESTS=ON
@@ -129,7 +129,7 @@ jobs:
       - name: install rust language
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.47.0
+          toolchain: stable
           override: false
       - name: configure
         run: cmake . -DTESTS=ON -DCOVERAGE=ON
@@ -177,7 +177,7 @@ jobs:
       - name: install rust language
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.47.0
+          toolchain: stable
           override: false
       - name: configure and compile
         run: |

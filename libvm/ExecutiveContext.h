@@ -90,7 +90,6 @@ public:
         const std::string& _address, std::shared_ptr<precompiled::Precompiled> precompiled);
 
     std::shared_ptr<executor::StateInterface> getState();
-    void setState(std::shared_ptr<executor::StateInterface> state);
 
     virtual bool isEthereumPrecompiled(const std::string& _a) const;
 

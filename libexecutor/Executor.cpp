@@ -71,6 +71,10 @@ Executor::Executor(const protocol::BlockFactory::Ptr& _blockFactory,
     m_isWasm(_isWasm),
     m_version(_version)
 {
+    assert(m_blockFactory);
+    assert(m_dispatcher);
+    assert(m_ledger);
+    assert(m_stateStorage);
     m_threadNum = std::max(std::thread::hardware_concurrency(), (unsigned int)1);
     m_hashImpl = m_blockFactory->cryptoSuite()->hashImpl();
     m_precompiledContract.insert(std::make_pair(std::string("0x1"),
@@ -114,7 +118,8 @@ Executor::Executor(const protocol::BlockFactory::Ptr& _blockFactory,
         return fut.get();
     };
     m_threadPool = std::make_shared<bcos::ThreadPool>("asyncTasks", _poolSize);
-    m_tableFactory = std::make_shared<TableFactory>(m_stateStorage, m_hashImpl, 1);
+    // use ledger to get lastest header
+    m_lastHeader = getLatestHeaderFromStorage();
 }
 
 void Executor::start()
@@ -124,23 +129,36 @@ void Executor::start()
         while (!m_stop.load())
         {
             std::promise<protocol::Block::Ptr> prom;
-            auto returnHandler = [&prom](
-                                     const Error::Ptr& error, const protocol::Block::Ptr& block) {
-                if (error)
-                {
-                    EXECUTOR_LOG(WARNING)
-                        << LOG_BADGE("executor") << LOG_DESC("asyncGetLatestBlock failed")
-                        << LOG_KV("message", error->errorMessage());
-                }
-                prom.set_value(block);
-            };
-            m_dispatcher->asyncGetLatestBlock(returnHandler);
-            auto fut = prom.get_future();
-            auto currentBlock = fut.get();
+            m_dispatcher->asyncGetLatestBlock(
+                [&prom](const Error::Ptr& error, const protocol::Block::Ptr& block) {
+                    if (error)
+                    {
+                        EXECUTOR_LOG(WARNING)
+                            << LOG_BADGE("executor") << LOG_DESC("asyncGetLatestBlock failed")
+                            << LOG_KV("message", error->errorMessage());
+                    }
+                    prom.set_value(block);
+                });
+            auto currentBlock = prom.get_future().get();
             // set current block header's ParentInfo use setParentInfo
             currentBlock->blockHeader()->setParentInfo(
                 {{m_lastHeader->number(), m_lastHeader->hash()}});
-
+            // FIXME: check the current block's number == m_lastHeader number + 1
+            if (!m_lastHeader)
+            {
+                m_lastHeader = getLatestHeaderFromStorage();
+            }
+            if (currentBlock->blockHeader()->number() != m_lastHeader->number() + 1)
+            {  // the continuity of blockNumber is broken, clear executor's state
+                EXECUTOR_LOG(ERROR)
+                    << LOG_BADGE("executor") << LOG_DESC("check BlockNumber continuity failed")
+                    << LOG_KV("ledger", m_lastHeader->number() + 1)
+                    << LOG_KV("latest", currentBlock->blockHeader()->number());
+                m_lastHeader = nullptr;
+                m_tableFactory = std::make_shared<TableFactory>(
+                    m_stateStorage, m_hashImpl, currentBlock->blockHeader()->number());
+                continue;
+            }
             // execute current block
             ExecutiveContext::Ptr context = nullptr;
             try
@@ -158,10 +176,8 @@ void Executor::start()
             auto data = context->getTableFactory()->exportData();
             // use ledger to commit receipts
             std::promise<Error::Ptr> errorProm;
-            auto storeReceiptsHandler = [&errorProm](
-                                            Error::Ptr error) { errorProm.set_value(error); };
-            m_ledger->asyncStoreReceipts(
-                context->getTableFactory(), currentBlock, storeReceiptsHandler);
+            m_ledger->asyncStoreReceipts(context->getTableFactory(), currentBlock,
+                [&errorProm](Error::Ptr error) { errorProm.set_value(error); });
             auto error = errorProm.get_future().get();
             if (error)
             {
@@ -173,10 +189,8 @@ void Executor::start()
 
             // async notify dispatcher
             std::promise<Error::Ptr> barrier;
-            auto notifyResultHandler = [&barrier](
-                                           const Error::Ptr& error) { barrier.set_value(error); };
-            m_dispatcher->asyncNotifyExecutionResult(
-                nullptr, currentBlock->blockHeader(), notifyResultHandler);
+            m_dispatcher->asyncNotifyExecutionResult(nullptr, currentBlock->blockHeader(),
+                [&barrier](const Error::Ptr& error) { barrier.set_value(error); });
             error = barrier.get_future().get();
             if (!error)
             {
@@ -216,12 +230,12 @@ void Executor::asyncGetCode(const std::string_view& _address,
 void Executor::asyncExecuteTransaction(const protocol::Transaction::ConstPtr& _tx,
     std::function<void(const Error::Ptr&, const protocol::TransactionReceipt::ConstPtr&)> _callback)
 {
-    // FIXME: fake a block info to execute transaction
-    ExecutiveContext::Ptr executiveContext = createExecutiveContext(nullptr);
+    // use m_lastHeader to execute transaction
+    ExecutiveContext::Ptr executiveContext = createExecutiveContext(m_lastHeader);
     auto executive = std::make_shared<Executive>(executiveContext);
     m_threadPool->enqueue([&, executiveContext, executive, _tx, _callback]() {
         // only Rpc::call will use executeTransaction, RPC do catch exception
-        auto receipt = executeTransaction(_tx, executiveContext, executive);
+        auto receipt = executeTransaction(_tx, executive);
         _callback(nullptr, receipt);
     });
 }
@@ -258,10 +272,9 @@ ExecutiveContext::Ptr Executor::executeBlock(
     txDag->init(executiveContext, block);
 
     txDag->setTxExecuteFunc([&](Transaction::ConstPtr _tr, ID _txId, Executive::Ptr _executive) {
-        auto resultReceipt = executeTransaction(_tr, executiveContext, _executive);
-
+        auto resultReceipt = executeTransaction(_tr, _executive);
         block->setReceipt(_txId, resultReceipt);
-        executiveContext->getState()->commit();
+        _executive->getEnvInfo()->getState()->commit();
         return true;
     });
     auto initDag_time_cost = utcTime() - record_time;
@@ -357,10 +370,9 @@ ExecutiveContext::Ptr Executor::executeBlock(
     return executiveContext;
 }
 
-protocol::TransactionReceipt::Ptr Executor::executeTransaction(protocol::Transaction::ConstPtr _t,
-    executor::ExecutiveContext::Ptr executiveContext, Executive::Ptr executive)
+protocol::TransactionReceipt::Ptr Executor::executeTransaction(
+    protocol::Transaction::ConstPtr _t, Executive::Ptr executive)
 {
-    (void)executiveContext;
     // Create and initialize the executive. This will throw fairly cheaply and quickly if the
     // transaction is bad in any way.
     executive->reset();
@@ -393,7 +405,7 @@ protocol::TransactionReceipt::Ptr Executor::executeTransaction(protocol::Transac
     auto receiptFactory = m_blockFactory->receiptFactory();
     return receiptFactory->createReceipt(executive->gasUsed(), toBytes(executive->newAddress()),
         executive->logs(), (int32_t)executive->status(), executive->takeOutput().takeBytes(),
-        executiveContext->currentNumber());
+        executive->getEnvInfo()->currentNumber());
 }
 
 ExecutiveContext::Ptr Executor::createExecutiveContext(
@@ -429,20 +441,20 @@ ExecutiveContext::Ptr Executor::createExecutiveContext(
 
     // FIXME: register User developed Precompiled contract
     // registerUserPrecompiled(context);
+    context->setAddress2Precompiled(
+        CRYPTO_ADDRESS, std::make_shared<precompiled::CryptoPrecompiled>());
+    context->setAddress2Precompiled(
+        DAG_TRANSFER_ADDRESS, std::make_shared<precompiled::DagTransferPrecompiled>());
+    // register workingSealerManagerPrecompiled for VRF-based-rPBFT
+    // context->setAddress2Precompiled(WORKING_SEALER_MGR_ADDRESS,
+    //     std::make_shared<precompiled::WorkingSealerManagerPrecompiled>());
 
     context->setPrecompiledContract(m_precompiledContract);
-    auto state = make_shared<State>(m_tableFactory, m_hashImpl);
-    context->setState(state);
 
     // getTxGasLimitToContext from precompiled and set to context
     auto ret = sysConfig->getSysConfigByKey("tx_gas_limit", m_tableFactory);
     context->setTxGasLimit(boost::lexical_cast<uint64_t>(ret.first));
 
-    // register workingSealerManagerPrecompiled for VRF-based-rPBFT
-
-    // context->setAddress2Precompiled(WORKING_SEALER_MGR_ADDRESS,
-    //     std::make_shared<precompiled::WorkingSealerManagerPrecompiled>());
-    context->setAddress2Precompiled(CRYPTO_ADDRESS, std::make_shared<CryptoPrecompiled>());
     context->setTxCriticalsHandler([&](const protocol::Transaction::ConstPtr& _tx)
                                        -> std::shared_ptr<std::vector<std::string>> {
         if (_tx->type() == protocol::TransactionType::ContractCreation)
@@ -535,4 +547,22 @@ ExecutiveContext::Ptr Executor::createExecutiveContext(
         }
     });
     return context;
+}
+
+protocol::BlockHeader::Ptr Executor::getLatestHeaderFromStorage()
+{
+    // use ledger to get latest number
+    promise<protocol::BlockNumber> prom;
+    m_ledger->asyncGetBlockNumber(
+        [&prom](Error::Ptr, protocol::BlockNumber _number) { prom.set_value(_number); });
+    auto currentNumber = prom.get_future().get();
+    m_tableFactory = std::make_shared<TableFactory>(m_stateStorage, m_hashImpl, currentNumber);
+    // use ledger to get lastest header
+    promise<protocol::BlockHeader::Ptr> latestHeaderProm;
+    m_ledger->asyncGetBlockDataByNumber(
+        currentNumber, ledger::HEADER, [&latestHeaderProm](Error::Ptr, protocol::Block::Ptr block) {
+            // FIXME: process the error
+            latestHeaderProm.set_value(block->blockHeader());
+        });
+    return latestHeaderProm.get_future().get();
 }

@@ -23,6 +23,7 @@
 
 #include "bcos-framework/interfaces/protocol/BlockHeader.h"
 #include "bcos-framework/libprotocol/LogEntry.h"
+#include "bcos-framework/libprotocol/TransactionStatus.h"
 #include "bcos-framework/libutilities/Exceptions.h"
 #include <evmc/instructions.h>
 #include <functional>
@@ -254,6 +255,8 @@ struct ImportRequirements
         None = 0
     };
 };
+
+protocol::TransactionStatus toTransactionStatus(Exception const& _e);
 
 }  // namespace executor
 

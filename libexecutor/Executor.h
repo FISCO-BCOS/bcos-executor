@@ -79,9 +79,8 @@ public:
     std::shared_ptr<ExecutiveContext> executeBlock(
         const protocol::Block::Ptr& block, const protocol::BlockHeader::Ptr& parentBlockInfo);
 
-    protocol::TransactionReceipt::Ptr executeTransaction(protocol::Transaction::ConstPtr _t,
-        std::shared_ptr<ExecutiveContext> executiveContext,
-        std::shared_ptr<executor::Executive> executive);
+    protocol::TransactionReceipt::Ptr executeTransaction(
+        protocol::Transaction::ConstPtr _t, std::shared_ptr<executor::Executive> executive);
 
     void asyncGetCode(const std::string_view& _address,
         std::function<void(const Error::Ptr&, const std::shared_ptr<bytes>&)> _callback) override;
@@ -91,9 +90,11 @@ public:
     void stop() override;
     void start() override;
 
-private:
     std::shared_ptr<ExecutiveContext> createExecutiveContext(
         const protocol::BlockHeader::Ptr& _currentHeader);
+
+private:
+    protocol::BlockHeader::Ptr getLatestHeaderFromStorage();
     protocol::BlockFactory::Ptr m_blockFactory;
     dispatcher::DispatcherInterface::Ptr m_dispatcher;
     ledger::LedgerInterface::Ptr m_ledger;

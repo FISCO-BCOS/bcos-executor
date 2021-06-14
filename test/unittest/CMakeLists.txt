@@ -27,7 +27,7 @@ target_include_directories(${TEST_BINARY_NAME} PRIVATE . ${CMAKE_SOURCE_DIR})
 
 find_package(Boost CONFIG QUIET REQUIRED unit_test_framework)
 
-target_link_libraries(${TEST_BINARY_NAME} executor state bcos-framework::table bcos-framework::utilities wedpr-crypto::crypto)
+target_link_libraries(${TEST_BINARY_NAME} executor bcos-framework::protocol-pb bcos-framework::protocol bcos-framework::utilities bcos-framework::table wedpr-crypto::crypto)
 
 # for code coverage
 if (COVERAGE)

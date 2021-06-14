@@ -21,13 +21,13 @@
 
 #pragma once
 
-#include "gas_meter/GasInjector.h"
 #include "../libprecompiled/PrecompiledResult.h"
 #include "Common.h"
 #include "ExecutiveContext.h"
 #include "bcos-framework/interfaces/protocol/BlockHeader.h"
 #include "bcos-framework/interfaces/protocol/Transaction.h"
 #include "bcos-framework/libprotocol/TransactionStatus.h"
+#include "gas_meter/GasInjector.h"
 #include <functional>
 
 namespace bcos
@@ -76,7 +76,7 @@ class Executive
 public:
     using Ptr = std::shared_ptr<Executive>;
     /// Simple constructor; executive will operate on given state, with the given environment info.
-    Executive(const std::shared_ptr<ExecutiveContext> & _envInfo, unsigned _level = 0)
+    Executive(const std::shared_ptr<ExecutiveContext>& _envInfo, unsigned _level = 0)
       : m_s(_envInfo->getState()),
         m_envInfo(_envInfo),
         m_hashImpl(_envInfo->hashHandler()),
@@ -159,6 +159,8 @@ public:
         m_t.reset();
     }
 
+    std::shared_ptr<ExecutiveContext> getEnvInfo() { return m_envInfo; }
+
 private:
     void parseEVMCResult(std::shared_ptr<Result> _result);
     /// @returns false iff go() must be called (and thus a VM execution in required).
@@ -174,7 +176,7 @@ private:
 
     std::shared_ptr<StateInterface> m_s;  ///< The state to which this operation/transaction is
                                           ///< applied.
-    std::shared_ptr<ExecutiveContext>  m_envInfo;  ///< Information on the runtime environment.
+    std::shared_ptr<ExecutiveContext> m_envInfo;  ///< Information on the runtime environment.
     crypto::Hash::Ptr m_hashImpl;
     std::shared_ptr<HostContext> m_context;  ///< The VM externality object for the VM execution
                                              ///< or null if no VM is required. shared_ptr used
@@ -189,12 +191,12 @@ private:
     std::stringstream m_exceptionReason;
 
     int64_t m_baseGasRequired;  ///< The base amount of gas requried for executing this transaction.
-    u256 m_remainGas = 0;  ///< The gas for EVM code execution. Initial amount before go() execution,
-                     ///< final amount after go() execution.
+    u256 m_remainGas = 0;       ///< The gas for EVM code execution. Initial amount before go()
+                           ///< execution, final amount after go() execution.
 
     protocol::Transaction::ConstPtr m_t;  ///< The original transaction. Set by setup().
-    protocol::LogEntriesPtr m_logs;  ///< The log entries created by this transaction. Set by
-                                     ///< finalize().
+    protocol::LogEntriesPtr m_logs;       ///< The log entries created by this transaction. Set by
+                                          ///< finalize().
 
     bool m_isCreation = false;
     std::string m_newAddress;

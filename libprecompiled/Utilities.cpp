@@ -188,7 +188,7 @@ bcos::precompiled::ContractStatus bcos::precompiled::getContractStatus(
 
     auto codeHashEntry = table->getRow(executor::ACCOUNT_CODE_HASH);
     h256 codeHash;
-    codeHash = h256(*fromHexString(codeHashEntry->getField(executor::STORAGE_VALUE)));
+    codeHash = h256(codeHashEntry->getField(executor::STORAGE_VALUE));
 
     if (codeHash == HashType(""))
     {
