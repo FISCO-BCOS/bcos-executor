@@ -31,10 +31,11 @@ using namespace bcos::executor;
 const char* const SYSCONFIG_METHOD_SET_STR = "setValueByKey(string,string)";
 const char* const SYSCONFIG_METHOD_GET_STR = "getValueByKey(string)";
 
-SystemConfigPrecompiled::SystemConfigPrecompiled()
+SystemConfigPrecompiled::SystemConfigPrecompiled(crypto::Hash::Ptr _hashImpl)
+  : Precompiled(_hashImpl)
 {
-    name2Selector[SYSCONFIG_METHOD_SET_STR] = getFuncSelector(SYSCONFIG_METHOD_SET_STR);
-    name2Selector[SYSCONFIG_METHOD_GET_STR] = getFuncSelector(SYSCONFIG_METHOD_GET_STR);
+    name2Selector[SYSCONFIG_METHOD_SET_STR] = getFuncSelector(SYSCONFIG_METHOD_SET_STR, _hashImpl);
+    name2Selector[SYSCONFIG_METHOD_GET_STR] = getFuncSelector(SYSCONFIG_METHOD_GET_STR, _hashImpl);
 }
 
 PrecompiledExecResult::Ptr SystemConfigPrecompiled::call(

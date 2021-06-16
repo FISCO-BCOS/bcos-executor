@@ -48,10 +48,10 @@ const char* const HELLO_WORLD_METHOD_GET = "get()";
 // set interface
 const char* const HELLO_WORLD_METHOD_SET = "set(string)";
 
-HelloWorldPrecompiled::HelloWorldPrecompiled()
+HelloWorldPrecompiled::HelloWorldPrecompiled(crypto::Hash::Ptr _hashImpl) : Precompiled(_hashImpl)
 {
-    name2Selector[HELLO_WORLD_METHOD_GET] = getFuncSelector(HELLO_WORLD_METHOD_GET);
-    name2Selector[HELLO_WORLD_METHOD_SET] = getFuncSelector(HELLO_WORLD_METHOD_SET);
+    name2Selector[HELLO_WORLD_METHOD_GET] = getFuncSelector(HELLO_WORLD_METHOD_GET, _hashImpl);
+    name2Selector[HELLO_WORLD_METHOD_SET] = getFuncSelector(HELLO_WORLD_METHOD_SET, _hashImpl);
 }
 
 std::string HelloWorldPrecompiled::toString()

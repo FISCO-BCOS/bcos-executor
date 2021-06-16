@@ -51,8 +51,8 @@ contract Entry {
 class EntryPrecompiled : public bcos::precompiled::Precompiled
 {
 public:
-    typedef std::shared_ptr<EntryPrecompiled> Ptr;
-    EntryPrecompiled();
+    using Ptr = std::shared_ptr<EntryPrecompiled>;
+    EntryPrecompiled(crypto::Hash::Ptr _hashImpl);
     virtual ~EntryPrecompiled(){};
 
     std::string toString() override;

@@ -39,18 +39,18 @@ const char* const ENTRY_GETB_STR = "getBytes64(string)";
 const char* const ENTRY_GETB_STR32 = "getBytes32(string)";
 const char* const ENTRY_GET_STR = "getString(string)";
 
-EntryPrecompiled::EntryPrecompiled()
+EntryPrecompiled::EntryPrecompiled(crypto::Hash::Ptr _hashImpl) : Precompiled(_hashImpl)
 {
-    name2Selector[ENTRY_GET_INT] = getFuncSelector(ENTRY_GET_INT);
-    name2Selector[ENTRY_GET_UINT] = getFuncSelector(ENTRY_GET_UINT);
-    name2Selector[ENTRY_SET_STR_INT] = getFuncSelector(ENTRY_SET_STR_INT);
-    name2Selector[ENTRY_SET_STR_UINT] = getFuncSelector(ENTRY_SET_STR_UINT);
-    name2Selector[ENTRY_SET_STR_STR] = getFuncSelector(ENTRY_SET_STR_STR);
-    name2Selector[ENTRY_SET_STR_ADDR] = getFuncSelector(ENTRY_SET_STR_ADDR);
-    name2Selector[ENTRY_GETA_STR] = getFuncSelector(ENTRY_GETA_STR);
-    name2Selector[ENTRY_GETB_STR] = getFuncSelector(ENTRY_GETB_STR);
-    name2Selector[ENTRY_GETB_STR32] = getFuncSelector(ENTRY_GETB_STR32);
-    name2Selector[ENTRY_GET_STR] = getFuncSelector(ENTRY_GET_STR);
+    name2Selector[ENTRY_GET_INT] = getFuncSelector(ENTRY_GET_INT, _hashImpl);
+    name2Selector[ENTRY_GET_UINT] = getFuncSelector(ENTRY_GET_UINT, _hashImpl);
+    name2Selector[ENTRY_SET_STR_INT] = getFuncSelector(ENTRY_SET_STR_INT, _hashImpl);
+    name2Selector[ENTRY_SET_STR_UINT] = getFuncSelector(ENTRY_SET_STR_UINT, _hashImpl);
+    name2Selector[ENTRY_SET_STR_STR] = getFuncSelector(ENTRY_SET_STR_STR, _hashImpl);
+    name2Selector[ENTRY_SET_STR_ADDR] = getFuncSelector(ENTRY_SET_STR_ADDR, _hashImpl);
+    name2Selector[ENTRY_GETA_STR] = getFuncSelector(ENTRY_GETA_STR, _hashImpl);
+    name2Selector[ENTRY_GETB_STR] = getFuncSelector(ENTRY_GETB_STR, _hashImpl);
+    name2Selector[ENTRY_GETB_STR32] = getFuncSelector(ENTRY_GETB_STR32, _hashImpl);
+    name2Selector[ENTRY_GET_STR] = getFuncSelector(ENTRY_GET_STR, _hashImpl);
 }
 
 std::string EntryPrecompiled::toString()

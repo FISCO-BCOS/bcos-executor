@@ -99,6 +99,9 @@ class Precompiled : public std::enable_shared_from_this<Precompiled>
 public:
     using Ptr = std::shared_ptr<Precompiled>;
 
+    Precompiled(crypto::Hash::Ptr _hashImpl) : m_hashImpl(_hashImpl) {
+        assert(m_hashImpl);
+    }
     virtual ~Precompiled() = default;
     virtual std::string toString() { return ""; }
     virtual std::shared_ptr<PrecompiledExecResult> call(
@@ -113,6 +116,7 @@ public:
 
 protected:
     std::map<std::string, uint32_t> name2Selector;
+    crypto::Hash::Ptr m_hashImpl;
 
 protected:
     bcos::storage::TableInterface::Ptr createTable(

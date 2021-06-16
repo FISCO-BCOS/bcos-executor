@@ -416,24 +416,24 @@ ExecutiveContext::Ptr Executor::createExecutiveContext(
     (void)m_version;  // FIXME: accord to m_version to chose schedule
     ExecutiveContext::Ptr context = make_shared<ExecutiveContext>(
         m_tableFactory, m_hashImpl, currentHeader, FiscoBcosScheduleV3, m_pNumberHash, m_isWasm);
-    auto tableFactoryPrecompiled = std::make_shared<precompiled::TableFactoryPrecompiled>();
+    auto tableFactoryPrecompiled = std::make_shared<precompiled::TableFactoryPrecompiled>(m_hashImpl);
     tableFactoryPrecompiled->setMemoryTableFactory(m_tableFactory);
-    auto sysConfig = std::make_shared<precompiled::SystemConfigPrecompiled>();
+    auto sysConfig = std::make_shared<precompiled::SystemConfigPrecompiled>(m_hashImpl);
     context->setAddress2Precompiled(SYS_CONFIG_ADDRESS, sysConfig);
     context->setAddress2Precompiled(TABLE_FACTORY_ADDRESS, tableFactoryPrecompiled);
     // context->setAddress2Precompiled(CRUD_ADDRESS,
     // std::make_shared<precompiled::CRUDPrecompiled>());
     context->setAddress2Precompiled(
-        CONSENSUS_ADDRESS, std::make_shared<precompiled::ConsensusPrecompiled>());
-    context->setAddress2Precompiled(CNS_ADDRESS, std::make_shared<precompiled::CNSPrecompiled>());
+        CONSENSUS_ADDRESS, std::make_shared<precompiled::ConsensusPrecompiled>(m_hashImpl));
+    context->setAddress2Precompiled(CNS_ADDRESS, std::make_shared<precompiled::CNSPrecompiled>(m_hashImpl));
     // context->setAddress2Precompiled(
     //     PERMISSION_ADDRESS, std::make_shared<precompiled::PermissionPrecompiled>());
 
-    auto parallelConfigPrecompiled = std::make_shared<precompiled::ParallelConfigPrecompiled>();
+    auto parallelConfigPrecompiled = std::make_shared<precompiled::ParallelConfigPrecompiled>(m_hashImpl);
     context->setAddress2Precompiled(PARALLEL_CONFIG_ADDRESS, parallelConfigPrecompiled);
     // context->setAddress2Precompiled(
     // CONTRACT_LIFECYCLE_ADDRESS, std::make_shared<precompiled::ContractLifeCyclePrecompiled>());
-    auto kvTableFactoryPrecompiled = std::make_shared<precompiled::KVTableFactoryPrecompiled>();
+    auto kvTableFactoryPrecompiled = std::make_shared<precompiled::KVTableFactoryPrecompiled>(m_hashImpl);
     kvTableFactoryPrecompiled->setMemoryTableFactory(m_tableFactory);
     context->setAddress2Precompiled(KV_TABLE_FACTORY_ADDRESS, kvTableFactoryPrecompiled);
     // context->setAddress2Precompiled(
@@ -442,9 +442,9 @@ ExecutiveContext::Ptr Executor::createExecutiveContext(
     // FIXME: register User developed Precompiled contract
     // registerUserPrecompiled(context);
     context->setAddress2Precompiled(
-        CRYPTO_ADDRESS, std::make_shared<precompiled::CryptoPrecompiled>());
+        CRYPTO_ADDRESS, std::make_shared<precompiled::CryptoPrecompiled>(m_hashImpl));
     context->setAddress2Precompiled(
-        DAG_TRANSFER_ADDRESS, std::make_shared<precompiled::DagTransferPrecompiled>());
+        DAG_TRANSFER_ADDRESS, std::make_shared<precompiled::DagTransferPrecompiled>(m_hashImpl));
     // register workingSealerManagerPrecompiled for VRF-based-rPBFT
     // context->setAddress2Precompiled(WORKING_SEALER_MGR_ADDRESS,
     //     std::make_shared<precompiled::WorkingSealerManagerPrecompiled>());
@@ -455,6 +455,11 @@ ExecutiveContext::Ptr Executor::createExecutiveContext(
     auto ret = sysConfig->getSysConfigByKey("tx_gas_limit", m_tableFactory);
     context->setTxGasLimit(boost::lexical_cast<uint64_t>(ret.first));
 
+    // register workingSealerManagerPrecompiled for VRF-based-rPBFT
+
+    // context->setAddress2Precompiled(WORKING_SEALER_MGR_ADDRESS,
+    //     std::make_shared<precompiled::WorkingSealerManagerPrecompiled>());
+    context->setAddress2Precompiled(CRYPTO_ADDRESS, std::make_shared<CryptoPrecompiled>(m_hashImpl));
     context->setTxCriticalsHandler([&](const protocol::Transaction::ConstPtr& _tx)
                                        -> std::shared_ptr<std::vector<std::string>> {
         if (_tx->type() == protocol::TransactionType::ContractCreation)

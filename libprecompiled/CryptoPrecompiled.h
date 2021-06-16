@@ -39,7 +39,7 @@ class CryptoPrecompiled : public Precompiled
 {
 public:
     using Ptr = std::shared_ptr<CryptoPrecompiled>;
-    CryptoPrecompiled();
+    CryptoPrecompiled(crypto::Hash::Ptr _hashImpl);
     virtual ~CryptoPrecompiled() {}
     std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::ExecutiveContext> _context,
         bytesConstRef _param, const std::string& _origin, const std::string& _sender,

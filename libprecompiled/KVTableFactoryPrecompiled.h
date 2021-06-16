@@ -38,8 +38,8 @@ contract KVTableFactory {
 class KVTableFactoryPrecompiled : public bcos::precompiled::Precompiled
 {
 public:
-    typedef std::shared_ptr<KVTableFactoryPrecompiled> Ptr;
-    KVTableFactoryPrecompiled();
+    using Ptr = std::shared_ptr<KVTableFactoryPrecompiled>;
+    KVTableFactoryPrecompiled(crypto::Hash::Ptr _hashImpl);
     virtual ~KVTableFactoryPrecompiled(){};
 
     std::string toString() override;

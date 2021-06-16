@@ -39,8 +39,8 @@ contract ConsensusSystemTable
 }
 #endif
 public:
-    typedef std::shared_ptr<ConsensusPrecompiled> Ptr;
-    ConsensusPrecompiled();
+    using Ptr = std::shared_ptr<ConsensusPrecompiled>;
+    ConsensusPrecompiled(crypto::Hash::Ptr _hashImpl);
     virtual ~ConsensusPrecompiled(){};
 
     std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::ExecutiveContext> _context,

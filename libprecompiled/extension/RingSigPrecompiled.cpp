@@ -29,9 +29,9 @@ using namespace bcos::precompiled;
 
 const char* const RingSig_METHOD_SET_STR = "ringSigVerify(string,string,string)";
 
-RingSigPrecompiled::RingSigPrecompiled()
+RingSigPrecompiled::RingSigPrecompiled(crypto::Hash::Ptr _hashImpl) : Precompiled(_hashImpl)
 {
-    name2Selector[RingSig_METHOD_SET_STR] = getFuncSelector(RingSig_METHOD_SET_STR);
+    name2Selector[RingSig_METHOD_SET_STR] = getFuncSelector(RingSig_METHOD_SET_STR, _hashImpl);
 }
 
 PrecompiledExecResult::Ptr RingSigPrecompiled::call(

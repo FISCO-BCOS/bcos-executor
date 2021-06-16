@@ -53,12 +53,13 @@ const std::string PARA_KEY_NAME = PARA_SELECTOR;
 const std::string PARA_VALUE_NAMES = PARA_FUNC_NAME + "," + PARA_CRITICAL_SIZE;
 
 
-ParallelConfigPrecompiled::ParallelConfigPrecompiled()
+ParallelConfigPrecompiled::ParallelConfigPrecompiled(crypto::Hash::Ptr _hashImpl)
+  : Precompiled(_hashImpl)
 {
     name2Selector[PARA_CONFIG_REGISTER_METHOD_ADDR_STR_UINT] =
-        getFuncSelector(PARA_CONFIG_REGISTER_METHOD_ADDR_STR_UINT);
+        getFuncSelector(PARA_CONFIG_REGISTER_METHOD_ADDR_STR_UINT, _hashImpl);
     name2Selector[PARA_CONFIG_UNREGISTER_METHOD_ADDR_STR] =
-        getFuncSelector(PARA_CONFIG_UNREGISTER_METHOD_ADDR_STR);
+        getFuncSelector(PARA_CONFIG_UNREGISTER_METHOD_ADDR_STR, _hashImpl);
 }
 
 std::string ParallelConfigPrecompiled::toString()
@@ -145,7 +146,7 @@ void ParallelConfigPrecompiled::registerParallelFunction(
     u256 criticalSize;
 
     m_codec->decode(_data, contractName, functionName, criticalSize);
-    uint32_t selector = getFuncSelector(functionName);
+    uint32_t selector = getFuncSelector(functionName, m_hashImpl);
 
     auto table = openTable(_context, contractName, _origin);
     if (table)
@@ -190,7 +191,7 @@ void ParallelConfigPrecompiled::unregisterParallelFunction(
     std::string functionName;
 
     m_codec->decode(_data, contractAddress, functionName);
-    uint32_t selector = getFuncSelector(functionName);
+    uint32_t selector = getFuncSelector(functionName, m_hashImpl);
 
     auto table = _context->getTableFactory()->openTable(contractAddress);
     if (table)

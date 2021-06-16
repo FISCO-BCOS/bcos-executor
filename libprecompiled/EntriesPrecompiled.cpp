@@ -33,10 +33,10 @@ using namespace bcos::storage;
 const char* const ENTRIES_GET_INT = "get(int256)";
 const char* const ENTRIES_SIZE = "size()";
 
-EntriesPrecompiled::EntriesPrecompiled()
+EntriesPrecompiled::EntriesPrecompiled(crypto::Hash::Ptr _hashImpl) : Precompiled(_hashImpl)
 {
-    name2Selector[ENTRIES_GET_INT] = getFuncSelector(ENTRIES_GET_INT);
-    name2Selector[ENTRIES_SIZE] = getFuncSelector(ENTRIES_SIZE);
+    name2Selector[ENTRIES_GET_INT] = getFuncSelector(ENTRIES_GET_INT, _hashImpl);
+    name2Selector[ENTRIES_SIZE] = getFuncSelector(ENTRIES_SIZE, _hashImpl);
 }
 std::string EntriesPrecompiled::toString()
 {
@@ -60,7 +60,7 @@ PrecompiledExecResult::Ptr EntriesPrecompiled::call(
         m_codec->decode(data, num);
 
         Entry::Ptr entry = getEntriesPtr()->at(num.convert_to<size_t>());
-        EntryPrecompiled::Ptr entryPrecompiled = std::make_shared<EntryPrecompiled>();
+        EntryPrecompiled::Ptr entryPrecompiled = std::make_shared<EntryPrecompiled>(m_hashImpl);
         entryPrecompiled->setEntry(entry);
         Address address = Address(_context->registerPrecompiled(entryPrecompiled));
         callResult->setExecResult(m_codec->encode(address));

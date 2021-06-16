@@ -38,10 +38,11 @@ using namespace bcos::precompiled;
 const char* const TABLE_METHOD_OPT_STR = "openTable(string)";
 const char* const TABLE_METHOD_CRT_STR_STR = "createTable(string,string,string)";
 
-TableFactoryPrecompiled::TableFactoryPrecompiled()
+TableFactoryPrecompiled::TableFactoryPrecompiled(crypto::Hash::Ptr _hashImpl)
+  : Precompiled(_hashImpl)
 {
-    name2Selector[TABLE_METHOD_OPT_STR] = getFuncSelector(TABLE_METHOD_OPT_STR);
-    name2Selector[TABLE_METHOD_CRT_STR_STR] = getFuncSelector(TABLE_METHOD_CRT_STR_STR);
+    name2Selector[TABLE_METHOD_OPT_STR] = getFuncSelector(TABLE_METHOD_OPT_STR, _hashImpl);
+    name2Selector[TABLE_METHOD_CRT_STR_STR] = getFuncSelector(TABLE_METHOD_CRT_STR_STR, _hashImpl);
 }
 
 std::string TableFactoryPrecompiled::toString()
@@ -73,7 +74,7 @@ PrecompiledExecResult::Ptr TableFactoryPrecompiled::call(
             std::string address;
             if (table)
             {
-                TablePrecompiled::Ptr tablePrecompiled = std::make_shared<TablePrecompiled>();
+                TablePrecompiled::Ptr tablePrecompiled = std::make_shared<TablePrecompiled>(m_hashImpl);
                 tablePrecompiled->setTable(table);
                 address = _context->registerPrecompiled(tablePrecompiled);
             }
@@ -92,7 +93,7 @@ PrecompiledExecResult::Ptr TableFactoryPrecompiled::call(
                 std::string address;
                 if (table)
                 {
-                    TablePrecompiled::Ptr tablePrecompiled = std::make_shared<TablePrecompiled>();
+                    TablePrecompiled::Ptr tablePrecompiled = std::make_shared<TablePrecompiled>(m_hashImpl);
                     tablePrecompiled->setTable(table);
                     address = _context->registerPrecompiled(tablePrecompiled);
                 }
@@ -109,7 +110,7 @@ PrecompiledExecResult::Ptr TableFactoryPrecompiled::call(
                 Address address;
                 if (table)
                 {
-                    TablePrecompiled::Ptr tablePrecompiled = std::make_shared<TablePrecompiled>();
+                    TablePrecompiled::Ptr tablePrecompiled = std::make_shared<TablePrecompiled>(m_hashImpl);
                     tablePrecompiled->setTable(table);
                     address = Address(_context->registerPrecompiled(tablePrecompiled));
                 }

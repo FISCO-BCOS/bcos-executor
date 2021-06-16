@@ -31,7 +31,7 @@ namespace precompiled
 {
 struct ParallelConfig
 {
-    typedef std::shared_ptr<ParallelConfig> Ptr;
+    using Ptr = std::shared_ptr<ParallelConfig>;
     std::string functionName;
     u256 criticalSize;
 };
@@ -41,7 +41,7 @@ class ParallelConfigPrecompiled : public bcos::precompiled::Precompiled
 {
 public:
     using Ptr = std::shared_ptr<ParallelConfigPrecompiled>;
-    ParallelConfigPrecompiled();
+    ParallelConfigPrecompiled(crypto::Hash::Ptr _hashImpl);
     virtual ~ParallelConfigPrecompiled(){};
 
     std::string toString() override;

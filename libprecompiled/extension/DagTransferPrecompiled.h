@@ -31,7 +31,7 @@ class DagTransferPrecompiled : public bcos::precompiled::Precompiled
 {
 public:
     using Ptr = std::shared_ptr<DagTransferPrecompiled>;
-    DagTransferPrecompiled();
+    DagTransferPrecompiled(crypto::Hash::Ptr _hashImpl);
     virtual ~DagTransferPrecompiled(){};
 
     std::string toString() override;

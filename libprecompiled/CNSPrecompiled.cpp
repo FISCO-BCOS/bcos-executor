@@ -22,6 +22,7 @@
 #include "PrecompiledResult.h"
 #include "Utilities.h"
 #include <json/json.h>
+#include <boost/algorithm/string/trim.hpp>
 
 using namespace bcos;
 using namespace bcos::executor;
@@ -34,13 +35,13 @@ const char* const CNS_METHOD_SLT_STR = "selectByName(string)";
 const char* const CNS_METHOD_SLT_STR2 = "selectByNameAndVersion(string,string)";
 const char* const CNS_METHOD_GET_CONTRACT_ADDRESS = "getContractAddress(string,string)";
 
-CNSPrecompiled::CNSPrecompiled()
+CNSPrecompiled::CNSPrecompiled(crypto::Hash::Ptr _hashImpl) : Precompiled(_hashImpl)
 {
-    name2Selector[CNS_METHOD_INS_STR4] = getFuncSelector(CNS_METHOD_INS_STR4);
-    name2Selector[CNS_METHOD_SLT_STR] = getFuncSelector(CNS_METHOD_SLT_STR);
-    name2Selector[CNS_METHOD_SLT_STR2] = getFuncSelector(CNS_METHOD_SLT_STR2);
+    name2Selector[CNS_METHOD_INS_STR4] = getFuncSelector(CNS_METHOD_INS_STR4, _hashImpl);
+    name2Selector[CNS_METHOD_SLT_STR] = getFuncSelector(CNS_METHOD_SLT_STR, _hashImpl);
+    name2Selector[CNS_METHOD_SLT_STR2] = getFuncSelector(CNS_METHOD_SLT_STR2, _hashImpl);
     name2Selector[CNS_METHOD_GET_CONTRACT_ADDRESS] =
-        getFuncSelector(CNS_METHOD_GET_CONTRACT_ADDRESS);
+        getFuncSelector(CNS_METHOD_GET_CONTRACT_ADDRESS, _hashImpl);
 }
 
 std::string CNSPrecompiled::toString()
@@ -50,7 +51,7 @@ std::string CNSPrecompiled::toString()
 
 // check param of the cns
 bool CNSPrecompiled::checkCNSParam(ExecutiveContext::Ptr _context, Address const& _contractAddress,
-    std::string const& _contractName, std::string const& _contractVersion,
+    std::string& _contractName, std::string& _contractVersion,
     std::string const& _contractAbi)
 {
     try
@@ -230,17 +231,17 @@ PrecompiledExecResult::Ptr CNSPrecompiled::call(
         // TODO: add traverse gas
         for (auto& key : keys)
         {
-            auto entry = table->getRow(key);
-            if (!entry)
-            {
-                continue;
-            }
             auto index = key.find(',');
             // "," must exist, and name,version must be trimmed
             std::pair<std::string, std::string> nameVersionPair{
                 key.substr(0, index), key.substr(index + 1)};
             if(nameVersionPair.first == contractName)
             {
+                auto entry = table->getRow(key);
+                if (!entry)
+                {
+                    continue;
+                }
                 Json::Value CNSInfo;
                 CNSInfo[SYS_CNS_FIELD_NAME] = contractName;
                 CNSInfo[SYS_CNS_FIELD_VERSION] = nameVersionPair.second;

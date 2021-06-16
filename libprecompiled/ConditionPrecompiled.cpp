@@ -39,19 +39,30 @@ const char* const CONDITION_METHOD_NE_STR_STR = "NE(string,string)";
 const char* const CONDITION_METHOD_LIMIT_INT = "limit(int256)";
 const char* const CONDITION_METHOD_LIMIT_2INT = "limit(int256,int256)";
 
-ConditionPrecompiled::ConditionPrecompiled()
+ConditionPrecompiled::ConditionPrecompiled(crypto::Hash::Ptr _hashImpl) : Precompiled(_hashImpl)
 {
-    name2Selector[CONDITION_METHOD_EQ_STR_INT] = getFuncSelector(CONDITION_METHOD_EQ_STR_INT);
-    name2Selector[CONDITION_METHOD_EQ_STR_STR] = getFuncSelector(CONDITION_METHOD_EQ_STR_STR);
-    name2Selector[CONDITION_METHOD_EQ_STR_ADDR] = getFuncSelector(CONDITION_METHOD_EQ_STR_ADDR);
-    name2Selector[CONDITION_METHOD_GE_STR_INT] = getFuncSelector(CONDITION_METHOD_GE_STR_INT);
-    name2Selector[CONDITION_METHOD_GT_STR_INT] = getFuncSelector(CONDITION_METHOD_GT_STR_INT);
-    name2Selector[CONDITION_METHOD_LE_STR_INT] = getFuncSelector(CONDITION_METHOD_LE_STR_INT);
-    name2Selector[CONDITION_METHOD_LT_STR_INT] = getFuncSelector(CONDITION_METHOD_LT_STR_INT);
-    name2Selector[CONDITION_METHOD_NE_STR_INT] = getFuncSelector(CONDITION_METHOD_NE_STR_INT);
-    name2Selector[CONDITION_METHOD_NE_STR_STR] = getFuncSelector(CONDITION_METHOD_NE_STR_STR);
-    name2Selector[CONDITION_METHOD_LIMIT_INT] = getFuncSelector(CONDITION_METHOD_LIMIT_INT);
-    name2Selector[CONDITION_METHOD_LIMIT_2INT] = getFuncSelector(CONDITION_METHOD_LIMIT_2INT);
+    name2Selector[CONDITION_METHOD_EQ_STR_INT] =
+        getFuncSelector(CONDITION_METHOD_EQ_STR_INT, _hashImpl);
+    name2Selector[CONDITION_METHOD_EQ_STR_STR] =
+        getFuncSelector(CONDITION_METHOD_EQ_STR_STR, _hashImpl);
+    name2Selector[CONDITION_METHOD_EQ_STR_ADDR] =
+        getFuncSelector(CONDITION_METHOD_EQ_STR_ADDR, _hashImpl);
+    name2Selector[CONDITION_METHOD_GE_STR_INT] =
+        getFuncSelector(CONDITION_METHOD_GE_STR_INT, _hashImpl);
+    name2Selector[CONDITION_METHOD_GT_STR_INT] =
+        getFuncSelector(CONDITION_METHOD_GT_STR_INT, _hashImpl);
+    name2Selector[CONDITION_METHOD_LE_STR_INT] =
+        getFuncSelector(CONDITION_METHOD_LE_STR_INT, _hashImpl);
+    name2Selector[CONDITION_METHOD_LT_STR_INT] =
+        getFuncSelector(CONDITION_METHOD_LT_STR_INT, _hashImpl);
+    name2Selector[CONDITION_METHOD_NE_STR_INT] =
+        getFuncSelector(CONDITION_METHOD_NE_STR_INT, _hashImpl);
+    name2Selector[CONDITION_METHOD_NE_STR_STR] =
+        getFuncSelector(CONDITION_METHOD_NE_STR_STR, _hashImpl);
+    name2Selector[CONDITION_METHOD_LIMIT_INT] =
+        getFuncSelector(CONDITION_METHOD_LIMIT_INT, _hashImpl);
+    name2Selector[CONDITION_METHOD_LIMIT_2INT] =
+        getFuncSelector(CONDITION_METHOD_LIMIT_2INT, _hashImpl);
 }
 
 std::string ConditionPrecompiled::toString()

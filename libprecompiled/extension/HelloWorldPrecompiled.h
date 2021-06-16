@@ -31,7 +31,7 @@ class HelloWorldPrecompiled : public bcos::precompiled::Precompiled
 {
 public:
     using Ptr = std::shared_ptr<HelloWorldPrecompiled>;
-    HelloWorldPrecompiled();
+    HelloWorldPrecompiled(crypto::Hash::Ptr _hashImpl);
     virtual ~HelloWorldPrecompiled(){};
 
     std::string toString() override;

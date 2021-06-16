@@ -46,13 +46,15 @@ const char* const CRYPTO_METHOD_SM2_VERIFY_STR = "sm2Verify(bytes,bytes)";
 const char* const CRYPTO_METHOD_CURVE25519_VRF_VERIFY_STR =
     "curve25519VRFVerify(string,string,string)";
 
-CryptoPrecompiled::CryptoPrecompiled()
+CryptoPrecompiled::CryptoPrecompiled(crypto::Hash::Ptr _hashImpl) : Precompiled(_hashImpl)
 {
-    name2Selector[CRYPTO_METHOD_SM3_STR] = getFuncSelector(CRYPTO_METHOD_SM3_STR);
-    name2Selector[CRYPTO_METHOD_KECCAK256_STR] = getFuncSelector(CRYPTO_METHOD_KECCAK256_STR);
-    name2Selector[CRYPTO_METHOD_SM2_VERIFY_STR] = getFuncSelector(CRYPTO_METHOD_SM2_VERIFY_STR);
+    name2Selector[CRYPTO_METHOD_SM3_STR] = getFuncSelector(CRYPTO_METHOD_SM3_STR, _hashImpl);
+    name2Selector[CRYPTO_METHOD_KECCAK256_STR] =
+        getFuncSelector(CRYPTO_METHOD_KECCAK256_STR, _hashImpl);
+    name2Selector[CRYPTO_METHOD_SM2_VERIFY_STR] =
+        getFuncSelector(CRYPTO_METHOD_SM2_VERIFY_STR, _hashImpl);
     name2Selector[CRYPTO_METHOD_CURVE25519_VRF_VERIFY_STR] =
-        getFuncSelector(CRYPTO_METHOD_CURVE25519_VRF_VERIFY_STR);
+        getFuncSelector(CRYPTO_METHOD_CURVE25519_VRF_VERIFY_STR, _hashImpl);
 }
 
 PrecompiledExecResult::Ptr CryptoPrecompiled::call(

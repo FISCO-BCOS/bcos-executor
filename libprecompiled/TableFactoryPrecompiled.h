@@ -44,7 +44,7 @@ class TableFactoryPrecompiled : public Precompiled
 {
 public:
     using Ptr = std::shared_ptr<TableFactoryPrecompiled>;
-    TableFactoryPrecompiled();
+    TableFactoryPrecompiled(crypto::Hash::Ptr _hashImpl);
     virtual ~TableFactoryPrecompiled(){};
 
     std::string toString() override;

@@ -41,14 +41,14 @@ const char* const TABLE_METHOD_RE_STR_ADD = "remove(address)";
 const char* const TABLE_METHOD_UP_STR_2ADD = "update(address,address)";
 
 
-TablePrecompiled::TablePrecompiled()
+TablePrecompiled::TablePrecompiled(crypto::Hash::Ptr _hashImpl) : Precompiled(_hashImpl)
 {
-    name2Selector[TABLE_METHOD_SLT_STR_ADD] = getFuncSelector(TABLE_METHOD_SLT_STR_ADD);
-    name2Selector[TABLE_METHOD_INS_STR_ADD] = getFuncSelector(TABLE_METHOD_INS_STR_ADD);
-    name2Selector[TABLE_METHOD_NEW_COND] = getFuncSelector(TABLE_METHOD_NEW_COND);
-    name2Selector[TABLE_METHOD_NEW_ENTRY] = getFuncSelector(TABLE_METHOD_NEW_ENTRY);
-    name2Selector[TABLE_METHOD_RE_STR_ADD] = getFuncSelector(TABLE_METHOD_RE_STR_ADD);
-    name2Selector[TABLE_METHOD_UP_STR_2ADD] = getFuncSelector(TABLE_METHOD_UP_STR_2ADD);
+    name2Selector[TABLE_METHOD_SLT_STR_ADD] = getFuncSelector(TABLE_METHOD_SLT_STR_ADD, _hashImpl);
+    name2Selector[TABLE_METHOD_INS_STR_ADD] = getFuncSelector(TABLE_METHOD_INS_STR_ADD, _hashImpl);
+    name2Selector[TABLE_METHOD_NEW_COND] = getFuncSelector(TABLE_METHOD_NEW_COND, _hashImpl);
+    name2Selector[TABLE_METHOD_NEW_ENTRY] = getFuncSelector(TABLE_METHOD_NEW_ENTRY, _hashImpl);
+    name2Selector[TABLE_METHOD_RE_STR_ADD] = getFuncSelector(TABLE_METHOD_RE_STR_ADD, _hashImpl);
+    name2Selector[TABLE_METHOD_UP_STR_2ADD] = getFuncSelector(TABLE_METHOD_UP_STR_2ADD, _hashImpl);
 }
 
 std::string TablePrecompiled::toString()
@@ -138,7 +138,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(
             gasPricer->updateMemUsed(getEntriesCapacity(entries));
             gasPricer->appendOperation(InterfaceOpcode::Select, entries->size());
 
-            auto entriesPrecompiled = std::make_shared<EntriesPrecompiled>();
+            auto entriesPrecompiled = std::make_shared<EntriesPrecompiled>(m_hashImpl);
             entriesPrecompiled->setEntries(entries);
 
             auto newAddress = _context->registerPrecompiled(entriesPrecompiled);
@@ -211,7 +211,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(
     else if (func == name2Selector[TABLE_METHOD_NEW_COND])
     {  // newCondition()
         auto condition = std::make_shared<precompiled::Condition>();
-        auto conditionPrecompiled = std::make_shared<ConditionPrecompiled>();
+        auto conditionPrecompiled = std::make_shared<ConditionPrecompiled>(m_hashImpl);
         conditionPrecompiled->setCondition(condition);
 
         if (_context->isWasm())
@@ -228,7 +228,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(
     else if (func == name2Selector[TABLE_METHOD_NEW_ENTRY])
     {  // newEntry()
         auto entry = m_table->newEntry();
-        auto entryPrecompiled = std::make_shared<EntryPrecompiled>();
+        auto entryPrecompiled = std::make_shared<EntryPrecompiled>(m_hashImpl);
         entryPrecompiled->setEntry(entry);
 
         if (_context->isWasm())

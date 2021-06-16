@@ -37,7 +37,7 @@ class RingSigPrecompiled : public bcos::precompiled::Precompiled
 {
 public:
     using Ptr = std::shared_ptr<RingSigPrecompiled>;
-    RingSigPrecompiled();
+    RingSigPrecompiled(crypto::Hash::Ptr _hashImpl);
     virtual ~RingSigPrecompiled(){};
 
     std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::ExecutiveContext> _context,

@@ -29,7 +29,6 @@
 #include <boost/algorithm/string/split.hpp>
 #include <boost/throw_exception.hpp>
 
-
 using namespace bcos;
 using namespace bcos::executor;
 using namespace bcos::storage;
@@ -39,12 +38,13 @@ using namespace bcos::protocol;
 const char* const KV_TABLE_FACTORY_METHOD_OPEN_TABLE = "openTable(string)";
 const char* const KV_TABLE_FACTORY_METHOD_CREATE_TABLE = "createTable(string,string,string)";
 
-KVTableFactoryPrecompiled::KVTableFactoryPrecompiled()
+KVTableFactoryPrecompiled::KVTableFactoryPrecompiled(crypto::Hash::Ptr _hashImpl)
+  : Precompiled(_hashImpl)
 {
     name2Selector[KV_TABLE_FACTORY_METHOD_OPEN_TABLE] =
-        getFuncSelector(KV_TABLE_FACTORY_METHOD_OPEN_TABLE);
+        getFuncSelector(KV_TABLE_FACTORY_METHOD_OPEN_TABLE, _hashImpl);
     name2Selector[KV_TABLE_FACTORY_METHOD_CREATE_TABLE] =
-        getFuncSelector(KV_TABLE_FACTORY_METHOD_CREATE_TABLE);
+        getFuncSelector(KV_TABLE_FACTORY_METHOD_CREATE_TABLE, _hashImpl);
 }
 
 std::string KVTableFactoryPrecompiled::toString()
@@ -79,7 +79,7 @@ PrecompiledExecResult::Ptr KVTableFactoryPrecompiled::call(
             std::string address;
             if (table)
             {
-                auto kvTablePrecompiled = std::make_shared<KVTablePrecompiled>();
+                auto kvTablePrecompiled = std::make_shared<KVTablePrecompiled>(m_hashImpl);
                 kvTablePrecompiled->setTable(table);
                 address = _context->registerPrecompiled(kvTablePrecompiled);
             }
@@ -98,7 +98,7 @@ PrecompiledExecResult::Ptr KVTableFactoryPrecompiled::call(
             Address address;
             if (table)
             {
-                auto kvTablePrecompiled = std::make_shared<KVTablePrecompiled>();
+                auto kvTablePrecompiled = std::make_shared<KVTablePrecompiled>(m_hashImpl);
                 kvTablePrecompiled->setTable(table);
                 address = Address(_context->registerPrecompiled(kvTablePrecompiled));
             }

@@ -142,14 +142,15 @@ int bcos::precompiled::checkLengthValidate(
   }
   return 0;
 }
-uint32_t bcos::precompiled::getFuncSelector(std::string const& _functionName)
+uint32_t bcos::precompiled::getFuncSelector(
+    std::string const& _functionName, const crypto::Hash::Ptr& _hashImpl)
 {
     // global function selector cache
     if (s_name2SelectCache.count(_functionName))
     {
         return s_name2SelectCache[_functionName];
     }
-    auto selector = getFuncSelectorByFunctionName(_functionName);
+    auto selector = getFuncSelectorByFunctionName(_functionName, _hashImpl);
     s_name2SelectCache.insert(std::make_pair(_functionName, selector));
     return selector;
 }
@@ -168,10 +169,10 @@ bytesConstRef bcos::precompiled::getParamData(bytesConstRef _param)
   return _param.getCroppedData(4);
 }
 
-uint32_t bcos::precompiled::getFuncSelectorByFunctionName(std::string const& _functionName)
+uint32_t bcos::precompiled::getFuncSelectorByFunctionName(
+    std::string const& _functionName, const crypto::Hash::Ptr& _hashImpl)
 {
-    // FIXME: use hash function
-    uint32_t func = *(uint32_t*)(crypto::HashType(_functionName).ref().getCroppedData(0, 4).data());
+    uint32_t func = *(uint32_t*)(_hashImpl->hash(_functionName).ref().getCroppedData(0, 4).data());
     uint32_t selector = ((func & 0x000000FF) << 24) | ((func & 0x0000FF00) << 8) |
                         ((func & 0x00FF0000) >> 8) | ((func & 0xFF000000) >> 24);
     return selector;

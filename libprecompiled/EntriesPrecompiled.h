@@ -43,7 +43,7 @@ class EntriesPrecompiled : public Precompiled
 {
 public:
     using Ptr = std::shared_ptr<EntriesPrecompiled>;
-    EntriesPrecompiled();
+    EntriesPrecompiled(crypto::Hash::Ptr _hashImpl);
     virtual ~EntriesPrecompiled(){};
 
     std::string toString() override;

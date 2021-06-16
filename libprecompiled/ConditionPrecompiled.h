@@ -65,7 +65,7 @@ class ConditionPrecompiled : public Precompiled
 {
 public:
     using Ptr = std::shared_ptr<ConditionPrecompiled>;
-    ConditionPrecompiled();
+    ConditionPrecompiled(crypto::Hash::Ptr _hashImpl);
     virtual ~ConditionPrecompiled(){};
 
 

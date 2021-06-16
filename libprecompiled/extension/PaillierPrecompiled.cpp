@@ -29,10 +29,10 @@ using namespace bcos::precompiled;
 
 const char* const PAILLIER_METHOD_SET_STR = "paillierAdd(string,string)";
 
-PaillierPrecompiled::PaillierPrecompiled()
+PaillierPrecompiled::PaillierPrecompiled(crypto::Hash::Ptr _hashImpl) : Precompiled(_hashImpl)
 //  : m_callPaillier(std::make_shared<CallPaillier>())
 {
-    name2Selector[PAILLIER_METHOD_SET_STR] = getFuncSelector(PAILLIER_METHOD_SET_STR);
+    name2Selector[PAILLIER_METHOD_SET_STR] = getFuncSelector(PAILLIER_METHOD_SET_STR, _hashImpl);
 }
 
 PrecompiledExecResult::Ptr PaillierPrecompiled::call(

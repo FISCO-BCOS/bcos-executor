@@ -38,11 +38,11 @@ const char* const CSS_METHOD_ADD_SER = "addObserver(string)";
 const char* const CSS_METHOD_REMOVE = "remove(string)";
 const char* const CSS_METHOD_SET_WEIGHT = "setWeight(string,uint256)";
 
-ConsensusPrecompiled::ConsensusPrecompiled()
+ConsensusPrecompiled::ConsensusPrecompiled(crypto::Hash::Ptr _hashImpl) : Precompiled(_hashImpl)
 {
-    name2Selector[CSS_METHOD_ADD_SEALER] = getFuncSelector(CSS_METHOD_ADD_SEALER);
-    name2Selector[CSS_METHOD_ADD_SER] = getFuncSelector(CSS_METHOD_ADD_SER);
-    name2Selector[CSS_METHOD_REMOVE] = getFuncSelector(CSS_METHOD_REMOVE);
+    name2Selector[CSS_METHOD_ADD_SEALER] = getFuncSelector(CSS_METHOD_ADD_SEALER, _hashImpl);
+    name2Selector[CSS_METHOD_ADD_SER] = getFuncSelector(CSS_METHOD_ADD_SER, _hashImpl);
+    name2Selector[CSS_METHOD_REMOVE] = getFuncSelector(CSS_METHOD_REMOVE, _hashImpl);
 }
 
 PrecompiledExecResult::Ptr ConsensusPrecompiled::call(

@@ -44,14 +44,14 @@ class CNSPrecompiled : public bcos::precompiled::Precompiled
 {
 public:
     typedef std::shared_ptr<CNSPrecompiled> Ptr;
-    CNSPrecompiled();
+    CNSPrecompiled(crypto::Hash::Ptr _hashImpl);
     virtual ~CNSPrecompiled(){};
 
     std::string toString() override;
 
     bool checkCNSParam(std::shared_ptr<executor::ExecutiveContext> _context,
-        Address const& _contractAddress, std::string const& _contractName,
-        std::string const& _contractVersion, std::string const& _contractAbi);
+        Address const& _contractAddress, std::string& _contractName,
+        std::string& _contractVersion, std::string const& _contractAbi);
 
     std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::ExecutiveContext> _context,
         bytesConstRef _param, const std::string& _origin, const std::string& _sender,

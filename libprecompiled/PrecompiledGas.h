@@ -149,9 +149,11 @@ private:
 class PrecompiledGasFactory {
 public:
   using Ptr = std::shared_ptr<PrecompiledGasFactory>;
+  PrecompiledGasFactory() {
+      m_gasMetric = std::make_shared<GasMetrics>();
+  }
   PrecompiledGas::Ptr createPrecompiledGas() {
     auto gasPricer = std::make_shared<PrecompiledGas>();
-    m_gasMetric = std::make_shared<GasMetrics>();
     gasPricer->setGasMetric(m_gasMetric);
     return gasPricer;
   }

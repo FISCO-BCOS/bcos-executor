@@ -29,9 +29,9 @@ using namespace bcos::precompiled;
 
 const char* const GroupSig_METHOD_SET_STR = "groupSigVerify(string,string,string,string)";
 
-GroupSigPrecompiled::GroupSigPrecompiled()
+GroupSigPrecompiled::GroupSigPrecompiled(crypto::Hash::Ptr _hashImpl) : Precompiled(_hashImpl)
 {
-    name2Selector[GroupSig_METHOD_SET_STR] = getFuncSelector(GroupSig_METHOD_SET_STR);
+    name2Selector[GroupSig_METHOD_SET_STR] = getFuncSelector(GroupSig_METHOD_SET_STR, _hashImpl);
 }
 
 PrecompiledExecResult::Ptr GroupSigPrecompiled::call(std::shared_ptr<executor::ExecutiveContext> _context,

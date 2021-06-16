@@ -49,17 +49,18 @@ const char* const DAG_TRANSFER_METHOD_BAL_STR = "userBalance(string)";
 const char* const DAG_TRANSFER_FIELD_NAME = "user_name";
 const char* const DAG_TRANSFER_FIELD_BALANCE = "user_balance";
 
-DagTransferPrecompiled::DagTransferPrecompiled()
+DagTransferPrecompiled::DagTransferPrecompiled(crypto::Hash::Ptr _hashImpl) : Precompiled(_hashImpl)
 {
     name2Selector[DAG_TRANSFER_METHOD_ADD_STR_UINT] =
-        getFuncSelector(DAG_TRANSFER_METHOD_ADD_STR_UINT);
+        getFuncSelector(DAG_TRANSFER_METHOD_ADD_STR_UINT, _hashImpl);
     name2Selector[DAG_TRANSFER_METHOD_SAV_STR_UINT] =
-        getFuncSelector(DAG_TRANSFER_METHOD_SAV_STR_UINT);
+        getFuncSelector(DAG_TRANSFER_METHOD_SAV_STR_UINT, _hashImpl);
     name2Selector[DAG_TRANSFER_METHOD_DRAW_STR_UINT] =
-        getFuncSelector(DAG_TRANSFER_METHOD_DRAW_STR_UINT);
+        getFuncSelector(DAG_TRANSFER_METHOD_DRAW_STR_UINT, _hashImpl);
     name2Selector[DAG_TRANSFER_METHOD_TRS_STR2_UINT] =
-        getFuncSelector(DAG_TRANSFER_METHOD_TRS_STR2_UINT);
-    name2Selector[DAG_TRANSFER_METHOD_BAL_STR] = getFuncSelector(DAG_TRANSFER_METHOD_BAL_STR);
+        getFuncSelector(DAG_TRANSFER_METHOD_TRS_STR2_UINT, _hashImpl);
+    name2Selector[DAG_TRANSFER_METHOD_BAL_STR] =
+        getFuncSelector(DAG_TRANSFER_METHOD_BAL_STR, _hashImpl);
 }
 
 std::vector<std::string> DagTransferPrecompiled::getParallelTag(bytesConstRef _param)

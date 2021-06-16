@@ -38,11 +38,12 @@ const char* const KV_TABLE_METHOD_SET = "set(string,address)";
 const char* const KV_TABLE_METHOD_NEW_ENTRY = "newEntry()";
 
 
-KVTablePrecompiled::KVTablePrecompiled()
+KVTablePrecompiled::KVTablePrecompiled(crypto::Hash::Ptr _hashImpl) : Precompiled(_hashImpl)
 {
-    name2Selector[KV_TABLE_METHOD_GET] = getFuncSelector(KV_TABLE_METHOD_GET);
-    name2Selector[KV_TABLE_METHOD_SET] = getFuncSelector(KV_TABLE_METHOD_SET);
-    name2Selector[KV_TABLE_METHOD_NEW_ENTRY] = getFuncSelector(KV_TABLE_METHOD_NEW_ENTRY);
+    name2Selector[KV_TABLE_METHOD_GET] = getFuncSelector(KV_TABLE_METHOD_GET, _hashImpl);
+    name2Selector[KV_TABLE_METHOD_SET] = getFuncSelector(KV_TABLE_METHOD_SET, _hashImpl);
+    name2Selector[KV_TABLE_METHOD_NEW_ENTRY] =
+        getFuncSelector(KV_TABLE_METHOD_NEW_ENTRY, _hashImpl);
 }
 
 std::string KVTablePrecompiled::toString()
@@ -80,7 +81,7 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
         }
         else
         {
-            auto entryPrecompiled = std::make_shared<EntryPrecompiled>();
+            auto entryPrecompiled = std::make_shared<EntryPrecompiled>(m_hashImpl);
             // CachedStorage return entry use copy from
             entryPrecompiled->setEntry(entry);
             if (_context->isWasm())
@@ -139,7 +140,7 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
     else if (func == name2Selector[KV_TABLE_METHOD_NEW_ENTRY])
     {  // newEntry()
         auto entry = m_table->newEntry();
-        auto entryPrecompiled = std::make_shared<EntryPrecompiled>();
+        auto entryPrecompiled = std::make_shared<EntryPrecompiled>(m_hashImpl);
         entryPrecompiled->setEntry(entry);
 
         auto newAddress = Address(_context->registerPrecompiled(entryPrecompiled));

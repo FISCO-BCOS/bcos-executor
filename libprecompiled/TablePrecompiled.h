@@ -51,7 +51,7 @@ class TablePrecompiled : public Precompiled
 {
 public:
     using Ptr = std::shared_ptr<TablePrecompiled>;
-    TablePrecompiled();
+    TablePrecompiled(crypto::Hash::Ptr _hashImpl);
     virtual ~TablePrecompiled(){};
 
 

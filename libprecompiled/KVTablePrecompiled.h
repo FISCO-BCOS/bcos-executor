@@ -39,8 +39,8 @@ contract KVTable {
 class KVTablePrecompiled : public bcos::precompiled::Precompiled
 {
 public:
-    typedef std::shared_ptr<KVTablePrecompiled> Ptr;
-    KVTablePrecompiled();
+    using Ptr = std::shared_ptr<KVTablePrecompiled>;
+    KVTablePrecompiled(crypto::Hash::Ptr _hashImpl);
     virtual ~KVTablePrecompiled(){};
 
 

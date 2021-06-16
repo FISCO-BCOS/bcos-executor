@@ -100,9 +100,10 @@ void checkNameValidate(const std::string& tableName, std::vector<std::string>& k
     std::vector<std::string>& valueFieldList);
 int checkLengthValidate(const std::string& field_value, int32_t max_length, int32_t errorCode);
 
-uint32_t getFuncSelector(std::string const& _functionName);
+uint32_t getFuncSelector(std::string const& _functionName, const crypto::Hash::Ptr& _hashImpl);
 uint32_t getParamFunc(bytesConstRef _param);
-uint32_t getFuncSelectorByFunctionName(std::string const& _functionName);
+uint32_t getFuncSelectorByFunctionName(
+    std::string const& _functionName, const crypto::Hash::Ptr& _hashImpl);
 
 bcos::precompiled::ContractStatus getContractStatus(
     std::shared_ptr<bcos::executor::ExecutiveContext> _context, std::string const& _tableName);

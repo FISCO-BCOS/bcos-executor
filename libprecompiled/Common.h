@@ -52,6 +52,16 @@ static const char* const SYS_VALUE = "value";
 static const char* const SYS_KEY = "key";
 static const char* const SYS_CONFIG_ENABLE_BLOCK_NUMBER = "enable_block_number";
 
+/// FileSystem table keys
+static const std::string FS_KEY_TYPE = "type";
+static const std::string FS_KEY_SUB = "subdirectories";
+static const std::string FS_KEY_NUM = "enable_number";
+
+/// FileSystem file type
+static const std::string FS_TYPE_DIR = "directory";
+static const std::string FS_TYPE_CONTRACT = "contract";
+static const std::string FS_TYPE_LINK = "link";
+
 /// SYS_CONSENSUS table fields
 static const char* const NODE_TYPE = "type";
 static const char* const NODE_WEIGHT = "weight";
@@ -69,17 +79,17 @@ const int USER_TABLE_NAME_MAX_LENGTH_S = 50;
 const int USER_TABLE_FIELD_VALUE_MAX_LENGTH = 16 * 1024 * 1024 - 1;
 
 // Define precompiled contract address
-const char* const SYS_CONFIG_NAME = "/sys/sys_config";
-const char* const TABLE_FACTORY_NAME = "/sys/table_factory";
-const char* const CRUD_NAME = "/sys/crud";
-const char* const CONSENSUS_NAME = "/sys/consensus";
-const char* const CNS_NAME = "/sys/cns";
-const char* const PERMISSION_NAME = "/sys/permission";
-const char* const PARALLEL_CONFIG_NAME = "/sys/parallel_config";
-const char* const CONTRACT_LIFECYCLE_NAME = "/sys/contract_life_cycle";
-const char* const CHAIN_GOVERNANCE_NAME = "/sys/governance";
-const char* const KV_TABLE_FACTORY_NAME = "/sys/kv_table_factory";
-const char* const WORKING_SEALER_MGR_NAME = "/sys/sealer_manager";
+const char* const SYS_CONFIG_NAME = "/bin/status";
+const char* const TABLE_FACTORY_NAME = "/bin/storage";
+const char* const CRUD_NAME = "/bin/crud";
+const char* const CONSENSUS_NAME = "/bin/consensus";
+const char* const CNS_NAME = "/bin/cns";
+const char* const PERMISSION_NAME = "/bin/permission";
+const char* const PARALLEL_CONFIG_NAME = "/bin/parallel_config";
+//const char* const CONTRACT_LIFECYCLE_NAME = "/sys/contract_life_cycle";
+//const char* const CHAIN_GOVERNANCE_NAME = "/sys/governance";
+const char* const KV_TABLE_FACTORY_NAME = "/bin/kv_storage";
+//const char* const WORKING_SEALER_MGR_NAME = "/sys/sealer_manager";
 
 // precompiled contract for solidity
 const char* const SYS_CONFIG_ADDRESS = "0x1000";
@@ -113,6 +123,9 @@ const unsigned SYSTEM_CONSENSUS_TIMEOUT_MAX = (UINT_MAX / 1000);
 
 enum PrecompiledErrorCode : int
 {
+    // FileSystemPrecompiled -53099 ~ -53000
+    CODE_FILE_NOT_EXIST = -53001,
+
     // ChainGovernancePrecompiled -52099 ~ -52000
     CODE_CURRENT_VALUE_IS_EXPECTED_VALUE = -52012,
     CODE_ACCOUNT_FROZEN = -52011,

@@ -38,7 +38,7 @@ class PaillierPrecompiled : public bcos::precompiled::Precompiled
 {
 public:
     using Ptr = std::shared_ptr<PaillierPrecompiled>;
-    PaillierPrecompiled();
+    PaillierPrecompiled(crypto::Hash::Ptr _hashImpl);
     virtual ~PaillierPrecompiled(){};
 
     std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::ExecutiveContext> _context,
