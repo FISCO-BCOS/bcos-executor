@@ -112,8 +112,8 @@ bool Executive::execute()
     }
 }
 
-bool Executive::call(const std::string& _receiveAddress,
-    const std::string& _senderAddress, bytesConstRef _data, u256 const& _gas)
+bool Executive::call(const std::string& _receiveAddress, const std::string& _senderAddress,
+    bytesConstRef _data, u256 const& _gas)
 {
     CallParameters params{_senderAddress, _receiveAddress, _receiveAddress, _gas, _data};
     return call(params, _senderAddress);
@@ -170,8 +170,7 @@ bool Executive::call(CallParameters const& _p, const std::string& _origin)
         }
         bytes output;
         bool success;
-        tie(success, output) =
-            m_envInfo->executeOriginPrecompiled(_p.codeAddress, _p.data);
+        tie(success, output) = m_envInfo->executeOriginPrecompiled(_p.codeAddress, _p.data);
         size_t outputSize = output.size();
         m_output = owning_bytes_ref{std::move(output), 0, outputSize};
         if (!success)
@@ -185,8 +184,8 @@ bool Executive::call(CallParameters const& _p, const std::string& _origin)
     {
         try
         {
-            auto callResult = m_envInfo->call(
-                _p.codeAddress, _p.data, _origin, _p.senderAddress, m_remainGas);
+            auto callResult =
+                m_envInfo->call(_p.codeAddress, _p.data, _origin, _p.senderAddress, m_remainGas);
             // TODO: calculate gas for the precompiled contract
             // updateGas(callResult);
             size_t outputSize = callResult->m_execResult.size();
@@ -248,17 +247,17 @@ bool Executive::createOpcode(const std::string_view& _sender, u256 const& _gas, 
     const std::string_view& _origin)
 {
     u256 nonce = m_s->getNonce(_sender);
-    // FIXME:  rlpList(_sender, nonce) ==> string
-    m_newAddress = right160(m_hashImpl->hash(string(_sender) + nonce.str())).hexPrefixed();
+    auto hash = m_hashImpl->hash(string(_sender) + nonce.str());
+    m_newAddress = string((char*)hash.data(), 20);
     return executeCreate(_sender, _gas, _init, _origin);
 }
 
 bool Executive::create2Opcode(const std::string_view& _sender, u256 const& _gas,
     bytesConstRef _init, const std::string_view& _origin, u256 const& _salt)
 {
-    m_newAddress = right160(m_hashImpl->hash(bytes{0xff} + toBytes(_sender) + toBigEndian(_salt) +
-                                             m_hashImpl->hash(_init)))
-                       .hexPrefixed();
+    auto hash = m_hashImpl->hash(
+        bytes{0xff} + toBytes(_sender) + toBigEndian(_salt) + m_hashImpl->hash(_init));
+    m_newAddress = string((char*)hash.data(), 20);
     return executeCreate(_sender, _gas, _init, _origin);
 }
 
@@ -267,6 +266,7 @@ bool Executive::executeCreate(const std::string_view& _sender, u256 const& _gas,
 {
     // check authority for deploy contract
     auto tableFactory = m_envInfo->getTableFactory();
+    // permission control
     if (!tableFactory->checkAuthority(SYS_TABLE, string(_origin)))
     {
         EXECUTIVE_LOG(WARNING) << "Executive deploy contract checkAuthority of " << _origin
@@ -277,7 +277,6 @@ bool Executive::executeCreate(const std::string_view& _sender, u256 const& _gas,
         m_context = {};
         return !m_context;
     }
-
     if (m_s->frozen(_origin))
     {
         EXECUTIVE_LOG(DEBUG) << LOG_DESC("deploy contract failed for account frozen")

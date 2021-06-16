@@ -155,7 +155,10 @@ public:
         m_isCreation = false;
         m_newAddress = std::string();
         m_savepoint = 0;
-        m_logs->clear();
+        if (m_logs)
+        {
+            m_logs->clear();
+        }
         m_t.reset();
     }
 
@@ -192,10 +195,10 @@ private:
 
     int64_t m_baseGasRequired;  ///< The base amount of gas requried for executing this transaction.
     u256 m_remainGas = 0;       ///< The gas for EVM code execution. Initial amount before go()
-                           ///< execution, final amount after go() execution.
+                                ///< execution, final amount after go() execution.
 
     protocol::Transaction::ConstPtr m_t;  ///< The original transaction. Set by setup().
-    protocol::LogEntriesPtr m_logs;       ///< The log entries created by this transaction. Set by
+    protocol::LogEntriesPtr m_logs = std::make_shared<protocol::LogEntries>();       ///< The log entries created by this transaction. Set by
                                           ///< finalize().
 
     bool m_isCreation = false;

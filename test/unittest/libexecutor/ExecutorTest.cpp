@@ -23,10 +23,12 @@
 #include "../MemoryStorage.h"
 #include "../mock/MockDispatcher.h"
 #include "../mock/MockLedger.h"
+#include "bcos-framework/interfaces/ledger/LedgerTypeDef.h"
 #include "bcos-framework/testutils/crypto/HashImpl.h"
 #include "bcos-framework/testutils/crypto/SignatureImpl.h"
 #include "bcos-framework/testutils/protocol/FakeBlock.h"
 #include "bcos-framework/testutils/protocol/FakeBlockHeader.h"
+#include "libprecompiled/Common.h"
 #include "libvm/Executive.h"
 #include "libvm/ExecutiveContext.h"
 #include <boost/test/unit_test.hpp>
@@ -37,6 +39,7 @@ using namespace std;
 using namespace bcos;
 using namespace bcos::executor;
 using namespace bcos::storage;
+using namespace bcos::precompiled;
 
 namespace bcos
 {
@@ -47,8 +50,11 @@ struct ExecutorFixture
     ExecutorFixture()
     {
         auto hashImpl = std::make_shared<Keccak256Hash>();
+        assert(hashImpl);
         auto signatureImpl = std::make_shared<Secp256k1SignatureImpl>();
-        auto cryptoSuite = std::make_shared<CryptoSuite>(hashImpl, signatureImpl, nullptr);
+        assert(signatureImpl);
+        cryptoSuite = std::make_shared<CryptoSuite>(hashImpl, signatureImpl, nullptr);
+        assert(cryptoSuite);
         blockFactory = createBlockFactory(cryptoSuite);
         auto header = blockFactory->blockHeaderFactory()->createBlockHeader(1);
         header->setNumber(1);
@@ -56,9 +62,18 @@ struct ExecutorFixture
         storage = make_shared<MemoryStorage>();
         dispatcher = make_shared<MockDispatcher>();
         executor = make_shared<Executor>(blockFactory, dispatcher, ledger, storage, false);
-        // executiveContext = executor->createExecutiveContext(header);
+        // create sys table
+        auto tableFactory = std::make_shared<TableFactory>(storage, hashImpl, 0);
+        tableFactory->createTable(ledger::SYS_CONFIG, SYS_KEY, "value,enable_block_number");
+        auto table = tableFactory->openTable(ledger::SYS_CONFIG);
+        auto entry = table->newEntry();
+        entry->setField(SYS_VALUE, "3000000");
+        entry->setField(SYS_CONFIG_ENABLE_BLOCK_NUMBER, "0");
+        table->setRow(SYSTEM_KEY_TX_GAS_LIMIT, entry);
+        tableFactory->commit();
+        executiveContext = executor->createExecutiveContext(header);
     }
-    CryptoSuite::Ptr cryptoSuite;
+    CryptoSuite::Ptr cryptoSuite = nullptr;
     protocol::BlockFactory::Ptr blockFactory;
     MockLedger::Ptr ledger;
     MemoryStorage::Ptr storage;
@@ -75,8 +90,16 @@ BOOST_AUTO_TEST_CASE(construct)
 
 BOOST_AUTO_TEST_CASE(executeTransaction_DeployHelloWorld)
 {
-#if 0
     auto keyPair = cryptoSuite->signatureImpl()->generateKeyPair();
+    memcpy(keyPair->secretKey()->mutableData(),
+        fromHexString("ff6f30856ad3bae00b1169808488502786a13e3c174d85682135ffd51310310e")->data(),
+        32);
+    memcpy(keyPair->publicKey()->mutableData(),
+        fromHexString("ccd8de502ac45462767e649b462b5f4ca7eadd69c7e1f1b410bdf754359be29b1b88ffd79744"
+                      "03f56e250af52b25682014554f7b3297d6152401e85d426a06ae")
+            ->data(),
+        64);
+    cout << keyPair->secretKey()->hex() << endl << keyPair->publicKey()->hex() << endl;
     auto to = keyPair->address(cryptoSuite->hashImpl()).asBytes();
     auto helloworld = string(
         "0x60806040526040805190810160405280600181526020017f3100000000000000000000000000000000000000"
@@ -119,12 +142,52 @@ BOOST_AUTO_TEST_CASE(executeTransaction_DeployHelloWorld)
     auto tx = fakeTransaction(cryptoSuite, keyPair, bytes(), input, 101, 100001, "1", "1");
     auto executive = std::make_shared<Executive>(executiveContext);
     auto receipt = executor->executeTransaction(tx, executive);
-
+    BOOST_TEST(receipt->status() == (int32_t)TransactionStatus::None);
+    BOOST_TEST(receipt->gasUsed() == 430575);
+    BOOST_TEST(receipt->hash().hexPrefixed() ==
+               "0xaebfa6e88818037c65afed2d33c9cd634cdf0d7f4d0d4e5084af72185706aa28");
+    BOOST_TEST(
+        *toHexString(receipt->contractAddress()) == "8968b494f66b2508330b24a7d1cafa06a14f6315");
+    BOOST_TEST(*toHexString(receipt->output()) == "");
+    BOOST_TEST(receipt->blockNumber() == 1);
+    auto newAddress = receipt->contractAddress().toBytes();
     // call helloworld get
     input = *fromHexString("0x6d4ce63c");
-    tx = fakeTransaction(cryptoSuite, keyPair, to, input, 101, 100001, "1", "1");
-    receipt = executor->executeTransaction(tx, executive);
-#endif
+    auto getTx = fakeTransaction(cryptoSuite, keyPair, newAddress, input, 101, 100001, "1", "1");
+    receipt = executor->executeTransaction(getTx, executive);
+    BOOST_TEST(receipt->status() == (int32_t)TransactionStatus::None);
+    BOOST_TEST(receipt->gasUsed() == 22742);
+    BOOST_TEST(receipt->hash().hexPrefixed() ==
+               "0xe86887f45811fc1c0862cce8aa66429bcb8845fa56ace5cad406a2d2fb89cb57");
+    BOOST_TEST(*toHexString(receipt->contractAddress()) == "");
+    // Hello, World! == 48656c6c6f2c20576f726c6421
+    BOOST_TEST(*toHexString(receipt->output()) ==
+               "00000000000000000000000000000000000000000000000000000000000000200000000000000000000"
+               "00000000000000000000000000000000000000000000d48656c6c6f2c20576f726c6421000000000000"
+               "00000000000000000000000000");
+    BOOST_TEST(receipt->blockNumber() == 1);
+
+    // call helloworld set fisco
+    input = *fromHexString(
+        "0x4ed3885e00000000000000000000000000000000000000000000000000000000000000200000000000000000"
+        "000000000000000000000000000000000000000000000005666973636f00000000000000000000000000000000"
+        "0000000000000000000000");
+    auto setTx = fakeTransaction(cryptoSuite, keyPair, newAddress, input, 101, 100001, "1", "1");
+    receipt = executor->executeTransaction(setTx, executive);
+    BOOST_TEST(receipt->status() == (int32_t)TransactionStatus::None);
+    BOOST_TEST(receipt->gasUsed() == 30791);
+    BOOST_TEST(receipt->hash().hexPrefixed() ==
+               "0x407edb8616a3772a18c89fb7da1326c9b0d690ba1b60cf3942d86383b6a62b0a");
+    BOOST_TEST(*toHexString(receipt->contractAddress()) == "");
+    BOOST_TEST(*toHexString(receipt->output()) == "");
+    BOOST_TEST(receipt->blockNumber() == 1);
+    // get
+    receipt = executor->executeTransaction(getTx, executive);
+    // Hello, World! == 666973636f
+    BOOST_TEST(*toHexString(receipt->output()) ==
+               "00000000000000000000000000000000000000000000000000000000000000200000000000000000000"
+               "000000000000000000000000000000000000000000005666973636f0000000000000000000000000000"
+               "00000000000000000000000000");
 }
 
 BOOST_AUTO_TEST_SUITE_END()

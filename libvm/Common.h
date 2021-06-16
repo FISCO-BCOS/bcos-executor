@@ -42,7 +42,7 @@ namespace executor
 struct SubState
 {
     std::set<std::string> suicides;                            ///< Any accounts that have suicided.
-    protocol::LogEntriesPtr logs = protocol::LogEntriesPtr();  ///< Any logs.
+    protocol::LogEntriesPtr logs = std::make_shared<protocol::LogEntries>();  ///< Any logs.
     u256 refunds;  ///< Refund counter of SSTORE nonzero->zero.
 
     SubState& operator+=(SubState const& _s)

@@ -448,11 +448,10 @@ ExecutiveContext::Ptr Executor::createExecutiveContext(
     // register workingSealerManagerPrecompiled for VRF-based-rPBFT
     // context->setAddress2Precompiled(WORKING_SEALER_MGR_ADDRESS,
     //     std::make_shared<precompiled::WorkingSealerManagerPrecompiled>());
-
     context->setPrecompiledContract(m_precompiledContract);
 
     // getTxGasLimitToContext from precompiled and set to context
-    auto ret = sysConfig->getSysConfigByKey("tx_gas_limit", m_tableFactory);
+    auto ret = sysConfig->getSysConfigByKey(ledger::SYSTEM_KEY_TX_GAS_LIMIT, m_tableFactory);
     context->setTxGasLimit(boost::lexical_cast<uint64_t>(ret.first));
 
     // register workingSealerManagerPrecompiled for VRF-based-rPBFT
