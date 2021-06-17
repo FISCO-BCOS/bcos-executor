@@ -20,7 +20,7 @@
  */
 
 #pragma once
-#include "../libvm/ExecutiveContext.h"
+#include "../libvm/BlockContext.h"
 #include "DAG.h"
 #include "bcos-framework/interfaces/protocol/Block.h"
 #include "bcos-framework/interfaces/protocol/Transaction.h"
@@ -44,7 +44,7 @@ public:
     virtual ~TxDAG() {}
 
     // Generate DAG according with given transactions
-    void init(ExecutiveContext::Ptr _ctx, const protocol::Block::Ptr& _block);
+    void init(BlockContext::Ptr _ctx, const protocol::Block::Ptr& _block);
 
     // Set transaction execution function
     void setTxExecuteFunc(ExecuteTxFunc const& _f);

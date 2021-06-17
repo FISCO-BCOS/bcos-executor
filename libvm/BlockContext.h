@@ -14,7 +14,7 @@
  *  limitations under the License.
  *
  * @brief block level context
- * @file ExecutiveContext.h
+ * @file BlockContext.h
  * @author: xingqiangbai
  * @date: 2021-05-26
  */
@@ -57,18 +57,18 @@ struct PrecompiledExecResult;
 namespace executor
 {
 typedef std::function<crypto::HashType(int64_t x)> CallBackFunction;
-class ExecutiveContext : public std::enable_shared_from_this<ExecutiveContext>
+class BlockContext : public std::enable_shared_from_this<BlockContext>
 {
 public:
-    typedef std::shared_ptr<ExecutiveContext> Ptr;
+    typedef std::shared_ptr<BlockContext> Ptr;
 
-    ExecutiveContext(std::shared_ptr<storage::TableFactoryInterface> _tableFactory,
+    BlockContext(std::shared_ptr<storage::TableFactoryInterface> _tableFactory,
         crypto::Hash::Ptr _hashImpl, protocol::BlockHeader::Ptr const& _current,
         const EVMSchedule& _schedule, CallBackFunction _callback,
         bool _isWasm);
     using getTxCriticalsHandler = std::function<std::shared_ptr<std::vector<std::string>>(
         const protocol::Transaction::ConstPtr& _tx)>;
-    virtual ~ExecutiveContext()
+    virtual ~BlockContext()
     {
     };
 

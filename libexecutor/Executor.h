@@ -14,7 +14,7 @@
  *  limitations under the License.
  *
  * @brief block level context
- * @file ExecutiveContext.h
+ * @file BlockContext.h
  * @author: xingqiangbai
  * @date: 2021-05-27
  */
@@ -49,7 +49,7 @@ class TransactionReceipt;
 namespace executor
 {
 class Executive;
-class ExecutiveContext;
+class BlockContext;
 class PrecompiledContract;
 
 enum ExecutorVersion : int32_t
@@ -76,7 +76,7 @@ public:
         }
     }
 
-    std::shared_ptr<ExecutiveContext> executeBlock(
+    std::shared_ptr<BlockContext> executeBlock(
         const protocol::Block::Ptr& block, const protocol::BlockHeader::Ptr& parentBlockInfo);
 
     protocol::TransactionReceipt::Ptr executeTransaction(
@@ -90,7 +90,7 @@ public:
     void stop() override;
     void start() override;
 
-    std::shared_ptr<ExecutiveContext> createExecutiveContext(
+    std::shared_ptr<BlockContext> createExecutiveContext(
         const protocol::BlockHeader::Ptr& _currentHeader);
 
 private:

@@ -39,7 +39,7 @@ SystemConfigPrecompiled::SystemConfigPrecompiled(crypto::Hash::Ptr _hashImpl)
 }
 
 PrecompiledExecResult::Ptr SystemConfigPrecompiled::call(
-    std::shared_ptr<executor::ExecutiveContext> _context, bytesConstRef _param,
+    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
     const std::string& _origin, const std::string&, u256& _remainGas)
 {
     // parse function name

@@ -20,7 +20,7 @@
 
 #include "HelloWorldPrecompiled.h"
 #include "../PrecompiledResult.h"
-#include "../../libvm/ExecutiveContext.h"
+#include "../../libvm/BlockContext.h"
 #include "../Utilities.h"
 
 using namespace bcos;
@@ -60,7 +60,7 @@ std::string HelloWorldPrecompiled::toString()
 }
 
 PrecompiledExecResult::Ptr HelloWorldPrecompiled::call(
-    std::shared_ptr<executor::ExecutiveContext> _context, bytesConstRef _param,
+    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
     const std::string& _origin, const std::string&, u256& _remainGas)
 {
     PRECOMPILED_LOG(TRACE) << LOG_BADGE("HelloWorldPrecompiled") << LOG_DESC("call")

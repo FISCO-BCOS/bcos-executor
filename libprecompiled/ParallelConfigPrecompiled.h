@@ -21,7 +21,7 @@
 #pragma once
 #include "Common.h"
 #include "../libvm/Precompiled.h"
-#include "../libvm/ExecutiveContext.h"
+#include "../libvm/BlockContext.h"
 #include <bcos-framework/libcodec/abi/ContractABICodec.h>
 #include <bcos-framework/interfaces/storage/TableInterface.h>
 
@@ -46,23 +46,23 @@ public:
 
     std::string toString() override;
 
-    std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::ExecutiveContext> _context,
+    std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::BlockContext> _context,
         bytesConstRef _param, const std::string& _origin, const std::string& _sender,
         u256& _remainGas) override;
 
     bcos::storage::TableInterface::Ptr openTable(
-        std::shared_ptr<executor::ExecutiveContext> _context, std::string const& _contractAddress,
+        std::shared_ptr<executor::BlockContext> _context, std::string const& _contractAddress,
         std::string const& _origin, bool _needCreate = true);
 
 private:
-    void registerParallelFunction(std::shared_ptr<executor::ExecutiveContext> _context,
+    void registerParallelFunction(std::shared_ptr<executor::BlockContext> _context,
         bytesConstRef _data, std::string const& _origin, bytes& _out);
-    void unregisterParallelFunction(std::shared_ptr<executor::ExecutiveContext> _context,
+    void unregisterParallelFunction(std::shared_ptr<executor::BlockContext> _context,
         bytesConstRef _data, std::string const& _origin, bytes& _out);
 
 public:
     /// get parallel config, return nullptr if not found
-    ParallelConfig::Ptr getParallelConfig(std::shared_ptr<executor::ExecutiveContext> _context,
+    ParallelConfig::Ptr getParallelConfig(std::shared_ptr<executor::BlockContext> _context,
         std::string const& _contractAddress, uint32_t _selector, std::string const& _origin);
 };
 }  // namespace precompiled

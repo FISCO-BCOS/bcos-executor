@@ -68,7 +68,7 @@ std::string ParallelConfigPrecompiled::toString()
 }
 
 PrecompiledExecResult::Ptr ParallelConfigPrecompiled::call(
-    std::shared_ptr<executor::ExecutiveContext> _context, bytesConstRef _param,
+    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
     const std::string& _origin, const std::string&, u256& _remainGas)
 {
     // parse function name
@@ -100,7 +100,7 @@ PrecompiledExecResult::Ptr ParallelConfigPrecompiled::call(
 
 // TODO: use origin to check authority
 TableInterface::Ptr ParallelConfigPrecompiled::openTable(
-    std::shared_ptr<executor::ExecutiveContext> _context, std::string const& _contractName,
+    std::shared_ptr<executor::BlockContext> _context, std::string const& _contractName,
     std::string const&, bool _needCreate)
 {
     std::string tableName = PARA_CONFIG_TABLE_PREFIX_SHORT + _contractName;
@@ -136,7 +136,7 @@ TableInterface::Ptr ParallelConfigPrecompiled::openTable(
 }
 
 void ParallelConfigPrecompiled::registerParallelFunction(
-    std::shared_ptr<executor::ExecutiveContext> _context, bytesConstRef _data,
+    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _data,
     std::string const& _origin, bytes& _out)
 {
     // registerParallelFunctionInternal(string contractAddress, string functionName, uint256 criticalSize)
@@ -182,7 +182,7 @@ void ParallelConfigPrecompiled::registerParallelFunction(
 }
 
 void ParallelConfigPrecompiled::unregisterParallelFunction(
-    std::shared_ptr<executor::ExecutiveContext> _context, bytesConstRef _data,
+    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _data,
     std::string const&, bytes& _out)
 {
     // unregisterParallelFunctionInternal(address,string)
@@ -220,7 +220,7 @@ void ParallelConfigPrecompiled::unregisterParallelFunction(
 
 // TODO: use origin to check authority
 ParallelConfig::Ptr ParallelConfigPrecompiled::getParallelConfig(
-    std::shared_ptr<executor::ExecutiveContext> _context,
+    std::shared_ptr<executor::BlockContext> _context,
     std::string const& _contractAddress, uint32_t _selector, std::string const&)
 {
     auto table = _context->getTableFactory()->openTable(_contractAddress);

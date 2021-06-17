@@ -136,7 +136,7 @@ std::string DagTransferPrecompiled::toString()
 }
 
 storage::TableInterface::Ptr DagTransferPrecompiled::openTable(
-    std::shared_ptr<executor::ExecutiveContext> _context)
+    std::shared_ptr<executor::BlockContext> _context)
 {
     std::string dagTableName = precompiled::getTableName(DAG_TRANSFER);
     auto table = _context->getTableFactory()->openTable(dagTableName);
@@ -162,7 +162,7 @@ storage::TableInterface::Ptr DagTransferPrecompiled::openTable(
 }
 
 PrecompiledExecResult::Ptr DagTransferPrecompiled::call(
-    std::shared_ptr<executor::ExecutiveContext> _context, bytesConstRef _param,
+    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
     const std::string& _origin, const std::string&, u256& _remainGas)
 {
     // parse function name
@@ -203,7 +203,7 @@ PrecompiledExecResult::Ptr DagTransferPrecompiled::call(
     return callResult;
 }
 
-void DagTransferPrecompiled::userAddCall(std::shared_ptr<executor::ExecutiveContext> _context,
+void DagTransferPrecompiled::userAddCall(std::shared_ptr<executor::BlockContext> _context,
     bytesConstRef _data, std::string const& _origin, bytes& _out)
 {
     // userAdd(string,uint256)
@@ -265,7 +265,7 @@ void DagTransferPrecompiled::userAddCall(std::shared_ptr<executor::ExecutiveCont
     _out = m_codec->encode(u256(ret));
 }
 
-void DagTransferPrecompiled::userSaveCall(std::shared_ptr<executor::ExecutiveContext> _context,
+void DagTransferPrecompiled::userSaveCall(std::shared_ptr<executor::BlockContext> _context,
     bytesConstRef _data, std::string const& _origin, bytes& _out)
 {
     // userSave(string,uint256)
@@ -366,7 +366,7 @@ void DagTransferPrecompiled::userSaveCall(std::shared_ptr<executor::ExecutiveCon
     _out = m_codec->encode(u256(ret));
 }
 
-void DagTransferPrecompiled::userDrawCall(std::shared_ptr<executor::ExecutiveContext> _context,
+void DagTransferPrecompiled::userDrawCall(std::shared_ptr<executor::BlockContext> _context,
     bytesConstRef _data, std::string const& _origin, bytes& _out)
 {
     std::string user;
@@ -445,7 +445,7 @@ void DagTransferPrecompiled::userDrawCall(std::shared_ptr<executor::ExecutiveCon
 }
 
 void DagTransferPrecompiled::userBalanceCall(
-    std::shared_ptr<executor::ExecutiveContext> _context, bytesConstRef _data, bytes& _out)
+    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _data, bytes& _out)
 {
     std::string user;
     m_codec->decode(_data, user);
@@ -491,7 +491,7 @@ void DagTransferPrecompiled::userBalanceCall(
     _out = m_codec->encode(u256(ret), balance);
 }
 
-void DagTransferPrecompiled::userTransferCall(std::shared_ptr<executor::ExecutiveContext> _context,
+void DagTransferPrecompiled::userTransferCall(std::shared_ptr<executor::BlockContext> _context,
     bytesConstRef _data, std::string const& _origin, bytes& _out)
 {
     std::string fromUser, toUser;

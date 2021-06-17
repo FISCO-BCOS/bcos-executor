@@ -21,7 +21,7 @@
 #pragma once
 #include "Common.h"
 #include "../libvm/Precompiled.h"
-#include "../libvm/ExecutiveContext.h"
+#include "../libvm/BlockContext.h"
 #include <bcos-framework/interfaces/storage/TableInterface.h>
 #include <bcos-framework/interfaces/storage/Common.h>
 namespace bcos
@@ -43,12 +43,12 @@ public:
     ConsensusPrecompiled(crypto::Hash::Ptr _hashImpl);
     virtual ~ConsensusPrecompiled(){};
 
-    std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::ExecutiveContext> _context,
+    std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::BlockContext> _context,
         bytesConstRef _param, const std::string& _origin, const std::string& _sender,
         u256& _remainGas) override;
 
 private:
-    void showConsensusTable(std::shared_ptr<executor::ExecutiveContext> context);
+    void showConsensusTable(std::shared_ptr<executor::BlockContext> context);
     bool checkIsLastSealer(bcos::storage::TableInterface::Ptr table, std::string const& nodeID);
     std::shared_ptr<std::map<std::string, storage::Entry::Ptr>> getRowsByNodeType(
         bcos::storage::TableInterface::Ptr _table, std::string const& _nodeType);

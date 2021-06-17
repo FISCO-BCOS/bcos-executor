@@ -14,7 +14,7 @@
  *  limitations under the License.
  *
  * @brief block level context
- * @file ExecutiveContext.h
+ * @file BlockContext.h
  * @author: xingqiangbai
  * @date: 2021-05-27
  */
@@ -31,7 +31,7 @@
 #include "../libprecompiled/extension/DagTransferPrecompiled.h"
 #include "../libstate/State.h"
 #include "../libvm/Executive.h"
-#include "../libvm/ExecutiveContext.h"
+#include "../libvm/BlockContext.h"
 #include "../libvm/Precompiled.h"
 #include "../libvm/PrecompiledContract.h"
 #include "Common.h"
@@ -163,7 +163,7 @@ void Executor::start()
                 continue;
             }
             // execute current block
-            ExecutiveContext::Ptr context = nullptr;
+            BlockContext::Ptr context = nullptr;
             try
             {
                 context = executeBlock(currentBlock, m_lastHeader);
@@ -235,7 +235,7 @@ void Executor::asyncExecuteTransaction(const protocol::Transaction::ConstPtr& _t
     std::function<void(const Error::Ptr&, const protocol::TransactionReceipt::ConstPtr&)> _callback)
 {
     // use m_lastHeader to execute transaction
-    ExecutiveContext::Ptr executiveContext = createExecutiveContext(m_lastHeader);
+    BlockContext::Ptr executiveContext = createExecutiveContext(m_lastHeader);
     auto executive = std::make_shared<Executive>(executiveContext);
     m_threadPool->enqueue([&, executiveContext, executive, _tx, _callback]() {
         // only Rpc::call will use executeTransaction, RPC do catch exception
@@ -244,7 +244,7 @@ void Executor::asyncExecuteTransaction(const protocol::Transaction::ConstPtr& _t
     });
 }
 
-ExecutiveContext::Ptr Executor::executeBlock(
+BlockContext::Ptr Executor::executeBlock(
     const protocol::Block::Ptr& block, const protocol::BlockHeader::Ptr& parentBlockHeader)
 
 {
@@ -262,7 +262,7 @@ ExecutiveContext::Ptr Executor::executeBlock(
 
     auto start_time = utcTime();
     auto record_time = utcTime();
-    ExecutiveContext::Ptr executiveContext = createExecutiveContext(block->blockHeader());
+    BlockContext::Ptr executiveContext = createExecutiveContext(block->blockHeader());
 
     auto initExeCtx_time_cost = utcTime() - record_time;
     record_time = utcTime();
@@ -416,13 +416,13 @@ protocol::TransactionReceipt::Ptr Executor::executeTransaction(
         executive->getEnvInfo()->currentNumber());
 }
 
-ExecutiveContext::Ptr Executor::createExecutiveContext(
+BlockContext::Ptr Executor::createExecutiveContext(
     const protocol::BlockHeader::Ptr& currentHeader)
 {
     // FIXME: if wasm use the SYS_CONFIG_NAME as address
     // TableFactory is member to continues execute block without write to DB
     (void)m_version;  // FIXME: accord to m_version to chose schedule
-    ExecutiveContext::Ptr context = make_shared<ExecutiveContext>(
+    BlockContext::Ptr context = make_shared<BlockContext>(
         m_tableFactory, m_hashImpl, currentHeader, FiscoBcosScheduleV3, m_pNumberHash, m_isWasm);
     auto tableFactoryPrecompiled =
         std::make_shared<precompiled::TableFactoryPrecompiled>(m_hashImpl);

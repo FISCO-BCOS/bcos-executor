@@ -39,7 +39,7 @@ public:
     using Ptr  = std::shared_ptr<SystemConfigPrecompiled>;
     SystemConfigPrecompiled(crypto::Hash::Ptr _hashImpl);
     virtual ~SystemConfigPrecompiled(){};
-    std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::ExecutiveContext> _context, bytesConstRef _param,
+    std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
         const std::string& _origin, const std::string& _sender, u256& _remainGas) override;
     std::string toString() override;
     std::pair<std::string, protocol::BlockNumber> getSysConfigByKey(

@@ -23,7 +23,7 @@
 
 #include "../libprecompiled/PrecompiledResult.h"
 #include "Common.h"
-#include "ExecutiveContext.h"
+#include "BlockContext.h"
 #include "bcos-framework/interfaces/protocol/BlockHeader.h"
 #include "bcos-framework/interfaces/protocol/Transaction.h"
 #include "bcos-framework/libprotocol/TransactionStatus.h"
@@ -76,7 +76,7 @@ class Executive
 public:
     using Ptr = std::shared_ptr<Executive>;
     /// Simple constructor; executive will operate on given state, with the given environment info.
-    Executive(const std::shared_ptr<ExecutiveContext>& _envInfo, unsigned _level = 0)
+    Executive(const std::shared_ptr<BlockContext>& _envInfo, unsigned _level = 0)
       : m_s(_envInfo->getState()),
         m_envInfo(_envInfo),
         m_hashImpl(_envInfo->hashHandler()),
@@ -162,7 +162,7 @@ public:
         m_t.reset();
     }
 
-    std::shared_ptr<ExecutiveContext> getEnvInfo() { return m_envInfo; }
+    std::shared_ptr<BlockContext> getEnvInfo() { return m_envInfo; }
     /// @returns false iff go() must be called (and thus a VM execution in required).
     bool executeCreate(const std::string_view& _txSender, const std::string_view& _originAddress,
         const std::string& _newAddress, u256 const& _gas, bytesConstRef _code,
@@ -181,7 +181,7 @@ private:
 
     std::shared_ptr<StateInterface> m_s;  ///< The state to which this operation/transaction is
                                           ///< applied.
-    std::shared_ptr<ExecutiveContext> m_envInfo;  ///< Information on the runtime environment.
+    std::shared_ptr<BlockContext> m_envInfo;  ///< Information on the runtime environment.
     crypto::Hash::Ptr m_hashImpl;
     std::shared_ptr<HostContext> m_context;  ///< The VM externality object for the VM execution
                                              ///< or null if no VM is required. shared_ptr used

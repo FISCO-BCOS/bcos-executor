@@ -23,7 +23,7 @@
 #include "Common.h"
 #include "../libvm/Precompiled.h"
 #include "Utilities.h"
-#include "../libvm/ExecutiveContext.h"
+#include "../libvm/BlockContext.h"
 
 namespace bcos
 {
@@ -71,11 +71,11 @@ public:
 
     std::string toString() override;
 
-    std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::ExecutiveContext> _context,
+    std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::BlockContext> _context,
         bytesConstRef _param, const std::string& _origin, const std::string& _sender,
         u256& _remainGas) override;
 
-    void setPrecompiledEngine(std::shared_ptr<executor::ExecutiveContext> engine)
+    void setPrecompiledEngine(std::shared_ptr<executor::BlockContext> engine)
     {
         m_exeEngine = engine;
     }
@@ -84,7 +84,7 @@ public:
     precompiled::Condition::Ptr getCondition() { return m_condition; }
 
 private:
-    std::shared_ptr<executor::ExecutiveContext> m_exeEngine;
+    std::shared_ptr<executor::BlockContext> m_exeEngine;
     // condition must been set
     precompiled::Condition::Ptr m_condition;
 };

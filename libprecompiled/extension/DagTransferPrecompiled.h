@@ -36,7 +36,7 @@ public:
 
     std::string toString() override;
 
-    std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::ExecutiveContext> _context,
+    std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::BlockContext> _context,
         bytesConstRef _param, const std::string& _origin, const std::string& _sender,
         u256& _remainGas) override;
 
@@ -46,18 +46,18 @@ public:
     virtual std::vector<std::string> getParallelTag(bytesConstRef param) override;
 
 protected:
-    storage::TableInterface::Ptr openTable(std::shared_ptr<executor::ExecutiveContext> _context);
+    storage::TableInterface::Ptr openTable(std::shared_ptr<executor::BlockContext> _context);
 
 public:
-    void userAddCall(std::shared_ptr<executor::ExecutiveContext> _context, bytesConstRef _data,
+    void userAddCall(std::shared_ptr<executor::BlockContext> _context, bytesConstRef _data,
         std::string const& _origin, bytes& _out);
-    void userSaveCall(std::shared_ptr<executor::ExecutiveContext> _context, bytesConstRef _data,
+    void userSaveCall(std::shared_ptr<executor::BlockContext> _context, bytesConstRef _data,
         std::string const& _origin, bytes& _out);
-    void userDrawCall(std::shared_ptr<executor::ExecutiveContext> _context, bytesConstRef _data,
+    void userDrawCall(std::shared_ptr<executor::BlockContext> _context, bytesConstRef _data,
         std::string const& _origin, bytes& _out);
     void userBalanceCall(
-        std::shared_ptr<executor::ExecutiveContext> _context, bytesConstRef _data, bytes& _out);
-    void userTransferCall(std::shared_ptr<executor::ExecutiveContext> _context, bytesConstRef _data,
+        std::shared_ptr<executor::BlockContext> _context, bytesConstRef _data, bytes& _out);
+    void userTransferCall(std::shared_ptr<executor::BlockContext> _context, bytesConstRef _data,
         std::string const& _origin, bytes& _out);
 };
 

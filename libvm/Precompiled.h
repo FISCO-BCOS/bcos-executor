@@ -29,7 +29,7 @@ namespace bcos
 {
 namespace executor
 {
-class ExecutiveContext;
+class BlockContext;
 using PrecompiledExecutor = std::function<std::pair<bool, bytes>(bytesConstRef _in)>;
 using PrecompiledPricer = std::function<bigint(bytesConstRef _in)>;
 
@@ -105,7 +105,7 @@ public:
     virtual ~Precompiled() = default;
     virtual std::string toString() { return ""; }
     virtual std::shared_ptr<PrecompiledExecResult> call(
-        std::shared_ptr<executor::ExecutiveContext> _context, bytesConstRef _param,
+        std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
         const std::string& _origin, const std::string& _sender, u256& _remainGas) = 0;
 
     virtual bool isParallelPrecompiled() { return false; }

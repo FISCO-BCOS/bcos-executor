@@ -14,12 +14,12 @@
  *  limitations under the License.
  *
  * @brief block level context
- * @file ExecutiveContext.h
+ * @file BlockContext.h
  * @author: xingqiangbai
  * @date: 2021-05-27
  */
 
-#include "ExecutiveContext.h"
+#include "BlockContext.h"
 #include "../libstate/State.h"
 #include "bcos-framework/interfaces/protocol/Exceptions.h"
 #include "bcos-framework/interfaces/storage/StorageInterface.h"
@@ -33,7 +33,7 @@ using namespace std;
 
 namespace bcos
 {
-ExecutiveContext::ExecutiveContext(std::shared_ptr<storage::TableFactoryInterface> _tableFactory,
+BlockContext::BlockContext(std::shared_ptr<storage::TableFactoryInterface> _tableFactory,
     crypto::Hash::Ptr _hashImpl, protocol::BlockHeader::Ptr const& _current,
     const EVMSchedule& _schedule, CallBackFunction _callback, bool _isWasm)
   : m_addressCount(0x10000),
@@ -47,7 +47,7 @@ ExecutiveContext::ExecutiveContext(std::shared_ptr<storage::TableFactoryInterfac
     m_state = make_shared<State>(m_tableFactory, m_hashImpl);
 }
 
-shared_ptr<PrecompiledExecResult> ExecutiveContext::call(const string& address, bytesConstRef param,
+shared_ptr<PrecompiledExecResult> BlockContext::call(const string& address, bytesConstRef param,
     const string& origin, const string& sender, u256& _remainGas)
 {
     try
@@ -81,7 +81,7 @@ shared_ptr<PrecompiledExecResult> ExecutiveContext::call(const string& address, 
     }
 }
 
-string ExecutiveContext::registerPrecompiled(std::shared_ptr<precompiled::Precompiled> p)
+string BlockContext::registerPrecompiled(std::shared_ptr<precompiled::Precompiled> p)
 {
     auto count = ++m_addressCount;
     auto address(to_string(count));
@@ -89,12 +89,12 @@ string ExecutiveContext::registerPrecompiled(std::shared_ptr<precompiled::Precom
     return address;
 }
 
-bool ExecutiveContext::isPrecompiled(const std::string& address) const
+bool BlockContext::isPrecompiled(const std::string& address) const
 {
     return (m_address2Precompiled.count(address));
 }
 
-std::shared_ptr<precompiled::Precompiled> ExecutiveContext::getPrecompiled(
+std::shared_ptr<precompiled::Precompiled> BlockContext::getPrecompiled(
     const std::string& address) const
 {
     auto itPrecompiled = m_address2Precompiled.find(address);
@@ -106,39 +106,39 @@ std::shared_ptr<precompiled::Precompiled> ExecutiveContext::getPrecompiled(
     return std::shared_ptr<precompiled::Precompiled>();
 }
 
-std::shared_ptr<executor::StateInterface> ExecutiveContext::getState()
+std::shared_ptr<executor::StateInterface> BlockContext::getState()
 {
     return m_state;
 }
 
-bool ExecutiveContext::isEthereumPrecompiled(const string& _a) const
+bool BlockContext::isEthereumPrecompiled(const string& _a) const
 {
     return m_precompiledContract.count(_a);
 }
 
-std::pair<bool, bytes> ExecutiveContext::executeOriginPrecompiled(
+std::pair<bool, bytes> BlockContext::executeOriginPrecompiled(
     const string& _a, bytesConstRef _in) const
 {
     return m_precompiledContract.at(_a)->execute(_in);
 }
 
-bigint ExecutiveContext::costOfPrecompiled(const string& _a, bytesConstRef _in) const
+bigint BlockContext::costOfPrecompiled(const string& _a, bytesConstRef _in) const
 {
     return m_precompiledContract.at(_a)->cost(_in);
 }
 
-void ExecutiveContext::setPrecompiledContract(
+void BlockContext::setPrecompiledContract(
     std::map<std::string, PrecompiledContract::Ptr> const& precompiledContract)
 {
     m_precompiledContract = precompiledContract;
 }
-void ExecutiveContext::setAddress2Precompiled(
+void BlockContext::setAddress2Precompiled(
     const string& address, std::shared_ptr<precompiled::Precompiled> precompiled)
 {
     m_address2Precompiled.insert(std::make_pair(address, precompiled));
 }
 
-void ExecutiveContext::commit()
+void BlockContext::commit()
 {
     m_state->commit();
 }

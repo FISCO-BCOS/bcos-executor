@@ -21,7 +21,7 @@
 #pragma once
 
 #include "Common.h"
-#include "../libvm/ExecutiveContext.h"
+#include "../libvm/BlockContext.h"
 #include "PrecompiledCodec.h"
 #include <bcos-framework/libutilities/Common.h>
 #include <bcos-framework/interfaces/storage/TableInterface.h>
@@ -106,7 +106,7 @@ uint32_t getFuncSelectorByFunctionName(
     std::string const& _functionName, const crypto::Hash::Ptr& _hashImpl);
 
 bcos::precompiled::ContractStatus getContractStatus(
-    std::shared_ptr<bcos::executor::ExecutiveContext> _context, std::string const& _tableName);
+    std::shared_ptr<bcos::executor::BlockContext> _context, std::string const& _tableName);
 
 bytesConstRef getParamData(bytesConstRef _param);
 

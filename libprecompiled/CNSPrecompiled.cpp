@@ -50,7 +50,7 @@ std::string CNSPrecompiled::toString()
 }
 
 // check param of the cns
-bool CNSPrecompiled::checkCNSParam(ExecutiveContext::Ptr _context, Address const& _contractAddress,
+bool CNSPrecompiled::checkCNSParam(BlockContext::Ptr _context, Address const& _contractAddress,
     std::string& _contractName, std::string& _contractVersion,
     std::string const& _contractAbi)
 {
@@ -129,7 +129,7 @@ bool CNSPrecompiled::checkCNSParam(ExecutiveContext::Ptr _context, Address const
 }
 
 PrecompiledExecResult::Ptr CNSPrecompiled::call(
-    std::shared_ptr<executor::ExecutiveContext> _context, bytesConstRef _param,
+    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
     const std::string& _origin, const std::string&, u256& _remainGas)
 {
     PRECOMPILED_LOG(TRACE) << LOG_BADGE("CNSPrecompiled") << LOG_DESC("call")

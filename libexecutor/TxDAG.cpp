@@ -33,7 +33,7 @@ using namespace bcos::executor;
 
 // Generate DAG according with given transactions
 void TxDAG::init(
-    ExecutiveContext::Ptr _ctx, const protocol::Block::Ptr& _block)
+    BlockContext::Ptr _ctx, const protocol::Block::Ptr& _block)
 {
     m_block = _block;
     auto txsSize = m_block->transactionsSize();

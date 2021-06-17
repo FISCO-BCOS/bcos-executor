@@ -46,7 +46,7 @@ ConsensusPrecompiled::ConsensusPrecompiled(crypto::Hash::Ptr _hashImpl) : Precom
 }
 
 PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
-    std::shared_ptr<executor::ExecutiveContext> _context, bytesConstRef _param,
+    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
     const std::string& _origin, const std::string&, u256& _remainGas)
 {
     // parse function name
@@ -323,7 +323,7 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
     return callResult;
 }
 
-void ConsensusPrecompiled::showConsensusTable(std::shared_ptr<executor::ExecutiveContext> _context)
+void ConsensusPrecompiled::showConsensusTable(std::shared_ptr<executor::BlockContext> _context)
 {
     auto table = _context->getTableFactory()->openTable(ledger::SYS_CONSENSUS);
     auto nodeIdList = table->getPrimaryKeys(nullptr);

@@ -22,7 +22,7 @@
 
 #include "../libvm/Precompiled.h"
 #include <bcos-framework/interfaces/storage/Common.h>
-#include "../libvm/ExecutiveContext.h"
+#include "../libvm/BlockContext.h"
 
 namespace bcos
 {
@@ -57,7 +57,7 @@ public:
 
     std::string toString() override;
 
-    std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::ExecutiveContext> _context,
+    std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::BlockContext> _context,
         bytesConstRef _param, const std::string& _origin, const std::string& _sender,
         u256& _remainGas) override;
 

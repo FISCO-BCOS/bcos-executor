@@ -179,7 +179,7 @@ uint32_t bcos::precompiled::getFuncSelectorByFunctionName(
 }
 
 bcos::precompiled::ContractStatus bcos::precompiled::getContractStatus(
-    std::shared_ptr<bcos::executor::ExecutiveContext> _context, const std::string& _tableName)
+    std::shared_ptr<bcos::executor::BlockContext> _context, const std::string& _tableName)
 {
     auto table = _context->getTableFactory()->openTable(_tableName);
     if (!table)

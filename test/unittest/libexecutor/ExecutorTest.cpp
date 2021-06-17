@@ -30,7 +30,7 @@
 #include "bcos-framework/testutils/protocol/FakeBlockHeader.h"
 #include "libprecompiled/Common.h"
 #include "libvm/Executive.h"
-#include "libvm/ExecutiveContext.h"
+#include "libvm/BlockContext.h"
 #include <boost/test/unit_test.hpp>
 #include <iostream>
 #include <set>
@@ -79,7 +79,7 @@ struct ExecutorFixture
     MemoryStorage::Ptr storage;
     MockDispatcher::Ptr dispatcher;
     Executor::Ptr executor;
-    ExecutiveContext::Ptr executiveContext = nullptr;
+    BlockContext::Ptr executiveContext = nullptr;
     string helloBin =
         "0x60806040526040805190810160405280600181526020017f3100000000000000000000000000000000000000"
         "0000000000000000000000008152506001908051906020019061004f9291906100ae565b5034801561005c5760"

@@ -34,7 +34,7 @@ GroupSigPrecompiled::GroupSigPrecompiled(crypto::Hash::Ptr _hashImpl) : Precompi
     name2Selector[GroupSig_METHOD_SET_STR] = getFuncSelector(GroupSig_METHOD_SET_STR, _hashImpl);
 }
 
-PrecompiledExecResult::Ptr GroupSigPrecompiled::call(std::shared_ptr<executor::ExecutiveContext> _context,
+PrecompiledExecResult::Ptr GroupSigPrecompiled::call(std::shared_ptr<executor::BlockContext> _context,
     bytesConstRef _param, const std::string&, const std::string&, u256& _remainGas)
 {
     PRECOMPILED_LOG(TRACE) << LOG_BADGE("GroupSigPrecompiled") << LOG_DESC("call")

@@ -43,7 +43,7 @@ std::string EntriesPrecompiled::toString()
     return "Entries";
 }
 PrecompiledExecResult::Ptr EntriesPrecompiled::call(
-    std::shared_ptr<executor::ExecutiveContext> _context, bytesConstRef _param, const std::string&,
+    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param, const std::string&,
     const std::string&, u256& _remainGas)
 {
     uint32_t func = getParamFunc(_param);

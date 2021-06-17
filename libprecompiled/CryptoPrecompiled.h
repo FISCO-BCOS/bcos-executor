@@ -41,7 +41,7 @@ public:
     using Ptr = std::shared_ptr<CryptoPrecompiled>;
     CryptoPrecompiled(crypto::Hash::Ptr _hashImpl);
     virtual ~CryptoPrecompiled() {}
-    std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::ExecutiveContext> _context,
+    std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::BlockContext> _context,
         bytesConstRef _param, const std::string& _origin, const std::string& _sender,
         u256& _remainGas) override;
 

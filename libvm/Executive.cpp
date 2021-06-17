@@ -21,7 +21,7 @@
 
 #include "Executive.h"
 #include "EVMHostInterface.h"
-#include "ExecutiveContext.h"
+#include "BlockContext.h"
 #include "HostContext.h"
 #include "VMFactory.h"
 #include "VMInstance.h"

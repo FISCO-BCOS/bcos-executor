@@ -22,7 +22,7 @@
 #include "HostContext.h"
 #include "../libstate/StateInterface.h"
 #include "EVMHostInterface.h"
-#include "ExecutiveContext.h"
+#include "BlockContext.h"
 #include "bcos-framework/interfaces/storage/TableInterface.h"
 #include "evmc/evmc.hpp"
 #include <boost/algorithm/string/split.hpp>
@@ -211,7 +211,7 @@ evmc_bytes32 evm_hash_fn(const uint8_t* data, size_t size)
 
 
 HostContext::HostContext(
-    const std::shared_ptr<ExecutiveContext>& _envInfo, const std::string_view& _myAddress,
+    const std::shared_ptr<BlockContext>& _envInfo, const std::string_view& _myAddress,
     const std::string_view& _caller, const std::string_view& _origin, bytesConstRef _data,
     const std::shared_ptr<bytes>& _code, h256 const& _codeHash, unsigned _depth, bool _isCreate,
     bool _staticCall)
