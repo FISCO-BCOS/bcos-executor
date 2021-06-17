@@ -21,6 +21,7 @@
 
 #include "BlockContext.h"
 #include "../libstate/State.h"
+#include "Precompiled.h"
 #include "bcos-framework/interfaces/protocol/Exceptions.h"
 #include "bcos-framework/interfaces/storage/StorageInterface.h"
 #include "bcos-framework/libcodec/abi/ContractABICodec.h"

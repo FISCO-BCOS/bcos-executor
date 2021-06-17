@@ -21,11 +21,11 @@
 #include "bcos-framework/libutilities/DataConvertUtility.h"
 #include "libvm/ECRecover.h"
 #include "libvm/Precompiled.h"
-#include "libvm/RIPEMD160.h"
-#include "libvm/SHA256.h"
+#include "libvm/Hash.h"
+#include "wedpr-crypto/WedprCrypto.h"
 #include <boost/test/unit_test.hpp>
-#include <iostream>
 #include <chrono>
+#include <iostream>
 
 using namespace std;
 using namespace bcos;
@@ -98,7 +98,8 @@ BOOST_AUTO_TEST_CASE(testRipemd160)
         bs.push_back((byte)plainText[i]);
     }
     bytesConstRef bsConst(&bs);
-    BOOST_CHECK(ripemd160(bsConst) == cipherText);
+    BOOST_CHECK(
+        ripemd160(bsConst).hexPrefixed() == string("0x74204bedd818292adc1127f9bb24bafd75468b62"));
 }
 
 BOOST_AUTO_TEST_CASE(modexpFermatTheorem)

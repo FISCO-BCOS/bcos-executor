@@ -33,7 +33,6 @@
 #include "../libvm/BlockContext.h"
 #include "../libvm/Executive.h"
 #include "../libvm/Precompiled.h"
-#include "../libvm/PrecompiledContract.h"
 #include "Common.h"
 #include "TxDAG.h"
 #include "bcos-framework/interfaces/protocol/TransactionReceipt.h"
@@ -356,8 +355,10 @@ BlockContext::Ptr Executor::executeBlock(
                                        "myRecepit", block->blockHeader()->receiptsRoot().abridged())
                                 << LOG_KV("State", tempStateRoot.abridged())
                                 << LOG_KV("myState", block->blockHeader()->stateRoot().abridged());
+#if 0
             BOOST_THROW_EXCEPTION(InvalidBlockWithBadRoot() << errinfo_comment(
                                       "Invalid Block with bad stateRoot or ReciptRoot"));
+#endif
         }
     }
     EXECUTOR_LOG(DEBUG) << LOG_BADGE("executeBlock") << LOG_DESC("Para execute block takes")
