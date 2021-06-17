@@ -80,7 +80,6 @@ const int USER_TABLE_FIELD_VALUE_MAX_LENGTH = 16 * 1024 * 1024 - 1;
 
 // Define precompiled contract address
 const char* const SYS_CONFIG_NAME = "/bin/status";
-const char* const TABLE_FACTORY_NAME = "/bin/storage";
 const char* const CRUD_NAME = "/bin/crud";
 const char* const CONSENSUS_NAME = "/bin/consensus";
 const char* const CNS_NAME = "/bin/cns";

@@ -23,9 +23,9 @@
 #include "Blake2.h"
 #include "Common.h"
 #include "ECRecover.h"
-#include "LibFF.h"
-#include "SHA256.h"
 #include "RIPEMD160.h"
+#include "SHA256.h"
+#include "wedpr-crypto/WedprBn128.h"
 
 using namespace std;
 using namespace bcos;
@@ -171,17 +171,51 @@ ETH_REGISTER_PRECOMPILED_PRICER(modexp)(bytesConstRef _in)
 
 ETH_REGISTER_PRECOMPILED(alt_bn128_G1_add)(bytesConstRef _in)
 {
-    return bcos::crypto::alt_bn128_G1_add(_in);
+    pair<bool, bytes> ret{false, bytes(64, 0)};
+    CInputBuffer in{(const char*)_in.data(), _in.size()};
+    COutputBuffer result{(char*)ret.second.data(), 64};
+    if (wedpr_fb_alt_bn128_g1_add(&in, &result) != 0)
+    {
+        return ret;
+    }
+    ret.first = true;
+    return ret;
 }
 
 ETH_REGISTER_PRECOMPILED(alt_bn128_G1_mul)(bytesConstRef _in)
 {
-    return bcos::crypto::alt_bn128_G1_mul(_in);
+    pair<bool, bytes> ret{false, bytes(64, 0)};
+    CInputBuffer in{(const char*)_in.data(), _in.size()};
+    COutputBuffer result{(char*)ret.second.data(), 64};
+    if (wedpr_fb_alt_bn128_g1_mul(&in, &result) != 0)
+    {
+        return ret;
+    }
+    ret.first = true;
+    return ret;
 }
 
 ETH_REGISTER_PRECOMPILED(alt_bn128_pairing_product)(bytesConstRef _in)
 {
-    return bcos::crypto::alt_bn128_pairing_product(_in);
+    // Input: list of pairs of G1 and G2 points
+    // Output: 1 if pairing evaluates to 1, 0 otherwise (left-padded to 32 bytes)
+    pair<bool, bytes> ret{false, bytes(32, 0)};
+    size_t constexpr pairSize = 2 * 32 + 2 * 64;
+    size_t const pairs = _in.size() / pairSize;
+    if (pairs * pairSize != _in.size())
+    {
+        // Invalid length.
+        return ret;
+    }
+
+    CInputBuffer in{(const char*)_in.data(), _in.size()};
+    COutputBuffer result{(char*)ret.second.data(), 32};
+    if (wedpr_fb_alt_bn128_pairing_product(&in, &result) != 0)
+    {
+        return ret;
+    }
+    ret.first = true;
+    return ret;
 }
 
 ETH_REGISTER_PRECOMPILED_PRICER(alt_bn128_pairing_product)

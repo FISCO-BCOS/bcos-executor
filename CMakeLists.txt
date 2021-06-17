@@ -54,10 +54,11 @@ include(ProjectEVMC)
 include(ProjectEVMONE)
 include(ProjectHera)
 include(ProjectWABT)
-include(ProjectLibFF)
 include(ProjectSecp256k1)
 
-include(InstallBcosCryptoDependencies)
+# include(InstallBcosCryptoDependencies)
+hunter_add_package(bcos-crypto)
+find_package(wedpr-crypto CONFIG REQUIRED)
 include(InstallBcosFrameworkDependencies)
 
 add_subdirectory(libstate)

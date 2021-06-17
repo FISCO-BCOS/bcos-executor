@@ -165,7 +165,7 @@ InstructionTable GetInstructionTable()
 
 #ifdef WASM_FLOAT_ENABLE
     // 32-bit Float operators
-    //FIXME: the price need to reconsider carefully， for now it make no sense
+    // FIXME: the price need to reconsider carefully， for now it make no sense
     defaultInstructionTable[Instruction::Enum::F32Load].Cost = 3;
     defaultInstructionTable[Instruction::Enum::F32Store].Cost = 3;
     defaultInstructionTable[Instruction::Enum::F32Const].Cost = 0;

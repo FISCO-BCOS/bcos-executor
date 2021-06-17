@@ -239,7 +239,7 @@ void State::kill(const string_view& _address)
 }
 
 shared_ptr<bytes> State::code(const std::string_view& _address) const
-{  // FIXME: return
+{
     if (codeHash(_address) == m_hashImpl->emptyHash())
         return nullptr;
     auto table = getTable(_address);

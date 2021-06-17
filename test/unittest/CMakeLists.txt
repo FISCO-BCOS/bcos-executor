@@ -32,5 +32,5 @@ target_link_libraries(${TEST_BINARY_NAME} executor bcos-framework::protocol-pb b
 # for code coverage
 if (COVERAGE)
     include(Coverage)
-    config_coverage("'/usr*' 'boost/**'")
+    config_coverage("'/usr*' 'boost/**' 'deps/**'")
 endif ()

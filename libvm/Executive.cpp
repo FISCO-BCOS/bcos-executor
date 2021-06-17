@@ -29,7 +29,6 @@
 #include "bcos-framework/interfaces/storage/TableInterface.h"
 #include "bcos-framework/libcodec/abi/ContractABICodec.h"
 #include <limits.h>
-#include <boost/timer.hpp>
 #include <numeric>
 
 #define EXECUTIVE_LOG(LEVEL) LOG(LEVEL) << "[EXECUTIVE]"
@@ -171,14 +170,14 @@ bool Executive::call(CallParameters const& _p, const std::string& _origin)
         bytes output;
         bool success;
         tie(success, output) = m_envInfo->executeOriginPrecompiled(_p.codeAddress, _p.data);
-        size_t outputSize = output.size();
-        m_output = owning_bytes_ref{std::move(output), 0, outputSize};
         if (!success)
         {
             m_remainGas = 0;
             m_excepted = TransactionStatus::RevertInstruction;
             return true;  // true means no need to run go().
         }
+        size_t outputSize = output.size();
+        m_output = owning_bytes_ref{std::move(output), 0, outputSize};
     }
     else if (m_envInfo && m_envInfo->isPrecompiled(_p.codeAddress))
     {
@@ -410,9 +409,6 @@ bool Executive::go()
 {
     if (m_context)
     {
-#if ETH_TIMED_EXECUTIONS
-        Timer t;
-#endif
         try
         {
             auto getEVMCMessage = [=]() -> shared_ptr<evmc_message> {
@@ -561,10 +557,6 @@ bool Executive::go()
             // Another solution would be to reject this transaction, but that also
             // has drawbacks. Essentially, the amount of ram has to be increased here.
         }
-
-#if ETH_TIMED_EXECUTIONS
-        cnote << "VM took:" << t.elapsed() << "; gas used: " << (sgas - m_endGas);
-#endif
     }
     return true;
 }

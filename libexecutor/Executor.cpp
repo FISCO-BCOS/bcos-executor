@@ -30,8 +30,8 @@
 #include "../libprecompiled/Utilities.h"
 #include "../libprecompiled/extension/DagTransferPrecompiled.h"
 #include "../libstate/State.h"
-#include "../libvm/Executive.h"
 #include "../libvm/BlockContext.h"
+#include "../libvm/Executive.h"
 #include "../libvm/Precompiled.h"
 #include "../libvm/PrecompiledContract.h"
 #include "Common.h"
@@ -416,10 +416,8 @@ protocol::TransactionReceipt::Ptr Executor::executeTransaction(
         executive->getEnvInfo()->currentNumber());
 }
 
-BlockContext::Ptr Executor::createExecutiveContext(
-    const protocol::BlockHeader::Ptr& currentHeader)
+BlockContext::Ptr Executor::createExecutiveContext(const protocol::BlockHeader::Ptr& currentHeader)
 {
-    // FIXME: if wasm use the SYS_CONFIG_NAME as address
     // TableFactory is member to continues execute block without write to DB
     (void)m_version;  // FIXME: accord to m_version to chose schedule
     BlockContext::Ptr context = make_shared<BlockContext>(
@@ -428,50 +426,47 @@ BlockContext::Ptr Executor::createExecutiveContext(
         std::make_shared<precompiled::TableFactoryPrecompiled>(m_hashImpl);
     tableFactoryPrecompiled->setMemoryTableFactory(m_tableFactory);
     auto sysConfig = std::make_shared<precompiled::SystemConfigPrecompiled>(m_hashImpl);
-    context->setAddress2Precompiled(SYS_CONFIG_ADDRESS, sysConfig);
-    context->setAddress2Precompiled(TABLE_FACTORY_ADDRESS, tableFactoryPrecompiled);
-    // context->setAddress2Precompiled(CRUD_ADDRESS,
-    // std::make_shared<precompiled::CRUDPrecompiled>());
-    context->setAddress2Precompiled(
-        CONSENSUS_ADDRESS, std::make_shared<precompiled::ConsensusPrecompiled>(m_hashImpl));
-    context->setAddress2Precompiled(
-        CNS_ADDRESS, std::make_shared<precompiled::CNSPrecompiled>(m_hashImpl));
-    // context->setAddress2Precompiled(
-    //     PERMISSION_ADDRESS, std::make_shared<precompiled::PermissionPrecompiled>());
-
     auto parallelConfigPrecompiled =
         std::make_shared<precompiled::ParallelConfigPrecompiled>(m_hashImpl);
+    auto consensusPrecompiled = std::make_shared<precompiled::ConsensusPrecompiled>(m_hashImpl);
+    auto cnsPrecompiled = std::make_shared<precompiled::CNSPrecompiled>(m_hashImpl);
+
+    context->setAddress2Precompiled(SYS_CONFIG_ADDRESS, sysConfig);
+    context->setAddress2Precompiled(TABLE_FACTORY_ADDRESS, tableFactoryPrecompiled);
+    context->setAddress2Precompiled(CONSENSUS_ADDRESS, consensusPrecompiled);
+    context->setAddress2Precompiled(CNS_ADDRESS, cnsPrecompiled);
     context->setAddress2Precompiled(PARALLEL_CONFIG_ADDRESS, parallelConfigPrecompiled);
-    // context->setAddress2Precompiled(
-    // CONTRACT_LIFECYCLE_ADDRESS, std::make_shared<precompiled::ContractLifeCyclePrecompiled>());
     auto kvTableFactoryPrecompiled =
         std::make_shared<precompiled::KVTableFactoryPrecompiled>(m_hashImpl);
     kvTableFactoryPrecompiled->setMemoryTableFactory(m_tableFactory);
     context->setAddress2Precompiled(KV_TABLE_FACTORY_ADDRESS, kvTableFactoryPrecompiled);
-    // context->setAddress2Precompiled(
-    //     CHAINGOVERNANCE_ADDRESS, std::make_shared<precompiled::ChainGovernancePrecompiled>());
-
-    // FIXME: register User developed Precompiled contract
-    // registerUserPrecompiled(context);
     context->setAddress2Precompiled(
         CRYPTO_ADDRESS, std::make_shared<precompiled::CryptoPrecompiled>(m_hashImpl));
     context->setAddress2Precompiled(
         DAG_TRANSFER_ADDRESS, std::make_shared<precompiled::DagTransferPrecompiled>(m_hashImpl));
+    context->setAddress2Precompiled(
+        CRYPTO_ADDRESS, std::make_shared<CryptoPrecompiled>(m_hashImpl));
+
+    // context->setAddress2Precompiled(CRUD_ADDRESS,
+    // std::make_shared<precompiled::CRUDPrecompiled>());
+    // context->setAddress2Precompiled(
+    //     PERMISSION_ADDRESS, std::make_shared<precompiled::PermissionPrecompiled>());
+    // context->setAddress2Precompiled(
+    // CONTRACT_LIFECYCLE_ADDRESS, std::make_shared<precompiled::ContractLifeCyclePrecompiled>());
+    // context->setAddress2Precompiled(
+    //     CHAINGOVERNANCE_ADDRESS, std::make_shared<precompiled::ChainGovernancePrecompiled>());
+
     // register workingSealerManagerPrecompiled for VRF-based-rPBFT
     // context->setAddress2Precompiled(WORKING_SEALER_MGR_ADDRESS,
     //     std::make_shared<precompiled::WorkingSealerManagerPrecompiled>());
-    context->setPrecompiledContract(m_precompiledContract);
 
+    // TODO: register User developed Precompiled contract
+    // registerUserPrecompiled(context);
+
+    context->setPrecompiledContract(m_precompiledContract);
     // getTxGasLimitToContext from precompiled and set to context
     auto ret = sysConfig->getSysConfigByKey(ledger::SYSTEM_KEY_TX_GAS_LIMIT, m_tableFactory);
     context->setTxGasLimit(boost::lexical_cast<uint64_t>(ret.first));
-
-    // register workingSealerManagerPrecompiled for VRF-based-rPBFT
-
-    // context->setAddress2Precompiled(WORKING_SEALER_MGR_ADDRESS,
-    //     std::make_shared<precompiled::WorkingSealerManagerPrecompiled>());
-    context->setAddress2Precompiled(
-        CRYPTO_ADDRESS, std::make_shared<CryptoPrecompiled>(m_hashImpl));
     context->setTxCriticalsHandler([&](const protocol::Transaction::ConstPtr& _tx)
                                        -> std::shared_ptr<std::vector<std::string>> {
         if (_tx->type() == protocol::TransactionType::ContractCreation)

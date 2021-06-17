@@ -55,7 +55,7 @@ jobs:
         with:
           toolchain: stable
           override: false
-      - name: configure
+      - name: Linux configure
         if: runner.os == 'Linux'
         run: CC=/usr/bin/clang CXX=/usr/bin/clang++ cmake . -DTESTS=ON
       - name: check commit
@@ -88,18 +88,28 @@ jobs:
             hunter-gcc-v1-notest-${{ runner.temp }}-${{ github.base_ref }}-
             hunter-gcc-v1-notest-${{ runner.temp }}-
       - name: install Ubuntu dependencies
-        run: sudo apt install -y git curl build-essential cmake ccache
+        run: sudo apt install -y git curl build-essential cmake ccache lcov
       - name: install rust language
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           override: false
       - name: configure
-        run: cmake . -DTESTS=ON
+        run: cmake . -DTESTS=ON  -DCOVERAGE=ON
       - name: compile
         run: make -j2
       - name: run test
         run: CTEST_OUTPUT_ON_FAILURE=TRUE make test
+      - name: generate coverage
+        run: make coverage
+      - name: upload code coverage to Codecov
+        uses: codecov/codecov-action@v1
+        with:
+          file: ./coverage.info
+          name: code coverage
+          fail_ci_if_error: true
+          gcov_path_exclude: deps/
+
   ubuntu18_04_build_with_gcc:
     name: ubuntu18_04_build_with_gcc
     runs-on: ${{ matrix.os }}
@@ -125,26 +135,19 @@ jobs:
             hunter-ubuntu-v1-notest-${{ runner.temp }}-${{ github.base_ref }}-
             hunter-ubuntu-v1-notest-${{ runner.temp }}-
       - name: install Ubuntu dependencies
-        run: sudo apt install -y git curl build-essential cmake ccache lcov
+        run: sudo apt install -y git curl build-essential cmake ccache
       - name: install rust language
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           override: false
       - name: configure
-        run: cmake . -DTESTS=ON -DCOVERAGE=ON
+        run: cmake . -DTESTS=ON
       - name: compile
         run: make -j2
       - name: run test
         run: CTEST_OUTPUT_ON_FAILURE=TRUE make test
-      - name: generate coverage
-        run: make coverage
-      - name: upload code coverage to Codecov
-        uses: codecov/codecov-action@v1
-        with:
-          file: ./coverage.info
-          name: code coverage
-          fail_ci_if_error: true
+
   build_centos_with_gcc:
     name: build_centos_with_gcc
     runs-on: ubuntu-latest

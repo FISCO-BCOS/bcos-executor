@@ -41,7 +41,7 @@ namespace executor
 #define EXECUTIVE_LOG(LEVEL) LOG(LEVEL) << "[EXECUTIVE]"
 struct SubState
 {
-    std::set<std::string> suicides;                            ///< Any accounts that have suicided.
+    std::set<std::string> suicides;  ///< Any accounts that have suicided.
     protocol::LogEntriesPtr logs = std::make_shared<protocol::LogEntries>();  ///< Any logs.
     u256 refunds;  ///< Refund counter of SSTORE nonzero->zero.
 
@@ -268,7 +268,8 @@ bool hasWasmPreamble(const bytes& _input);
  * @return evmc_address : the transformed evm address
  */
 inline evmc_address toEvmC(const std::string& _addr)
-{  // FIXME: add another interfaces for wasm
+{  // TODO: add another interfaces for wasm
+    // FIXME: the assert below is only used of evm mode
     assert(_addr.size() <= 20);
     evmc_address ret;
     memcpy(ret.bytes, _addr.data(), 20);
