@@ -120,6 +120,8 @@ Executor::Executor(const protocol::BlockFactory::Ptr& _blockFactory,
     m_threadPool = std::make_shared<bcos::ThreadPool>("asyncTasks", _poolSize);
     // use ledger to get lastest header
     m_lastHeader = getLatestHeaderFromStorage();
+    m_tableFactory =
+        std::make_shared<TableFactory>(m_stateStorage, m_hashImpl, m_lastHeader->number() + 1);
 }
 
 void Executor::start()
@@ -143,11 +145,11 @@ void Executor::start()
             // set current block header's ParentInfo use setParentInfo
             currentBlock->blockHeader()->setParentInfo(
                 {{m_lastHeader->number(), m_lastHeader->hash()}});
-            // FIXME: check the current block's number == m_lastHeader number + 1
             if (!m_lastHeader)
             {
                 m_lastHeader = getLatestHeaderFromStorage();
             }
+            // check the current block's number == m_lastHeader number + 1
             if (currentBlock->blockHeader()->number() != m_lastHeader->number() + 1)
             {  // the continuity of blockNumber is broken, clear executor's state
                 EXECUTOR_LOG(ERROR)
@@ -262,7 +264,7 @@ ExecutiveContext::Ptr Executor::executeBlock(
 
     auto initExeCtx_time_cost = utcTime() - record_time;
     record_time = utcTime();
-    auto tempReceiptRoot = block->blockHeader()->receiptRoot();
+    auto tempReceiptRoot = block->blockHeader()->receiptsRoot();
     auto tempStateRoot = block->blockHeader()->stateRoot();
     auto tempHeaderHash = block->blockHeader()->hash();
     auto perpareBlock_time_cost = utcTime() - record_time;
@@ -270,11 +272,15 @@ ExecutiveContext::Ptr Executor::executeBlock(
 
     shared_ptr<TxDAG> txDag = make_shared<TxDAG>();
     txDag->init(executiveContext, block);
-
+    mutex blockGasMutex;
+    u256 blockGasUsed = 0;
     txDag->setTxExecuteFunc([&](Transaction::ConstPtr _tr, ID _txId, Executive::Ptr _executive) {
         auto resultReceipt = executeTransaction(_tr, _executive);
         block->setReceipt(_txId, resultReceipt);
-        _executive->getEnvInfo()->getState()->commit();
+        {
+            lock_guard l(blockGasMutex);
+            blockGasUsed += resultReceipt->gasUsed();
+        }
         return true;
     });
     auto initDag_time_cost = utcTime() - record_time;
@@ -300,7 +306,6 @@ ExecutiveContext::Ptr Executor::executeBlock(
                             << LOG_KV("txNum", block->transactionsSize())
                             << LOG_KV("blockNumber", block->blockHeader()->number());
                     }
-
                     txDag->executeUnit(executive);
                 }
             });
@@ -331,6 +336,7 @@ ExecutiveContext::Ptr Executor::executeBlock(
     record_time = utcTime();
 
     block->blockHeader()->setStateRoot(stateRoot);
+    block->blockHeader()->setGasUsed(blockGasUsed);
     auto setStateRoot_time_cost = utcTime() - record_time;
     record_time = utcTime();
     // Consensus module execute block, receiptRoot is empty, skip this judgment
@@ -345,7 +351,7 @@ ExecutiveContext::Ptr Executor::executeBlock(
                                 << LOG_KV("myHash", block->blockHeader()->hash().abridged())
                                 << LOG_KV("Receipt", tempReceiptRoot.abridged())
                                 << LOG_KV(
-                                       "myRecepit", block->blockHeader()->receiptRoot().abridged())
+                                       "myRecepit", block->blockHeader()->receiptsRoot().abridged())
                                 << LOG_KV("State", tempStateRoot.abridged())
                                 << LOG_KV("myState", block->blockHeader()->stateRoot().abridged());
             BOOST_THROW_EXCEPTION(InvalidBlockWithBadRoot() << errinfo_comment(
@@ -359,7 +365,7 @@ ExecutiveContext::Ptr Executor::executeBlock(
                         << LOG_KV("blockHash", block->blockHeader()->hash())
                         << LOG_KV("stateRoot", block->blockHeader()->stateRoot())
                         << LOG_KV("transactionRoot", block->blockHeader()->txsRoot())
-                        << LOG_KV("receiptRoot", block->blockHeader()->receiptRoot())
+                        << LOG_KV("receiptRoot", block->blockHeader()->receiptsRoot())
                         << LOG_KV("initExeCtxTimeCost", initExeCtx_time_cost)
                         << LOG_KV("perpareBlockTimeCost", perpareBlock_time_cost)
                         << LOG_KV("initDagTimeCost", initDag_time_cost)
@@ -416,7 +422,8 @@ ExecutiveContext::Ptr Executor::createExecutiveContext(
     (void)m_version;  // FIXME: accord to m_version to chose schedule
     ExecutiveContext::Ptr context = make_shared<ExecutiveContext>(
         m_tableFactory, m_hashImpl, currentHeader, FiscoBcosScheduleV3, m_pNumberHash, m_isWasm);
-    auto tableFactoryPrecompiled = std::make_shared<precompiled::TableFactoryPrecompiled>(m_hashImpl);
+    auto tableFactoryPrecompiled =
+        std::make_shared<precompiled::TableFactoryPrecompiled>(m_hashImpl);
     tableFactoryPrecompiled->setMemoryTableFactory(m_tableFactory);
     auto sysConfig = std::make_shared<precompiled::SystemConfigPrecompiled>(m_hashImpl);
     context->setAddress2Precompiled(SYS_CONFIG_ADDRESS, sysConfig);
@@ -425,15 +432,18 @@ ExecutiveContext::Ptr Executor::createExecutiveContext(
     // std::make_shared<precompiled::CRUDPrecompiled>());
     context->setAddress2Precompiled(
         CONSENSUS_ADDRESS, std::make_shared<precompiled::ConsensusPrecompiled>(m_hashImpl));
-    context->setAddress2Precompiled(CNS_ADDRESS, std::make_shared<precompiled::CNSPrecompiled>(m_hashImpl));
+    context->setAddress2Precompiled(
+        CNS_ADDRESS, std::make_shared<precompiled::CNSPrecompiled>(m_hashImpl));
     // context->setAddress2Precompiled(
     //     PERMISSION_ADDRESS, std::make_shared<precompiled::PermissionPrecompiled>());
 
-    auto parallelConfigPrecompiled = std::make_shared<precompiled::ParallelConfigPrecompiled>(m_hashImpl);
+    auto parallelConfigPrecompiled =
+        std::make_shared<precompiled::ParallelConfigPrecompiled>(m_hashImpl);
     context->setAddress2Precompiled(PARALLEL_CONFIG_ADDRESS, parallelConfigPrecompiled);
     // context->setAddress2Precompiled(
     // CONTRACT_LIFECYCLE_ADDRESS, std::make_shared<precompiled::ContractLifeCyclePrecompiled>());
-    auto kvTableFactoryPrecompiled = std::make_shared<precompiled::KVTableFactoryPrecompiled>(m_hashImpl);
+    auto kvTableFactoryPrecompiled =
+        std::make_shared<precompiled::KVTableFactoryPrecompiled>(m_hashImpl);
     kvTableFactoryPrecompiled->setMemoryTableFactory(m_tableFactory);
     context->setAddress2Precompiled(KV_TABLE_FACTORY_ADDRESS, kvTableFactoryPrecompiled);
     // context->setAddress2Precompiled(
@@ -458,7 +468,8 @@ ExecutiveContext::Ptr Executor::createExecutiveContext(
 
     // context->setAddress2Precompiled(WORKING_SEALER_MGR_ADDRESS,
     //     std::make_shared<precompiled::WorkingSealerManagerPrecompiled>());
-    context->setAddress2Precompiled(CRYPTO_ADDRESS, std::make_shared<CryptoPrecompiled>(m_hashImpl));
+    context->setAddress2Precompiled(
+        CRYPTO_ADDRESS, std::make_shared<CryptoPrecompiled>(m_hashImpl));
     context->setTxCriticalsHandler([&](const protocol::Transaction::ConstPtr& _tx)
                                        -> std::shared_ptr<std::vector<std::string>> {
         if (_tx->type() == protocol::TransactionType::ContractCreation)
@@ -560,7 +571,6 @@ protocol::BlockHeader::Ptr Executor::getLatestHeaderFromStorage()
     m_ledger->asyncGetBlockNumber(
         [&prom](Error::Ptr, protocol::BlockNumber _number) { prom.set_value(_number); });
     auto currentNumber = prom.get_future().get();
-    m_tableFactory = std::make_shared<TableFactory>(m_stateStorage, m_hashImpl, currentNumber);
     // use ledger to get lastest header
     promise<protocol::BlockHeader::Ptr> latestHeaderProm;
     m_ledger->asyncGetBlockDataByNumber(

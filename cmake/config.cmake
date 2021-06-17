@@ -1,8 +1,8 @@
 
 # hunter_config(Boost VERSION 1.76.0)
-hunter_config(bcos-framework VERSION 3.0.0-98c19f36cc2996f74df4d4c6cb6a002880986aa7
-	URL https://${URL_BASE}/FISCO-BCOS/bcos-framework/archive/98c19f36cc2996f74df4d4c6cb6a002880986aa7.tar.gz
-    SHA1 0c2cef5266be76d23c2ff104a0d8624863e84517
+hunter_config(bcos-framework VERSION 3.0.0-7fb5f25546a030488057373bab3918985657b079
+	URL https://${URL_BASE}/FISCO-BCOS/bcos-framework/archive/7fb5f25546a030488057373bab3918985657b079.tar.gz
+    SHA1 588bb72138fb71138262e5e2304e24f3ddebbf2c
     CMAKE_ARGS HUNTER_PACKAGE_LOG_BUILD=ON HUNTER_PACKAGE_LOG_INSTALL=ON
 )
 

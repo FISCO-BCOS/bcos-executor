@@ -80,28 +80,7 @@ struct ExecutorFixture
     MockDispatcher::Ptr dispatcher;
     Executor::Ptr executor;
     ExecutiveContext::Ptr executiveContext = nullptr;
-};
-BOOST_FIXTURE_TEST_SUITE(ExecutorTest, ExecutorFixture)
-
-BOOST_AUTO_TEST_CASE(construct)
-{
-    executor = make_shared<Executor>(blockFactory, dispatcher, ledger, storage, true);
-}
-
-BOOST_AUTO_TEST_CASE(executeTransaction_DeployHelloWorld)
-{
-    auto keyPair = cryptoSuite->signatureImpl()->generateKeyPair();
-    memcpy(keyPair->secretKey()->mutableData(),
-        fromHexString("ff6f30856ad3bae00b1169808488502786a13e3c174d85682135ffd51310310e")->data(),
-        32);
-    memcpy(keyPair->publicKey()->mutableData(),
-        fromHexString("ccd8de502ac45462767e649b462b5f4ca7eadd69c7e1f1b410bdf754359be29b1b88ffd79744"
-                      "03f56e250af52b25682014554f7b3297d6152401e85d426a06ae")
-            ->data(),
-        64);
-    cout << keyPair->secretKey()->hex() << endl << keyPair->publicKey()->hex() << endl;
-    auto to = keyPair->address(cryptoSuite->hashImpl()).asBytes();
-    auto helloworld = string(
+    string helloBin =
         "0x60806040526040805190810160405280600181526020017f3100000000000000000000000000000000000000"
         "0000000000000000000000008152506001908051906020019061004f9291906100ae565b5034801561005c5760"
         "0080fd5b506040805190810160405280600d81526020017f48656c6c6f2c20576f726c64210000000000000000"
@@ -136,7 +115,29 @@ BOOST_AUTO_TEST_CASE(executeTransaction_DeployHelloWorld)
         "191683800117855561044a565b8280016001018555821561044a579182015b8281111561044957825182559160"
         "200191906001019061042e565b5b509050610457919061045b565b5090565b61047d91905b8082111561047957"
         "6000816000905550600101610461565b5090565b905600a165627a7a723058204736027ad6b97d7cd2685379ac"
-        "b35b386dcb18799934be8283f1e08cd1f0c6ec0029");
+        "b35b386dcb18799934be8283f1e08cd1f0c6ec0029";
+};
+BOOST_FIXTURE_TEST_SUITE(ExecutorTest, ExecutorFixture)
+
+BOOST_AUTO_TEST_CASE(construct)
+{
+    executor = make_shared<Executor>(blockFactory, dispatcher, ledger, storage, true);
+}
+
+BOOST_AUTO_TEST_CASE(executeTransaction_DeployHelloWorld)
+{
+    auto keyPair = cryptoSuite->signatureImpl()->generateKeyPair();
+    memcpy(keyPair->secretKey()->mutableData(),
+        fromHexString("ff6f30856ad3bae00b1169808488502786a13e3c174d85682135ffd51310310e")->data(),
+        32);
+    memcpy(keyPair->publicKey()->mutableData(),
+        fromHexString("ccd8de502ac45462767e649b462b5f4ca7eadd69c7e1f1b410bdf754359be29b1b88ffd79744"
+                      "03f56e250af52b25682014554f7b3297d6152401e85d426a06ae")
+            ->data(),
+        64);
+    cout << keyPair->secretKey()->hex() << endl << keyPair->publicKey()->hex() << endl;
+    auto to = keyPair->address(cryptoSuite->hashImpl()).asBytes();
+    auto helloworld = string(helloBin);
 
     auto input = *fromHexString(helloworld);
     auto tx = fakeTransaction(cryptoSuite, keyPair, bytes(), input, 101, 100001, "1", "1");
@@ -188,6 +189,88 @@ BOOST_AUTO_TEST_CASE(executeTransaction_DeployHelloWorld)
                "00000000000000000000000000000000000000000000000000000000000000200000000000000000000"
                "000000000000000000000000000000000000000000005666973636f0000000000000000000000000000"
                "00000000000000000000000000");
+}
+
+BOOST_AUTO_TEST_CASE(executeBlock)
+{
+    auto block = blockFactory->createBlock();
+    auto header = blockFactory->blockHeaderFactory()->createBlockHeader(1);
+    block->setBlockHeader(header);
+    auto keyPair = cryptoSuite->signatureImpl()->generateKeyPair();
+    memcpy(keyPair->secretKey()->mutableData(),
+        fromHexString("ff6f30856ad3bae00b1169808488502786a13e3c174d85682135ffd51310310e")->data(),
+        32);
+    memcpy(keyPair->publicKey()->mutableData(),
+        fromHexString("ccd8de502ac45462767e649b462b5f4ca7eadd69c7e1f1b410bdf754359be29b1b88ffd79744"
+                      "03f56e250af52b25682014554f7b3297d6152401e85d426a06ae")
+            ->data(),
+        64);
+    auto to = keyPair->address(cryptoSuite->hashImpl()).asBytes();
+    auto helloworld = string(helloBin);
+    auto input = *fromHexString(helloworld);
+    auto tx = fakeTransaction(cryptoSuite, keyPair, bytes(), input, 101, 100001, "1", "1");
+    block->appendTransaction(tx);
+    tx = fakeTransaction(cryptoSuite, keyPair, bytes(), input, 102, 100002, "1", "1");
+    block->appendTransaction(tx);
+    auto getTx = fakeTransaction(cryptoSuite, keyPair,
+        *fromHexString("8968b494f66b2508330b24a7d1cafa06a14f6315"), *fromHexString("0x6d4ce63c"),
+        101, 100001, "1", "1");
+    block->appendTransaction(getTx);
+    block->setBlockType(BlockType::CompleteBlock);
+    auto txsRoot = block->blockHeader()->txsRoot();
+    auto receiptsRoot = block->blockHeader()->receiptsRoot();
+    auto stateRoot = block->blockHeader()->stateRoot();
+    BOOST_TEST(block->blockHeader()->gasUsed() == 0);
+
+    // execute block
+    auto parentHeader = blockFactory->blockHeaderFactory()->createBlockHeader(0);
+    auto result = executor->executeBlock(block, parentHeader);
+    auto deployReceipt = block->receipt(0);
+    BOOST_TEST(deployReceipt->status() == (int32_t)TransactionStatus::None);
+    BOOST_TEST(deployReceipt->gasUsed() == 430575);
+    BOOST_TEST(deployReceipt->hash().hexPrefixed() ==
+               "0xaebfa6e88818037c65afed2d33c9cd634cdf0d7f4d0d4e5084af72185706aa28");
+    BOOST_TEST(*toHexString(deployReceipt->contractAddress()) ==
+               "8968b494f66b2508330b24a7d1cafa06a14f6315");
+    BOOST_TEST(*toHexString(deployReceipt->output()) == "");
+    BOOST_TEST(deployReceipt->blockNumber() == 1);
+
+    deployReceipt = block->receipt(1);
+    BOOST_TEST(deployReceipt->status() == (int32_t)TransactionStatus::None);
+    BOOST_TEST(deployReceipt->gasUsed() == 430575);
+    BOOST_TEST(deployReceipt->hash().hexPrefixed() ==
+               "0xf3e7e4895752ef0d6c1ba617801790732f7fc6424f08d61cae52d315beb4d408");
+    BOOST_TEST(*toHexString(deployReceipt->contractAddress()) ==
+               "21f7f2c888221d771e103cb2e56a7da15a2d898e");
+    BOOST_TEST(*toHexString(deployReceipt->output()) == "");
+    BOOST_TEST(deployReceipt->blockNumber() == 1);
+
+    auto getReceipt = block->receipt(2);
+    BOOST_TEST(getReceipt->status() == (int32_t)TransactionStatus::None);
+    BOOST_TEST(getReceipt->gasUsed() == 22742);
+    BOOST_TEST(getReceipt->hash().hexPrefixed() ==
+               "0xe86887f45811fc1c0862cce8aa66429bcb8845fa56ace5cad406a2d2fb89cb57");
+    BOOST_TEST(*toHexString(getReceipt->contractAddress()) == "");
+    // Hello, World! == 48656c6c6f2c20576f726c6421
+    BOOST_TEST(*toHexString(getReceipt->output()) ==
+               "00000000000000000000000000000000000000000000000000000000000000200000000000000000000"
+               "00000000000000000000000000000000000000000000d48656c6c6f2c20576f726c6421000000000000"
+               "00000000000000000000000000");
+    BOOST_TEST(getReceipt->blockNumber() == 1);
+
+    // TODO: check block
+    BOOST_TEST(block->blockType() == BlockType::CompleteBlock);
+    BOOST_TEST(block->blockHeader()->gasUsed() == 883892);
+    BOOST_TEST(txsRoot == block->blockHeader()->txsRoot());
+    BOOST_TEST(receiptsRoot != block->blockHeader()->receiptsRoot());
+    BOOST_TEST(block->blockHeader()->stateRoot() != stateRoot);
+
+    BOOST_TEST(block->blockHeader()->receiptsRoot().hexPrefixed() ==
+               "0x5838cfc06b6881518763d5af6347dd654de2df2d1862062ea87046884bc8069e");
+    BOOST_TEST(block->blockHeader()->stateRoot().hexPrefixed() ==
+               "0x9c14ee6b56c187aa4d064583b1bdc0e954cc59f5e2ad5840a9f702d7851b7fd1");
+    BOOST_TEST(block->blockHeader()->stateRoot().hexPrefixed() ==
+               result->getTableFactory()->hash().hexPrefixed());
 }
 
 BOOST_AUTO_TEST_SUITE_END()

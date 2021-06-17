@@ -47,6 +47,8 @@ public:
         if (_number < 1000)
         {
             auto block = blockFactory->createBlock();
+            auto header = blockFactory->blockHeaderFactory()->createBlockHeader(_number);
+            block->setBlockHeader(header);
             _callback(nullptr, block);
         }
         else

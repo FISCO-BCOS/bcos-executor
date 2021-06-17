@@ -70,10 +70,6 @@ public:
         const protocol::Transaction::ConstPtr& _tx)>;
     virtual ~ExecutiveContext()
     {
-        if (m_tableFactory)
-        {
-            m_tableFactory->commit();
-        }
     };
 
     virtual std::shared_ptr<precompiled::PrecompiledExecResult> call(const std::string& address,
