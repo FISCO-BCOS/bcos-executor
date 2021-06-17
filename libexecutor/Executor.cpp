@@ -128,6 +128,7 @@ void Executor::start()
 {
     m_stop.store(false);
     m_worker = make_unique<thread>([&]() {
+        EXECUTOR_LOG(INFO) << LOG_BADGE("executor") << LOG_DESC("started");
         while (!m_stop.load())
         {
             std::promise<protocol::Block::Ptr> prom;
@@ -210,6 +211,7 @@ void Executor::start()
                     << LOG_KV("message", error->errorMessage());
             }
         }
+        EXECUTOR_LOG(INFO) << LOG_BADGE("executor") << LOG_DESC("stopped");
     });
 }
 

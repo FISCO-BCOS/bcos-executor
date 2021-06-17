@@ -163,12 +163,14 @@ public:
     }
 
     std::shared_ptr<ExecutiveContext> getEnvInfo() { return m_envInfo; }
+    /// @returns false iff go() must be called (and thus a VM execution in required).
+    bool executeCreate(const std::string_view& _txSender, const std::string_view& _originAddress,
+        const std::string& _newAddress, u256 const& _gas, bytesConstRef _code,
+        bytesConstRef constructorParams = bytesConstRef());
 
 private:
     void parseEVMCResult(std::shared_ptr<Result> _result);
-    /// @returns false iff go() must be called (and thus a VM execution in required).
-    bool executeCreate(const std::string_view& _txSender, u256 const& _gas, bytesConstRef _code,
-        const std::string_view& _originAddress, bytesConstRef constructorParams = bytesConstRef());
+
 
     void grantContractStatusManager(std::shared_ptr<storage::TableFactoryInterface> tableFactory,
         const std::string& newAddress, const std::string& sender, const std::string& origin);
@@ -198,8 +200,9 @@ private:
                                 ///< execution, final amount after go() execution.
 
     protocol::Transaction::ConstPtr m_t;  ///< The original transaction. Set by setup().
-    protocol::LogEntriesPtr m_logs = std::make_shared<protocol::LogEntries>();       ///< The log entries created by this transaction. Set by
-                                          ///< finalize().
+    protocol::LogEntriesPtr m_logs =
+        std::make_shared<protocol::LogEntries>();  ///< The log entries created by this transaction.
+                                                   ///< Set by finalize().
 
     bool m_isCreation = false;
     std::string m_newAddress;

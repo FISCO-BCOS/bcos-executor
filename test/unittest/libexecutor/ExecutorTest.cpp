@@ -273,6 +273,15 @@ BOOST_AUTO_TEST_CASE(executeBlock)
                result->getTableFactory()->hash().hexPrefixed());
 }
 
+
+BOOST_AUTO_TEST_CASE(start_stop)
+{
+    executor = make_shared<Executor>(blockFactory, dispatcher, ledger, storage, true);
+    executor->start();
+
+    executor->stop();
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 }  // namespace test
 }  // namespace bcos

@@ -249,7 +249,7 @@ bool Executive::createOpcode(const std::string_view& _sender, u256 const& _gas, 
     u256 nonce = m_s->getNonce(_sender);
     auto hash = m_hashImpl->hash(string(_sender) + nonce.str());
     m_newAddress = string((char*)hash.data(), 20);
-    return executeCreate(_sender, _gas, _init, _origin);
+    return executeCreate(_sender, _origin, m_newAddress, _gas, _init);
 }
 
 bool Executive::create2Opcode(const std::string_view& _sender, u256 const& _gas,
@@ -258,11 +258,12 @@ bool Executive::create2Opcode(const std::string_view& _sender, u256 const& _gas,
     auto hash = m_hashImpl->hash(
         bytes{0xff} + toBytes(_sender) + toBigEndian(_salt) + m_hashImpl->hash(_init));
     m_newAddress = string((char*)hash.data(), 20);
-    return executeCreate(_sender, _gas, _init, _origin);
+    return executeCreate(_sender, _origin, m_newAddress, _gas, _init);
 }
 
-bool Executive::executeCreate(const std::string_view& _sender, u256 const& _gas,
-    bytesConstRef _init, const std::string_view& _origin, bytesConstRef constructorParams)
+bool Executive::executeCreate(const std::string_view& _sender, const std::string_view& _origin,
+    const std::string& _newAddress,u256 const& _gasLeft,  bytesConstRef _init,
+    bytesConstRef constructorParams)
 {
     // check authority for deploy contract
     auto tableFactory = m_envInfo->getTableFactory();
@@ -298,12 +299,11 @@ bool Executive::executeCreate(const std::string_view& _sender, u256 const& _gas,
     // We can allow for the reverted state (i.e. that with which m_context is constructed) to
     // contain the m_orig.address, since we delete it explicitly if we decide we need to revert.
 
-    m_remainGas = _gas;
-    bool accountAlreadyExist =
-        (m_s->addressHasCode(m_newAddress) || m_s->getNonce(m_newAddress) > 0);
+    m_remainGas = _gasLeft;
+    bool accountAlreadyExist = (m_s->addressHasCode(_newAddress) || m_s->getNonce(_newAddress) > 0);
     if (accountAlreadyExist)
     {
-        EXECUTIVE_LOG(TRACE) << "Executive address already used: " << m_newAddress;
+        EXECUTIVE_LOG(TRACE) << "Executive address already used: " << _newAddress;
         m_remainGas = 0;
         m_excepted = TransactionStatus::ContractAddressAlreadyUsed;
         revert();
@@ -313,17 +313,16 @@ bool Executive::executeCreate(const std::string_view& _sender, u256 const& _gas,
 
     // Set nonce before deploying the code. This will also create new
     // account if it does not exist yet.
-    m_s->setNonce(m_newAddress, m_s->accountStartNonce());
+    m_s->setNonce(_newAddress, m_s->accountStartNonce());
 
-    grantContractStatusManager(tableFactory, m_newAddress, string(_sender), string(_origin));
+    grantContractStatusManager(tableFactory, _newAddress, string(_sender), string(_origin));
 
     // Schedule _init execution if not empty.
     if (!_init.empty())
     {
         auto code = make_shared<bytes>(_init.data(), _init.data() + _init.size());
         if (hasWasmPreamble(*code))
-        {  // FIXME: the wasm deploy use a precompiled so inject meter in thatprecompiled
-            // callData = bytesConstRef(m_t->extraData().data(), m_t->extraData().size());
+        {  // the Wasm deploy use a precompiled which call this function, so inject meter here
             auto result = m_gasInjector->InjectMeter(*code);
             if (result.status == wasm::GasInjector::Status::Success)
             {
@@ -338,7 +337,7 @@ bool Executive::executeCreate(const std::string_view& _sender, u256 const& _gas,
                 return !m_context;
             }
         }
-        m_context = make_shared<HostContext>(m_envInfo, m_newAddress, _sender, _origin,
+        m_context = make_shared<HostContext>(m_envInfo, _newAddress, _sender, _origin,
             constructorParams, code, m_hashImpl->hash(_init), m_depth, true, false);
     }
     return !m_context;
