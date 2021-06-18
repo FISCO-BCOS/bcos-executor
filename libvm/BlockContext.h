@@ -23,7 +23,6 @@
 
 #include "../libstate/StateInterface.h"
 #include "Common.h"
-#include "PrecompiledContract.h"
 #include "bcos-framework/interfaces/protocol/Block.h"
 #include "bcos-framework/interfaces/protocol/Transaction.h"
 #include "bcos-framework/interfaces/storage/TableInterface.h"
@@ -44,10 +43,6 @@ namespace storage
 class TableFactoryInterface;
 }  // namespace storage
 
-namespace executor
-{
-class StateInterface;
-}
 namespace precompiled
 {
 class Precompiled;
@@ -56,6 +51,8 @@ struct PrecompiledExecResult;
 }  // namespace precompiled
 namespace executor
 {
+class StateInterface;
+class PrecompiledContract;
 typedef std::function<crypto::HashType(int64_t x)> CallBackFunction;
 class BlockContext : public std::enable_shared_from_this<BlockContext>
 {
@@ -95,7 +92,7 @@ public:
     virtual bigint costOfPrecompiled(const std::string& _a, bytesConstRef _in) const;
 
     void setPrecompiledContract(
-        std::map<std::string, PrecompiledContract::Ptr> const& precompiledContract);
+        std::map<std::string, std::shared_ptr<PrecompiledContract>> const& precompiledContract);
 
     void commit();
 
@@ -137,7 +134,7 @@ private:
     u256 m_gasLimit;
     bool m_isWasm = false;
     std::shared_ptr<executor::StateInterface> m_state;
-    std::map<std::string, PrecompiledContract::Ptr> m_precompiledContract;
+    std::map<std::string, std::shared_ptr<PrecompiledContract>> m_precompiledContract;
     uint64_t m_txGasLimit = 300000000;
     getTxCriticalsHandler m_getTxCriticals = nullptr;
     std::shared_ptr<storage::TableFactoryInterface> m_tableFactory;

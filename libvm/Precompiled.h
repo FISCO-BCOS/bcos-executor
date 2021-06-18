@@ -19,9 +19,9 @@
  */
 
 #pragma once
-#include "bcos-framework/libutilities/Exceptions.h"
-#include "bcos-framework/interfaces/storage/TableInterface.h"
 #include "../libprecompiled/PrecompiledCodec.h"
+#include "bcos-framework/interfaces/storage/TableInterface.h"
+#include "bcos-framework/libutilities/Exceptions.h"
 #include <functional>
 #include <unordered_map>
 
@@ -79,16 +79,50 @@ private:
 // TODO: unregister on unload with a static object.
 #define ETH_REGISTER_PRECOMPILED(Name)                                                        \
     static std::pair<bool, bytes> __eth_registerPrecompiledFunction##Name(bytesConstRef _in); \
-    static bcos::executor::PrecompiledExecutor __eth_registerPrecompiledFactory##Name =                       \
+    static bcos::executor::PrecompiledExecutor __eth_registerPrecompiledFactory##Name =       \
         ::bcos::executor::PrecompiledRegistrar::registerExecutor(                             \
             #Name, &__eth_registerPrecompiledFunction##Name);                                 \
     static std::pair<bool, bytes> __eth_registerPrecompiledFunction##Name
-#define ETH_REGISTER_PRECOMPILED_PRICER(Name)                            \
-    static bigint __eth_registerPricerFunction##Name(bytesConstRef _in); \
-    static bcos::executor::PrecompiledPricer __eth_registerPricerFactory##Name =         \
-        ::bcos::executor::PrecompiledRegistrar::registerPricer(          \
-            #Name, &__eth_registerPricerFunction##Name);                 \
+#define ETH_REGISTER_PRECOMPILED_PRICER(Name)                                    \
+    static bigint __eth_registerPricerFunction##Name(bytesConstRef _in);         \
+    static bcos::executor::PrecompiledPricer __eth_registerPricerFactory##Name = \
+        ::bcos::executor::PrecompiledRegistrar::registerPricer(                  \
+            #Name, &__eth_registerPricerFunction##Name);                         \
     static bigint __eth_registerPricerFunction##Name
+
+class PrecompiledContract
+{
+public:
+    typedef std::shared_ptr<PrecompiledContract> Ptr;
+    PrecompiledContract() = default;
+    PrecompiledContract(PrecompiledPricer const& _cost, PrecompiledExecutor const& _exec,
+        u256 const& _startingBlock = 0)
+      : m_cost(_cost), m_execute(_exec), m_startingBlock(_startingBlock)
+    {}
+
+    PrecompiledContract(unsigned _base, unsigned _word, PrecompiledExecutor const& _exec,
+        u256 const& _startingBlock = 0)
+      : PrecompiledContract(
+            [=](bytesConstRef _in) -> bigint {
+                bigint s = _in.size();
+                bigint b = _base;
+                bigint w = _word;
+                return b + (s + 31) / 32 * w;
+            },
+            _exec, _startingBlock)
+    {}
+
+    bigint cost(bytesConstRef _in) const { return m_cost(_in); }
+    std::pair<bool, bytes> execute(bytesConstRef _in) const { return m_execute(_in); }
+
+    u256 const& startingBlock() const { return m_startingBlock; }
+
+private:
+    PrecompiledPricer m_cost;
+    PrecompiledExecutor m_execute;
+    u256 m_startingBlock = 0;
+};
+
 }  // namespace executor
 namespace precompiled
 {
@@ -99,9 +133,7 @@ class Precompiled : public std::enable_shared_from_this<Precompiled>
 public:
     using Ptr = std::shared_ptr<Precompiled>;
 
-    Precompiled(crypto::Hash::Ptr _hashImpl) : m_hashImpl(_hashImpl) {
-        assert(m_hashImpl);
-    }
+    Precompiled(crypto::Hash::Ptr _hashImpl) : m_hashImpl(_hashImpl) { assert(m_hashImpl); }
     virtual ~Precompiled() = default;
     virtual std::string toString() { return ""; }
     virtual std::shared_ptr<PrecompiledExecResult> call(

@@ -20,12 +20,11 @@
 
 #include "../libvm/Precompiled.h"
 #include "../libstate/StateInterface.h"
-#include "Blake2.h"
+#include "Hash.h"
 #include "Common.h"
 #include "ECRecover.h"
-#include "RIPEMD160.h"
-#include "SHA256.h"
 #include "wedpr-crypto/WedprBn128.h"
+#include "wedpr-crypto/WedprCrypto.h"
 
 using namespace std;
 using namespace bcos;

@@ -12,23 +12,50 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
+ *
  */
 
-#include "Blake2.h"
+#include "Hash.h"
 #include "Common.h"
+#include "wedpr-crypto/WedprCrypto.h"
 
-using namespace bcos::executor;
-// The Blake 2 F compression function implemenation is based on the reference implementation,
-// see https://github.com/BLAKE2/BLAKE2/blob/master/ref/blake2b-ref.c
-// The changes in original code were done mostly to accommodate variable round number and to remove
-// unnecessary big endian support.
+using namespace std;
 
 namespace bcos
 {
 namespace crypto
 {
+// add sha2 -- sha256 to this file begin
+h256 sha256(bytesConstRef _in) noexcept
+{
+    h256 ret;
+    CInputBuffer in{(const char*)_in.data(), _in.size()};
+    COutputBuffer result{(char*)ret.data(), h256::size};
+    if (wedpr_sha256_hash(&in, &result) != 0)
+    {  // TODO: add some log
+        return ret;
+    }
+    return ret;
+}
+
+h160 ripemd160(bytesConstRef _in)
+{
+    h160 ret;
+    CInputBuffer in{(const char*)_in.data(), _in.size()};
+    COutputBuffer result{(char*)ret.data(), h160::size};
+    if (wedpr_ripemd160_hash(&in, &result) != 0)
+    {  // TODO: add some log
+        return ret;
+    }
+    return ret;
+}
+
 namespace
 {
+// The Blake 2 F compression function implemenation is based on the reference implementation,
+// see https://github.com/BLAKE2/BLAKE2/blob/master/ref/blake2b-ref.c
+// The changes in original code were done mostly to accommodate variable round number and to remove
+// unnecessary big endian support.
 constexpr size_t BLAKE2B_BLOCKBYTES = 128;
 
 struct blake2b_state
@@ -135,7 +162,6 @@ void blake2b_compress(
 
 }  // namespace
 
-
 bytes blake2FCompression(uint32_t _rounds, bytesConstRef _stateVector, bytesConstRef _t0,
     bytesConstRef _t1, bool _lastBlock, bytesConstRef _messageBlockVector)
 {
@@ -167,4 +193,5 @@ bytes blake2FCompression(uint32_t _rounds, bytesConstRef _stateVector, bytesCons
 }
 
 }  // namespace crypto
+
 }  // namespace bcos
