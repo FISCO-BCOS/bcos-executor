@@ -82,11 +82,11 @@ jobs:
             /home/runner/.hunter
             deps/src
             ccache
-          key: hunter-gcc-v1-notest-${{ runner.temp }}-${{ github.base_ref }}-${{ hashFiles('.github/workflows/workflow.yml') }}
+          key: hunter-gcc-v2-notest-${{ runner.temp }}-${{ github.base_ref }}-${{ hashFiles('.github/workflows/workflow.yml') }}
           restore-keys: |
-            hunter-gcc-v1-notest-${{ runner.temp }}-${{ github.base_ref }}-${{ hashFiles('.github/workflows/workflow.yml') }}
-            hunter-gcc-v1-notest-${{ runner.temp }}-${{ github.base_ref }}-
-            hunter-gcc-v1-notest-${{ runner.temp }}-
+            hunter-gcc-v2-notest-${{ runner.temp }}-${{ github.base_ref }}-${{ hashFiles('.github/workflows/workflow.yml') }}
+            hunter-gcc-v2-notest-${{ runner.temp }}-${{ github.base_ref }}-
+            hunter-gcc-v2-notest-${{ runner.temp }}-
       - name: install Ubuntu dependencies
         run: sudo apt install -y git curl build-essential cmake ccache lcov
       - name: install rust language
@@ -170,9 +170,9 @@ jobs:
             ccache
           key: hunter-centos-v1-notest-${{ runner.temp }}-${{ github.base_ref }}-${{ hashFiles('.github/workflows/workflow.yml') }}
           restore-keys: |
-            hunter-centos-v1-notest-${{ runner.temp }}-${{ github.base_ref }}-${{ hashFiles('.github/workflows/workflow.yml') }}
-            hunter-centos-v1-notest-${{ runner.temp }}-${{ github.base_ref }}-
-            hunter-centos-v1-notest-${{ runner.temp }}-
+            hunter-centos-v2-notest-${{ runner.temp }}-${{ github.base_ref }}-${{ hashFiles('.github/workflows/workflow.yml') }}
+            hunter-centos-v2-notest-${{ runner.temp }}-${{ github.base_ref }}-
+            hunter-centos-v2-notest-${{ runner.temp }}-
       - name: install CentOS dependencies
         run: |
           yum install -y epel-release centos-release-scl

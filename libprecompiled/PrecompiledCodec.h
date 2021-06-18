@@ -56,6 +56,22 @@ public:
             return s.data();
         }
     }
+    template <typename... Args>
+    bytes encodeWithSig(const std::string& _sig, Args&&... _args)
+    {
+        assert(m_type != VMType::UNDEFINED);
+        if (m_type == VMType::EVM)
+        {
+            return m_abi.abiIn(_sig, _args...);
+        }
+        else
+        {
+            codec::scale::ScaleEncoderStream s;
+            s << _sig;
+            (s << ... << std::forward<Args>(_args));
+            return s.data();
+        }
+    }
 
     // TODO: test check this decode
     template <typename... T>
