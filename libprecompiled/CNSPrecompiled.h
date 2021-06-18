@@ -19,8 +19,8 @@
  */
 
 #pragma once
-#include "Common.h"
 #include "../libvm/Precompiled.h"
+#include "Common.h"
 
 #if 0
 contract CNS
@@ -50,8 +50,8 @@ public:
     std::string toString() override;
 
     bool checkCNSParam(std::shared_ptr<executor::BlockContext> _context,
-        Address const& _contractAddress, std::string& _contractName,
-        std::string& _contractVersion, std::string const& _contractAbi);
+        Address const& _contractAddress, std::string& _contractName, std::string& _contractVersion,
+        std::string const& _contractAbi);
 
     std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::BlockContext> _context,
         bytesConstRef _param, const std::string& _origin, const std::string& _sender,

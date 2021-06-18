@@ -20,15 +20,17 @@
 
 #pragma once
 
-#include <bcos-framework/libutilities/Log.h>
-#include <bcos-framework/interfaces/protocol/Exceptions.h>
 #include <bcos-framework/interfaces/protocol/CommonError.h>
+#include <bcos-framework/interfaces/protocol/Exceptions.h>
 #include <bcos-framework/interfaces/storage/Common.h>
+#include <bcos-framework/libutilities/Log.h>
 #include <memory>
 #include <string>
 
-namespace bcos {
-namespace precompiled {
+namespace bcos
+{
+namespace precompiled
+{
 #define PRECOMPILED_LOG(LEVEL) LOG(LEVEL) << "[PRECOMPILED]"
 
 using EntriesConstPtr = std::shared_ptr<const std::vector<storage::Entry::Ptr>>;
@@ -85,10 +87,10 @@ const char* const CONSENSUS_NAME = "/bin/consensus";
 const char* const CNS_NAME = "/bin/cns";
 const char* const PERMISSION_NAME = "/bin/permission";
 const char* const PARALLEL_CONFIG_NAME = "/bin/parallel_config";
-//const char* const CONTRACT_LIFECYCLE_NAME = "/sys/contract_life_cycle";
-//const char* const CHAIN_GOVERNANCE_NAME = "/sys/governance";
+// const char* const CONTRACT_LIFECYCLE_NAME = "/sys/contract_life_cycle";
+// const char* const CHAIN_GOVERNANCE_NAME = "/sys/governance";
 const char* const KV_TABLE_FACTORY_NAME = "/bin/kv_storage";
-//const char* const WORKING_SEALER_MGR_NAME = "/sys/sealer_manager";
+// const char* const WORKING_SEALER_MGR_NAME = "/sys/sealer_manager";
 
 // precompiled contract for solidity
 const char* const SYS_CONFIG_ADDRESS = "0x1000";
@@ -212,5 +214,5 @@ enum ContractStatus
     NotContractAddress,
     Count
 };
-} // namespace precompiled
-} // namespace bcos
+}  // namespace precompiled
+}  // namespace bcos

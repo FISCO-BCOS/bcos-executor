@@ -19,12 +19,12 @@
  */
 
 #include "ParallelConfigPrecompiled.h"
+#include "Common.h"
 #include "PrecompiledResult.h"
 #include "Utilities.h"
-#include "Common.h"
+#include <bcos-framework/interfaces/protocol/CommonError.h>
 #include <bcos-framework/interfaces/protocol/Exceptions.h>
 #include <bcos-framework/interfaces/storage/TableInterface.h>
-#include <bcos-framework/interfaces/protocol/CommonError.h>
 #include <boost/algorithm/string.hpp>
 
 using namespace bcos;
@@ -117,7 +117,7 @@ TableInterface::Ptr ParallelConfigPrecompiled::openTable(
     if (!table && _needCreate)
     {  //__dat_transfer__ is not exist, then create it first.
         auto ret = tableFactory->createTable(tableName, PARA_KEY_NAME, PARA_VALUE_NAMES);
-        if(ret)
+        if (ret)
         {
             PRECOMPILED_LOG(DEBUG)
                 << LOG_BADGE("ParallelConfigPrecompiled") << LOG_DESC("open table")
@@ -139,7 +139,8 @@ void ParallelConfigPrecompiled::registerParallelFunction(
     std::shared_ptr<executor::BlockContext> _context, bytesConstRef _data,
     std::string const& _origin, bytes& _out)
 {
-    // registerParallelFunctionInternal(string contractAddress, string functionName, uint256 criticalSize)
+    // registerParallelFunctionInternal(string contractAddress, string functionName, uint256
+    // criticalSize)
 
     std::string contractName;
     std::string functionName;
@@ -157,7 +158,8 @@ void ParallelConfigPrecompiled::registerParallelFunction(
 
         table->setRow(std::to_string(selector), entry);
         auto commitResult = _context->getTableFactory()->commit();
-        if (!commitResult.second || commitResult.second->errorCode() == protocol::CommonError::SUCCESS)
+        if (!commitResult.second ||
+            commitResult.second->errorCode() == protocol::CommonError::SUCCESS)
         {
             PRECOMPILED_LOG(DEBUG)
                 << LOG_BADGE("ParallelConfigPrecompiled")
@@ -174,7 +176,8 @@ void ParallelConfigPrecompiled::registerParallelFunction(
                                    << LOG_KV("errorMsg", commitResult.second->errorMessage());
         }
 
-        PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ParallelConfigPrecompiled") << LOG_DESC("registerParallelFunction success")
+        PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ParallelConfigPrecompiled")
+                               << LOG_DESC("registerParallelFunction success")
                                << LOG_KV(PARA_SELECTOR, std::to_string(selector))
                                << LOG_KV(PARA_FUNC_NAME, functionName)
                                << LOG_KV(PARA_CRITICAL_SIZE, criticalSize);
@@ -182,8 +185,8 @@ void ParallelConfigPrecompiled::registerParallelFunction(
 }
 
 void ParallelConfigPrecompiled::unregisterParallelFunction(
-    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _data,
-    std::string const&, bytes& _out)
+    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _data, std::string const&,
+    bytes& _out)
 {
     // unregisterParallelFunctionInternal(address,string)
     // unregisterParallelFunctionInternal(address contractAddress, string functionName)
@@ -198,7 +201,8 @@ void ParallelConfigPrecompiled::unregisterParallelFunction(
     {
         table->remove(std::to_string(selector));
         auto commitResult = _context->getTableFactory()->commit();
-        if(!commitResult.second || commitResult.second->errorCode()==protocol::CommonError::SUCCESS)
+        if (!commitResult.second ||
+            commitResult.second->errorCode() == protocol::CommonError::SUCCESS)
         {
             _out = m_codec->encode(u256(0));
             PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ParallelConfigPrecompiled")
@@ -215,13 +219,12 @@ void ParallelConfigPrecompiled::unregisterParallelFunction(
             _out = m_codec->encode(u256(-1));
         }
     }
-
 }
 
 // TODO: use origin to check authority
 ParallelConfig::Ptr ParallelConfigPrecompiled::getParallelConfig(
-    std::shared_ptr<executor::BlockContext> _context,
-    std::string const& _contractAddress, uint32_t _selector, std::string const&)
+    std::shared_ptr<executor::BlockContext> _context, std::string const& _contractAddress,
+    uint32_t _selector, std::string const&)
 {
     auto table = _context->getTableFactory()->openTable(_contractAddress);
     if (!table)

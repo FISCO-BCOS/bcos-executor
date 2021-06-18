@@ -54,7 +54,7 @@ PrecompiledExecResult::Ptr SystemConfigPrecompiled::call(
         int result;
         // setValueByKey(string,string)
         std::string configKey, configValue;
-        m_codec->decode(data,configKey, configValue);
+        m_codec->decode(data, configKey, configValue);
         // Uniform lowercase configKey
         boost::to_lower(configKey);
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("SystemConfigPrecompiled")
@@ -64,9 +64,10 @@ PrecompiledExecResult::Ptr SystemConfigPrecompiled::call(
         if (!checkValueValid(configKey, configValue))
         {
             PRECOMPILED_LOG(DEBUG)
-                    << LOG_BADGE("SystemConfigPrecompiled") << LOG_DESC("set invalid value")
-                    << LOG_KV("configKey", configKey) << LOG_KV("configValue", configValue);
-            getErrorCodeOut(callResult->mutableExecResult(), CODE_INVALID_CONFIGURATION_VALUES, m_codec);
+                << LOG_BADGE("SystemConfigPrecompiled") << LOG_DESC("set invalid value")
+                << LOG_KV("configKey", configKey) << LOG_KV("configValue", configValue);
+            getErrorCodeOut(
+                callResult->mutableExecResult(), CODE_INVALID_CONFIGURATION_VALUES, m_codec);
             return callResult;
         }
 
@@ -76,7 +77,7 @@ PrecompiledExecResult::Ptr SystemConfigPrecompiled::call(
         auto entry = table->newEntry();
         entry->setField(SYS_VALUE, configValue);
         entry->setField(SYS_CONFIG_ENABLE_BLOCK_NUMBER,
-                        boost::lexical_cast<std::string>(_context->currentNumber()));
+            boost::lexical_cast<std::string>(_context->currentNumber()));
         if (tableFactory->checkAuthority(ledger::SYS_CONFIG, _origin))
         {
             table->setRow(configKey, entry);
@@ -101,7 +102,7 @@ PrecompiledExecResult::Ptr SystemConfigPrecompiled::call(
         else
         {
             PRECOMPILED_LOG(DEBUG)
-                    << LOG_BADGE("SystemConfigPrecompiled") << LOG_DESC("permission denied");
+                << LOG_BADGE("SystemConfigPrecompiled") << LOG_DESC("permission denied");
             // FIXME: use unified code to return
             result = -1;
         }
@@ -177,9 +178,8 @@ std::pair<std::string, protocol::BlockNumber> SystemConfigPrecompiled::getSysCon
     }
     else
     {
-        PRECOMPILED_LOG(ERROR)
-                << LOG_BADGE("SystemConfigPrecompiled") << LOG_DESC("get sys config error")
-                << LOG_KV("configKey", _key);
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("SystemConfigPrecompiled")
+                               << LOG_DESC("get sys config error") << LOG_KV("configKey", _key);
         // FIXME: use unified code to return
         return {"", -1};
     }

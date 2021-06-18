@@ -58,9 +58,8 @@ std::string EntryPrecompiled::toString()
     return "Entry";
 }
 
-PrecompiledExecResult::Ptr EntryPrecompiled::call(
-    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
-    const std::string&, const std::string&, u256& _remainGas)
+PrecompiledExecResult::Ptr EntryPrecompiled::call(std::shared_ptr<executor::BlockContext> _context,
+    bytesConstRef _param, const std::string&, const std::string&, u256& _remainGas)
 {
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);

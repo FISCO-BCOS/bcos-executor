@@ -19,9 +19,9 @@
  */
 
 #include "DagTransferPrecompiled.h"
+#include "../PrecompiledResult.h"
 #include "../TableFactoryPrecompiled.h"
 #include "../Utilities.h"
-#include "../PrecompiledResult.h"
 
 using namespace bcos;
 using namespace bcos::executor;

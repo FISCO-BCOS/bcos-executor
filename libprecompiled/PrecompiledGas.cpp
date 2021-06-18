@@ -35,15 +35,15 @@ const unsigned GasMetrics::MemUnitSize = 32;
 
 void PrecompiledGas::appendOperation(InterfaceOpcode const& _opType, unsigned const& _opSize)
 {
-  m_operationList->push_back(std::make_pair(_opType, _opSize));
+    m_operationList->push_back(std::make_pair(_opType, _opSize));
 }
 
 void PrecompiledGas::updateMemUsed(uint64_t const& _newMemSize)
 {
-  if (_newMemSize > m_memUsed)
-  {
-    m_memUsed = _newMemSize;
-  }
+    if (_newMemSize > m_memUsed)
+    {
+        m_memUsed = _newMemSize;
+    }
 }
 
 u256 PrecompiledGas::calTotalGas()
@@ -55,27 +55,26 @@ u256 PrecompiledGas::calTotalGas()
 // Traverse m_operationList to calculate total gas cost
 u256 PrecompiledGas::calComputationGas()
 {
-  u256 totalGas = 0;
-  for (auto const& it : *m_operationList)
-  {
-    if (!m_metric->OpCode2GasCost.count(it.first))
+    u256 totalGas = 0;
+    for (auto const& it : *m_operationList)
     {
-      PRECOMPILED_LOG(WARNING) << LOG_DESC("Invalid opType:") << it.first;
-      continue;
+        if (!m_metric->OpCode2GasCost.count(it.first))
+        {
+            PRECOMPILED_LOG(WARNING) << LOG_DESC("Invalid opType:") << it.first;
+            continue;
+        }
+        totalGas += ((m_metric->OpCode2GasCost)[it.first]) * it.second;
     }
-    totalGas += ((m_metric->OpCode2GasCost)[it.first]) * it.second;
-  }
-  return totalGas;
+    return totalGas;
 }
 
 // Calculating gas consumed by memory
 u256 PrecompiledGas::calMemGas()
 {
-  if (m_memUsed == 0)
-  {
-    return 0;
-  }
-  auto memSize = (m_memUsed + GasMetrics::MemUnitSize - 1) / GasMetrics::MemUnitSize;
-  return (GasMetrics::MemGas * memSize) + (memSize * memSize) / 512;
+    if (m_memUsed == 0)
+    {
+        return 0;
+    }
+    auto memSize = (m_memUsed + GasMetrics::MemUnitSize - 1) / GasMetrics::MemUnitSize;
+    return (GasMetrics::MemGas * memSize) + (memSize * memSize) / 512;
 }
-

@@ -20,17 +20,23 @@
 
 #pragma once
 
-#include "Common.h"
 #include "../libvm/BlockContext.h"
+#include "Common.h"
 #include "PrecompiledCodec.h"
-#include <bcos-framework/libutilities/Common.h>
 #include <bcos-framework/interfaces/storage/TableInterface.h>
 #include <bcos-framework/libcodec/abi/ContractABICodec.h>
+#include <bcos-framework/libutilities/Common.h>
+#include <boost/archive/text_iarchive.hpp>
+#include <boost/archive/text_oarchive.hpp>
+#include <boost/serialization/string.hpp>
+#include <boost/serialization/vector.hpp>
 
-namespace bcos {
-namespace precompiled {
-    static const std::string USER_TABLE_PREFIX_SHORT = "u_";
-    static const std::string CONTRACT_TABLE_PREFIX_SHORT = "c_";
+namespace bcos
+{
+namespace precompiled
+{
+static const std::string USER_TABLE_PREFIX_SHORT = "u_";
+static const std::string CONTRACT_TABLE_PREFIX_SHORT = "c_";
 
 enum class Comparator
 {
@@ -45,7 +51,7 @@ struct CompareTriple
 {
     using Ptr = std::shared_ptr<Comparator>;
     CompareTriple(const std::string& _left, const std::string& _right, Comparator _cmp)
-        : left(_left), right(_right), cmp(_cmp){};
+      : left(_left), right(_right), cmp(_cmp){};
 
     std::string left;
     std::string right;
@@ -71,10 +77,64 @@ struct Condition : public std::enable_shared_from_this<Condition>
     std::vector<CompareTriple> m_conditions;
     std::pair<size_t, size_t> m_limit;
 };
+
+class FileInfo
+{
+public:
+    FileInfo() = default;
+    FileInfo(const std::string& name, const std::string& type, protocol::BlockNumber number)
+      : name(name), type(type), number(number)
+    {}
+    const std::string& getName() const { return name; }
+    const std::string& getType() const { return type; }
+    protocol::BlockNumber getNumber() const { return number; }
+
+    std::string toString();
+    static bool fromString(FileInfo& _f, std::string _str);
+
+private:
+    friend class boost::serialization::access;
+    template <typename Archive>
+    void serialize(Archive& ar, const unsigned int)
+    {
+        ar& name;
+        ar& type;
+        ar& number;
+    }
+    std::string name;
+    std::string type;
+    protocol::BlockNumber number;
+};
+
+class DirInfo
+{
+public:
+    DirInfo() = default;
+    explicit DirInfo(const std::vector<FileInfo>& subDir) : subDir(subDir) {}
+    const std::vector<FileInfo>& getSubDir() const { return subDir; }
+    std::vector<FileInfo>& getMutableSubDir() { return subDir; }
+    std::string toString();
+    static bool fromString(DirInfo& _dir, std::string _str);
+    static std::string emptyDirString()
+    {
+        DirInfo emptyDir;
+        return emptyDir.toString();
+    }
+
+private:
+    friend class boost::serialization::access;
+    template <typename Archive>
+    void serialize(Archive& ar, const unsigned int)
+    {
+        ar& subDir;
+    }
+    std::vector<FileInfo> subDir;
+};
+
 void addCondition(const std::string& key, const std::string& value,
     std::vector<CompareTriple>& _cond, Comparator _cmp);
 
-void transferKeyCond(CompareTriple& _entryCond,  storage::Condition::Ptr& _keyCond);
+void transferKeyCond(CompareTriple& _entryCond, storage::Condition::Ptr& _keyCond);
 
 inline void getErrorCodeOut(bytes& out, int const& result, const PrecompiledCodec::Ptr& _codec)
 {
@@ -87,12 +147,10 @@ inline void getErrorCodeOut(bytes& out, int const& result, const PrecompiledCode
 }
 inline std::string getTableName(const std::string& _tableName)
 {
-
     return USER_TABLE_PREFIX_SHORT + _tableName;
 }
 inline std::string getContractTableName(const std::string& _contractAddress)
 {
-
     return CONTRACT_TABLE_PREFIX_SHORT + _contractAddress;
 }
 
@@ -113,5 +171,8 @@ bytesConstRef getParamData(bytesConstRef _param);
 uint64_t getEntriesCapacity(precompiled::EntriesConstPtr _entries);
 
 void sortKeyValue(std::vector<std::string>& _v);
-} // namespace precompiled
-} // namespace bcos
+
+bool recursiveBuildDir(
+    const storage::TableFactoryInterface::Ptr& _tableFactory, const std::string& _absoluteDir);
+}  // namespace precompiled
+}  // namespace bcos

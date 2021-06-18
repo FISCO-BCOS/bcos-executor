@@ -20,10 +20,10 @@
 
 #pragma once
 
-#include "Common.h"
 #include "../libvm/Precompiled.h"
-#include <bcos-framework/interfaces/storage/TableInterface.h>
+#include "Common.h"
 #include <bcos-framework/interfaces/crypto/CommonType.h>
+#include <bcos-framework/interfaces/storage/TableInterface.h>
 
 namespace bcos
 {
@@ -71,4 +71,3 @@ private:
 };
 }  // namespace precompiled
 }  // namespace bcos
-

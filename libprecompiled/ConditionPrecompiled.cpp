@@ -71,8 +71,8 @@ std::string ConditionPrecompiled::toString()
 }
 
 PrecompiledExecResult::Ptr ConditionPrecompiled::call(
-    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
-    const std::string&, const std::string&, u256& _remainGas)
+    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param, const std::string&,
+    const std::string&, u256& _remainGas)
 {
     // parse function name
     uint32_t func = getParamFunc(_param);

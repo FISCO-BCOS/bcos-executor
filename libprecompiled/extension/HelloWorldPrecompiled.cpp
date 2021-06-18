@@ -19,8 +19,8 @@
  */
 
 #include "HelloWorldPrecompiled.h"
-#include "../PrecompiledResult.h"
 #include "../../libvm/BlockContext.h"
+#include "../PrecompiledResult.h"
 #include "../Utilities.h"
 
 using namespace bcos;
@@ -100,7 +100,6 @@ PrecompiledExecResult::Ptr HelloWorldPrecompiled::call(
         auto entry = table->getRow(HELLO_WORLD_KEY_FIELD_NAME);
         if (!entry)
         {
-
             gasPricer->updateMemUsed(entry->capacityOfHashField());
             gasPricer->appendOperation(InterfaceOpcode::Select, 1);
 
@@ -121,11 +120,11 @@ PrecompiledExecResult::Ptr HelloWorldPrecompiled::call(
         entry->setField(HELLO_WORLD_VALUE_FIELD, strValue);
 
         size_t count = 0;
-        if(!_context->getTableFactory()->checkAuthority(HELLO_WORLD_TABLE_NAME, _origin))
+        if (!_context->getTableFactory()->checkAuthority(HELLO_WORLD_TABLE_NAME, _origin))
         {
             PRECOMPILED_LOG(ERROR)
-                    << LOG_BADGE("HelloWorldPrecompiled") << LOG_DESC(" permission denied ")
-                    << LOG_KV("origin", _origin) << LOG_KV("func", func);
+                << LOG_BADGE("HelloWorldPrecompiled") << LOG_DESC(" permission denied ")
+                << LOG_KV("origin", _origin) << LOG_KV("func", func);
         }
         table->setRow(HELLO_WORLD_KEY_FIELD_NAME, entry);
         auto commitResult = _context->getTableFactory()->commit();
@@ -147,8 +146,8 @@ PrecompiledExecResult::Ptr HelloWorldPrecompiled::call(
     }
     else
     {  // unknown function call
-        PRECOMPILED_LOG(ERROR) << LOG_BADGE("HelloWorldPrecompiled") << LOG_DESC(" unknown function ")
-                               << LOG_KV("func", func);
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("HelloWorldPrecompiled")
+                               << LOG_DESC(" unknown function ") << LOG_KV("func", func);
         callResult->setExecResult(m_codec->encode(u256((int)CODE_UNKNOW_FUNCTION_CALL)));
     }
     gasPricer->updateMemUsed(callResult->m_execResult.size());

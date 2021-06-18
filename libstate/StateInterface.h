@@ -92,6 +92,9 @@ public:
     /// Sets the code of the account. Must only be called during / after contract creation.
     virtual void setCode(const std::string_view& _address, bytesConstRef _code) = 0;
 
+    /// Sets the ABI of the contract. Must only be called during / after contract creation.
+    virtual void setAbi(const std::string_view& _address, const std::string_view& _abi) = 0;
+
     /// Delete an account (used for processing suicides). (set suicides key = 1 when use AMDB)
     virtual void kill(const std::string_view& _address) = 0;
 

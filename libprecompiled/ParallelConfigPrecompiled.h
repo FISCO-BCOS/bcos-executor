@@ -19,11 +19,11 @@
  */
 
 #pragma once
-#include "Common.h"
-#include "../libvm/Precompiled.h"
 #include "../libvm/BlockContext.h"
-#include <bcos-framework/libcodec/abi/ContractABICodec.h>
+#include "../libvm/Precompiled.h"
+#include "Common.h"
 #include <bcos-framework/interfaces/storage/TableInterface.h>
+#include <bcos-framework/libcodec/abi/ContractABICodec.h>
 
 namespace bcos
 {
@@ -50,9 +50,8 @@ public:
         bytesConstRef _param, const std::string& _origin, const std::string& _sender,
         u256& _remainGas) override;
 
-    bcos::storage::TableInterface::Ptr openTable(
-        std::shared_ptr<executor::BlockContext> _context, std::string const& _contractAddress,
-        std::string const& _origin, bool _needCreate = true);
+    bcos::storage::TableInterface::Ptr openTable(std::shared_ptr<executor::BlockContext> _context,
+        std::string const& _contractAddress, std::string const& _origin, bool _needCreate = true);
 
 private:
     void registerParallelFunction(std::shared_ptr<executor::BlockContext> _context,

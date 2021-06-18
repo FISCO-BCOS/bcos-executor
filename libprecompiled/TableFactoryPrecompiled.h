@@ -22,8 +22,8 @@
 
 #include "../libvm/Precompiled.h"
 #include "Common.h"
-#include <bcos-framework/interfaces/storage/TableInterface.h>
 #include <bcos-framework/interfaces/crypto/CommonType.h>
+#include <bcos-framework/interfaces/storage/TableInterface.h>
 
 namespace bcos
 {

@@ -13,35 +13,37 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  *
- * @file FileSystemPrecompiled.h
+ * @file deployWasmPrecompiled.h
  * @author: kyonRay
- * @date 2021-06-10
+ * @date 2021-06-17
  */
 
 #pragma once
+#include "../libvm/BlockContext.h"
 #include "../libvm/Precompiled.h"
+#include "Common.h"
+#include <bcos-framework/interfaces/storage/Common.h>
+#include <bcos-framework/interfaces/storage/TableInterface.h>
 
 namespace bcos
 {
 namespace precompiled
 {
 #if 0
-contract FileSystemPrecompiled
-{
-	function list(string absoluteDir) public returns(string); // json string
-	function mkdir(string absoluteDir) public returns(bool);
-}
+deployWASM(bytes code, bytes param, string path, string jsonABI) => bool;
 #endif
-class FileSystemPrecompiled : public bcos::precompiled::Precompiled
+class DeployWasmPrecompiled : public bcos::precompiled::Precompiled
 {
 public:
-    using Ptr = std::shared_ptr<FileSystemPrecompiled>;
-    FileSystemPrecompiled(crypto::Hash::Ptr _hashImpl);
-    virtual ~FileSystemPrecompiled() = default;
-    std::string toString() override;
+    using Ptr = std::shared_ptr<DeployWasmPrecompiled>;
+    DeployWasmPrecompiled(crypto::Hash::Ptr _hashImpl);
+    virtual ~DeployWasmPrecompiled() = default;
     std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::BlockContext> _context,
         bytesConstRef _param, const std::string& _origin, const std::string& _sender,
         u256& _remainGas) override;
+    std::string toString() override;
+    bool setContractFile(std::shared_ptr<executor::BlockContext> _tableFactory,
+        const std::string& _parentDir, const std::string& _contractName);
 };
 }  // namespace precompiled
 }  // namespace bcos

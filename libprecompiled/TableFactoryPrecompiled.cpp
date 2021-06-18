@@ -20,9 +20,9 @@
 
 #include "TableFactoryPrecompiled.h"
 #include "Common.h"
-#include "Utilities.h"
 #include "PrecompiledResult.h"
 #include "TablePrecompiled.h"
+#include "Utilities.h"
 #include <bcos-framework/interfaces/protocol/Exceptions.h>
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/classification.hpp>
@@ -74,15 +74,16 @@ PrecompiledExecResult::Ptr TableFactoryPrecompiled::call(
             std::string address;
             if (table)
             {
-                TablePrecompiled::Ptr tablePrecompiled = std::make_shared<TablePrecompiled>(m_hashImpl);
+                TablePrecompiled::Ptr tablePrecompiled =
+                    std::make_shared<TablePrecompiled>(m_hashImpl);
                 tablePrecompiled->setTable(table);
                 address = _context->registerPrecompiled(tablePrecompiled);
             }
             else
             {
-                STORAGE_LOG(WARNING) << LOG_BADGE("TableFactoryPrecompiled")
-                                     << LOG_DESC("Open new table failed")
-                                     << LOG_KV("table name", tableName);
+                STORAGE_LOG(WARNING)
+                    << LOG_BADGE("TableFactoryPrecompiled") << LOG_DESC("Open new table failed")
+                    << LOG_KV("table name", tableName);
             }
             callResult->setExecResult(m_codec->encode(address));
         }
@@ -93,15 +94,16 @@ PrecompiledExecResult::Ptr TableFactoryPrecompiled::call(
                 std::string address;
                 if (table)
                 {
-                    TablePrecompiled::Ptr tablePrecompiled = std::make_shared<TablePrecompiled>(m_hashImpl);
+                    TablePrecompiled::Ptr tablePrecompiled =
+                        std::make_shared<TablePrecompiled>(m_hashImpl);
                     tablePrecompiled->setTable(table);
                     address = _context->registerPrecompiled(tablePrecompiled);
                 }
                 else
                 {
-                    STORAGE_LOG(WARNING) << LOG_BADGE("TableFactoryPrecompiled")
-                                         << LOG_DESC("Open new table failed")
-                                         << LOG_KV("table name", tableName);
+                    STORAGE_LOG(WARNING)
+                        << LOG_BADGE("TableFactoryPrecompiled") << LOG_DESC("Open new table failed")
+                        << LOG_KV("table name", tableName);
                 }
                 callResult->setExecResult(m_codec->encode(address));
             }
@@ -110,15 +112,16 @@ PrecompiledExecResult::Ptr TableFactoryPrecompiled::call(
                 Address address;
                 if (table)
                 {
-                    TablePrecompiled::Ptr tablePrecompiled = std::make_shared<TablePrecompiled>(m_hashImpl);
+                    TablePrecompiled::Ptr tablePrecompiled =
+                        std::make_shared<TablePrecompiled>(m_hashImpl);
                     tablePrecompiled->setTable(table);
                     address = Address(_context->registerPrecompiled(tablePrecompiled));
                 }
                 else
                 {
-                    STORAGE_LOG(WARNING) << LOG_BADGE("TableFactoryPrecompiled")
-                                         << LOG_DESC("Open new table failed")
-                                         << LOG_KV("table name", tableName);
+                    STORAGE_LOG(WARNING)
+                        << LOG_BADGE("TableFactoryPrecompiled") << LOG_DESC("Open new table failed")
+                        << LOG_KV("table name", tableName);
                 }
                 callResult->setExecResult(m_codec->encode(address));
             }
@@ -132,7 +135,8 @@ PrecompiledExecResult::Ptr TableFactoryPrecompiled::call(
                 << LOG_BADGE("TableFactoryPrecompiled") << LOG_DESC("permission denied")
                 << LOG_KV("origin", _origin) << LOG_KV("contract", _sender);
             BOOST_THROW_EXCEPTION(
-                protocol::PrecompiledError() << errinfo_comment("Permission denied. " + _origin + " can't call contract " + _sender));
+                protocol::PrecompiledError() << errinfo_comment(
+                    "Permission denied. " + _origin + " can't call contract " + _sender));
         }
         std::string tableName;
         std::string keyField;
@@ -159,10 +163,10 @@ PrecompiledExecResult::Ptr TableFactoryPrecompiled::call(
             {  // mysql TableName and fieldName length limit is 64
                 BOOST_THROW_EXCEPTION(
                     protocol::PrecompiledError()
-                        << errinfo_comment(
-                            "errorCode" + std::to_string(CODE_TABLE_FIELD_LENGTH_OVERFLOW))
-                        << errinfo_comment(std::string("table key name length overflow ") +
-                                           std::to_string(SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH)));
+                    << errinfo_comment(
+                           "errorCode" + std::to_string(CODE_TABLE_FIELD_LENGTH_OVERFLOW))
+                    << errinfo_comment(std::string("table key name length overflow ") +
+                                       std::to_string(SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH)));
             }
         }
 
@@ -187,8 +191,8 @@ PrecompiledExecResult::Ptr TableFactoryPrecompiled::call(
         if (keyField.size() > (size_t)SYS_TABLE_KEY_FIELD_MAX_LENGTH)
         {
             BOOST_THROW_EXCEPTION(protocol::PrecompiledError() << errinfo_comment(
-                std::string("total table key name length overflow ") +
-                std::to_string(SYS_TABLE_KEY_FIELD_MAX_LENGTH)));
+                                      std::string("total table key name length overflow ") +
+                                      std::to_string(SYS_TABLE_KEY_FIELD_MAX_LENGTH)));
         }
         if (valueFiled.size() > (size_t)SYS_TABLE_VALUE_FIELD_MAX_LENGTH)
         {
@@ -202,16 +206,16 @@ PrecompiledExecResult::Ptr TableFactoryPrecompiled::call(
             (tableName.size() > (size_t)USER_TABLE_NAME_MAX_LENGTH_S))
         {
             // mysql TableName and fieldName length limit is 64
-            BOOST_THROW_EXCEPTION(protocol::PrecompiledError()
-                                  << errinfo_comment("errorCode: "+ std::to_string(CODE_TABLE_NAME_LENGTH_OVERFLOW))
-                                  << errinfo_comment(std::string("tableName length overflow ") +
-                                                     std::to_string(USER_TABLE_NAME_MAX_LENGTH)));
+            BOOST_THROW_EXCEPTION(
+                protocol::PrecompiledError()
+                << errinfo_comment("errorCode: " + std::to_string(CODE_TABLE_NAME_LENGTH_OVERFLOW))
+                << errinfo_comment(std::string("tableName length overflow ") +
+                                   std::to_string(USER_TABLE_NAME_MAX_LENGTH)));
         }
         int result = 0;
         try
         {
-            auto table =
-                m_memoryTableFactory->createTable(tableName, keyField, valueFiled);
+            auto table = m_memoryTableFactory->createTable(tableName, keyField, valueFiled);
             if (!table)
             {  // table already exist
                 result = CODE_TABLE_NAME_ALREADY_EXIST;

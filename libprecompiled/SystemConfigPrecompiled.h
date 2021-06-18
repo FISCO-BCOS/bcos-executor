@@ -19,8 +19,8 @@
  */
 
 #pragma once
-#include "Common.h"
 #include "../libvm/Precompiled.h"
+#include "Common.h"
 namespace bcos
 {
 namespace precompiled
@@ -36,11 +36,12 @@ contract SystemConfigTable
 class SystemConfigPrecompiled : public bcos::precompiled::Precompiled
 {
 public:
-    using Ptr  = std::shared_ptr<SystemConfigPrecompiled>;
+    using Ptr = std::shared_ptr<SystemConfigPrecompiled>;
     SystemConfigPrecompiled(crypto::Hash::Ptr _hashImpl);
     virtual ~SystemConfigPrecompiled(){};
-    std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
-        const std::string& _origin, const std::string& _sender, u256& _remainGas) override;
+    std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::BlockContext> _context,
+        bytesConstRef _param, const std::string& _origin, const std::string& _sender,
+        u256& _remainGas) override;
     std::string toString() override;
     std::pair<std::string, protocol::BlockNumber> getSysConfigByKey(
         const std::string& _key, const storage::TableFactoryInterface::Ptr& _tableFactory) const;

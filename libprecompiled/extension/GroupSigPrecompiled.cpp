@@ -34,8 +34,9 @@ GroupSigPrecompiled::GroupSigPrecompiled(crypto::Hash::Ptr _hashImpl) : Precompi
     name2Selector[GroupSig_METHOD_SET_STR] = getFuncSelector(GroupSig_METHOD_SET_STR, _hashImpl);
 }
 
-PrecompiledExecResult::Ptr GroupSigPrecompiled::call(std::shared_ptr<executor::BlockContext> _context,
-    bytesConstRef _param, const std::string&, const std::string&, u256& _remainGas)
+PrecompiledExecResult::Ptr GroupSigPrecompiled::call(
+    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param, const std::string&,
+    const std::string&, u256& _remainGas)
 {
     PRECOMPILED_LOG(TRACE) << LOG_BADGE("GroupSigPrecompiled") << LOG_DESC("call")
                            << LOG_KV("param", toHexString(_param));
@@ -57,19 +58,22 @@ PrecompiledExecResult::Ptr GroupSigPrecompiled::call(std::shared_ptr<executor::B
         bool result = false;
 
         // TODO: it depends on bcos-crypto
-//        try
-//        {
-//            result = GroupSigApi::group_verify(signature, message, gpkInfo, paramInfo);
-//            callResult->gasPricer()->appendOperation(InterfaceOpcode::GroupSigVerify);
-//        }
-//        catch (std::string& errorMsg)
-//        {
-//            PRECOMPILED_LOG(ERROR) << LOG_BADGE("GroupSigPrecompiled") << LOG_DESC(errorMsg)
-//                                   << LOG_KV("signature", signature) << LOG_KV("message", message)
-//                                   << LOG_KV("gpkInfo", gpkInfo) << LOG_KV("paramInfo", paramInfo);
-//            getErrorCodeOut(callResult->mutableExecResult(), VERIFY_GROUP_SIG_FAILED);
-//            return callResult;
-//        }
+        //        try
+        //        {
+        //            result = GroupSigApi::group_verify(signature, message, gpkInfo, paramInfo);
+        //            callResult->gasPricer()->appendOperation(InterfaceOpcode::GroupSigVerify);
+        //        }
+        //        catch (std::string& errorMsg)
+        //        {
+        //            PRECOMPILED_LOG(ERROR) << LOG_BADGE("GroupSigPrecompiled") <<
+        //            LOG_DESC(errorMsg)
+        //                                   << LOG_KV("signature", signature) << LOG_KV("message",
+        //                                   message)
+        //                                   << LOG_KV("gpkInfo", gpkInfo) << LOG_KV("paramInfo",
+        //                                   paramInfo);
+        //            getErrorCodeOut(callResult->mutableExecResult(), VERIFY_GROUP_SIG_FAILED);
+        //            return callResult;
+        //        }
         callResult->setExecResult(m_codec->encode(result));
     }
     else

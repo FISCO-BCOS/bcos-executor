@@ -20,8 +20,8 @@
 
 #pragma once
 
-#include "../libvm/Precompiled.h"
 #include "../libvm/BlockContext.h"
+#include "../libvm/Precompiled.h"
 #include "Common.h"
 
 namespace bcos

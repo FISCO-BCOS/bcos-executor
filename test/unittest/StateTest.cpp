@@ -49,7 +49,7 @@ struct StorageStateFixture
         hashImpl = std::make_shared<Sm3Hash>();
         memoryStorage = make_shared<MemoryStorage>();
         tableFactory = make_shared<TableFactory>(memoryStorage, hashImpl, m_blockNumber);
-        state = make_shared<State>(tableFactory, hashImpl);
+        state = make_shared<State>(tableFactory, hashImpl, false);
     }
 
     std::shared_ptr<crypto::Hash> hashImpl = nullptr;

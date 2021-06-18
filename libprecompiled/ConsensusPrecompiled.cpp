@@ -264,8 +264,8 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
         }
         else if (weight == 0)
         {
-            PRECOMPILED_LOG(ERROR) << LOG_BADGE("ConsensusPrecompiled")
-                                   << LOG_DESC("weight is 0") << LOG_KV("nodeID", nodeID);
+            PRECOMPILED_LOG(ERROR) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("weight is 0")
+                                   << LOG_KV("nodeID", nodeID);
             result = CODE_INVALID_WEIGHT;
         }
         else
@@ -306,7 +306,7 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
             else
             {
                 PRECOMPILED_LOG(DEBUG)
-                        << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("permission denied");
+                    << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("permission denied");
                 // FIXME: add unify error code
                 result = -1;
             }

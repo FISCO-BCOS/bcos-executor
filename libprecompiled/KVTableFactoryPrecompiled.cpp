@@ -86,8 +86,8 @@ PrecompiledExecResult::Ptr KVTableFactoryPrecompiled::call(
             else
             {
                 PRECOMPILED_LOG(WARNING)
-                        << LOG_BADGE("KVTableFactoryPrecompiled") << LOG_DESC("Open new table failed")
-                        << LOG_KV("table name", tableName);
+                    << LOG_BADGE("KVTableFactoryPrecompiled") << LOG_DESC("Open new table failed")
+                    << LOG_KV("table name", tableName);
                 BOOST_THROW_EXCEPTION(
                     PrecompiledError() << errinfo_comment(tableName + " does not exist"));
             }
@@ -105,8 +105,8 @@ PrecompiledExecResult::Ptr KVTableFactoryPrecompiled::call(
             else
             {
                 PRECOMPILED_LOG(WARNING)
-                        << LOG_BADGE("KVTableFactoryPrecompiled") << LOG_DESC("Open new table failed")
-                        << LOG_KV("table name", tableName);
+                    << LOG_BADGE("KVTableFactoryPrecompiled") << LOG_DESC("Open new table failed")
+                    << LOG_KV("table name", tableName);
                 BOOST_THROW_EXCEPTION(
                     PrecompiledError() << errinfo_comment(tableName + " does not exist"));
             }

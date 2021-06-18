@@ -27,13 +27,13 @@ namespace precompiled
 {
 struct PrecompiledExecResult
 {
-  using Ptr = std::shared_ptr<PrecompiledExecResult>;
-  PrecompiledExecResult() = default;
-  ~PrecompiledExecResult() {}
-  bytes const& execResult() const { return m_execResult; }
-  bytes& mutableExecResult() { return m_execResult; }
-  void setExecResult(bytes const& _execResult) { m_execResult = _execResult; }
-  bytes m_execResult;
+    using Ptr = std::shared_ptr<PrecompiledExecResult>;
+    PrecompiledExecResult() = default;
+    ~PrecompiledExecResult() {}
+    bytes const& execResult() const { return m_execResult; }
+    bytes& mutableExecResult() { return m_execResult; }
+    void setExecResult(bytes const& _execResult) { m_execResult = _execResult; }
+    bytes m_execResult;
 };
 }  // namespace precompiled
 }  // namespace bcos

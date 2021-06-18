@@ -57,9 +57,8 @@ CryptoPrecompiled::CryptoPrecompiled(crypto::Hash::Ptr _hashImpl) : Precompiled(
         getFuncSelector(CRYPTO_METHOD_CURVE25519_VRF_VERIFY_STR, _hashImpl);
 }
 
-PrecompiledExecResult::Ptr CryptoPrecompiled::call(
-    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param, const std::string&,
-    const std::string&, u256& _remainGas)
+PrecompiledExecResult::Ptr CryptoPrecompiled::call(std::shared_ptr<executor::BlockContext> _context,
+    bytesConstRef _param, const std::string&, const std::string&, u256& _remainGas)
 {
     auto funcSelector = getParamFunc(_param);
     auto paramData = getParamData(_param);

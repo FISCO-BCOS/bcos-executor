@@ -61,9 +61,8 @@ crypto::HashType TablePrecompiled::hash()
     return m_table->hash();
 }
 
-PrecompiledExecResult::Ptr TablePrecompiled::call(
-    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
-    const std::string& _origin, const std::string& _sender, u256& _remainGas)
+PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::BlockContext> _context,
+    bytesConstRef _param, const std::string& _origin, const std::string& _sender, u256& _remainGas)
 {
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
@@ -114,10 +113,9 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(
         }
         if (!findKeyFlag)
         {
-            PRECOMPILED_LOG(ERROR)
-                    << LOG_BADGE("TablePrecompiled") << LOG_BADGE("SELECT")
-                    << LOG_DESC("can't get any primary key in condition")
-                    << LOG_KV("primaryKey", m_table->tableInfo()->key);
+            PRECOMPILED_LOG(ERROR) << LOG_BADGE("TablePrecompiled") << LOG_BADGE("SELECT")
+                                   << LOG_DESC("can't get any primary key in condition")
+                                   << LOG_KV("primaryKey", m_table->tableInfo()->key);
             callResult->setExecResult(m_codec->encode(u256((int)CODE_INVALID_UPDATE_TABLE_KEY)));
         }
         else
@@ -150,11 +148,11 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(
         // insert(address)
         if (!checkAuthority(_context->getTableFactory(), _origin, _sender))
         {
-            PRECOMPILED_LOG(ERROR)
-                    << LOG_BADGE("TablePrecompiled") << LOG_DESC("permission denied")
-                    << LOG_KV("origin", _origin) << LOG_KV("contract", _sender);
+            PRECOMPILED_LOG(ERROR) << LOG_BADGE("TablePrecompiled") << LOG_DESC("permission denied")
+                                   << LOG_KV("origin", _origin) << LOG_KV("contract", _sender);
             BOOST_THROW_EXCEPTION(
-                PrecompiledError() << errinfo_comment("Permission denied. " + _origin + " can't call contract " + _sender));
+                PrecompiledError() << errinfo_comment(
+                    "Permission denied. " + _origin + " can't call contract " + _sender));
         }
         EntryPrecompiled::Ptr entryPrecompiled = nullptr;
         std::string key;
@@ -221,7 +219,8 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(
         }
         else
         {
-            Address newAddress = Address(_context->registerPrecompiled(conditionPrecompiled), FixedBytes<20>::FromBinary);
+            Address newAddress = Address(
+                _context->registerPrecompiled(conditionPrecompiled), FixedBytes<20>::FromBinary);
             callResult->setExecResult(m_codec->encode(newAddress));
         }
     }
@@ -238,7 +237,8 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(
         }
         else
         {
-            Address newAddress = Address(_context->registerPrecompiled(entryPrecompiled), FixedBytes<20>::FromBinary);
+            Address newAddress = Address(
+                _context->registerPrecompiled(entryPrecompiled), FixedBytes<20>::FromBinary);
             callResult->setExecResult(m_codec->encode(newAddress));
         }
     }
@@ -325,11 +325,11 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(
         // update(address,address)
         if (checkAuthority(_context->getTableFactory(), _origin, _sender))
         {
-            PRECOMPILED_LOG(ERROR)
-                    << LOG_BADGE("TablePrecompiled") << LOG_DESC("permission denied")
-                    << LOG_KV("origin", _origin) << LOG_KV("contract", _sender);
+            PRECOMPILED_LOG(ERROR) << LOG_BADGE("TablePrecompiled") << LOG_DESC("permission denied")
+                                   << LOG_KV("origin", _origin) << LOG_KV("contract", _sender);
             BOOST_THROW_EXCEPTION(
-                protocol::PrecompiledError() << errinfo_comment("Permission denied. " + _origin + " can't call contract " + _sender));
+                protocol::PrecompiledError() << errinfo_comment(
+                    "Permission denied. " + _origin + " can't call contract " + _sender));
         }
         std::string key;
         EntryPrecompiled::Ptr entryPrecompiled = nullptr;
@@ -414,7 +414,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(
                 for (auto& tableKey : tableKeySet)
                 {
                     auto tableEntry = m_table->getRow(tableKey);
-                    if(entryCondition->filter(tableEntry))
+                    if (entryCondition->filter(tableEntry))
                     {
                         m_table->setRow(tableKey, entry);
                     }
@@ -427,7 +427,8 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(
                     gasPricer->appendOperation(InterfaceOpcode::Update, commitResult.first);
                 }
                 callResult->setExecResult(m_codec->encode(u256(commitResult.first)));
-                PRECOMPILED_LOG(DEBUG) << LOG_DESC("Table update") << LOG_KV("ret", commitResult.first);
+                PRECOMPILED_LOG(DEBUG)
+                    << LOG_DESC("Table update") << LOG_KV("ret", commitResult.first);
             }
         }
     }

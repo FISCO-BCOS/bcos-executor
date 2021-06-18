@@ -44,7 +44,7 @@ BlockContext::BlockContext(std::shared_ptr<storage::TableFactoryInterface> _tabl
     m_tableFactory(_tableFactory),
     m_hashImpl(_hashImpl)
 {
-    m_state = make_shared<State>(m_tableFactory, m_hashImpl);
+    m_state = make_shared<State>(m_tableFactory, m_hashImpl, _isWasm);
 }
 
 shared_ptr<PrecompiledExecResult> BlockContext::call(const string& address, bytesConstRef param,

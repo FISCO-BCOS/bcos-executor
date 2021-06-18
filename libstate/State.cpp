@@ -209,6 +209,17 @@ void State::setCode(const std::string_view& _address, bytesConstRef _code)
     }
 }
 
+void State::setAbi(const std::string_view& _address, const std::string_view& _abi)
+{
+    auto table = getTable(_address);
+    if (table)
+    {
+        auto entry = table->newEntry();
+        entry->setField(string(STORAGE_VALUE), string(_abi));
+        table->setRow(ACCOUNT_ABI, entry);
+    }
+}
+
 void State::kill(const string_view& _address)
 {
     auto table = getTable(_address);
@@ -422,7 +433,8 @@ void State::createAccount(const std::string_view& _address, u256 const& _nonce, 
 
 inline storage::TableInterface::Ptr State::getTable(const std::string_view& _address) const
 {
-    std::string tableName("c_" + string(_address));
+    std::string tableName =
+        m_isWasm ? std::string(_address) : std::string("c_" + std::string(_address));
     return m_tableFactory->openTable(tableName);
 }
 }  // namespace executor

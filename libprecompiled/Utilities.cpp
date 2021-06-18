@@ -19,10 +19,10 @@
  */
 
 #include "Utilities.h"
-#include "EntriesPrecompiled.h"
 #include "../libstate/State.h"
 #include "Common.h"
 #include <bcos-framework/interfaces/crypto/Hash.h>
+#include <json/json.h>
 #include <tbb/concurrent_unordered_map.h>
 
 using namespace bcos;
@@ -31,6 +31,58 @@ using namespace bcos::protocol;
 using namespace bcos::crypto;
 
 static tbb::concurrent_unordered_map<std::string, uint32_t> s_name2SelectCache;
+
+std::string FileInfo::toString()
+{
+    std::stringstream ss;
+    boost::archive::text_oarchive oa(ss);
+    oa << *this;
+    return ss.str();
+}
+
+bool FileInfo::fromString(FileInfo& _f, std::string _str)
+{
+    std::stringstream ss(_str);
+    try
+    {
+        boost::archive::text_iarchive ia(ss);
+        ia >> _f;
+    }
+    catch (boost::archive::archive_exception const& e)
+    {
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("FileInfo::fromString")
+                               << LOG_DESC("deserialization error") << LOG_KV("e.what", e.what())
+                               << LOG_KV("str", _str);
+        return false;
+    }
+    return true;
+}
+
+std::string DirInfo::toString()
+{
+    std::stringstream ss;
+    boost::archive::text_oarchive oa(ss);
+    oa << *this;
+    return ss.str();
+}
+
+bool DirInfo::fromString(DirInfo& _dir, std::string _str)
+{
+    std::stringstream ss(_str);
+    try
+    {
+        boost::archive::text_iarchive ia(ss);
+        ia >> _dir;
+    }
+    catch (boost::archive::archive_exception const& e)
+    {
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("DirInfo::fromString")
+                               << LOG_DESC("deserialization error") << LOG_KV("e.what", e.what())
+                               << LOG_KV("str", _str);
+        return false;
+    }
+    return true;
+}
 
 void bcos::precompiled::checkNameValidate(const std::string& tableName,
     std::vector<std::string>& keyFieldList, std::vector<std::string>& valueFieldList)
@@ -41,12 +93,14 @@ void bcos::precompiled::checkNameValidate(const std::string& tableName,
     std::vector<char> tableAllowChar = {'$', '_', '@', '/'};
     std::string allowCharString = "{$, _, @}";
     std::string tableAllowCharString = "{$, _, @, /}";
-    auto checkTableNameValidate = [&tableAllowChar, &tableAllowCharString](const std::string& tableName) {
+    auto checkTableNameValidate = [&tableAllowChar, &tableAllowCharString](
+                                      const std::string& tableName) {
         size_t iSize = tableName.size();
         for (size_t i = 0; i < iSize; i++)
         {
             if (!isalnum(tableName[i]) &&
-                (tableAllowChar.end() == find(tableAllowChar.begin(), tableAllowChar.end(), tableName[i])))
+                (tableAllowChar.end() ==
+                    find(tableAllowChar.begin(), tableAllowChar.end(), tableName[i])))
             {
                 std::stringstream errorMsg;
                 errorMsg << "Invalid table name \"" << tableName
@@ -104,9 +158,8 @@ void bcos::precompiled::checkNameValidate(const std::string& tableName,
         auto ret = keyFieldSet.insert(keyField);
         if (!ret.second)
         {
-            PRECOMPILED_LOG(ERROR)
-                    << LOG_DESC("duplicated key") << LOG_KV("key name", keyField)
-                    << LOG_KV("table name", tableName);
+            PRECOMPILED_LOG(ERROR) << LOG_DESC("duplicated key") << LOG_KV("key name", keyField)
+                                   << LOG_KV("table name", tableName);
             BOOST_THROW_EXCEPTION(
                 PrecompiledError() << errinfo_comment("duplicated key: " + keyField));
         }
@@ -131,16 +184,17 @@ void bcos::precompiled::checkNameValidate(const std::string& tableName,
 int bcos::precompiled::checkLengthValidate(
     const std::string& fieldValue, int32_t maxLength, int32_t errorCode)
 {
-  if (fieldValue.size() > (size_t)maxLength)
-  {
-    PRECOMPILED_LOG(ERROR) << "key:" << fieldValue << " value size:" << fieldValue.size()
-                           << " greater than " << maxLength;
-    BOOST_THROW_EXCEPTION(PrecompiledError()
-                          << errinfo_comment ("size of value/key greater than" + std::to_string(maxLength))
-                          << errinfo_comment(std::to_string(errorCode)));
-    return errorCode;
-  }
-  return 0;
+    if (fieldValue.size() > (size_t)maxLength)
+    {
+        PRECOMPILED_LOG(ERROR) << "key:" << fieldValue << " value size:" << fieldValue.size()
+                               << " greater than " << maxLength;
+        BOOST_THROW_EXCEPTION(PrecompiledError()
+                              << errinfo_comment(
+                                     "size of value/key greater than" + std::to_string(maxLength))
+                              << errinfo_comment(std::to_string(errorCode)));
+        return errorCode;
+    }
+    return 0;
 }
 uint32_t bcos::precompiled::getFuncSelector(
     std::string const& _functionName, const crypto::Hash::Ptr& _hashImpl)
@@ -157,16 +211,16 @@ uint32_t bcos::precompiled::getFuncSelector(
 
 uint32_t bcos::precompiled::getParamFunc(bytesConstRef _param)
 {
-  auto funcBytes = _param.getCroppedData(0, 4);
-  uint32_t func = *((uint32_t*)(funcBytes.data()));
+    auto funcBytes = _param.getCroppedData(0, 4);
+    uint32_t func = *((uint32_t*)(funcBytes.data()));
 
-  return ((func & 0x000000FF) << 24) | ((func & 0x0000FF00) << 8) | ((func & 0x00FF0000) >> 8) |
-         ((func & 0xFF000000) >> 24);
+    return ((func & 0x000000FF) << 24) | ((func & 0x0000FF00) << 8) | ((func & 0x00FF0000) >> 8) |
+           ((func & 0xFF000000) >> 24);
 }
 
 bytesConstRef bcos::precompiled::getParamData(bytesConstRef _param)
 {
-  return _param.getCroppedData(4);
+    return _param.getCroppedData(4);
 }
 
 uint32_t bcos::precompiled::getFuncSelectorByFunctionName(
@@ -212,7 +266,8 @@ bcos::precompiled::ContractStatus bcos::precompiled::getContractStatus(
 
 void bcos::precompiled::sortKeyValue(std::vector<std::string>& _v)
 {
-    if(_v.size()<=1){
+    if (_v.size() <= 1)
+    {
         return;
     }
     std::sort(_v.begin(), _v.end());
@@ -250,13 +305,13 @@ void Condition::LE(const std::string& key, const std::string& value)
 
 bool Condition::filter(storage::Entry::Ptr _entry)
 {
-    if(_entry->getStatus() == storage::Entry::Status::DELETED)
+    if (_entry->getStatus() == storage::Entry::Status::DELETED)
     {
         return false;
     }
     if (!m_conditions.empty())
     {
-        for (auto &condition: m_conditions)
+        for (auto& condition : m_conditions)
         {
             auto fieldIt = _entry->find(condition.left);
             if (fieldIt != _entry->end())
@@ -264,13 +319,13 @@ bool Condition::filter(storage::Entry::Ptr _entry)
                 switch (condition.cmp)
                 {
                 case Comparator::EQ:
-                    if(fieldIt->second != condition.right)
+                    if (fieldIt->second != condition.right)
                     {
                         return false;
                     }
                     break;
                 case Comparator::NE:
-                    if(fieldIt->second == condition.right)
+                    if (fieldIt->second == condition.right)
                     {
                         return false;
                     }
@@ -398,4 +453,90 @@ uint64_t precompiled::getEntriesCapacity(precompiled::EntriesConstPtr _entries)
         totalCapacity += _entries->at(i)->capacityOfHashField();
     }
     return totalCapacity;
+}
+
+bool precompiled::recursiveBuildDir(
+    const storage::TableFactoryInterface::Ptr& _tableFactory, const std::string& _absoluteDir)
+{
+    if (_absoluteDir.empty())
+    {
+        return false;
+    }
+    auto dirList = std::make_shared<std::vector<std::string>>();
+    std::string absoluteDir = _absoluteDir;
+    if (absoluteDir[0] == '/')
+    {
+        absoluteDir = absoluteDir.substr(1);
+    }
+    if (absoluteDir.at(absoluteDir.size() - 1) == '/')
+    {
+        absoluteDir = absoluteDir.substr(0, absoluteDir.size() - 1);
+    }
+    boost::split(*dirList, absoluteDir, boost::is_any_of("/"), boost::token_compress_on);
+    std::string root = "/";
+    DirInfo parentDir;
+    for (auto& dir : *dirList)
+    {
+        auto table = _tableFactory->openTable(root);
+        if (root != "/")
+        {
+            root += "/";
+        }
+        if (!table)
+        {
+            PRECOMPILED_LOG(ERROR) << LOG_BADGE("recursiveBuildDir")
+                                   << LOG_DESC("can not open table root") << LOG_KV("root", root);
+            return false;
+        }
+        auto entry = table->getRow(FS_KEY_SUB);
+        if (!entry)
+        {
+            PRECOMPILED_LOG(ERROR)
+                << LOG_BADGE("recursiveBuildDir") << LOG_DESC("can get entry of FS_KEY_SUB")
+                << LOG_KV("root", root);
+            return false;
+        }
+        auto subdirectories = entry->getField(SYS_VALUE);
+        if (!DirInfo::fromString(parentDir, subdirectories))
+        {
+            PRECOMPILED_LOG(ERROR) << LOG_BADGE("recursiveBuildDir") << LOG_DESC("parse error")
+                                   << LOG_KV("str", subdirectories);
+            return false;
+        }
+        FileInfo newDirectory(dir, FS_TYPE_DIR, 0);
+        bool exist = false;
+        for (const FileInfo& _f : parentDir.getSubDir())
+        {
+            if (_f.getName() == dir)
+            {
+                exist = true;
+                break;
+            }
+        }
+        if (exist)
+        {
+            root += dir;
+            continue;
+        }
+        parentDir.getMutableSubDir().emplace_back(newDirectory);
+        entry->setField(SYS_VALUE, parentDir.toString());
+        table->setRow(FS_KEY_SUB, entry);
+
+        std::string newDirPath = root + dir;
+        _tableFactory->createTable(newDirPath, SYS_KEY, SYS_VALUE);
+        auto newTable = _tableFactory->openTable(newDirPath);
+        auto typeEntry = newTable->newEntry();
+        typeEntry->setField(SYS_VALUE, FS_TYPE_DIR);
+        newTable->setRow(FS_KEY_TYPE, typeEntry);
+
+        auto subEntry = newTable->newEntry();
+        subEntry->setField(SYS_VALUE, DirInfo::emptyDirString());
+        newTable->setRow(FS_KEY_SUB, subEntry);
+
+        auto numberEntry = newTable->newEntry();
+        numberEntry->setField(SYS_VALUE, "0");
+        newTable->setRow(FS_KEY_NUM, numberEntry);
+        root += dir;
+    }
+    return true;
 }

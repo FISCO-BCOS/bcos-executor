@@ -19,8 +19,8 @@
  */
 
 #pragma once
-#include "Common.h"
 #include "../libvm/Precompiled.h"
+#include "Common.h"
 
 namespace bcos
 {
@@ -47,7 +47,8 @@ public:
 
 private:
     void sm2Verify(bytesConstRef _paramData, std::shared_ptr<PrecompiledExecResult> _callResult);
-    void curve25519VRFVerify(bytesConstRef _paramData, std::shared_ptr<PrecompiledExecResult> _callResult);
+    void curve25519VRFVerify(
+        bytesConstRef _paramData, std::shared_ptr<PrecompiledExecResult> _callResult);
 };
 }  // namespace precompiled
 }  // namespace bcos

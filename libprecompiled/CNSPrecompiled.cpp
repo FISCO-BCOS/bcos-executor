@@ -51,8 +51,7 @@ std::string CNSPrecompiled::toString()
 
 // check param of the cns
 bool CNSPrecompiled::checkCNSParam(BlockContext::Ptr _context, Address const& _contractAddress,
-    std::string& _contractName, std::string& _contractVersion,
-    std::string const& _contractAbi)
+    std::string& _contractName, std::string& _contractVersion, std::string const& _contractAbi)
 {
     try
     {
@@ -105,16 +104,18 @@ bool CNSPrecompiled::checkCNSParam(BlockContext::Ptr _context, Address const& _c
     }
     if (_contractVersion.size() > CNS_VERSION_MAX_LENGTH)
     {
-        PRECOMPILED_LOG(ERROR)
-                << LOG_BADGE("CNSPrecompiled") << LOG_DESC("version length overflow 128")
-                << LOG_KV("contractName", _contractName) << LOG_KV("address", _contractAddress.hex())
-                << LOG_KV("version", _contractVersion);
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("CNSPrecompiled")
+                               << LOG_DESC("version length overflow 128")
+                               << LOG_KV("contractName", _contractName)
+                               << LOG_KV("address", _contractAddress.hex())
+                               << LOG_KV("version", _contractVersion);
         return false;
     }
     if (_contractVersion.find(',') != std::string::npos ||
         _contractName.find(',') != std::string::npos)
     {
-        PRECOMPILED_LOG(ERROR) << LOG_BADGE("CNSPrecompiled") << LOG_DESC("version or name contains \",\"")
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("CNSPrecompiled")
+                               << LOG_DESC("version or name contains \",\"")
                                << LOG_KV("contractName", _contractName)
                                << LOG_KV("version", _contractVersion);
         return false;
@@ -128,9 +129,8 @@ bool CNSPrecompiled::checkCNSParam(BlockContext::Ptr _context, Address const& _c
     return true;
 }
 
-PrecompiledExecResult::Ptr CNSPrecompiled::call(
-    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
-    const std::string& _origin, const std::string&, u256& _remainGas)
+PrecompiledExecResult::Ptr CNSPrecompiled::call(std::shared_ptr<executor::BlockContext> _context,
+    bytesConstRef _param, const std::string& _origin, const std::string&, u256& _remainGas)
 {
     PRECOMPILED_LOG(TRACE) << LOG_BADGE("CNSPrecompiled") << LOG_DESC("call")
                            << LOG_KV("param", *toHexString(_param));
@@ -190,8 +190,7 @@ PrecompiledExecResult::Ptr CNSPrecompiled::call(
                     commitResult.second->errorCode() == CommonError::SUCCESS)
                 {
                     gasPricer->updateMemUsed(entry->size() * commitResult.first);
-                    gasPricer->appendOperation(
-                        InterfaceOpcode::Insert, commitResult.first);
+                    gasPricer->appendOperation(InterfaceOpcode::Insert, commitResult.first);
                     PRECOMPILED_LOG(DEBUG)
                         << LOG_BADGE("CNSPrecompiled") << LOG_DESC("insert successfully");
                     result = commitResult.first;
@@ -235,7 +234,7 @@ PrecompiledExecResult::Ptr CNSPrecompiled::call(
             // "," must exist, and name,version must be trimmed
             std::pair<std::string, std::string> nameVersionPair{
                 key.substr(0, index), key.substr(index + 1)};
-            if(nameVersionPair.first == contractName)
+            if (nameVersionPair.first == contractName)
             {
                 auto entry = table->getRow(key);
                 if (!entry)
@@ -266,7 +265,7 @@ PrecompiledExecResult::Ptr CNSPrecompiled::call(
         boost::trim(contractVersion);
         auto entry = table->getRow(contractName + "," + contractVersion);
         gasPricer->appendOperation(InterfaceOpcode::Select, entry->capacityOfHashField());
-        if(!entry)
+        if (!entry)
         {
             PRECOMPILED_LOG(DEBUG)
                 << LOG_BADGE("CNSPrecompiled") << LOG_DESC("can't get cns selectByNameAndVersion")
@@ -292,12 +291,12 @@ PrecompiledExecResult::Ptr CNSPrecompiled::call(
         boost::trim(contractVersion);
         auto entry = table->getRow(contractName + "," + contractVersion);
         gasPricer->appendOperation(InterfaceOpcode::Select, entry->capacityOfHashField());
-        if(!entry)
+        if (!entry)
         {
             PRECOMPILED_LOG(DEBUG)
-                    << LOG_BADGE("CNSPrecompiled") << LOG_DESC("can't get cns selectByNameAndVersion")
-                    << LOG_KV("contractName", contractName)
-                    << LOG_KV("contractVersion", contractVersion);
+                << LOG_BADGE("CNSPrecompiled") << LOG_DESC("can't get cns selectByNameAndVersion")
+                << LOG_KV("contractName", contractName)
+                << LOG_KV("contractVersion", contractVersion);
             callResult->setExecResult(m_codec->encode((int)CODE_ADDRESS_AND_VERSION_EXIST));
         }
         else

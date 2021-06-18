@@ -224,7 +224,7 @@ void Executor::stop()
 void Executor::asyncGetCode(const std::string_view& _address,
     std::function<void(const Error::Ptr&, const std::shared_ptr<bytes>&)> _callback)
 {
-    auto state = make_shared<State>(m_tableFactory, m_hashImpl);
+    auto state = make_shared<State>(m_tableFactory, m_hashImpl, m_isWasm);
     m_threadPool->enqueue([state, address = string(_address), _callback]() {
         auto code = state->code(address);
         _callback(nullptr, code);

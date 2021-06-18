@@ -20,12 +20,12 @@
 
 #include "KVTablePrecompiled.h"
 #include "Common.h"
-#include "PrecompiledResult.h"
 #include "EntryPrecompiled.h"
+#include "PrecompiledResult.h"
 #include "Utilities.h"
+#include <bcos-framework/interfaces/protocol/CommonError.h>
 #include <bcos-framework/interfaces/protocol/Exceptions.h>
 #include <bcos-framework/interfaces/storage/TableInterface.h>
-#include <bcos-framework/interfaces/protocol/CommonError.h>
 
 using namespace bcos;
 using namespace bcos::storage;
@@ -102,11 +102,11 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
     {  // set(string,address)
         if (!checkAuthority(_context->getTableFactory(), _origin, _sender))
         {
-            PRECOMPILED_LOG(ERROR)
-                << LOG_BADGE("TablePrecompiled") << LOG_DESC("permission denied")
-                << LOG_KV("origin", _origin) << LOG_KV("contract", _sender);
+            PRECOMPILED_LOG(ERROR) << LOG_BADGE("TablePrecompiled") << LOG_DESC("permission denied")
+                                   << LOG_KV("origin", _origin) << LOG_KV("contract", _sender);
             BOOST_THROW_EXCEPTION(
-                PrecompiledError() << errinfo_comment("Permission denied. " + _origin + " can't call contract " + _sender));
+                PrecompiledError() << errinfo_comment(
+                    "Permission denied. " + _origin + " can't call contract " + _sender));
         }
         std::string key;
         Address entryAddress;
@@ -127,7 +127,7 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
 
         m_table->setRow(key, entry);
         auto commitResult = _context->getTableFactory()->commit();
-        if(!commitResult.second || commitResult.second->errorCode() == CommonError::SUCCESS)
+        if (!commitResult.second || commitResult.second->errorCode() == CommonError::SUCCESS)
         {
             if (commitResult.first > 0)
             {

@@ -41,6 +41,7 @@ const char* const STORAGE_VALUE = "value";
 const char* const ACCOUNT_BALANCE = "balance";
 const char* const ACCOUNT_CODE_HASH = "codeHash";
 const char* const ACCOUNT_CODE = "code";
+const char* const ACCOUNT_ABI = "abi";
 const char* const ACCOUNT_NONCE = "nonce";
 const char* const ACCOUNT_ALIVE = "alive";
 const char* const ACCOUNT_AUTHORITY = "authority";
@@ -50,8 +51,8 @@ class State : public executor::StateInterface
 {
 public:
     explicit State(
-        std::shared_ptr<storage::TableFactoryInterface> _tableFactory, crypto::Hash::Ptr _hashImpl)
-      : m_tableFactory(_tableFactory), m_hashImpl(_hashImpl){};
+        std::shared_ptr<storage::TableFactoryInterface> _tableFactory, crypto::Hash::Ptr _hashImpl, bool _isWasm)
+      : m_tableFactory(_tableFactory), m_hashImpl(_hashImpl), m_isWasm(_isWasm){};
     virtual ~State() = default;
     /// Check if the address is in use.
     bool addressInUse(const std::string_view& _address) const override;
@@ -106,6 +107,9 @@ public:
 
     /// Sets the code of the account. Must only be called during / after contract creation.
     void setCode(const std::string_view& _address, bytesConstRef _code) override;
+
+    /// Sets the ABI of the contract. Must only be called during / after contract creation.
+    void setAbi(const std::string_view& _address, const std::string_view& _abi) override;
 
     /// Delete an account (used for processing suicides). (set suicides key = 1 when use AMDB)
     void kill(const std::string_view& _address) override;
@@ -181,6 +185,7 @@ private:
     u256 m_accountStartNonce = 0;
     std::shared_ptr<storage::TableFactoryInterface> m_tableFactory;
     crypto::Hash::Ptr m_hashImpl;
+    bool m_isWasm;
 };
 }  // namespace executor
 }  // namespace bcos

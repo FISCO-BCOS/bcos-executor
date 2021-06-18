@@ -20,8 +20,8 @@
 
 #pragma once
 
-#include <bcos-framework/libcodec/scale/Scale.h>
 #include <bcos-framework/libcodec/abi/ContractABICodec.h>
+#include <bcos-framework/libcodec/scale/Scale.h>
 
 namespace bcos
 {
@@ -75,20 +75,21 @@ public:
     template <typename T, typename... U>
     void decodeScale(codec::scale::ScaleDecoderStream& _s, T& _t, U&... _u)
     {
-        _s>>_t;
+        _s >> _t;
         decodeScale(_s, _u...);
     }
     template <typename T>
     void decodeScale(codec::scale::ScaleDecoderStream& _s, T& _t)
     {
-        _s>>_t;
+        _s >> _t;
     }
 
     VMType getVMType() const { return m_type; }
     void setVMType(bool _isWasm) { m_type = _isWasm ? VMType::WASM : VMType::EVM; }
+
 private:
     VMType m_type = VMType::UNDEFINED;
     codec::abi::ContractABICodec m_abi;
 };
-}
-}
+}  // namespace precompiled
+}  // namespace bcos
