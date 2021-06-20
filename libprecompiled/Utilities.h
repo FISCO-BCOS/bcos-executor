@@ -35,8 +35,10 @@ namespace bcos
 {
 namespace precompiled
 {
-static const std::string USER_TABLE_PREFIX_SHORT = "u_";
-static const std::string CONTRACT_TABLE_PREFIX_SHORT = "c_";
+static const std::string USER_TABLE_PREFIX = "u_";
+static const std::string USER_DATA_DIR = "/data";
+static const std::string USER_TABLE_PREFIX_WASM = "/data/";
+static const std::string CONTRACT_TABLE_PREFIX = "c_";
 
 enum class Comparator
 {
@@ -143,15 +145,15 @@ inline void getErrorCodeOut(bytes& out, int const& result, const PrecompiledCode
         out = _codec->encode(u256(result));
         return;
     }
-    out = _codec->encode(result);
+    out = _codec->encode(s256(result));
 }
 inline std::string getTableName(const std::string& _tableName)
 {
-    return USER_TABLE_PREFIX_SHORT + _tableName;
+    return USER_TABLE_PREFIX + _tableName;
 }
 inline std::string getContractTableName(const std::string& _contractAddress)
 {
-    return CONTRACT_TABLE_PREFIX_SHORT + _contractAddress;
+    return CONTRACT_TABLE_PREFIX + _contractAddress;
 }
 
 void checkNameValidate(const std::string& tableName, std::vector<std::string>& keyFieldList,

@@ -82,12 +82,22 @@ shared_ptr<PrecompiledExecResult> BlockContext::call(const string& address, byte
     }
 }
 
-string BlockContext::registerPrecompiled(std::shared_ptr<precompiled::Precompiled> p)
+// TODO: check this register strategy
+string BlockContext::registerPrecompiled(
+    std::shared_ptr<precompiled::Precompiled> p, const std::string& _customPath)
 {
-    auto count = ++m_addressCount;
-    auto address(to_string(count));
-    m_address2Precompiled.insert(std::make_pair(address, p));
-    return address;
+    if (_customPath.empty())
+    {
+        auto count = ++m_addressCount;
+        auto address = Address(count).hex();
+        m_address2Precompiled.insert(std::make_pair(address, p));
+        return address;
+    }
+    else
+    {
+        m_address2Precompiled.insert(std::make_pair(_customPath, p));
+        return _customPath;
+    }
 }
 
 bool BlockContext::isPrecompiled(const std::string& address) const

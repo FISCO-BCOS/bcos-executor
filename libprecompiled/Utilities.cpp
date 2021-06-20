@@ -478,10 +478,6 @@ bool precompiled::recursiveBuildDir(
     for (auto& dir : *dirList)
     {
         auto table = _tableFactory->openTable(root);
-        if (root != "/")
-        {
-            root += "/";
-        }
         if (!table)
         {
             PRECOMPILED_LOG(ERROR) << LOG_BADGE("recursiveBuildDir")
@@ -492,7 +488,7 @@ bool precompiled::recursiveBuildDir(
         if (!entry)
         {
             PRECOMPILED_LOG(ERROR)
-                << LOG_BADGE("recursiveBuildDir") << LOG_DESC("can get entry of FS_KEY_SUB")
+                << LOG_BADGE("recursiveBuildDir") << LOG_DESC("can not get entry of FS_KEY_SUB")
                 << LOG_KV("root", root);
             return false;
         }
@@ -512,6 +508,10 @@ bool precompiled::recursiveBuildDir(
                 exist = true;
                 break;
             }
+        }
+        if (root != "/")
+        {
+            root += "/";
         }
         if (exist)
         {

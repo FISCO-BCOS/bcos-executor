@@ -49,10 +49,9 @@ const char* const SYS_CNS = "s_cns";
 const char* const SYS_TABLE = "s_tables";
 
 /// SYS_CONFIG table fields
-static const char* const SYS_CONFIG = "s_config";
 static const char* const SYS_VALUE = "value";
 static const char* const SYS_KEY = "key";
-static const char* const SYS_CONFIG_ENABLE_BLOCK_NUMBER = "enable_block_number";
+static const char* const SYS_CONFIG_ENABLE_BLOCK_NUMBER = "enable_number";
 
 /// FileSystem table keys
 static const std::string FS_KEY_TYPE = "type";
@@ -62,12 +61,19 @@ static const std::string FS_KEY_NUM = "enable_number";
 /// FileSystem file type
 static const std::string FS_TYPE_DIR = "directory";
 static const std::string FS_TYPE_CONTRACT = "contract";
+static const std::string FS_TYPE_DATA = "data";
 static const std::string FS_TYPE_LINK = "link";
+
+/// FileSystem table fields
+static const std::string FS_TABLE_KEY_ADDRESS = "address";
+static const std::string FS_TABLE_KEY_KEY_FIELD = "key_field";
+static const std::string FS_TABLE_KEY_VAL_FIELD = "value_field";
+static const std::string FS_TABLE_KEY_NUM = "enable_number";
 
 /// SYS_CONSENSUS table fields
 static const char* const NODE_TYPE = "type";
 static const char* const NODE_WEIGHT = "weight";
-static const char* const NODE_ENABLE_NUMBER = "enable_block_number";
+static const char* const NODE_ENABLE_NUMBER = "enable_number";
 
 const int SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH = 64;
 const int SYS_TABLE_KEY_FIELD_MAX_LENGTH = 1024;
@@ -180,6 +186,7 @@ enum PrecompiledErrorCode : int
     CODE_INVALID_CONFIGURATION_VALUES = -51300,
 
     // CNSPrecompiled -51299 ~ -51200
+    CODE_ADDRESS_OR_VERSION_ERROR = -51202,
     CODE_VERSION_LENGTH_OVERFLOW = -51201,
     CODE_ADDRESS_AND_VERSION_EXIST = -51200,
 

@@ -37,7 +37,7 @@ class PrecompiledCodec
 {
 public:
     using Ptr = std::shared_ptr<PrecompiledCodec>;
-    PrecompiledCodec(crypto::Hash::Ptr _hash, bool _isWasm) : m_abi(_hash)
+    PrecompiledCodec(crypto::Hash::Ptr _hash, bool _isWasm) : m_abi(_hash), m_hash(_hash)
     {
         m_type = _isWasm ? VMType::WASM : VMType::EVM;
     }
@@ -67,9 +67,22 @@ public:
         else
         {
             codec::scale::ScaleEncoderStream s;
-            s << _sig;
             (s << ... << std::forward<Args>(_args));
-            return s.data();
+            return m_hash->hash(_sig).ref().getCroppedData(0, 4).toBytes() + s.data();
+        }
+    }
+
+    bytes encodeWithSig(const std::string& _sig)
+    {
+        assert(m_type != VMType::UNDEFINED);
+        if (m_type == VMType::EVM)
+        {
+            return m_abi.abiIn(_sig);
+        }
+        else
+        {
+            codec::scale::ScaleEncoderStream s;
+            return m_hash->hash(_sig).ref().getCroppedData(0, 4).toBytes() + s.data();
         }
     }
 
@@ -82,9 +95,10 @@ public:
         {
             m_abi.abiOut(_data, _t...);
         }
-        else
+        else if (m_type == VMType::WASM)
         {
-            codec::scale::ScaleDecoderStream stream(_data.toBytes());
+            auto&& t = _data.toBytes();
+            codec::scale::ScaleDecoderStream stream(gsl::make_span(t));
             decodeScale(stream, _t...);
         }
     }
@@ -100,12 +114,15 @@ public:
         _s >> _t;
     }
 
+    void decodeScale(codec::scale::ScaleDecoderStream&) { return; }
+
     VMType getVMType() const { return m_type; }
     void setVMType(bool _isWasm) { m_type = _isWasm ? VMType::WASM : VMType::EVM; }
 
 private:
     VMType m_type = VMType::UNDEFINED;
     codec::abi::ContractABICodec m_abi;
+    crypto::Hash::Ptr m_hash;
 };
 }  // namespace precompiled
 }  // namespace bcos

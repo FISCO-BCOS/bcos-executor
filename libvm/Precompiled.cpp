@@ -273,14 +273,7 @@ storage::TableInterface::Ptr Precompiled::createTable(
     const std::string& keyField, const std::string& valueField)
 {
     auto ret = _tableFactory->createTable(tableName, keyField, valueField);
-    if (!ret)
-    {
-        return nullptr;
-    }
-    else
-    {
-        return _tableFactory->openTable(tableName);
-    }
+    return ret ? _tableFactory->openTable(tableName) : nullptr;
 }
 
 bool Precompiled::checkAuthority(storage::TableFactoryInterface::Ptr _tableFactory,

@@ -66,40 +66,40 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
     gasPricer->setMemUsed(_param.size());
 
     if (func == name2Selector[KV_TABLE_METHOD_GET])
-    {  // get(string)
+    {
+        // get(string)
         std::string key;
         m_codec->decode(data, key);
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("KVTable") << LOG_KV("get", key);
 
         auto entry = m_table->getRow(key);
-        gasPricer->updateMemUsed(entry->capacityOfHashField());
         gasPricer->appendOperation(InterfaceOpcode::Select, 1);
-
         if (!entry)
         {
             callResult->setExecResult(m_codec->encode(false));
         }
         else
         {
+            gasPricer->updateMemUsed(entry->capacityOfHashField());
             auto entryPrecompiled = std::make_shared<EntryPrecompiled>(m_hashImpl);
             // CachedStorage return entry use copy from
             entryPrecompiled->setEntry(entry);
             if (_context->isWasm())
             {
-                std::string newAddress = _context->registerPrecompiled(entryPrecompiled);
+                // FIXME: check this
+                std::string newAddress = _context->registerPrecompiled(entryPrecompiled, "");
                 callResult->setExecResult(m_codec->encode(true, newAddress));
             }
             else
             {
-                Address newAddress = Address(_context->registerPrecompiled(entryPrecompiled));
+                Address newAddress = Address(_context->registerPrecompiled(entryPrecompiled, ""));
                 callResult->setExecResult(m_codec->encode(true, newAddress));
             }
-            auto newAddress = Address(_context->registerPrecompiled(entryPrecompiled));
-            callResult->setExecResult(m_codec->encode(true, newAddress));
         }
     }
     else if (func == name2Selector[KV_TABLE_METHOD_SET])
-    {  // set(string,address)
+    {
+        // set(string,address)
         if (!checkAuthority(_context->getTableFactory(), _origin, _sender))
         {
             PRECOMPILED_LOG(ERROR) << LOG_BADGE("TablePrecompiled") << LOG_DESC("permission denied")
@@ -112,8 +112,9 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
         Address entryAddress;
         m_codec->decode(data, key, entryAddress);
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("KVTable") << LOG_KV("set", key);
+        // TODO: check this get strategy
         EntryPrecompiled::Ptr entryPrecompiled = std::dynamic_pointer_cast<EntryPrecompiled>(
-            _context->getPrecompiled(std::string((char*)entryAddress.data(), entryAddress.size)));
+            _context->getPrecompiled(entryAddress.hex()));
         auto entry = entryPrecompiled->getEntry();
         checkLengthValidate(
             key, USER_TABLE_KEY_VALUE_MAX_LENGTH, CODE_TABLE_KEY_VALUE_LENGTH_OVERFLOW);
@@ -143,7 +144,8 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
         auto entryPrecompiled = std::make_shared<EntryPrecompiled>(m_hashImpl);
         entryPrecompiled->setEntry(entry);
 
-        auto newAddress = Address(_context->registerPrecompiled(entryPrecompiled));
+        // FIXME: check this
+        auto newAddress = Address(_context->registerPrecompiled(entryPrecompiled, ""));
         callResult->setExecResult(m_codec->encode(newAddress));
     }
     else

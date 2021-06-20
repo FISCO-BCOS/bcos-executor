@@ -21,6 +21,7 @@
 
 #pragma once
 #include "../libprecompiled/PrecompiledCodec.h"
+#include "../libprecompiled/PrecompiledGas.h"
 #include "bcos-framework/interfaces/storage/TableInterface.h"
 #include "bcos-framework/libutilities/Common.h"
 #include "bcos-framework/libutilities/Exceptions.h"
@@ -136,7 +137,12 @@ class Precompiled : public std::enable_shared_from_this<Precompiled>
 public:
     using Ptr = std::shared_ptr<Precompiled>;
 
-    Precompiled(crypto::Hash::Ptr _hashImpl) : m_hashImpl(_hashImpl) { assert(m_hashImpl); }
+    Precompiled(crypto::Hash::Ptr _hashImpl) : m_hashImpl(_hashImpl)
+    {
+        assert(m_hashImpl);
+        m_precompiledGasFactory = std::make_shared<PrecompiledGasFactory>();
+        assert(m_precompiledGasFactory);
+    }
     virtual ~Precompiled() = default;
     virtual std::string toString() { return ""; }
     virtual std::shared_ptr<PrecompiledExecResult> call(

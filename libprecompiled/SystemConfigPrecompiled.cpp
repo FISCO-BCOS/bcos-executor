@@ -167,7 +167,7 @@ bool SystemConfigPrecompiled::checkValueValid(std::string const& key, std::strin
 std::pair<std::string, protocol::BlockNumber> SystemConfigPrecompiled::getSysConfigByKey(
     const std::string& _key, const storage::TableFactoryInterface::Ptr& _tableFactory) const
 {
-    auto table = _tableFactory->openTable(SYS_CONFIG);
+    auto table = _tableFactory->openTable(ledger::SYS_CONFIG);
     auto entry = table->getRow(_key);
     if (entry)
     {

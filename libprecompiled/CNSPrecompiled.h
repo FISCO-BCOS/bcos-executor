@@ -49,7 +49,7 @@ public:
 
     std::string toString() override;
 
-    bool checkCNSParam(std::shared_ptr<executor::BlockContext> _context,
+    int checkCNSParam(std::shared_ptr<executor::BlockContext> _context,
         Address const& _contractAddress, std::string& _contractName, std::string& _contractVersion,
         std::string const& _contractAbi);
 

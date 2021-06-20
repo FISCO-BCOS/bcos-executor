@@ -64,7 +64,7 @@ struct ExecutorFixture
         executor = make_shared<Executor>(blockFactory, dispatcher, ledger, storage, false);
         // create sys table
         auto tableFactory = std::make_shared<TableFactory>(storage, hashImpl, 0);
-        tableFactory->createTable(ledger::SYS_CONFIG, SYS_KEY, "value,enable_block_number");
+        tableFactory->createTable(ledger::SYS_CONFIG, SYS_KEY, "value,enable_number");
         auto table = tableFactory->openTable(ledger::SYS_CONFIG);
         auto entry = table->newEntry();
         entry->setField(SYS_VALUE, "3000000");

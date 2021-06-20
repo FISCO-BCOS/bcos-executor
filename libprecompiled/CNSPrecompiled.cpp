@@ -30,7 +30,7 @@ using namespace bcos::storage;
 using namespace bcos::precompiled;
 using namespace bcos::protocol;
 
-const char* const CNS_METHOD_INS_STR4 = "insert(string,string,Address,string)";
+const char* const CNS_METHOD_INS_STR4 = "insert(string,string,address,string)";
 const char* const CNS_METHOD_SLT_STR = "selectByName(string)";
 const char* const CNS_METHOD_SLT_STR2 = "selectByNameAndVersion(string,string)";
 const char* const CNS_METHOD_GET_CONTRACT_ADDRESS = "getContractAddress(string,string)";
@@ -50,7 +50,7 @@ std::string CNSPrecompiled::toString()
 }
 
 // check param of the cns
-bool CNSPrecompiled::checkCNSParam(BlockContext::Ptr _context, Address const& _contractAddress,
+int CNSPrecompiled::checkCNSParam(BlockContext::Ptr _context, Address const& _contractAddress,
     std::string& _contractName, std::string& _contractVersion, std::string const& _contractAbi)
 {
     try
@@ -109,7 +109,7 @@ bool CNSPrecompiled::checkCNSParam(BlockContext::Ptr _context, Address const& _c
                                << LOG_KV("contractName", _contractName)
                                << LOG_KV("address", _contractAddress.hex())
                                << LOG_KV("version", _contractVersion);
-        return false;
+        return CODE_VERSION_LENGTH_OVERFLOW;
     }
     if (_contractVersion.find(',') != std::string::npos ||
         _contractName.find(',') != std::string::npos)
@@ -118,7 +118,7 @@ bool CNSPrecompiled::checkCNSParam(BlockContext::Ptr _context, Address const& _c
                                << LOG_DESC("version or name contains \",\"")
                                << LOG_KV("contractName", _contractName)
                                << LOG_KV("version", _contractVersion);
-        return false;
+        return CODE_ADDRESS_OR_VERSION_ERROR;
     }
     // check the length of the key
     checkLengthValidate(
@@ -126,18 +126,17 @@ bool CNSPrecompiled::checkCNSParam(BlockContext::Ptr _context, Address const& _c
     // check the length of the field value
     checkLengthValidate(
         _contractAbi, USER_TABLE_FIELD_VALUE_MAX_LENGTH, CODE_TABLE_FIELD_VALUE_LENGTH_OVERFLOW);
-    return true;
+    return CODE_SUCCESS;
 }
 
 PrecompiledExecResult::Ptr CNSPrecompiled::call(std::shared_ptr<executor::BlockContext> _context,
     bytesConstRef _param, const std::string& _origin, const std::string&, u256& _remainGas)
 {
-    PRECOMPILED_LOG(TRACE) << LOG_BADGE("CNSPrecompiled") << LOG_DESC("call")
-                           << LOG_KV("param", *toHexString(_param));
-
     // parse function name
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
+    PRECOMPILED_LOG(TRACE) << LOG_BADGE("CNSPrecompiled") << LOG_DESC("call")
+                           << LOG_KV("func", func);
 
     m_codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
@@ -152,18 +151,21 @@ PrecompiledExecResult::Ptr CNSPrecompiled::call(std::shared_ptr<executor::BlockC
         Address contractAddress;
         m_codec->decode(data, contractName, contractVersion, contractAddress, contractAbi);
 
-        auto table = _context->getTableFactory()->openTable(SYS_CNS);
-        gasPricer->appendOperation(InterfaceOpcode::OpenTable);
-        bool isValid =
+        int validCode =
             checkCNSParam(_context, contractAddress, contractName, contractVersion, contractAbi);
+
+        auto table = _context->getTableFactory()->openTable(SYS_CNS);
+        if (!table)
+        {
+            table = createTable(_context->getTableFactory(), SYS_CNS,
+                SYS_CNS_FIELD_NAME + "," + SYS_CNS_FIELD_VERSION,
+                SYS_CNS_FIELD_ADDRESS + "," + SYS_CNS_FIELD_ABI);
+        }
+        gasPricer->appendOperation(InterfaceOpcode::OpenTable);
         auto entry = table->getRow(contractName + "," + contractVersion);
-        // check exist or not
-        bool exist = (entry != nullptr);
-        // Note: The selection here is only used as an internal logical judgment,
-        // so only calculate the computation gas
         gasPricer->appendOperation(InterfaceOpcode::Select, 1);
         int result;
-        if (exist)
+        if (entry != nullptr)
         {
             PRECOMPILED_LOG(ERROR)
                 << LOG_BADGE("CNSPrecompiled") << LOG_DESC("address and version exist")
@@ -171,11 +173,11 @@ PrecompiledExecResult::Ptr CNSPrecompiled::call(std::shared_ptr<executor::BlockC
                 << LOG_KV("version", contractVersion);
             result = CODE_ADDRESS_AND_VERSION_EXIST;
         }
-        else if (!isValid)
+        else if (validCode < 0)
         {
             PRECOMPILED_LOG(ERROR) << LOG_BADGE("CNSPrecompiled") << LOG_DESC("address invalid")
                                    << LOG_KV("address", contractAddress.hex());
-            result = CODE_ADDRESS_INVALID;
+            result = validCode;
         }
         else
         {
@@ -189,7 +191,7 @@ PrecompiledExecResult::Ptr CNSPrecompiled::call(std::shared_ptr<executor::BlockC
                 if (!commitResult.second ||
                     commitResult.second->errorCode() == CommonError::SUCCESS)
                 {
-                    gasPricer->updateMemUsed(entry->size() * commitResult.first);
+                    gasPricer->updateMemUsed(commitResult.first);
                     gasPricer->appendOperation(InterfaceOpcode::Insert, commitResult.first);
                     PRECOMPILED_LOG(DEBUG)
                         << LOG_BADGE("CNSPrecompiled") << LOG_DESC("insert successfully");
@@ -264,7 +266,6 @@ PrecompiledExecResult::Ptr CNSPrecompiled::call(std::shared_ptr<executor::BlockC
         boost::trim(contractName);
         boost::trim(contractVersion);
         auto entry = table->getRow(contractName + "," + contractVersion);
-        gasPricer->appendOperation(InterfaceOpcode::Select, entry->capacityOfHashField());
         if (!entry)
         {
             PRECOMPILED_LOG(DEBUG)
@@ -275,6 +276,7 @@ PrecompiledExecResult::Ptr CNSPrecompiled::call(std::shared_ptr<executor::BlockC
         }
         else
         {
+            gasPricer->appendOperation(InterfaceOpcode::Select, entry->capacityOfHashField());
             Address contractAddress = toAddress(entry->getField(SYS_CNS_FIELD_ADDRESS));
             std::string abi = entry->getField(SYS_CNS_FIELD_ABI);
             callResult->setExecResult(m_codec->encode(contractAddress, abi));
@@ -290,7 +292,6 @@ PrecompiledExecResult::Ptr CNSPrecompiled::call(std::shared_ptr<executor::BlockC
         boost::trim(contractName);
         boost::trim(contractVersion);
         auto entry = table->getRow(contractName + "," + contractVersion);
-        gasPricer->appendOperation(InterfaceOpcode::Select, entry->capacityOfHashField());
         if (!entry)
         {
             PRECOMPILED_LOG(DEBUG)
@@ -301,6 +302,7 @@ PrecompiledExecResult::Ptr CNSPrecompiled::call(std::shared_ptr<executor::BlockC
         }
         else
         {
+            gasPricer->appendOperation(InterfaceOpcode::Select, entry->capacityOfHashField());
             Address contractAddress = toAddress(entry->getField(SYS_CNS_FIELD_ADDRESS));
             callResult->setExecResult(m_codec->encode(contractAddress));
         }

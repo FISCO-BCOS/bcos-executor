@@ -138,8 +138,8 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
 
             auto entriesPrecompiled = std::make_shared<EntriesPrecompiled>(m_hashImpl);
             entriesPrecompiled->setEntries(entries);
-
-            auto newAddress = _context->registerPrecompiled(entriesPrecompiled);
+            // FIXME: check this
+            auto newAddress = _context->registerPrecompiled(entriesPrecompiled, "");
             callResult->setExecResult(m_codec->encode(newAddress));
         }
     }
@@ -214,13 +214,15 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
 
         if (_context->isWasm())
         {
-            std::string newAddress = _context->registerPrecompiled(conditionPrecompiled);
+            // FIXME: check this
+            std::string newAddress = _context->registerPrecompiled(conditionPrecompiled, "");
             callResult->setExecResult(m_codec->encode(newAddress));
         }
         else
         {
-            Address newAddress = Address(
-                _context->registerPrecompiled(conditionPrecompiled), FixedBytes<20>::FromBinary);
+            // FIXME: check this
+            Address newAddress = Address(_context->registerPrecompiled(conditionPrecompiled, ""),
+                FixedBytes<20>::FromBinary);
             callResult->setExecResult(m_codec->encode(newAddress));
         }
     }
@@ -232,13 +234,15 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
 
         if (_context->isWasm())
         {
-            std::string newAddress = _context->registerPrecompiled(entryPrecompiled);
+            // FIXME: check this
+            std::string newAddress = _context->registerPrecompiled(entryPrecompiled, "");
             callResult->setExecResult(m_codec->encode(newAddress));
         }
         else
         {
+            // FIXME: check this
             Address newAddress = Address(
-                _context->registerPrecompiled(entryPrecompiled), FixedBytes<20>::FromBinary);
+                _context->registerPrecompiled(entryPrecompiled, ""), FixedBytes<20>::FromBinary);
             callResult->setExecResult(m_codec->encode(newAddress));
         }
     }

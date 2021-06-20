@@ -77,7 +77,8 @@ PrecompiledExecResult::Ptr TableFactoryPrecompiled::call(
                 TablePrecompiled::Ptr tablePrecompiled =
                     std::make_shared<TablePrecompiled>(m_hashImpl);
                 tablePrecompiled->setTable(table);
-                address = _context->registerPrecompiled(tablePrecompiled);
+                // FIXME: check this
+                address = _context->registerPrecompiled(tablePrecompiled, "");
             }
             else
             {
@@ -97,7 +98,8 @@ PrecompiledExecResult::Ptr TableFactoryPrecompiled::call(
                     TablePrecompiled::Ptr tablePrecompiled =
                         std::make_shared<TablePrecompiled>(m_hashImpl);
                     tablePrecompiled->setTable(table);
-                    address = _context->registerPrecompiled(tablePrecompiled);
+                    // FIXME: check this
+                    address = _context->registerPrecompiled(tablePrecompiled, "");
                 }
                 else
                 {
@@ -115,7 +117,8 @@ PrecompiledExecResult::Ptr TableFactoryPrecompiled::call(
                     TablePrecompiled::Ptr tablePrecompiled =
                         std::make_shared<TablePrecompiled>(m_hashImpl);
                     tablePrecompiled->setTable(table);
-                    address = Address(_context->registerPrecompiled(tablePrecompiled));
+                    // FIXME: check this
+                    address = Address(_context->registerPrecompiled(tablePrecompiled, ""));
                 }
                 else
                 {

@@ -22,6 +22,7 @@
 #include "Common.h"
 #include "PrecompiledResult.h"
 #include "Utilities.h"
+#include <json/json.h>
 #include <boost/algorithm/string/split.hpp>
 #include <boost/throw_exception.hpp>
 
@@ -59,7 +60,6 @@ std::shared_ptr<PrecompiledExecResult> FileSystemPrecompiled::call(
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->setMemUsed(_param.size());
 
-    // FIXME: list return json string
     if (func == name2Selector[FILE_SYSTEM_METHOD_LIST])
     {
         // list(string)
@@ -73,17 +73,39 @@ std::shared_ptr<PrecompiledExecResult> FileSystemPrecompiled::call(
             auto type = table->getRow(FS_KEY_TYPE)->getField(SYS_VALUE);
             if (type == "directory")
             {
+                Json::Value directory;
+                Json::Value subdirectory(Json::arrayValue);
                 auto subdirectories = table->getRow(FS_KEY_SUB)->getField(SYS_VALUE);
+                DirInfo dirInfo;
+                DirInfo::fromString(dirInfo, subdirectories);
+                for (auto& fileInfo : dirInfo.getSubDir())
+                {
+                    Json::Value file;
+                    file["type"] = fileInfo.getType();
+                    file["name"] = fileInfo.getName();
+                    file["enable_number"] = fileInfo.getNumber();
+                    subdirectory.append(file);
+                }
+                directory[FS_KEY_TYPE] = type;
+                directory[FS_KEY_SUB] = subdirectory;
+                directory[FS_KEY_NUM] = table->getRow(FS_KEY_NUM)->getField(SYS_VALUE);
+
+                Json::FastWriter fastWriter;
+                std::string str = fastWriter.write(directory);
                 PRECOMPILED_LOG(TRACE) << LOG_BADGE("FileSystemPrecompiled")
-                                       << LOG_DESC("ls dir, return subdirectories")
-                                       << LOG_KV("subdirectories", subdirectories);
-                callResult->setExecResult(m_codec->encode(type, subdirectories));
+                                       << LOG_DESC("ls dir, return subdirectories");
+                callResult->setExecResult(m_codec->encode(str));
             }
             else
             {
                 // regular file
+                Json::Value file;
+                file[FS_KEY_TYPE] = type;
+                file[FS_KEY_NUM] = table->getRow(FS_KEY_NUM)->getField(SYS_VALUE);
+                Json::FastWriter fastWriter;
+                std::string str = fastWriter.write(file);
                 // TODO: add permission mod when permission support
-                callResult->setExecResult(m_codec->encode(type));
+                callResult->setExecResult(m_codec->encode(str));
             }
         }
         else
@@ -91,7 +113,7 @@ std::shared_ptr<PrecompiledExecResult> FileSystemPrecompiled::call(
             PRECOMPILED_LOG(ERROR)
                 << LOG_BADGE("FileSystemPrecompiled") << LOG_DESC("can't open table of file path")
                 << LOG_KV("path", absolutePath);
-            callResult->setExecResult(m_codec->encode((int)CODE_FILE_NOT_EXIST));
+            getErrorCodeOut(callResult->mutableExecResult(), CODE_FILE_NOT_EXIST, m_codec);
         }
     }
     else if (func == name2Selector[FILE_SYSTEM_METHOD_MKDIR])
