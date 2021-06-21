@@ -34,6 +34,7 @@ using namespace bcos;
 using namespace bcos::executor;
 using namespace bcos::storage;
 using namespace bcos::precompiled;
+using namespace bcos::protocol;
 
 const char* const TABLE_METHOD_OPT_STR = "openTable(string)";
 const char* const TABLE_METHOD_CRT_STR_STR = "createTable(string,string,string)";
@@ -62,76 +63,62 @@ PrecompiledExecResult::Ptr TableFactoryPrecompiled::call(
     gasPricer->setMemUsed(_param.size());
 
     if (func == name2Selector[TABLE_METHOD_OPT_STR])
-    {  // openTable(string)
+    {
+        // openTable(string)
         std::string tableName;
         m_codec->decode(data, tableName);
-        tableName = precompiled::getTableName(tableName);
-
-        auto table = m_memoryTableFactory->openTable(tableName);
-        gasPricer->appendOperation(InterfaceOpcode::OpenTable);
-        if (_context->isWasm())
+        if (_context->isWasm() && tableName.rfind(USER_TABLE_PREFIX_WASM, 0) == 0)
         {
-            std::string address;
-            if (table)
+            // if tableName start with /data/
+            auto table = m_memoryTableFactory->openTable(tableName);
+            gasPricer->appendOperation(InterfaceOpcode::OpenTable);
+            if (!table)
             {
-                TablePrecompiled::Ptr tablePrecompiled =
-                    std::make_shared<TablePrecompiled>(m_hashImpl);
-                tablePrecompiled->setTable(table);
-                // FIXME: check this
-                address = _context->registerPrecompiled(tablePrecompiled, "");
-            }
-            else
-            {
-                STORAGE_LOG(WARNING)
+                PRECOMPILED_LOG(ERROR)
                     << LOG_BADGE("TableFactoryPrecompiled") << LOG_DESC("Open new table failed")
                     << LOG_KV("table name", tableName);
+                BOOST_THROW_EXCEPTION(
+                    PrecompiledError() << errinfo_comment(tableName + " does not exist"));
             }
+            auto addressTableName = table->getRow(FS_TABLE_KEY_ADDRESS)->getField(SYS_VALUE);
+            // addressTable must exist
+            auto addressTable = m_memoryTableFactory->openTable(addressTableName);
+            auto tablePrecompiled = std::make_shared<TablePrecompiled>(m_hashImpl);
+            tablePrecompiled->setTable(addressTable);
+            auto address = _context->registerPrecompiled(tablePrecompiled);
             callResult->setExecResult(m_codec->encode(address));
         }
         else
         {
+            tableName = getTableName(tableName);
+            auto table = m_memoryTableFactory->openTable(tableName);
+            gasPricer->appendOperation(InterfaceOpcode::OpenTable);
+            if (!table)
+            {
+                PRECOMPILED_LOG(WARNING)
+                    << LOG_BADGE("TableFactoryPrecompiled") << LOG_DESC("Open new table failed")
+                    << LOG_KV("table name", tableName);
+                BOOST_THROW_EXCEPTION(
+                    PrecompiledError() << errinfo_comment(tableName + " does not exist"));
+            }
+            auto tablePrecompiled = std::make_shared<TablePrecompiled>(m_hashImpl);
+            tablePrecompiled->setTable(table);
             if (_context->isWasm())
             {
-                std::string address;
-                if (table)
-                {
-                    TablePrecompiled::Ptr tablePrecompiled =
-                        std::make_shared<TablePrecompiled>(m_hashImpl);
-                    tablePrecompiled->setTable(table);
-                    // FIXME: check this
-                    address = _context->registerPrecompiled(tablePrecompiled, "");
-                }
-                else
-                {
-                    STORAGE_LOG(WARNING)
-                        << LOG_BADGE("TableFactoryPrecompiled") << LOG_DESC("Open new table failed")
-                        << LOG_KV("table name", tableName);
-                }
+                auto address = _context->registerPrecompiled(tablePrecompiled);
                 callResult->setExecResult(m_codec->encode(address));
             }
             else
             {
-                Address address;
-                if (table)
-                {
-                    TablePrecompiled::Ptr tablePrecompiled =
-                        std::make_shared<TablePrecompiled>(m_hashImpl);
-                    tablePrecompiled->setTable(table);
-                    // FIXME: check this
-                    address = Address(_context->registerPrecompiled(tablePrecompiled, ""));
-                }
-                else
-                {
-                    STORAGE_LOG(WARNING)
-                        << LOG_BADGE("TableFactoryPrecompiled") << LOG_DESC("Open new table failed")
-                        << LOG_KV("table name", tableName);
-                }
+                auto address = Address(
+                    _context->registerPrecompiled(tablePrecompiled), FixedBytes<20>::FromBinary);
                 callResult->setExecResult(m_codec->encode(address));
             }
         }
     }
     else if (func == name2Selector[TABLE_METHOD_CRT_STR_STR])
-    {  // createTable(string,string,string)
+    {
+        // createTable(string,string,string)
         if (!checkAuthority(_context->getTableFactory(), _origin, _sender))
         {
             PRECOMPILED_LOG(ERROR)
@@ -143,95 +130,59 @@ PrecompiledExecResult::Ptr TableFactoryPrecompiled::call(
         }
         std::string tableName;
         std::string keyField;
-        std::string valueFiled;
-        m_codec->decode(data, tableName, keyField, valueFiled);
+        std::string valueField;
+        m_codec->decode(data, tableName, keyField, valueField);
+        checkCreateTableParam(tableName, keyField, valueField);
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("TableFactory") << LOG_KV("createTable", tableName)
-                               << LOG_KV("keyField", keyField) << LOG_KV("valueFiled", valueFiled);
+                               << LOG_KV("keyField", keyField) << LOG_KV("valueFiled", valueField);
 
-        std::vector<std::string> keyNameList;
-        boost::split(keyNameList, keyField, boost::is_any_of(","));
-        std::vector<std::string> fieldNameList;
-        boost::split(fieldNameList, valueFiled, boost::is_any_of(","));
-
-        if (keyField.size() > (size_t)SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH)
-        {  // mysql TableName and fieldName length limit is 64
-            BOOST_THROW_EXCEPTION(protocol::PrecompiledError() << errinfo_comment(
-                                      "table field name length overflow " +
-                                      std::to_string(SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH)));
-        }
-        for (auto& str : keyNameList)
-        {
-            boost::trim(str);
-            if (str.size() > (size_t)SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH)
-            {  // mysql TableName and fieldName length limit is 64
-                BOOST_THROW_EXCEPTION(
-                    protocol::PrecompiledError()
-                    << errinfo_comment(
-                           "errorCode" + std::to_string(CODE_TABLE_FIELD_LENGTH_OVERFLOW))
-                    << errinfo_comment(std::string("table key name length overflow ") +
-                                       std::to_string(SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH)));
-            }
-        }
-
-        for (auto& str : fieldNameList)
-        {
-            boost::trim(str);
-            if (str.size() > (size_t)SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH)
-            {  // mysql TableName and fieldName length limit is 64
-                BOOST_THROW_EXCEPTION(
-                    protocol::PrecompiledError()
-                    << errinfo_comment(
-                           "errorCode" + std::to_string(CODE_TABLE_FIELD_LENGTH_OVERFLOW))
-                    << errinfo_comment(std::string("table field name length overflow ") +
-                                       std::to_string(SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH)));
-            }
-        }
-
-        checkNameValidate(tableName, keyNameList, fieldNameList);
-
-        keyField = boost::join(keyNameList, ",");
-        valueFiled = boost::join(fieldNameList, ",");
-        if (keyField.size() > (size_t)SYS_TABLE_KEY_FIELD_MAX_LENGTH)
-        {
-            BOOST_THROW_EXCEPTION(protocol::PrecompiledError() << errinfo_comment(
-                                      std::string("total table key name length overflow ") +
-                                      std::to_string(SYS_TABLE_KEY_FIELD_MAX_LENGTH)));
-        }
-        if (valueFiled.size() > (size_t)SYS_TABLE_VALUE_FIELD_MAX_LENGTH)
-        {
-            BOOST_THROW_EXCEPTION(protocol::PrecompiledError() << errinfo_comment(
-                                      std::string("total table field name length overflow ") +
-                                      std::to_string(SYS_TABLE_VALUE_FIELD_MAX_LENGTH)));
-        }
-
-        tableName = precompiled::getTableName(tableName);
-        if (tableName.size() > (size_t)USER_TABLE_NAME_MAX_LENGTH ||
-            (tableName.size() > (size_t)USER_TABLE_NAME_MAX_LENGTH_S))
-        {
-            // mysql TableName and fieldName length limit is 64
-            BOOST_THROW_EXCEPTION(
-                protocol::PrecompiledError()
-                << errinfo_comment("errorCode: " + std::to_string(CODE_TABLE_NAME_LENGTH_OVERFLOW))
-                << errinfo_comment(std::string("tableName length overflow ") +
-                                   std::to_string(USER_TABLE_NAME_MAX_LENGTH)));
-        }
+        auto newTableName = getTableName(tableName);
         int result = 0;
-        try
+        auto table = m_memoryTableFactory->openTable(newTableName);
+        if (table)
         {
-            auto table = m_memoryTableFactory->createTable(tableName, keyField, valueFiled);
-            if (!table)
-            {  // table already exist
-                result = CODE_TABLE_NAME_ALREADY_EXIST;
-            }
-            else
-            {
-                gasPricer->appendOperation(InterfaceOpcode::CreateTable);
-            }
+            // table already exist
+            result = CODE_TABLE_NAME_ALREADY_EXIST;
         }
-        catch (std::exception& e)
+        else
         {
-            STORAGE_LOG(ERROR) << "Create table failed: " << boost::diagnostic_information(e);
-            result = -1;
+            m_memoryTableFactory->createTable(newTableName, keyField, valueField);
+            gasPricer->appendOperation(InterfaceOpcode::CreateTable);
+            if (_context->isWasm())
+            {
+                // check if tableName start with /data/
+                auto inodeTableName = (tableName.rfind(USER_TABLE_PREFIX_WASM, 0) == 0) ?
+                                          tableName :
+                                          USER_TABLE_PREFIX_WASM + tableName;
+                // create inode table
+                m_memoryTableFactory->createTable(inodeTableName, SYS_KEY, SYS_VALUE);
+
+                // set inode data of table in file system
+                auto inodeTable = m_memoryTableFactory->openTable(inodeTableName);
+                auto typeEntry = inodeTable->newEntry();
+                typeEntry->setField(SYS_VALUE, FS_TYPE_DATA);
+                inodeTable->setRow(FS_KEY_TYPE, typeEntry);
+                auto addressEntry = inodeTable->newEntry();
+                addressEntry->setField(SYS_VALUE, newTableName);
+                inodeTable->setRow(FS_TABLE_KEY_ADDRESS, addressEntry);
+                auto numEntry = inodeTable->newEntry();
+                numEntry->setField(SYS_VALUE, std::to_string(_context->currentNumber()));
+                inodeTable->setRow(FS_TABLE_KEY_NUM, numEntry);
+
+                // FIXME: add recursive file path add subdirectory
+                // /data must exist
+                // update /data subdirectories
+                auto dataTable = m_memoryTableFactory->openTable(USER_DATA_DIR);
+                auto entry = dataTable->getRow(FS_KEY_SUB);
+                DirInfo parentDir;
+                DirInfo::fromString(parentDir, entry->getField(SYS_VALUE));
+                FileInfo fileInfo(tableName, FS_TYPE_DATA, _context->currentNumber());
+                parentDir.getMutableSubDir().emplace_back(fileInfo);
+
+                auto newEntry = dataTable->newEntry();
+                newEntry->setField(SYS_VALUE, parentDir.toString());
+                dataTable->setRow(FS_KEY_SUB, newEntry);
+            }
         }
         getErrorCodeOut(callResult->mutableExecResult(), result, m_codec);
     }
@@ -248,4 +199,74 @@ PrecompiledExecResult::Ptr TableFactoryPrecompiled::call(
 crypto::HashType TableFactoryPrecompiled::hash()
 {
     return m_memoryTableFactory->hash();
+}
+
+void TableFactoryPrecompiled::checkCreateTableParam(
+    const std::string& _tableName, std::string& _keyField, std::string& _valueField)
+{
+    std::vector<std::string> keyNameList;
+    boost::split(keyNameList, _keyField, boost::is_any_of(","));
+    std::vector<std::string> fieldNameList;
+    boost::split(fieldNameList, _valueField, boost::is_any_of(","));
+
+    if (_keyField.size() > (size_t)SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH)
+    {  // mysql TableName and fieldName length limit is 64
+        BOOST_THROW_EXCEPTION(protocol::PrecompiledError() << errinfo_comment(
+                                  "table field name length overflow " +
+                                  std::to_string(SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH)));
+    }
+    for (auto& str : keyNameList)
+    {
+        boost::trim(str);
+        if (str.size() > (size_t)SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH)
+        {  // mysql TableName and fieldName length limit is 64
+            BOOST_THROW_EXCEPTION(
+                protocol::PrecompiledError()
+                << errinfo_comment("errorCode" + std::to_string(CODE_TABLE_FIELD_LENGTH_OVERFLOW))
+                << errinfo_comment(std::string("table key name length overflow ") +
+                                   std::to_string(SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH)));
+        }
+    }
+
+    for (auto& str : fieldNameList)
+    {
+        boost::trim(str);
+        if (str.size() > (size_t)SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH)
+        {  // mysql TableName and fieldName length limit is 64
+            BOOST_THROW_EXCEPTION(
+                protocol::PrecompiledError()
+                << errinfo_comment("errorCode" + std::to_string(CODE_TABLE_FIELD_LENGTH_OVERFLOW))
+                << errinfo_comment(std::string("table field name length overflow ") +
+                                   std::to_string(SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH)));
+        }
+    }
+
+    checkNameValidate(_tableName, keyNameList, fieldNameList);
+
+    _keyField = boost::join(keyNameList, ",");
+    _valueField = boost::join(fieldNameList, ",");
+    if (_keyField.size() > (size_t)SYS_TABLE_KEY_FIELD_MAX_LENGTH)
+    {
+        BOOST_THROW_EXCEPTION(protocol::PrecompiledError() << errinfo_comment(
+                                  std::string("total table key name length overflow ") +
+                                  std::to_string(SYS_TABLE_KEY_FIELD_MAX_LENGTH)));
+    }
+    if (_valueField.size() > (size_t)SYS_TABLE_VALUE_FIELD_MAX_LENGTH)
+    {
+        BOOST_THROW_EXCEPTION(protocol::PrecompiledError() << errinfo_comment(
+                                  std::string("total table field name length overflow ") +
+                                  std::to_string(SYS_TABLE_VALUE_FIELD_MAX_LENGTH)));
+    }
+
+    auto tableName = precompiled::getTableName(_tableName);
+    if (tableName.size() > (size_t)USER_TABLE_NAME_MAX_LENGTH ||
+        (tableName.size() > (size_t)USER_TABLE_NAME_MAX_LENGTH_S))
+    {
+        // mysql TableName and fieldName length limit is 64
+        BOOST_THROW_EXCEPTION(
+            protocol::PrecompiledError()
+            << errinfo_comment("errorCode: " + std::to_string(CODE_TABLE_NAME_LENGTH_OVERFLOW))
+            << errinfo_comment(std::string("tableName length overflow ") +
+                               std::to_string(USER_TABLE_NAME_MAX_LENGTH)));
+    }
 }

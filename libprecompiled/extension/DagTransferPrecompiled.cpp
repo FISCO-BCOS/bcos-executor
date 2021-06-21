@@ -247,14 +247,6 @@ void DagTransferPrecompiled::userAddCall(std::shared_ptr<executor::BlockContext>
         auto newEntry = table->newEntry();
         newEntry->setField(DAG_TRANSFER_FIELD_BALANCE, amount.str());
         table->setRow(user, newEntry);
-        auto commitResult = _context->getTableFactory()->commit();
-        if (commitResult.second &&
-            commitResult.second->errorCode() != protocol::CommonError::SUCCESS)
-        {
-            ret = -1;
-            strErrorMsg = commitResult.second->errorMessage();
-            break;
-        }
         ret = 0;
     } while (false);
     if (!strErrorMsg.empty())
@@ -315,14 +307,6 @@ void DagTransferPrecompiled::userSaveCall(std::shared_ptr<executor::BlockContext
                 break;
             }
             table->setRow(user, newEntry);
-            auto commitResult = _context->getTableFactory()->commit();
-            if (commitResult.second &&
-                commitResult.second->errorCode() != protocol::CommonError::SUCCESS)
-            {
-                ret = -1;
-                strErrorMsg = commitResult.second->errorMessage();
-                break;
-            }
         }
         else
         {
@@ -346,14 +330,6 @@ void DagTransferPrecompiled::userSaveCall(std::shared_ptr<executor::BlockContext
                 break;
             }
             table->setRow(user, updateEntry);
-            auto commitResult = _context->getTableFactory()->commit();
-            if (commitResult.second &&
-                commitResult.second->errorCode() != protocol::CommonError::SUCCESS)
-            {
-                ret = -1;
-                strErrorMsg = commitResult.second->errorMessage();
-                break;
-            }
         }
 
         ret = 0;
@@ -426,14 +402,6 @@ void DagTransferPrecompiled::userDrawCall(std::shared_ptr<executor::BlockContext
             break;
         }
         table->setRow(user, newEntry);
-        auto commitResult = _context->getTableFactory()->commit();
-        if (commitResult.second &&
-            commitResult.second->errorCode() != protocol::CommonError::SUCCESS)
-        {
-            ret = -1;
-            strErrorMsg = commitResult.second->errorMessage();
-            break;
-        }
         ret = 0;
     } while (false);
     if (!strErrorMsg.empty())
@@ -561,14 +529,6 @@ void DagTransferPrecompiled::userTransferCall(std::shared_ptr<executor::BlockCon
                 break;
             }
             table->setRow(toUser, newEntry);
-            auto commitResult = _context->getTableFactory()->commit();
-            if (commitResult.second &&
-                commitResult.second->errorCode() != protocol::CommonError::SUCCESS)
-            {
-                ret = -1;
-                strErrorMsg = commitResult.second->errorMessage();
-                break;
-            }
             toUserBalance = 0;
         }
         else
@@ -602,15 +562,6 @@ void DagTransferPrecompiled::userTransferCall(std::shared_ptr<executor::BlockCon
         entry = table->newEntry();
         entry->setField(DAG_TRANSFER_FIELD_BALANCE, newToUserBalance.str());
         table->setRow(fromUser, entry);
-
-        auto commitResult = _context->getTableFactory()->commit();
-        if (commitResult.second &&
-            commitResult.second->errorCode() != protocol::CommonError::SUCCESS)
-        {
-            ret = -1;
-            strErrorMsg = commitResult.second->errorMessage();
-            break;
-        }
         // end with success
         ret = 0;
     } while (false);

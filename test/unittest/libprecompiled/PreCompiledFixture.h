@@ -19,7 +19,6 @@
  */
 
 #pragma once
-#include <string>
 #include "bcos-framework/interfaces/ledger/LedgerTypeDef.h"
 #include "bcos-framework/testutils/protocol/FakeBlock.h"
 #include "bcos-framework/testutils/protocol/FakeBlockHeader.h"
@@ -35,6 +34,7 @@
 #include <bcos-framework/testutils/TestPromptFixture.h>
 #include <bcos-framework/testutils/crypto/HashImpl.h>
 #include <bcos-framework/testutils/crypto/SignatureImpl.h>
+#include <string>
 
 using namespace bcos;
 using namespace bcos::precompiled;

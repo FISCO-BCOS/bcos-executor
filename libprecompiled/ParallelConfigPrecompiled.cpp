@@ -157,24 +157,12 @@ void ParallelConfigPrecompiled::registerParallelFunction(
         entry->setField(PARA_CRITICAL_SIZE, boost::lexical_cast<std::string>(criticalSize));
 
         table->setRow(std::to_string(selector), entry);
-        auto commitResult = _context->getTableFactory()->commit();
-        if (!commitResult.second ||
-            commitResult.second->errorCode() == protocol::CommonError::SUCCESS)
-        {
-            PRECOMPILED_LOG(DEBUG)
-                << LOG_BADGE("ParallelConfigPrecompiled")
-                << LOG_DESC("registerParallelFunction success")
-                << LOG_KV(PARA_SELECTOR, std::to_string(selector))
-                << LOG_KV(PARA_FUNC_NAME, functionName) << LOG_KV(PARA_CRITICAL_SIZE, criticalSize);
-            _out = m_codec->encode(u256(0));
-        }
-        else
-        {
-            PRECOMPILED_LOG(ERROR) << LOG_BADGE("ParallelConfigPrecompiled")
-                                   << LOG_DESC("registerParallelFunction failed, commit error")
-                                   << LOG_KV("errorCode", commitResult.second->errorCode())
-                                   << LOG_KV("errorMsg", commitResult.second->errorMessage());
-        }
+        PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ParallelConfigPrecompiled")
+                               << LOG_DESC("registerParallelFunction success")
+                               << LOG_KV(PARA_SELECTOR, std::to_string(selector))
+                               << LOG_KV(PARA_FUNC_NAME, functionName)
+                               << LOG_KV(PARA_CRITICAL_SIZE, criticalSize);
+        _out = m_codec->encode(u256(0));
 
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ParallelConfigPrecompiled")
                                << LOG_DESC("registerParallelFunction success")
@@ -200,24 +188,10 @@ void ParallelConfigPrecompiled::unregisterParallelFunction(
     if (table)
     {
         table->remove(std::to_string(selector));
-        auto commitResult = _context->getTableFactory()->commit();
-        if (!commitResult.second ||
-            commitResult.second->errorCode() == protocol::CommonError::SUCCESS)
-        {
-            _out = m_codec->encode(u256(0));
-            PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ParallelConfigPrecompiled")
-                                   << LOG_DESC("unregisterParallelFunction success")
-                                   << LOG_KV(PARA_SELECTOR, std::to_string(selector));
-        }
-        else
-        {
-            PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ParallelConfigPrecompiled")
-                                   << LOG_DESC("unregisterParallelFunction commit failed")
-                                   << LOG_KV("errorCode", commitResult.second->errorCode())
-                                   << LOG_KV(PARA_SELECTOR, std::to_string(selector));
-            // TODO: use unify code
-            _out = m_codec->encode(u256(-1));
-        }
+        _out = m_codec->encode(u256(0));
+        PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ParallelConfigPrecompiled")
+                               << LOG_DESC("unregisterParallelFunction success")
+                               << LOG_KV(PARA_SELECTOR, std::to_string(selector));
     }
 }
 

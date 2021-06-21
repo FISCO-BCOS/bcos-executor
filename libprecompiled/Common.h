@@ -66,8 +66,6 @@ static const std::string FS_TYPE_LINK = "link";
 
 /// FileSystem table fields
 static const std::string FS_TABLE_KEY_ADDRESS = "address";
-static const std::string FS_TABLE_KEY_KEY_FIELD = "key_field";
-static const std::string FS_TABLE_KEY_VAL_FIELD = "value_field";
 static const std::string FS_TABLE_KEY_NUM = "enable_number";
 
 /// SYS_CONSENSUS table fields

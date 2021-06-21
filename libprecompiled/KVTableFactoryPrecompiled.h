@@ -62,7 +62,7 @@ public:
 
 private:
     void checkCreateTableParam(
-        std::string _tableName, std::string _keyFiled, std::string _valueField);
+        const std::string& _tableName, std::string& _keyField, std::string& _valueField);
     bcos::storage::TableFactoryInterface::Ptr m_memoryTableFactory;
 };
 

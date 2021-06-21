@@ -119,7 +119,6 @@ PrecompiledExecResult::Ptr HelloWorldPrecompiled::call(
         gasPricer->appendOperation(InterfaceOpcode::Select, 1);
         entry->setField(HELLO_WORLD_VALUE_FIELD, strValue);
 
-        size_t count = 0;
         if (!_context->getTableFactory()->checkAuthority(HELLO_WORLD_TABLE_NAME, _origin))
         {
             PRECOMPILED_LOG(ERROR)
@@ -127,22 +126,9 @@ PrecompiledExecResult::Ptr HelloWorldPrecompiled::call(
                 << LOG_KV("origin", _origin) << LOG_KV("func", func);
         }
         table->setRow(HELLO_WORLD_KEY_FIELD_NAME, entry);
-        auto commitResult = _context->getTableFactory()->commit();
-        count = commitResult.first;
-        if (!commitResult.second ||
-            commitResult.second->errorCode() == protocol::CommonError::SUCCESS)
-        {
-            gasPricer->appendOperation(InterfaceOpcode::Update, count);
-            gasPricer->updateMemUsed(entry->capacityOfHashField() * count);
-        }
-        else
-        {
-            PRECOMPILED_LOG(ERROR)
-                << LOG_BADGE("HelloWorldPrecompiled") << LOG_DESC(" commit error ")
-                << LOG_KV("errorCode", commitResult.second->errorCode()) << LOG_KV("func", func);
-        }
-
-        getErrorCodeOut(callResult->mutableExecResult(), count, m_codec);
+        gasPricer->appendOperation(InterfaceOpcode::Update, 1);
+        gasPricer->updateMemUsed(entry->capacityOfHashField());
+        getErrorCodeOut(callResult->mutableExecResult(), 1, m_codec);
     }
     else
     {  // unknown function call

@@ -81,23 +81,11 @@ PrecompiledExecResult::Ptr SystemConfigPrecompiled::call(
         if (tableFactory->checkAuthority(ledger::SYS_CONFIG, _origin))
         {
             table->setRow(configKey, entry);
-            auto ret = tableFactory->commit();
-            if (!ret.second && ret.second->errorCode() != 0)
-            {
-                PRECOMPILED_LOG(ERROR)
-                    << LOG_BADGE("SystemConfigPrecompiled") << LOG_DESC("table commit occurs error")
-                    << LOG_KV("errorCode", ret.second->errorCode())
-                    << LOG_KV("errorMsg", ret.second->errorMessage())
-                    << LOG_KV("configKey", configKey);
-                // FIXME: use unified code to return
-                result = ret.second->errorCode();
-            }
-            else
-            {
-                PRECOMPILED_LOG(DEBUG) << LOG_BADGE("SystemConfigPrecompiled")
-                                       << LOG_DESC("setValueByKey successfully");
-                result = 0;
-            }
+            PRECOMPILED_LOG(ERROR)
+                << LOG_BADGE("SystemConfigPrecompiled") << LOG_DESC("table commit occurs error")
+                << LOG_KV("configKey", configKey);
+            // FIXME: use unified code to return
+            result = 1;
         }
         else
         {

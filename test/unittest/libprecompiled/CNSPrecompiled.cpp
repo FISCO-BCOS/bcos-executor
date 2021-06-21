@@ -74,6 +74,7 @@ BOOST_AUTO_TEST_CASE(insertTest)
         contractVersion, contractAddress, contractAbi);
     auto callResult = cnsPrecompiled->call(context, bytesConstRef(&in), "", "", gas);
     bytes out = callResult->execResult();
+    context->getTableFactory()->commit();
     // query
     auto table = memoryTableFactory->openTable(SYS_CNS);
     auto entry = table->getRow(contractName + "," + contractVersion);
@@ -99,6 +100,7 @@ BOOST_AUTO_TEST_CASE(insertTest)
         contractVersion, contractAddress, contractAbi);
     callResult = cnsPrecompiled->call(context, bytesConstRef(&in2), "", "", gas);
     out = callResult->execResult();
+    context->getTableFactory()->commit();
     // query
     auto table2 = memoryTableFactory->openTable(SYS_CNS);
     auto entry2 = table2->getRow(contractName + "," + contractVersion);

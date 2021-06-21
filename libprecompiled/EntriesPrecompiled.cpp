@@ -63,7 +63,7 @@ PrecompiledExecResult::Ptr EntriesPrecompiled::call(
         EntryPrecompiled::Ptr entryPrecompiled = std::make_shared<EntryPrecompiled>(m_hashImpl);
         entryPrecompiled->setEntry(entry);
         // FIXME: check this register
-        Address address = Address(_context->registerPrecompiled(entryPrecompiled, ""));
+        Address address = Address(_context->registerPrecompiled(entryPrecompiled));
         callResult->setExecResult(m_codec->encode(address));
     }
     else if (func == name2Selector[ENTRIES_SIZE])

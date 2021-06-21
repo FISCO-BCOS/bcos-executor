@@ -66,6 +66,8 @@ public:
     crypto::HashType hash();
 
 private:
+    void checkCreateTableParam(
+        const std::string& _tableName, std::string& _keyFiled, std::string& _valueField);
     bcos::storage::TableFactoryInterface::Ptr m_memoryTableFactory;
 };
 }  // namespace precompiled

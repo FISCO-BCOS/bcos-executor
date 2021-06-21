@@ -73,8 +73,7 @@ public:
         bytesConstRef param, const std::string& origin, const std::string& sender,
         u256& _remainGas);
 
-    virtual std::string registerPrecompiled(
-        std::shared_ptr<precompiled::Precompiled> p, const std::string& _customPath);
+    virtual std::string registerPrecompiled(std::shared_ptr<precompiled::Precompiled> p);
 
     virtual bool isPrecompiled(const std::string& _address) const;
 

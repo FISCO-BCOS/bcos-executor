@@ -90,24 +90,10 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
             if (_context->getTableFactory()->checkAuthority(ledger::SYS_CONSENSUS, _origin))
             {
                 table->setRow(nodeID, newEntry);
-                auto commitResult = _context->getTableFactory()->commit();
-                if (!commitResult.second || commitResult.second->errorCode() == 0)
-                {
-                    result = int(commitResult.first);
-                    PRECOMPILED_LOG(DEBUG)
-                        << LOG_BADGE("ConsensusPrecompiled")
-                        << LOG_DESC("addSealer successfully insert") << LOG_KV("result", result);
-                }
-                else
-                {
-                    PRECOMPILED_LOG(DEBUG)
-                        << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("addSealer commit failed")
-                        << LOG_KV("errorCode", commitResult.second->errorCode())
-                        << LOG_KV("errorMsg", commitResult.second->errorMessage())
-                        << LOG_KV("result", result);
-                    // FIXME: add unify error code
-                    result = -1;
-                }
+                result = 1;
+                PRECOMPILED_LOG(DEBUG)
+                    << LOG_BADGE("ConsensusPrecompiled")
+                    << LOG_DESC("addSealer successfully insert") << LOG_KV("result", result);
             }
             else
             {
@@ -155,26 +141,10 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
                 else
                 {
                     table->setRow(nodeID, newEntry);
-                    auto commitResult = _context->getTableFactory()->commit();
-                    if (!commitResult.second ||
-                        commitResult.second->errorCode() == protocol::CommonError::SUCCESS)
-                    {
-                        result = int(commitResult.first);
-                        PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
-                                               << LOG_DESC("addObserver successfully insert")
-                                               << LOG_KV("result", result);
-                    }
-                    else
-                    {
-                        PRECOMPILED_LOG(DEBUG)
-                            << LOG_BADGE("ConsensusPrecompiled")
-                            << LOG_DESC("addObserver commit failed")
-                            << LOG_KV("errorCode", commitResult.second->errorCode())
-                            << LOG_KV("errorMsg", commitResult.second->errorMessage())
-                            << LOG_KV("result", result);
-                        // FIXME: add unify error code
-                        result = -1;
-                    }
+                    result = 1;
+                    PRECOMPILED_LOG(DEBUG)
+                        << LOG_BADGE("ConsensusPrecompiled")
+                        << LOG_DESC("addObserver successfully insert") << LOG_KV("result", result);
                 }
             }
             else
@@ -216,25 +186,10 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
                 else
                 {
                     table->remove(nodeID);
-                    auto commitResult = _context->getTableFactory()->commit();
-                    if (!commitResult.second ||
-                        commitResult.second->errorCode() == protocol::CommonError::SUCCESS)
-                    {
-                        result = int(commitResult.first);
-                        PRECOMPILED_LOG(DEBUG)
-                            << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("remove successfully")
-                            << LOG_KV("result", result);
-                    }
-                    else
-                    {
-                        PRECOMPILED_LOG(DEBUG)
-                            << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("remove commit failed")
-                            << LOG_KV("errorCode", commitResult.second->errorCode())
-                            << LOG_KV("errorMsg", commitResult.second->errorMessage())
-                            << LOG_KV("result", result);
-                        // FIXME: add unify error code
-                        result = -1;
-                    }
+                    result = 1;
+                    PRECOMPILED_LOG(DEBUG)
+                        << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("remove successfully")
+                        << LOG_KV("result", result);
                 }
             }
             else
@@ -283,25 +238,10 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
                 auto newEntry = table->newEntry();
                 entry->setField(NODE_WEIGHT, boost::lexical_cast<std::string>(weight));
                 table->setRow(nodeID, entry);
-                auto commitResult = _context->getTableFactory()->commit();
-                if (!commitResult.second ||
-                    commitResult.second->errorCode() == protocol::CommonError::SUCCESS)
-                {
-                    result = int(commitResult.first);
-                    PRECOMPILED_LOG(DEBUG)
-                        << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("remove successfully")
-                        << LOG_KV("result", result);
-                }
-                else
-                {
-                    PRECOMPILED_LOG(DEBUG)
-                        << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("remove commit failed")
-                        << LOG_KV("errorCode", commitResult.second->errorCode())
-                        << LOG_KV("errorMsg", commitResult.second->errorMessage())
-                        << LOG_KV("result", result);
-                    // FIXME: add unify error code
-                    result = -1;
-                }
+                result = 1;
+                PRECOMPILED_LOG(DEBUG)
+                    << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("remove successfully")
+                    << LOG_KV("result", result);
             }
             else
             {

@@ -187,23 +187,11 @@ PrecompiledExecResult::Ptr CNSPrecompiled::call(std::shared_ptr<executor::BlockC
                 newEntry->setField(SYS_CNS_FIELD_ADDRESS, contractAddress.hex());
                 newEntry->setField(SYS_CNS_FIELD_ABI, contractAbi);
                 table->setRow(contractName + "," + contractVersion, newEntry);
-                auto commitResult = _context->getTableFactory()->commit();
-                if (!commitResult.second ||
-                    commitResult.second->errorCode() == CommonError::SUCCESS)
-                {
-                    gasPricer->updateMemUsed(commitResult.first);
-                    gasPricer->appendOperation(InterfaceOpcode::Insert, commitResult.first);
-                    PRECOMPILED_LOG(DEBUG)
-                        << LOG_BADGE("CNSPrecompiled") << LOG_DESC("insert successfully");
-                    result = commitResult.first;
-                }
-                else
-                {
-                    PRECOMPILED_LOG(DEBUG)
-                        << LOG_BADGE("CNSPrecompiled") << LOG_DESC("insert failed");
-                    // TODO: use unify error code
-                    result = -1;
-                }
+                gasPricer->updateMemUsed(1);
+                gasPricer->appendOperation(InterfaceOpcode::Insert, 1);
+                PRECOMPILED_LOG(DEBUG)
+                    << LOG_BADGE("CNSPrecompiled") << LOG_DESC("insert successfully");
+                result = 1;
             }
             else
             {

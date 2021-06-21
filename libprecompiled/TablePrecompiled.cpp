@@ -32,7 +32,6 @@ using namespace bcos::storage;
 using namespace bcos::precompiled;
 using namespace bcos::protocol;
 
-// TODO: address?
 const char* const TABLE_METHOD_SLT_STR_ADD = "select(address)";
 const char* const TABLE_METHOD_INS_STR_ADD = "insert(address)";
 const char* const TABLE_METHOD_NEW_COND = "newCondition()";
@@ -139,7 +138,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
             auto entriesPrecompiled = std::make_shared<EntriesPrecompiled>(m_hashImpl);
             entriesPrecompiled->setEntries(entries);
             // FIXME: check this
-            auto newAddress = _context->registerPrecompiled(entriesPrecompiled, "");
+            auto newAddress = _context->registerPrecompiled(entriesPrecompiled);
             callResult->setExecResult(m_codec->encode(newAddress));
         }
     }
@@ -196,14 +195,9 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
         else
         {
             m_table->setRow(findKeyValue, entry);
-            auto commitResult = _context->getTableFactory()->commit();
-            if (!commitResult.second ||
-                commitResult.second->errorCode() == protocol::CommonError::SUCCESS)
-            {
-                gasPricer->appendOperation(InterfaceOpcode::Insert, commitResult.first);
-                gasPricer->updateMemUsed(entry->capacityOfHashField() * commitResult.first);
-            }
-            callResult->setExecResult(m_codec->encode(u256(commitResult.first)));
+            gasPricer->appendOperation(InterfaceOpcode::Insert, 1);
+            gasPricer->updateMemUsed(entry->capacityOfHashField());
+            callResult->setExecResult(m_codec->encode(u256(1)));
         }
     }
     else if (func == name2Selector[TABLE_METHOD_NEW_COND])
@@ -215,14 +209,14 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
         if (_context->isWasm())
         {
             // FIXME: check this
-            std::string newAddress = _context->registerPrecompiled(conditionPrecompiled, "");
+            std::string newAddress = _context->registerPrecompiled(conditionPrecompiled);
             callResult->setExecResult(m_codec->encode(newAddress));
         }
         else
         {
             // FIXME: check this
-            Address newAddress = Address(_context->registerPrecompiled(conditionPrecompiled, ""),
-                FixedBytes<20>::FromBinary);
+            Address newAddress = Address(
+                _context->registerPrecompiled(conditionPrecompiled), FixedBytes<20>::FromBinary);
             callResult->setExecResult(m_codec->encode(newAddress));
         }
     }
@@ -235,14 +229,14 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
         if (_context->isWasm())
         {
             // FIXME: check this
-            std::string newAddress = _context->registerPrecompiled(entryPrecompiled, "");
+            std::string newAddress = _context->registerPrecompiled(entryPrecompiled);
             callResult->setExecResult(m_codec->encode(newAddress));
         }
         else
         {
             // FIXME: check this
             Address newAddress = Address(
-                _context->registerPrecompiled(entryPrecompiled, ""), FixedBytes<20>::FromBinary);
+                _context->registerPrecompiled(entryPrecompiled), FixedBytes<20>::FromBinary);
             callResult->setExecResult(m_codec->encode(newAddress));
         }
     }
@@ -315,13 +309,8 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
                     m_table->remove(tableKey);
                 }
             }
-            auto commitResult = _context->getTableFactory()->commit();
-            if (!commitResult.second ||
-                commitResult.second->errorCode() == protocol::CommonError::SUCCESS)
-            {
-                gasPricer->appendOperation(InterfaceOpcode::Remove, commitResult.first);
-            }
-            callResult->setExecResult(m_codec->encode(u256(commitResult.first)));
+            gasPricer->appendOperation(InterfaceOpcode::Remove, 1);
+            callResult->setExecResult(m_codec->encode(u256(1)));
         }
     }
     else if (func == name2Selector[TABLE_METHOD_UP_STR_2ADD])
@@ -423,16 +412,9 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
                         m_table->setRow(tableKey, entry);
                     }
                 }
-                auto commitResult = _context->getTableFactory()->commit();
-                if (!commitResult.second ||
-                    commitResult.second->errorCode() == protocol::CommonError::SUCCESS)
-                {
-                    gasPricer->setMemUsed(entry->capacityOfHashField() * commitResult.first);
-                    gasPricer->appendOperation(InterfaceOpcode::Update, commitResult.first);
-                }
-                callResult->setExecResult(m_codec->encode(u256(commitResult.first)));
-                PRECOMPILED_LOG(DEBUG)
-                    << LOG_DESC("Table update") << LOG_KV("ret", commitResult.first);
+                gasPricer->setMemUsed(entry->capacityOfHashField());
+                gasPricer->appendOperation(InterfaceOpcode::Update, 1);
+                callResult->setExecResult(m_codec->encode(u256(1)));
             }
         }
     }
