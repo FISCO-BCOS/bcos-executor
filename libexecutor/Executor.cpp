@@ -61,14 +61,13 @@ using namespace bcos::precompiled;
 Executor::Executor(const protocol::BlockFactory::Ptr& _blockFactory,
     const dispatcher::DispatcherInterface::Ptr& _dispatcher,
     const ledger::LedgerInterface::Ptr& _ledger,
-    const storage::StorageInterface::Ptr& _stateStorage, bool _isWasm, ExecutorVersion _version,
-    size_t _poolSize)
+    const storage::StorageInterface::Ptr& _stateStorage, bool _isWasm, size_t _poolSize)
   : m_blockFactory(_blockFactory),
     m_dispatcher(_dispatcher),
     m_ledger(_ledger),
     m_stateStorage(_stateStorage),
     m_isWasm(_isWasm),
-    m_version(_version)
+    m_version(Version_3_0_0)  // current executor version, will set as new block's version
 {
     assert(m_blockFactory);
     assert(m_dispatcher);
@@ -142,9 +141,6 @@ void Executor::start()
                     prom.set_value(block);
                 });
             auto currentBlock = prom.get_future().get();
-            // set current block header's ParentInfo use setParentInfo
-            currentBlock->blockHeader()->setParentInfo(
-                {{m_lastHeader->number(), m_lastHeader->hash()}});
             if (!m_lastHeader)
             {
                 m_lastHeader = getLatestHeaderFromStorage();
@@ -201,7 +197,8 @@ void Executor::start()
                 // create a new TableFactory and import data with new blocknumber
                 m_tableFactory = std::make_shared<TableFactory>(
                     m_stateStorage, m_hashImpl, m_lastHeader->number() + 1);
-                m_tableFactory->importData(data.first, data.second);
+                // TODO: the cache will grow, need clean some cold cache
+                m_tableFactory->importData(data.first, data.second, false);
             }
             else
             {
@@ -252,7 +249,7 @@ BlockContext::Ptr Executor::executeBlock(
     {
         return nullptr;
     }
-    EXECUTOR_LOG(INFO) << LOG_DESC("[executeBlock]Executing block")
+    EXECUTOR_LOG(INFO) << LOG_DESC("[executeBlock]Executing")
                        << LOG_KV("txNum", block->transactionsSize())
                        << LOG_KV("num", block->blockHeader()->number())
                        << LOG_KV("parentHash", parentBlockHeader->hash())
@@ -261,14 +258,18 @@ BlockContext::Ptr Executor::executeBlock(
 
     auto start_time = utcTime();
     auto record_time = utcTime();
-    BlockContext::Ptr executiveContext = createExecutiveContext(block->blockHeader());
-
+    auto originalHeader = block->blockHeader();
+    if (originalHeader->version() == 0)
+    {  // if block version is 0, set the block version to current executor version
+        originalHeader->setVersion(m_version);
+    }
+    // create a new block header to return
+    auto currentHeader = m_blockFactory->blockHeaderFactory()->populateBlockHeader(originalHeader);
+    // set current block header's ParentInfo use setParentInfo
+    currentHeader->setParentInfo({{parentBlockHeader->number(), parentBlockHeader->hash()}});
+    block->setBlockHeader(currentHeader);
+    BlockContext::Ptr executiveContext = createExecutiveContext(currentHeader);
     auto initExeCtx_time_cost = utcTime() - record_time;
-    record_time = utcTime();
-    auto tempReceiptRoot = block->blockHeader()->receiptsRoot();
-    auto tempStateRoot = block->blockHeader()->stateRoot();
-    auto tempHeaderHash = block->blockHeader()->hash();
-    auto perpareBlock_time_cost = utcTime() - record_time;
     record_time = utcTime();
 
     shared_ptr<TxDAG> txDag = make_shared<TxDAG>();
@@ -305,7 +306,7 @@ BlockContext::Ptr Executor::executeBlock(
                         EXECUTOR_LOG(WARNING)
                             << LOG_BADGE("executeBlock") << LOG_DESC("Para execute block timeout")
                             << LOG_KV("txNum", block->transactionsSize())
-                            << LOG_KV("blockNumber", block->blockHeader()->number());
+                            << LOG_KV("blockNumber", currentHeader->number());
                     }
                     txDag->executeUnit(executive);
                 }
@@ -333,49 +334,35 @@ BlockContext::Ptr Executor::executeBlock(
     record_time = utcTime();
 
     block->calculateReceiptRoot(true);
+    currentHeader->setStateRoot(stateRoot);
+    currentHeader->setGasUsed(blockGasUsed);
     auto getReceiptRoot_time_cost = utcTime() - record_time;
-    record_time = utcTime();
-
-    block->blockHeader()->setStateRoot(stateRoot);
-    block->blockHeader()->setGasUsed(blockGasUsed);
-    auto setStateRoot_time_cost = utcTime() - record_time;
-    record_time = utcTime();
     // Consensus module execute block, receiptRoot is empty, skip this judgment
     // The sync module execute block, receiptRoot is not empty, need to compare BlockHeader
-    if (tempReceiptRoot != h256())
+    if (originalHeader->hash() != h256() && originalHeader->hash() != currentHeader->hash())
     {
-        if (tempHeaderHash != block->blockHeader()->hash())
-        {
-            EXECUTOR_LOG(ERROR) << "Invalid Block with bad stateRoot or receiptRoot"
-                                << LOG_KV("blkNum", block->blockHeader()->number())
-                                << LOG_KV("Hash", tempHeaderHash.abridged())
-                                << LOG_KV("myHash", block->blockHeader()->hash().abridged())
-                                << LOG_KV("Receipt", tempReceiptRoot.abridged())
-                                << LOG_KV(
-                                       "myRecepit", block->blockHeader()->receiptsRoot().abridged())
-                                << LOG_KV("State", tempStateRoot.abridged())
-                                << LOG_KV("myState", block->blockHeader()->stateRoot().abridged());
-#if 0
-            BOOST_THROW_EXCEPTION(InvalidBlockWithBadRoot() << errinfo_comment(
-                                      "Invalid Block with bad stateRoot or ReciptRoot"));
-#endif
-        }
+        EXECUTOR_LOG(ERROR) << "Invalid Block with bad stateRoot or receiptRoot"
+                            << LOG_KV("blkNum", currentHeader->number())
+                            << LOG_KV("Hash", originalHeader->hash().abridged())
+                            << LOG_KV("currentHash", currentHeader->hash().abridged())
+                            << LOG_KV("Receipt", originalHeader->receiptsRoot().abridged())
+                            << LOG_KV("currentRecepit", currentHeader->receiptsRoot().abridged())
+                            << LOG_KV("State", originalHeader->stateRoot().abridged())
+                            << LOG_KV("currentState", currentHeader->stateRoot().abridged());
     }
     EXECUTOR_LOG(DEBUG) << LOG_BADGE("executeBlock") << LOG_DESC("Para execute block takes")
                         << LOG_KV("time(ms)", utcTime() - start_time)
                         << LOG_KV("txNum", block->transactionsSize())
-                        << LOG_KV("blockNumber", block->blockHeader()->number())
-                        << LOG_KV("blockHash", block->blockHeader()->hash())
-                        << LOG_KV("stateRoot", block->blockHeader()->stateRoot())
-                        << LOG_KV("transactionRoot", block->blockHeader()->txsRoot())
-                        << LOG_KV("receiptRoot", block->blockHeader()->receiptsRoot())
+                        << LOG_KV("blockNumber", currentHeader->number())
+                        << LOG_KV("blockHash", currentHeader->hash())
+                        << LOG_KV("stateRoot", currentHeader->stateRoot())
+                        << LOG_KV("transactionRoot", currentHeader->txsRoot())
+                        << LOG_KV("receiptRoot", currentHeader->receiptsRoot())
                         << LOG_KV("initExeCtxTimeCost", initExeCtx_time_cost)
-                        << LOG_KV("perpareBlockTimeCost", perpareBlock_time_cost)
                         << LOG_KV("initDagTimeCost", initDag_time_cost)
                         << LOG_KV("exeTimeCost", exe_time_cost)
                         << LOG_KV("getRootHashTimeCost", getRootHash_time_cost)
-                        << LOG_KV("getReceiptRootTimeCost", getReceiptRoot_time_cost)
-                        << LOG_KV("setStateRootTimeCost", setStateRoot_time_cost);
+                        << LOG_KV("getReceiptRootTimeCost", getReceiptRoot_time_cost);
     return executiveContext;
 }
 
@@ -420,7 +407,7 @@ protocol::TransactionReceipt::Ptr Executor::executeTransaction(
 BlockContext::Ptr Executor::createExecutiveContext(const protocol::BlockHeader::Ptr& currentHeader)
 {
     // TableFactory is member to continues execute block without write to DB
-    (void)m_version;  // FIXME: accord to m_version to chose schedule
+    (void)m_version;  // TODO: accord to m_version to chose schedule
     BlockContext::Ptr context = make_shared<BlockContext>(
         m_tableFactory, m_hashImpl, currentHeader, FiscoBcosScheduleV3, m_pNumberHash, m_isWasm);
     auto tableFactoryPrecompiled =

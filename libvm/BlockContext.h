@@ -115,7 +115,7 @@ public:
 
     /// @return timestamp
     uint64_t timestamp() const { return m_currentHeader->timestamp(); }
-
+    int32_t blockVersion() const { return m_currentHeader->version(); }
     /// @return gasLimit of the block header
     u256 const& gasLimit() const { return m_gasLimit; }
 

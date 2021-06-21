@@ -269,8 +269,6 @@ bool hasWasmPreamble(const bytes& _input);
  */
 inline evmc_address toEvmC(const std::string& _addr)
 {  // TODO: add another interfaces for wasm
-    // FIXME: the assert below is only used of evm mode
-    assert(_addr.size() <= 20);
     evmc_address ret;
     memcpy(ret.bytes, _addr.data(), 20);
     return ret;

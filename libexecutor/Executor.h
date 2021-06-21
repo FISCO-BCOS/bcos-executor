@@ -65,7 +65,7 @@ public:
         const dispatcher::DispatcherInterface::Ptr& _dispatcher,
         const ledger::LedgerInterface::Ptr& _ledger,
         const storage::StorageInterface::Ptr& _stateStorage, bool _isWasm,
-        ExecutorVersion _version = Version_3_0_0, size_t _poolSize = 2);
+        size_t _poolSize = 2);
 
     virtual ~Executor()
     {
@@ -108,7 +108,7 @@ private:
     std::atomic_bool m_stop = {false};
     protocol::BlockHeader::Ptr m_lastHeader;
     std::unique_ptr<std::thread> m_worker = nullptr;
-    ExecutorVersion m_version;
+    const ExecutorVersion m_version;
     std::map<std::string, std::shared_ptr<PrecompiledContract>> m_precompiledContract;
 };
 
