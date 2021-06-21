@@ -29,7 +29,7 @@ endif()
 ExternalProject_Add(hera
         PREFIX ${CMAKE_SOURCE_DIR}/deps
         DOWNLOAD_NO_PROGRESS 1
-        GIT_REPOSITORY https://github.com/FISCO-BCOS/hera.git
+        GIT_REPOSITORY https://${URL_BASE}/FISCO-BCOS/hera.git
         GIT_SHALLOW false
         GIT_TAG 06eec7873a8df1f2b233dfa22faff30822e5691b
         CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
