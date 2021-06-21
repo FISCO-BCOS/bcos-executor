@@ -60,6 +60,7 @@ hunter_add_package(bcos-crypto)
 find_package(wedpr-crypto CONFIG REQUIRED)
 include(InstallBcosFrameworkDependencies)
 
+include(InstallConfig)
 add_subdirectory(libstate)
 add_subdirectory(libprecompiled)
 add_subdirectory(libvm)
