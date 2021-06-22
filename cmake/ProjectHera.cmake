@@ -26,7 +26,7 @@ else()
     set(WASM_ENGINE_LIBRARY "wasmtime")
 endif()
 
-ExternalProject_Add(hera
+ExternalProject_Add(hera_project
         PREFIX ${CMAKE_SOURCE_DIR}/deps
         DOWNLOAD_NO_PROGRESS 1
         GIT_REPOSITORY https://${URL_BASE}/FISCO-BCOS/hera.git
@@ -51,18 +51,24 @@ ExternalProject_Add(hera
         BUILD_BYPRODUCTS <INSTALL_DIR>/lib/libevmone.a <INSTALL_DIR>/lib/libhera-buildinfo.a <INSTALL_DIR>/lib/lib${WASM_ENGINE_LIBRARY}.a
 )
 
-ExternalProject_Get_Property(hera INSTALL_DIR)
+ExternalProject_Get_Property(hera_project INSTALL_DIR)
 set(HERA_INCLUDE_DIRS ${INSTALL_DIR}/include)
 file(MAKE_DIRECTORY ${HERA_INCLUDE_DIRS})  # Must exist.
-set(HERA_LIBRARIES ${INSTALL_DIR}/lib/libhera.a ${INSTALL_DIR}/lib/libhera-buildinfo.a ${INSTALL_DIR}/lib/lib${WASM_ENGINE_LIBRARY}.a)
+set(HERA_LIBRARIES "  ")
 if(DEBUG)
     set(HERA_LIBRARIES ${HERA_LIBRARIES} ${EVMC_INSTRUCTIONS_LIBRARIES})
 endif()
 if(NOT APPLE)
     set(HERA_LIBRARIES ${HERA_LIBRARIES} rt)
 endif()
-add_library(HERA INTERFACE IMPORTED)
-set_property(TARGET HERA PROPERTY INTERFACE_LINK_LIBRARIES ${HERA_LIBRARIES})
-set_property(TARGET HERA PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${HERA_INCLUDE_DIRS})
-add_dependencies(hera EVMC)
-add_dependencies(HERA hera)
+add_library(${WASM_ENGINE_LIBRARY} STATIC IMPORTED)
+set_property(TARGET ${WASM_ENGINE_LIBRARY} PROPERTY IMPORTED_LOCATION ${INSTALL_DIR}/lib/lib${WASM_ENGINE_LIBRARY}.a)
+
+add_library(hera-buildinfo STATIC IMPORTED)
+set_property(TARGET hera-buildinfo PROPERTY IMPORTED_LOCATION ${INSTALL_DIR}/lib/libhera-buildinfo.a)
+
+add_library(hera STATIC IMPORTED)
+set_property(TARGET hera PROPERTY IMPORTED_LOCATION ${INSTALL_DIR}/lib/libhera.a)
+set_property(TARGET hera PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${HERA_INCLUDE_DIRS})
+add_dependencies(hera_project evmc)
+add_dependencies(hera hera_project ${WASM_ENGINE_LIBRARY} hera-buildinfo)

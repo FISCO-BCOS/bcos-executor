@@ -1,7 +1,7 @@
 include(ExternalProject)
 include(GNUInstallDirs)
 
-ExternalProject_Add(evmc
+ExternalProject_Add(evmc_project
         PREFIX ${CMAKE_SOURCE_DIR}/deps
         DOWNLOAD_NO_PROGRESS 1
         DOWNLOAD_NAME evmc-e0bd9d5d.tar.gz
@@ -16,20 +16,20 @@ ExternalProject_Add(evmc
         BUILD_BYPRODUCTS <INSTALL_DIR>/lib/libevmc-instructions.a <INSTALL_DIR>/lib/libevmc-loader.a
 )
 
-ExternalProject_Get_Property(evmc INSTALL_DIR)
+ExternalProject_Get_Property(evmc_project INSTALL_DIR)
 set(EVMC_INCLUDE_DIRS ${INSTALL_DIR}/include)
 file(MAKE_DIRECTORY ${EVMC_INCLUDE_DIRS})  # Must exist.
-add_library(EVMC::Loader STATIC IMPORTED)
+add_library(evmc::loader STATIC IMPORTED)
 set(EVMC_LOADER_LIBRARIES ${INSTALL_DIR}/lib/libevmc-loader.a)
-set_property(TARGET EVMC::Loader PROPERTY IMPORTED_LOCATION ${EVMC_LOADER_LIBRARIES})
-set_property(TARGET EVMC::Loader PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${EVMC_INCLUDE_DIRS})
+set_property(TARGET evmc::loader PROPERTY IMPORTED_LOCATION ${EVMC_LOADER_LIBRARIES})
+set_property(TARGET evmc::loader PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${EVMC_INCLUDE_DIRS})
 
-add_library(EVMC::Instructions STATIC IMPORTED)
+add_library(evmc::instructions STATIC IMPORTED)
 set(EVMC_INSTRUCTIONS_LIBRARIES ${INSTALL_DIR}/lib/libevmc-instructions.a)
-set_property(TARGET EVMC::Instructions PROPERTY IMPORTED_LOCATION ${EVMC_INSTRUCTIONS_LIBRARIES})
-set_property(TARGET EVMC::Instructions PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${EVMC_INCLUDE_DIRS})
+set_property(TARGET evmc::instructions PROPERTY IMPORTED_LOCATION ${EVMC_INSTRUCTIONS_LIBRARIES})
+set_property(TARGET evmc::instructions PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${EVMC_INCLUDE_DIRS})
 
-add_library(EVMC INTERFACE IMPORTED)
-set_property(TARGET EVMC PROPERTY INTERFACE_LINK_LIBRARIES ${EVMC_INSTRUCTIONS_LIBRARIES} ${EVMC_LOADER_LIBRARIES})
-set_property(TARGET EVMC PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${EVMC_INCLUDE_DIRS})
-add_dependencies(EVMC evmc)
+add_library(evmc STATIC IMPORTED)
+set_property(TARGET evmc PROPERTY IMPORTED_LOCATION ${EVMC_INSTRUCTIONS_LIBRARIES} ${EVMC_LOADER_LIBRARIES})
+set_property(TARGET evmc PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${EVMC_INCLUDE_DIRS})
+add_dependencies(evmc evmc_project)

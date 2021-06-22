@@ -55,15 +55,45 @@ include(ProjectEVMONE)
 include(ProjectHera)
 include(ProjectWABT)
 
+# hunter_add_package(evmc)
+# hunter_add_package(evmone)
+# hunter_add_package(hera)
+# find_package(evmc CONFIG REQUIRED)
+# find_package(evmone CONFIG REQUIRED)
+# find_package(hera CONFIG REQUIRED)
+
 # include(InstallBcosCryptoDependencies)
 hunter_add_package(bcos-crypto)
 find_package(wedpr-crypto CONFIG REQUIRED)
 include(InstallBcosFrameworkDependencies)
 
 include(InstallConfig)
+
+function(install_dependencies target)
+    install(
+        TARGETS "${target}" EXPORT "${TARGETS_EXPORT_NAME}"
+        LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+        ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+        RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+        INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+    )
+    get_target_property(link_libraries ${target} LINK_LIBRARIES)
+    foreach(lib ${link_libraries})
+        get_target_property(type ${lib} TYPE)
+        if(NOT type STREQUAL INTERFACE_LIBRARY)
+            # get_property(lib_path TARGET ${lib} PROPERTY LOCATION)
+            install(FILES $<TARGET_FILE:${lib}> DESTINATION ${CMAKE_INSTALL_LIBDIR})
+            # get_target_property(LIB_INCLUDES ${lib} INTERFACE_INCLUDE_DIRECTORIES)
+            # if(LIB_INCLUDES)
+            #     install(DIRECTORY ${LIB_INCLUDES} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+            # endif()
+        endif()
+    endforeach()
+endfunction()
+
 add_subdirectory(libstate)
-add_subdirectory(libprecompiled)
 add_subdirectory(libvm)
+add_subdirectory(libprecompiled)
 add_subdirectory(libexecutor)
 
 set(EXECUTOR_TARGET "bcos-executor")

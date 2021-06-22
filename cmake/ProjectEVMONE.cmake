@@ -1,7 +1,7 @@
 include(ExternalProject)
 include(GNUInstallDirs)
 
-ExternalProject_Add(evmone
+ExternalProject_Add(evmone_project
         PREFIX ${CMAKE_SOURCE_DIR}/deps
         DOWNLOAD_NO_PROGRESS 1
         DOWNLOAD_NAME evmone-579065d3.tar.gz
@@ -22,12 +22,15 @@ ExternalProject_Add(evmone
         BUILD_BYPRODUCTS <INSTALL_DIR>/lib/libevmone.a
 )
 
-ExternalProject_Get_Property(evmone INSTALL_DIR)
+ExternalProject_Get_Property(evmone_project INSTALL_DIR)
 set(EVMONE_INCLUDE_DIRS ${INSTALL_DIR}/include)
 file(MAKE_DIRECTORY ${EVMONE_INCLUDE_DIRS})  # Must exist.
-set(EVMONE_LIBRARIES ${INSTALL_DIR}/lib/libevmone.a ${INSTALL_DIR}/lib/libintx.a ${INSTALL_DIR}/lib/libkeccak.a)
-add_library(EVMONE INTERFACE IMPORTED)
-set_property(TARGET EVMONE PROPERTY INTERFACE_LINK_LIBRARIES ${EVMONE_LIBRARIES})
-set_property(TARGET EVMONE PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${EVMONE_INCLUDE_DIRS})
-add_dependencies(evmone EVMC)
-add_dependencies(EVMONE evmone)
+add_library(keccak STATIC IMPORTED)
+set_property(TARGET keccak PROPERTY IMPORTED_LOCATION ${INSTALL_DIR}/lib/libkeccak.a)
+add_library(intx STATIC IMPORTED)
+set_property(TARGET intx PROPERTY IMPORTED_LOCATION ${INSTALL_DIR}/lib/libintx.a)
+add_library(evmone STATIC IMPORTED)
+set_property(TARGET evmone PROPERTY IMPORTED_LOCATION ${INSTALL_DIR}/lib/libevmone.a)
+set_property(TARGET evmone PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${EVMONE_INCLUDE_DIRS})
+add_dependencies(evmone_project evmc)
+add_dependencies(evmone evmone_project intx keccak)

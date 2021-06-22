@@ -6,7 +6,7 @@ else()
     set(PATCH_COMMAND COMMAND sed -i "53a if (NOT \"\${CMAKE_PROJECT_VERSION}\")" CMakeLists.txt COMMAND sed -i "54a set(CMAKE_PROJECT_VERSION \${PROJECT_VERSION})" CMakeLists.txt COMMAND sed -i "55a endif()" CMakeLists.txt)
 endif()
 
-ExternalProject_Add(wabt
+ExternalProject_Add(wabt_project
     PREFIX ${CMAKE_SOURCE_DIR}/deps
     DOWNLOAD_NAME wabt_1.0.19.tar.gz
     DOWNLOAD_NO_PROGRESS 1
@@ -26,16 +26,16 @@ ExternalProject_Add(wabt
     BUILD_BYPRODUCTS <BINARY_DIR>/libwabt.a
 )
 
-ExternalProject_Get_Property(wabt SOURCE_DIR)
-ExternalProject_Get_Property(wabt BINARY_DIR)
-add_library(WABT STATIC IMPORTED GLOBAL)
+ExternalProject_Get_Property(wabt_project SOURCE_DIR)
+ExternalProject_Get_Property(wabt_project BINARY_DIR)
+add_library(wabt STATIC IMPORTED GLOBAL)
 
 set(WABT_LIBRARY ${BINARY_DIR}/libwabt.a)
 set(WABT_INCLUDE_DIR ${SOURCE_DIR}/ ${BINARY_DIR}/)
 file(MAKE_DIRECTORY ${WABT_INCLUDE_DIR})  # Must exist.
 
-set_property(TARGET WABT PROPERTY IMPORTED_LOCATION ${WABT_LIBRARY})
-set_property(TARGET WABT PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${WABT_INCLUDE_DIR})
+set_property(TARGET wabt PROPERTY IMPORTED_LOCATION ${WABT_LIBRARY})
+set_property(TARGET wabt PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${WABT_INCLUDE_DIR})
 
-add_dependencies(WABT wabt)
+add_dependencies(wabt wabt_project)
 unset(SOURCE_DIR)

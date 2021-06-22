@@ -5,11 +5,4 @@ add_library(state ${SRC_LIST} ${HEADERS})
 
 target_link_libraries(state PUBLIC bcos-framework::table)
 
-install(
-    TARGETS state
-    EXPORT "${TARGETS_EXPORT_NAME}"
-    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
-    INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
-)
+install_dependencies(state)
