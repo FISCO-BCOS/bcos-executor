@@ -8,16 +8,15 @@ endif()
 
 ExternalProject_Add(wabt_project
     PREFIX ${CMAKE_SOURCE_DIR}/deps
-    DOWNLOAD_NAME wabt_1.0.19.tar.gz
+    DOWNLOAD_NAME wabt_1.0.23.tar.gz
     DOWNLOAD_NO_PROGRESS 1
-    URL https://codeload.github.com/WebAssembly/wabt/tar.gz/1.0.19
-    URL_HASH SHA256=134f2afc8205d0a3ab89c5f0d424ff3823e9d2769c39d2235aa37eba7abc15ba
-    PATCH_COMMAND ${PATCH_COMMAND}
+    URL https://codeload.github.com/WebAssembly/wabt/tar.gz/1.0.23
+    URL_HASH SHA256=925f47020705cd2cc00a4ff6a36ab08f8adf6d08c7eac5057db0db38b6b2f16d
+    # PATCH_COMMAND ${PATCH_COMMAND}
     BUILD_IN_SOURCE 0
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
     -DCMAKE_POSITION_INDEPENDENT_CODE=ON
     -DBUILD_TESTS=OFF -DBUILD_TOOLS=OFF -DBUILD_LIBWASM=OFF
-    INSTALL_COMMAND ""
     LOG_CONFIGURE 1
     LOG_DOWNLOAD 1
     LOG_UPDATE 1

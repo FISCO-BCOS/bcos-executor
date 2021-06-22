@@ -310,7 +310,6 @@ void GasInjector::InjectMeterExprList(
         case ExprType::AtomicNotify:
         case ExprType::AtomicFence:
         case ExprType::AtomicWait:
-        case ExprType::BrOnExn:
         case ExprType::MemoryCopy:
         case ExprType::DataDrop:
         case ExprType::MemoryFill:

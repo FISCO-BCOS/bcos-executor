@@ -11,13 +11,5 @@ target_link_libraries(precompiled PUBLIC bcos-framework::codec bcos-framework::u
 target_link_libraries(precompiled PRIVATE vm)
 add_subdirectory(extension)
 
-# install(
-#     TARGETS precompiled
-#     EXPORT "${TARGETS_EXPORT_NAME}"
-#     LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-#     ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-#     RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
-#     INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
-# )
 install_dependencies(precompiled)
 

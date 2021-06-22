@@ -54,7 +54,6 @@ ExternalProject_Add(hera_project
 ExternalProject_Get_Property(hera_project INSTALL_DIR)
 set(HERA_INCLUDE_DIRS ${INSTALL_DIR}/include)
 file(MAKE_DIRECTORY ${HERA_INCLUDE_DIRS})  # Must exist.
-set(HERA_LIBRARIES "  ")
 if(DEBUG)
     set(HERA_LIBRARIES ${HERA_LIBRARIES} ${EVMC_INSTRUCTIONS_LIBRARIES})
 endif()
