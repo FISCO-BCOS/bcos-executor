@@ -46,7 +46,6 @@ const char* const SYS_AC_ENABLE_NUM = "enable_num";
 
 /// SYS_CNS table
 const char* const SYS_CNS = "s_cns";
-const char* const SYS_TABLE = "s_tables";
 
 /// SYS_CONFIG table fields
 static const char* const SYS_VALUE = "value";
@@ -166,6 +165,10 @@ enum PrecompiledErrorCode : int
     CODE_INVALID_CIPHERS = -51600,
 
     // CRUDPrecompiled -51599 ~ -51500
+    CODE_UPDATE_KEY_NOT_EXIST = -51507,
+    CODE_INSERT_KEY_EXIST = -51506,
+    CODE_KEY_NOT_EXIST_IN_COND = -51505,
+    CODE_KEY_NOT_EXIST_IN_ENTRY = -51504,
     CODE_INVALID_UPDATE_TABLE_KEY = -51503,
     CODE_CONDITION_OPERATION_UNDEFINED = -51502,
     CODE_PARSE_CONDITION_ERROR = -51501,
@@ -212,7 +215,6 @@ enum PrecompiledErrorCode : int
 
 enum ContractStatus
 {
-    Invalid = 0,
     Available,
     Frozen,
     AddressNonExistent,

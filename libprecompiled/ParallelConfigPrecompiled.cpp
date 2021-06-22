@@ -45,21 +45,28 @@ const std::string PARA_FUNC_NAME = "functionName";
 const std::string PARA_CRITICAL_SIZE = "criticalSize";
 
 const std::string PARA_CONFIG_REGISTER_METHOD_ADDR_STR_UINT =
+    "registerParallelFunctionInternal(address,string,uint256)";
+const std::string PARA_CONFIG_REGISTER_METHOD_STR_STR_UINT =
     "registerParallelFunctionInternal(string,string,uint256)";
 const std::string PARA_CONFIG_UNREGISTER_METHOD_ADDR_STR =
+    "unregisterParallelFunctionInternal(address,string)";
+const std::string PARA_CONFIG_UNREGISTER_METHOD_STR_STR =
     "unregisterParallelFunctionInternal(string,string)";
 
 const std::string PARA_KEY_NAME = PARA_SELECTOR;
 const std::string PARA_VALUE_NAMES = PARA_FUNC_NAME + "," + PARA_CRITICAL_SIZE;
-
 
 ParallelConfigPrecompiled::ParallelConfigPrecompiled(crypto::Hash::Ptr _hashImpl)
   : Precompiled(_hashImpl)
 {
     name2Selector[PARA_CONFIG_REGISTER_METHOD_ADDR_STR_UINT] =
         getFuncSelector(PARA_CONFIG_REGISTER_METHOD_ADDR_STR_UINT, _hashImpl);
+    name2Selector[PARA_CONFIG_REGISTER_METHOD_STR_STR_UINT] =
+        getFuncSelector(PARA_CONFIG_REGISTER_METHOD_STR_STR_UINT, _hashImpl);
     name2Selector[PARA_CONFIG_UNREGISTER_METHOD_ADDR_STR] =
         getFuncSelector(PARA_CONFIG_UNREGISTER_METHOD_ADDR_STR, _hashImpl);
+    name2Selector[PARA_CONFIG_UNREGISTER_METHOD_STR_STR] =
+        getFuncSelector(PARA_CONFIG_UNREGISTER_METHOD_STR_STR, _hashImpl);
 }
 
 std::string ParallelConfigPrecompiled::toString()
@@ -79,11 +86,13 @@ PrecompiledExecResult::Ptr ParallelConfigPrecompiled::call(
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
 
-    if (func == name2Selector[PARA_CONFIG_REGISTER_METHOD_ADDR_STR_UINT])
+    if (func == name2Selector[PARA_CONFIG_REGISTER_METHOD_ADDR_STR_UINT] ||
+        func == name2Selector[PARA_CONFIG_REGISTER_METHOD_STR_STR_UINT])
     {
         registerParallelFunction(_context, data, _origin, callResult->mutableExecResult());
     }
-    else if (func == name2Selector[PARA_CONFIG_UNREGISTER_METHOD_ADDR_STR])
+    else if (func == name2Selector[PARA_CONFIG_UNREGISTER_METHOD_ADDR_STR] ||
+             func == name2Selector[PARA_CONFIG_UNREGISTER_METHOD_STR_STR])
     {
         unregisterParallelFunction(_context, data, _origin, callResult->mutableExecResult());
     }
@@ -106,12 +115,6 @@ TableInterface::Ptr ParallelConfigPrecompiled::openTable(
     std::string tableName = PARA_CONFIG_TABLE_PREFIX_SHORT + _contractName;
 
     auto tableFactory = _context->getTableFactory();
-    if (!tableFactory)
-    {
-        PRECOMPILED_LOG(ERROR) << LOG_BADGE("ParallelConfigPrecompiled")
-                               << LOG_DESC("TableFactoryPrecompiled has not been initialized");
-        return nullptr;
-    }
     auto table = tableFactory->openTable(tableName);
 
     if (!table && _needCreate)
@@ -139,17 +142,22 @@ void ParallelConfigPrecompiled::registerParallelFunction(
     std::shared_ptr<executor::BlockContext> _context, bytesConstRef _data,
     std::string const& _origin, bytes& _out)
 {
-    // registerParallelFunctionInternal(string contractAddress, string functionName, uint256
-    // criticalSize)
-
-    std::string contractName;
+    TableInterface::Ptr table = nullptr;
     std::string functionName;
     u256 criticalSize;
-
-    m_codec->decode(_data, contractName, functionName, criticalSize);
+    if (_context->isWasm())
+    {
+        std::string contractName;
+        m_codec->decode(_data, contractName, functionName, criticalSize);
+        table = openTable(_context, contractName, _origin);
+    }
+    else
+    {
+        Address contractName;
+        m_codec->decode(_data, contractName, functionName, criticalSize);
+        table = openTable(_context, contractName.hex(), _origin);
+    }
     uint32_t selector = getFuncSelector(functionName, m_hashImpl);
-
-    auto table = openTable(_context, contractName, _origin);
     if (table)
     {
         Entry::Ptr entry = table->newEntry();
@@ -176,15 +184,23 @@ void ParallelConfigPrecompiled::unregisterParallelFunction(
     std::shared_ptr<executor::BlockContext> _context, bytesConstRef _data, std::string const&,
     bytes& _out)
 {
-    // unregisterParallelFunctionInternal(address,string)
-    // unregisterParallelFunctionInternal(address contractAddress, string functionName)
-    std::string contractAddress;
     std::string functionName;
+    TableInterface::Ptr table = nullptr;
+    if (_context->isWasm())
+    {
+        std::string contractAddress;
+        m_codec->decode(_data, contractAddress, functionName);
+        table = _context->getTableFactory()->openTable(
+            PARA_CONFIG_TABLE_PREFIX_SHORT + contractAddress);
+    }
+    else
+    {
+        Address contractAddress;
+        m_codec->decode(_data, contractAddress, functionName);
+        table = _context->getTableFactory()->openTable(contractAddress.hex());
+    }
 
-    m_codec->decode(_data, contractAddress, functionName);
     uint32_t selector = getFuncSelector(functionName, m_hashImpl);
-
-    auto table = _context->getTableFactory()->openTable(contractAddress);
     if (table)
     {
         table->remove(std::to_string(selector));
@@ -200,7 +216,8 @@ ParallelConfig::Ptr ParallelConfigPrecompiled::getParallelConfig(
     std::shared_ptr<executor::BlockContext> _context, std::string const& _contractAddress,
     uint32_t _selector, std::string const&)
 {
-    auto table = _context->getTableFactory()->openTable(_contractAddress);
+    auto table =
+        _context->getTableFactory()->openTable(PARA_CONFIG_TABLE_PREFIX_SHORT + _contractAddress);
     if (!table)
     {
         return nullptr;

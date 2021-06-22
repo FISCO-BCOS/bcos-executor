@@ -114,7 +114,8 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(
         gasPricer->appendOperation(InterfaceOpcode::EQ);
     }
     else if (func == name2Selector[CONDITION_METHOD_GE_STR_INT])
-    {  // GE(string,int256)
+    {
+        // GE(string,int256)
         std::string str;
         s256 value;
         m_codec->decode(data, str, value);
@@ -153,7 +154,8 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(
         gasPricer->appendOperation(InterfaceOpcode::LT);
     }
     else if (func == name2Selector[CONDITION_METHOD_NE_STR_INT])
-    {  // NE(string,int256)
+    {
+        // NE(string,int256)
         std::string str;
         s256 num;
         m_codec->decode(data, str, num);
@@ -172,9 +174,11 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(
         gasPricer->appendOperation(InterfaceOpcode::NE);
     }
     else if (func == name2Selector[CONDITION_METHOD_LIMIT_INT])
-    {  // limit(int256)
+    {
+        // limit(int256)
         s256 num;
         m_codec->decode(data, num);
+        num = (num < 0) ? 0 : num;
 
         m_condition->limit(size_t(num));
         gasPricer->appendOperation(InterfaceOpcode::Limit);
@@ -185,6 +189,8 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(
         s256 start;
         s256 end;
         m_codec->decode(data, start, end);
+        start = (start < 0) ? 0 : start;
+        end = (end < start) ? start : end;
 
         m_condition->limit(size_t(start), size_t(end));
         gasPricer->appendOperation(InterfaceOpcode::Limit);

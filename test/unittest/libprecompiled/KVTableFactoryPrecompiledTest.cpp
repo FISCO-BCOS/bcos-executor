@@ -147,6 +147,12 @@ BOOST_AUTO_TEST_CASE(openTableTest)
         BOOST_CHECK_THROW(
             kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas),
             PrecompiledError);
+
+        param = codec->encodeWithSig("openTable(string)", std::string("/data/t_poor"));
+        BOOST_CHECK_THROW(
+            kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas),
+            PrecompiledError);
+
         param = codec->encodeWithSig("openTable(string)", std::string("t_test"));
         callResult = kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas);
         out = callResult->execResult();

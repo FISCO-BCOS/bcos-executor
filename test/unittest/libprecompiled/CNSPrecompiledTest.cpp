@@ -20,12 +20,10 @@
 
 #include "libprecompiled/CNSPrecompiled.h"
 #include "PreCompiledFixture.h"
-#include "libprecompiled/extension/UserPrecompiled.h"
-#include "libvm/BlockContext.h"
-#include "libvm/Executive.h"
+#include "libprecompiled/Common.h"
+#include "libstate/State.h"
 #include <bcos-framework/interfaces/storage/TableInterface.h>
 #include <bcos-framework/testutils/TestPromptFixture.h>
-#include <bcos-framework/testutils/crypto/HashImpl.h>
 #include <json/json.h>
 
 using namespace bcos;
@@ -47,6 +45,43 @@ public:
     }
 
     virtual ~CNSPrecompiledFixture() {}
+
+    void initContractTable()
+    {
+        auto tableFactory = context->getTableFactory();
+        tableFactory->createTable("c_420f853b49838bd3e9466c85a4cc3428c960dde2", SYS_KEY, SYS_VALUE);
+
+        auto table =
+            context->getTableFactory()->openTable("c_420f853b49838bd3e9466c85a4cc3428c960dde2");
+        auto entry = table->newEntry();
+        entry->setField(SYS_VALUE, "");
+        table->setRow(executor::ACCOUNT_CODE_HASH, entry);
+        tableFactory->commit();
+    }
+
+    void initContractCodeHash()
+    {
+        auto table =
+            context->getTableFactory()->openTable("c_420f853b49838bd3e9466c85a4cc3428c960dde2");
+        auto entry = table->newEntry();
+        entry->setField(SYS_VALUE, "123456");
+        table->setRow(executor::ACCOUNT_CODE_HASH, entry);
+
+        auto entry2 = table->newEntry();
+        entry2->setField(SYS_VALUE, "true");
+        table->setRow(executor::ACCOUNT_FROZEN, entry2);
+        context->getTableFactory()->commit();
+    }
+
+    void initContractFrozen()
+    {
+        auto table =
+            context->getTableFactory()->openTable("c_420f853b49838bd3e9466c85a4cc3428c960dde2");
+        auto entry = table->newEntry();
+        entry->setField(SYS_VALUE, "false");
+        table->setRow(executor::ACCOUNT_FROZEN, entry);
+        context->getTableFactory()->commit();
+    }
 
     CNSPrecompiled::Ptr cnsPrecompiled;
 };
@@ -105,6 +140,27 @@ BOOST_AUTO_TEST_CASE(insertTest)
     auto table2 = memoryTableFactory->openTable(SYS_CNS);
     auto entry2 = table2->getRow(contractName + "," + contractVersion);
     BOOST_TEST(entry2 != nullptr);
+
+    initContractTable();
+    contractVersion = "3.0";
+    in2 = codec->encodeWithSig("insert(string,string,address,string)", contractName,
+        contractVersion, contractAddress, contractAbi);
+    callResult = cnsPrecompiled->call(context, bytesConstRef(&in2), "", "", gas);
+    out = callResult->execResult();
+
+    initContractCodeHash();
+    contractVersion = "4.0";
+    in2 = codec->encodeWithSig("insert(string,string,address,string)", contractName,
+        contractVersion, contractAddress, contractAbi);
+    callResult = cnsPrecompiled->call(context, bytesConstRef(&in2), "", "", gas);
+    out = callResult->execResult();
+
+    initContractFrozen();
+    contractVersion = "5.0";
+    in2 = codec->encodeWithSig("insert(string,string,address,string)", contractName,
+        contractVersion, contractAddress, contractAbi);
+    callResult = cnsPrecompiled->call(context, bytesConstRef(&in2), "", "", gas);
+    out = callResult->execResult();
 }
 
 BOOST_AUTO_TEST_CASE(selectTest)

@@ -55,19 +55,28 @@ PrecompiledExecResult::Ptr EntriesPrecompiled::call(
     gasPricer->setMemUsed(_param.size());
 
     if (func == name2Selector[ENTRIES_GET_INT])
-    {  // get(int256)
+    {
+        // get(int256)
         u256 num;
         m_codec->decode(data, num);
 
         Entry::Ptr entry = getEntriesPtr()->at(num.convert_to<size_t>());
         EntryPrecompiled::Ptr entryPrecompiled = std::make_shared<EntryPrecompiled>(m_hashImpl);
         entryPrecompiled->setEntry(entry);
-        // FIXME: check this register
-        Address address = Address(_context->registerPrecompiled(entryPrecompiled));
-        callResult->setExecResult(m_codec->encode(address));
+        if (_context->isWasm())
+        {
+            std::string address = _context->registerPrecompiled(entryPrecompiled);
+            callResult->setExecResult(m_codec->encode(address));
+        }
+        else
+        {
+            Address address = Address(_context->registerPrecompiled(entryPrecompiled));
+            callResult->setExecResult(m_codec->encode(address));
+        }
     }
     else if (func == name2Selector[ENTRIES_SIZE])
-    {  // size()
+    {
+        // size()
         u256 c = getEntriesConstPtr()->size();
         callResult->setExecResult(m_codec->encode(c));
     }

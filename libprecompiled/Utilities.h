@@ -91,9 +91,6 @@ public:
     const std::string& getType() const { return type; }
     protocol::BlockNumber getNumber() const { return number; }
 
-    std::string toString();
-    static bool fromString(FileInfo& _f, std::string _str);
-
 private:
     friend class boost::serialization::access;
     template <typename Archive>

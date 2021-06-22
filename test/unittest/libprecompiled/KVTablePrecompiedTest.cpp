@@ -52,7 +52,6 @@ public:
         BOOST_CHECK(table != nullptr);
         kvTablePrecompiled = std::make_shared<KVTablePrecompiled>(hashImpl);
         kvTablePrecompiled->setTable(table);
-        address = Address(context->registerPrecompiled(kvTablePrecompiled));
     }
 
     void initWasmEnv()
@@ -67,7 +66,6 @@ public:
         BOOST_CHECK(table != nullptr);
         kvTablePrecompiled = std::make_shared<KVTablePrecompiled>(hashImpl);
         kvTablePrecompiled->setTable(table);
-        wasmAddress = context->registerPrecompiled(kvTablePrecompiled);
     }
 
     virtual ~KVTablePrecompiledFixture() {}
@@ -115,7 +113,7 @@ BOOST_AUTO_TEST_CASE(get_set_evm)
     auto entryPrecompiled = std::make_shared<EntryPrecompiled>(hashImpl);
     entryPrecompiled->setEntry(newEntry);
     auto entryAddress1 = context->registerPrecompiled(entryPrecompiled);
-    BOOST_CHECK(Address(entryAddress1) == Address(std::to_string(addressCount + 2)));
+    BOOST_CHECK(Address(entryAddress1) == Address(std::to_string(addressCount + 1)));
 
     // call set
     auto addr = Address(entryAddress1, FixedBytes<20>::FromBinary);
@@ -161,7 +159,7 @@ BOOST_AUTO_TEST_CASE(get_set_wasm)
     auto entryPrecompiled = std::make_shared<EntryPrecompiled>(hashImpl);
     entryPrecompiled->setEntry(newEntry);
     auto entryAddress1 = context->registerPrecompiled(entryPrecompiled);
-    BOOST_CHECK(Address(entryAddress1) == Address(std::to_string(addressCount + 2)));
+    BOOST_CHECK(Address(entryAddress1) == Address(std::to_string(addressCount + 1)));
 
     // call set
     auto addr = Address(entryAddress1, FixedBytes<20>::FromBinary);
@@ -196,7 +194,7 @@ BOOST_AUTO_TEST_CASE(newEntryTest)
         Address address;
         codec->decode(&out1, address);
         std::string s((char*)address.data(), 20);
-        BOOST_CHECK(s == "00000000000000065538");
+        BOOST_CHECK(s == "00000000000000065537");
     }
     {
         initWasmEnv();
@@ -205,7 +203,7 @@ BOOST_AUTO_TEST_CASE(newEntryTest)
         bytes out1 = callResult->execResult();
         std::string address;
         codec->decode(&out1, address);
-        BOOST_CHECK(Address(address) == Address(std::to_string(addressCount + 2)));
+        BOOST_CHECK(Address(address) == Address(std::to_string(addressCount + 1)));
     }
 }
 

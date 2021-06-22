@@ -84,15 +84,13 @@ PrecompiledExecResult::Ptr SystemConfigPrecompiled::call(
             PRECOMPILED_LOG(ERROR)
                 << LOG_BADGE("SystemConfigPrecompiled") << LOG_DESC("table commit occurs error")
                 << LOG_KV("configKey", configKey);
-            // FIXME: use unified code to return
-            result = 1;
+            result = 0;
         }
         else
         {
             PRECOMPILED_LOG(DEBUG)
                 << LOG_BADGE("SystemConfigPrecompiled") << LOG_DESC("permission denied");
-            // FIXME: use unified code to return
-            result = -1;
+            result = CODE_NO_AUTHORIZED;
         }
         getErrorCodeOut(callResult->mutableExecResult(), result, m_codec);
     }
@@ -123,33 +121,44 @@ PrecompiledExecResult::Ptr SystemConfigPrecompiled::call(
 
 std::string SystemConfigPrecompiled::toString()
 {
-    return "SystemConfigPrecompiled";
+    return "SystemConfig";
 }
 
 bool SystemConfigPrecompiled::checkValueValid(std::string const& key, std::string const& value)
 {
     int64_t configuredValue = 0;
-    try
-    {
-        configuredValue = boost::lexical_cast<int64_t>(value);
-    }
-    catch (std::exception const& e)
-    {
-        PRECOMPILED_LOG(ERROR) << LOG_BADGE("SystemConfigPrecompiled")
-                               << LOG_DESC("checkValueValid failed") << LOG_KV("key", key)
-                               << LOG_KV("value", value) << LOG_KV("errorInfo", e.what());
-        return false;
-    }
     if (ledger::SYSTEM_KEY_TX_COUNT_LIMIT == key)
     {
+        try
+        {
+            configuredValue = boost::lexical_cast<int64_t>(value);
+        }
+        catch (std::exception const& e)
+        {
+            PRECOMPILED_LOG(ERROR)
+                << LOG_BADGE("SystemConfigPrecompiled") << LOG_DESC("checkValueValid failed")
+                << LOG_KV("key", key) << LOG_KV("value", value) << LOG_KV("errorInfo", e.what());
+            return false;
+        }
         return (configuredValue >= TX_COUNT_LIMIT_MIN);
     }
     else if (ledger::SYSTEM_KEY_CONSENSUS_TIMEOUT == key)
     {
+        try
+        {
+            configuredValue = boost::lexical_cast<int64_t>(value);
+        }
+        catch (std::exception const& e)
+        {
+            PRECOMPILED_LOG(ERROR)
+                << LOG_BADGE("SystemConfigPrecompiled") << LOG_DESC("checkValueValid failed")
+                << LOG_KV("key", key) << LOG_KV("value", value) << LOG_KV("errorInfo", e.what());
+            return false;
+        }
         return (configuredValue >= SYSTEM_CONSENSUS_TIMEOUT_MIN &&
                 configuredValue < SYSTEM_CONSENSUS_TIMEOUT_MAX);
     }
-    return false;
+    return true;
 }
 
 std::pair<std::string, protocol::BlockNumber> SystemConfigPrecompiled::getSysConfigByKey(

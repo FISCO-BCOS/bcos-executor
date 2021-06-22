@@ -23,7 +23,6 @@
 #include "Utilities.h"
 #include <bcos-framework/interfaces/ledger/LedgerTypeDef.h>
 #include <bcos-framework/interfaces/protocol/CommonError.h>
-#include <bcos-framework/libcodec/abi/ContractABICodec.h>
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
 
@@ -43,6 +42,7 @@ ConsensusPrecompiled::ConsensusPrecompiled(crypto::Hash::Ptr _hashImpl) : Precom
     name2Selector[CSS_METHOD_ADD_SEALER] = getFuncSelector(CSS_METHOD_ADD_SEALER, _hashImpl);
     name2Selector[CSS_METHOD_ADD_SER] = getFuncSelector(CSS_METHOD_ADD_SER, _hashImpl);
     name2Selector[CSS_METHOD_REMOVE] = getFuncSelector(CSS_METHOD_REMOVE, _hashImpl);
+    name2Selector[CSS_METHOD_SET_WEIGHT] = getFuncSelector(CSS_METHOD_SET_WEIGHT, _hashImpl);
 }
 
 PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
@@ -90,7 +90,7 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
             if (_context->getTableFactory()->checkAuthority(ledger::SYS_CONSENSUS, _origin))
             {
                 table->setRow(nodeID, newEntry);
-                result = 1;
+                result = 0;
                 PRECOMPILED_LOG(DEBUG)
                     << LOG_BADGE("ConsensusPrecompiled")
                     << LOG_DESC("addSealer successfully insert") << LOG_KV("result", result);
@@ -99,8 +99,7 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
             {
                 PRECOMPILED_LOG(DEBUG)
                     << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("permission denied");
-                // FIXME: add unify error code
-                result = -1;
+                result = CODE_NO_AUTHORIZED;
             }
         }
     }
@@ -108,8 +107,7 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
     {
         // addObserver(string)
         std::string nodeID;
-        u256 weight;
-        m_codec->decode(data, nodeID, weight);
+        m_codec->decode(data, nodeID);
         // Uniform lowercase nodeID
         boost::to_lower(nodeID);
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("addObserver func")
@@ -129,7 +127,7 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
             newEntry->setField(NODE_TYPE, ledger::CONSENSUS_OBSERVER);
             newEntry->setField(
                 NODE_ENABLE_NUMBER, boost::lexical_cast<std::string>(_context->currentNumber()));
-            newEntry->setField(NODE_WEIGHT, boost::lexical_cast<std::string>(weight));
+            newEntry->setField(NODE_WEIGHT, "-1");
             if (_context->getTableFactory()->checkAuthority(ledger::SYS_CONSENSUS, _origin))
             {
                 if (checkIsLastSealer(table, nodeID))
@@ -141,7 +139,7 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
                 else
                 {
                     table->setRow(nodeID, newEntry);
-                    result = 1;
+                    result = 0;
                     PRECOMPILED_LOG(DEBUG)
                         << LOG_BADGE("ConsensusPrecompiled")
                         << LOG_DESC("addObserver successfully insert") << LOG_KV("result", result);
@@ -151,8 +149,7 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
             {
                 PRECOMPILED_LOG(DEBUG)
                     << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("permission denied");
-                // FIXME: add unify error code
-                result = -1;
+                result = CODE_NO_AUTHORIZED;
             }
         }
     }
@@ -186,7 +183,7 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
                 else
                 {
                     table->remove(nodeID);
-                    result = 1;
+                    result = 0;
                     PRECOMPILED_LOG(DEBUG)
                         << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("remove successfully")
                         << LOG_KV("result", result);
@@ -196,8 +193,7 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
             {
                 PRECOMPILED_LOG(DEBUG)
                     << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("permission denied");
-                // FIXME: add unify error code
-                result = -1;
+                result = CODE_NO_AUTHORIZED;
             }
         }
     }
@@ -238,7 +234,7 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
                 auto newEntry = table->newEntry();
                 entry->setField(NODE_WEIGHT, boost::lexical_cast<std::string>(weight));
                 table->setRow(nodeID, entry);
-                result = 1;
+                result = 0;
                 PRECOMPILED_LOG(DEBUG)
                     << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("remove successfully")
                     << LOG_KV("result", result);
@@ -247,8 +243,7 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
             {
                 PRECOMPILED_LOG(DEBUG)
                     << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("permission denied");
-                // FIXME: add unify error code
-                result = -1;
+                result = CODE_NO_AUTHORIZED;
             }
         }
     }

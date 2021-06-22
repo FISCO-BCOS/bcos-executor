@@ -53,54 +53,39 @@ std::string CNSPrecompiled::toString()
 int CNSPrecompiled::checkCNSParam(BlockContext::Ptr _context, Address const& _contractAddress,
     std::string& _contractName, std::string& _contractVersion, std::string const& _contractAbi)
 {
-    try
-    {
-        boost::trim(_contractName);
-        boost::trim(_contractVersion);
-        // check the status of the contract(only print the error message to the log)
-        std::string tableName = precompiled::getContractTableName(_contractAddress.hex());
-        ContractStatus contractStatus = getContractStatus(_context, tableName);
+    boost::trim(_contractName);
+    boost::trim(_contractVersion);
+    // check the status of the contract(only print the error message to the log)
+    std::string tableName = precompiled::getContractTableName(_contractAddress.hex());
+    ContractStatus contractStatus = getContractStatus(_context, tableName);
 
-        if (contractStatus != ContractStatus::Available)
-        {
-            std::stringstream errorMessage;
-            errorMessage << "CNS operation failed for ";
-            switch (contractStatus)
-            {
-            case ContractStatus::Invalid:
-                errorMessage << "invalid contract \"" << _contractName
-                             << "\", contractAddress = " << _contractAddress.hex();
-                break;
-            case ContractStatus::Frozen:
-                errorMessage << "\"" << _contractName
-                             << "\" has been frozen, contractAddress = " << _contractAddress.hex();
-                break;
-            case ContractStatus::AddressNonExistent:
-                errorMessage << "the contract \"" << _contractName << "\" with address "
-                             << _contractAddress.hex() << " does not exist";
-                break;
-            case ContractStatus::NotContractAddress:
-                errorMessage << "invalid address " << _contractAddress.hex()
-                             << ", please make sure it's a contract address";
-                break;
-            default:
-                errorMessage << "invalid contract \"" << _contractName << "\" with address "
-                             << _contractAddress.hex()
-                             << ", error code:" << std::to_string(contractStatus);
-                break;
-            }
-            PRECOMPILED_LOG(INFO) << LOG_BADGE("CNSPrecompiled") << LOG_DESC(errorMessage.str())
-                                  << LOG_KV("contractAddress", _contractAddress.hex())
-                                  << LOG_KV("contractName", _contractName);
-        }
-    }
-    catch (std::exception const& _e)
+    if (contractStatus != ContractStatus::Available)
     {
-        PRECOMPILED_LOG(WARNING) << LOG_BADGE("CNSPrecompiled")
-                                 << LOG_DESC("check contract status exception")
-                                 << LOG_KV("contractAddress", _contractAddress.hex())
-                                 << LOG_KV("contractName", _contractName)
-                                 << LOG_KV("e", boost::diagnostic_information(_e));
+        std::stringstream errorMessage;
+        errorMessage << "CNS operation failed for ";
+        switch (contractStatus)
+        {
+        case ContractStatus::Frozen:
+            errorMessage << "\"" << _contractName
+                         << "\" has been frozen, contractAddress = " << _contractAddress.hex();
+            break;
+        case ContractStatus::AddressNonExistent:
+            errorMessage << "the contract \"" << _contractName << "\" with address "
+                         << _contractAddress.hex() << " does not exist";
+            break;
+        case ContractStatus::NotContractAddress:
+            errorMessage << "invalid address " << _contractAddress.hex()
+                         << ", please make sure it's a contract address";
+            break;
+        default:
+            errorMessage << "invalid contract \"" << _contractName << "\" with address "
+                         << _contractAddress.hex()
+                         << ", error code:" << std::to_string(contractStatus);
+            break;
+        }
+        PRECOMPILED_LOG(INFO) << LOG_BADGE("CNSPrecompiled") << LOG_DESC(errorMessage.str())
+                              << LOG_KV("contractAddress", _contractAddress.hex())
+                              << LOG_KV("contractName", _contractName);
     }
     if (_contractVersion.size() > CNS_VERSION_MAX_LENGTH)
     {
@@ -197,8 +182,7 @@ PrecompiledExecResult::Ptr CNSPrecompiled::call(std::shared_ptr<executor::BlockC
             {
                 PRECOMPILED_LOG(DEBUG)
                     << LOG_BADGE("CNSPrecompiled") << LOG_DESC("permission denied");
-                // TODO: use unify error code
-                result = -1;
+                result = CODE_NO_AUTHORIZED;
             }
         }
         getErrorCodeOut(callResult->mutableExecResult(), result, m_codec);

@@ -131,5 +131,11 @@ BOOST_AUTO_TEST_CASE(mkdirTest)
     BOOST_TEST(result == true);
 }
 
+BOOST_AUTO_TEST_CASE(undefined_test)
+{
+    bytes in = codec->encodeWithSig("take(string)");
+    fileSystemPrecompiled->call(context, bytesConstRef(&in), "", "", gas);
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 }  // namespace bcos::test

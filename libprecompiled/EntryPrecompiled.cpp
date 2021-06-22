@@ -79,7 +79,8 @@ PrecompiledExecResult::Ptr EntryPrecompiled::call(std::shared_ptr<executor::Bloc
         callResult->setExecResult(m_codec->encode(num));
     }
     else if (func == name2Selector[ENTRY_GET_UINT])
-    {  // getUInt(string)
+    {
+        // getUInt(string)
         std::string str;
         m_codec->decode(data, str);
         u256 num = boost::lexical_cast<u256>(m_entry->getField(str));
@@ -87,7 +88,8 @@ PrecompiledExecResult::Ptr EntryPrecompiled::call(std::shared_ptr<executor::Bloc
         callResult->setExecResult(m_codec->encode(num));
     }
     else if (func == name2Selector[ENTRY_SET_STR_INT])
-    {  // set(string,int256)
+    {
+        // set(string,int256)
         std::string key;
         s256 num;
         m_codec->decode(data, key, num);
@@ -96,16 +98,18 @@ PrecompiledExecResult::Ptr EntryPrecompiled::call(std::shared_ptr<executor::Bloc
         gasPricer->appendOperation(InterfaceOpcode::Set);
     }
     else if (func == name2Selector[ENTRY_SET_STR_UINT])
-    {  // set(string,uint256)
+    {
+        // set(string,uint256)
         std::string key;
         u256 num;
-        m_codec->decode(key, num);
+        m_codec->decode(data, key, num);
         auto value = boost::lexical_cast<std::string>(num);
         m_entry->setField(key, value);
         gasPricer->appendOperation(InterfaceOpcode::Set);
     }
     else if (func == name2Selector[ENTRY_SET_STR_STR])
-    {  // set(string,string)
+    {
+        // set(string,string)
         std::string str;
         std::string value;
         m_codec->decode(data, str, value);
@@ -114,7 +118,8 @@ PrecompiledExecResult::Ptr EntryPrecompiled::call(std::shared_ptr<executor::Bloc
         gasPricer->appendOperation(InterfaceOpcode::Set);
     }
     else if (func == name2Selector[ENTRY_SET_STR_ADDR])
-    {  // set(string,address)
+    {
+        // set(string,address)
         std::string str;
         Address value;
         m_codec->decode(data, str, value);
@@ -123,17 +128,26 @@ PrecompiledExecResult::Ptr EntryPrecompiled::call(std::shared_ptr<executor::Bloc
         gasPricer->appendOperation(InterfaceOpcode::Set);
     }
     else if (func == name2Selector[ENTRY_GETA_STR])
-    {  // getAddress(string)
+    {
+        // getAddress(string)
         std::string str;
         m_codec->decode(data, str);
 
         std::string value = m_entry->getField(str);
-        Address ret = Address(value);
-        callResult->setExecResult(m_codec->encode(ret));
+        if (_context->isWasm())
+        {
+            callResult->setExecResult(m_codec->encode(value));
+        }
+        else
+        {
+            auto ret = Address(value);
+            callResult->setExecResult(m_codec->encode(ret));
+        }
         gasPricer->appendOperation(InterfaceOpcode::GetAddr);
     }
     else if (func == name2Selector[ENTRY_GETB_STR])
-    {  // getBytes64(string)
+    {
+        // getBytes64(string)
         std::string str;
         m_codec->decode(data, str);
 
@@ -151,7 +165,8 @@ PrecompiledExecResult::Ptr EntryPrecompiled::call(std::shared_ptr<executor::Bloc
         gasPricer->appendOperation(InterfaceOpcode::GetByte64);
     }
     else if (func == name2Selector[ENTRY_GETB_STR32])
-    {  // getBytes32(string)
+    {
+        // getBytes32(string)
         std::string str;
         m_codec->decode(data, str);
 
@@ -161,7 +176,8 @@ PrecompiledExecResult::Ptr EntryPrecompiled::call(std::shared_ptr<executor::Bloc
         gasPricer->appendOperation(InterfaceOpcode::GetByte32);
     }
     else if (func == name2Selector[ENTRY_GET_STR])
-    {  // getString(string)
+    {
+        // getString(string)
         std::string str;
         m_codec->decode(data, str);
 

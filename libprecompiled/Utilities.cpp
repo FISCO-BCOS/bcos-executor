@@ -32,32 +32,6 @@ using namespace bcos::crypto;
 
 static tbb::concurrent_unordered_map<std::string, uint32_t> s_name2SelectCache;
 
-std::string FileInfo::toString()
-{
-    std::stringstream ss;
-    boost::archive::text_oarchive oa(ss);
-    oa << *this;
-    return ss.str();
-}
-
-bool FileInfo::fromString(FileInfo& _f, std::string _str)
-{
-    std::stringstream ss(_str);
-    try
-    {
-        boost::archive::text_iarchive ia(ss);
-        ia >> _f;
-    }
-    catch (boost::archive::archive_exception const& e)
-    {
-        PRECOMPILED_LOG(ERROR) << LOG_BADGE("FileInfo::fromString")
-                               << LOG_DESC("deserialization error") << LOG_KV("e.what", e.what())
-                               << LOG_KV("str", _str);
-        return false;
-    }
-    return true;
-}
-
 std::string DirInfo::toString()
 {
     std::stringstream ss;
@@ -242,8 +216,8 @@ bcos::precompiled::ContractStatus bcos::precompiled::getContractStatus(
     }
 
     auto codeHashEntry = table->getRow(executor::ACCOUNT_CODE_HASH);
-    h256 codeHash;
-    codeHash = h256(codeHashEntry->getField(executor::STORAGE_VALUE));
+    HashType codeHash;
+    codeHash = HashType(codeHashEntry->getField(executor::STORAGE_VALUE));
 
     if (codeHash == HashType(""))
     {
@@ -261,17 +235,8 @@ bcos::precompiled::ContractStatus bcos::precompiled::getContractStatus(
     }
     PRECOMPILED_LOG(ERROR) << LOG_DESC("getContractStatus error")
                            << LOG_KV("table name", _tableName);
-    return ContractStatus::Invalid;
 }
 
-void bcos::precompiled::sortKeyValue(std::vector<std::string>& _v)
-{
-    if (_v.size() <= 1)
-    {
-        return;
-    }
-    std::sort(_v.begin(), _v.end());
-}
 void Condition::EQ(const std::string& key, const std::string& value)
 {
     addCondition(key, value, m_conditions, Comparator::EQ);
@@ -305,6 +270,10 @@ void Condition::LE(const std::string& key, const std::string& value)
 
 bool Condition::filter(storage::Entry::Ptr _entry)
 {
+    if (_entry == nullptr)
+    {
+        return false;
+    }
     if (_entry->getStatus() == storage::Entry::Status::DELETED)
     {
         return false;
@@ -319,73 +288,80 @@ bool Condition::filter(storage::Entry::Ptr _entry)
                 switch (condition.cmp)
                 {
                 case Comparator::EQ:
+                {
                     if (fieldIt->second != condition.right)
                     {
                         return false;
                     }
                     break;
+                }
                 case Comparator::NE:
+                {
                     if (fieldIt->second == condition.right)
                     {
                         return false;
                     }
                     break;
+                }
                 case Comparator::GT:
                 {
-                    auto lhs = boost::lexical_cast<int64_t>(condition.right);
-                    auto rhs = (int64_t)0;
+                    int64_t lhs = INT64_MIN;
+                    auto rhs = boost::lexical_cast<int64_t>(condition.right);
                     if (!fieldIt->second.empty())
                     {
-                        rhs = boost::lexical_cast<int64_t>(fieldIt->second);
+                        lhs = boost::lexical_cast<int64_t>(fieldIt->second);
                     }
                     if (lhs <= rhs)
                     {
                         return false;
                     }
+                    break;
                 }
-                break;
                 case Comparator::GE:
                 {
-                    auto lhs = boost::lexical_cast<int64_t>(condition.right);
-                    auto rhs = (int64_t)0;
+                    int64_t lhs = INT64_MIN;
+                    auto rhs = boost::lexical_cast<int64_t>(condition.right);
                     if (!fieldIt->second.empty())
                     {
-                        rhs = boost::lexical_cast<int64_t>(fieldIt->second);
+                        lhs = boost::lexical_cast<int64_t>(fieldIt->second);
                     }
                     if (lhs < rhs)
                     {
                         return false;
                     }
+                    break;
                 }
-                break;
                 case Comparator::LT:
                 {
-                    auto lhs = boost::lexical_cast<int64_t>(condition.right);
-                    auto rhs = (int64_t)0;
+                    int64_t lhs = INT64_MAX;
+                    auto rhs = boost::lexical_cast<int64_t>(condition.right);
                     if (!fieldIt->second.empty())
                     {
-                        rhs = boost::lexical_cast<int64_t>(fieldIt->second);
+                        lhs = boost::lexical_cast<int64_t>(fieldIt->second);
                     }
                     if (lhs >= rhs)
                     {
                         return false;
                     }
+                    break;
                 }
-                break;
                 case Comparator::LE:
                 {
-                    auto lhs = boost::lexical_cast<int64_t>(condition.right);
-                    auto rhs = (int64_t)0;
+                    int64_t lhs = INT64_MAX;
+                    auto rhs = boost::lexical_cast<int64_t>(condition.right);
                     if (!fieldIt->second.empty())
                     {
-                        rhs = boost::lexical_cast<int64_t>(fieldIt->second);
+                        lhs = boost::lexical_cast<int64_t>(fieldIt->second);
                     }
                     if (lhs > rhs)
                     {
                         return false;
                     }
+                    break;
                 }
-                break;
+                default:
+                {
+                }
                 }
             }
         }
@@ -430,15 +406,13 @@ void precompiled::transferKeyCond(CompareTriple& _entryCond, storage::Condition:
 void precompiled::addCondition(const std::string& key, const std::string& value,
     std::vector<CompareTriple>& _cond, Comparator _cmp)
 {
-    auto it = std::find_if(_cond.begin(), _cond.end(),
-        [key](const CompareTriple& item) -> bool { return item.left == key; });
-    if (it != _cond.end())
-    {
-        it->left = key;
-        it->right = value;
-        it->cmp = _cmp;
-    }
-    else
+    auto it = std::find_if(
+        _cond.begin(), _cond.end(), [key, value, _cmp](const CompareTriple& item) -> bool {
+            return item.left == key && item.right == value && item.cmp == _cmp;
+        });
+    // duplicate removal
+    // TODO: range narrowing
+    if (it == _cond.end())
     {
         _cond.emplace_back(CompareTriple(key, value, _cmp));
     }
