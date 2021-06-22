@@ -5,8 +5,8 @@ ExternalProject_Add(evmc_project
         PREFIX ${CMAKE_SOURCE_DIR}/deps
         DOWNLOAD_NO_PROGRESS 1
         DOWNLOAD_NAME evmc-e0bd9d5d.tar.gz
-        URL https://${URL_BASE}/FISCO-BCOS/evmc/archive/d951b1ef088be6922d80f41c3c83c0cbd69d2bfa.tar.gz
-        URL_HASH SHA256=96b7edd81f72d02936cd9632ca72bacc959d8ff2934edfe3486e01b813fbe39d
+        URL https://${URL_BASE}/FISCO-BCOS/evmc/archive/e0bd9d5dc68ec3a00fe9a3c5e81c98946449a20d.tar.gz
+        URL_HASH SHA256=a9983643415c8473cd696ff4aa93e014308f0292057bce740bc0b4ca84a40462
         CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR> -DHUNTER_USE_CACHE_SERVERS=NO
         # BUILD_COMMAND cmake --build . -- -j
         BUILD_IN_SOURCE 1

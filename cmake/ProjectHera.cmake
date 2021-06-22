@@ -39,7 +39,7 @@ ExternalProject_Add(hera_project
                    -DHERA_WASMER_NATIVE_ENGINE=OFF
                    -DHERA_WASMER_LLVM_BACKEND=OFF
                    -DHERA_DEBUGGING=${DEBUG}
-                   -DEVMC_ROOT=<INSTALL_DIR>
+                   -DEVMC_ROOT=${EVMC_ROOT}
                    -DHUNTER_STATUS_DEBUG=ON
                    -DHUNTER_USE_CACHE_SERVERS=NO
         BUILD_IN_SOURCE 1
@@ -69,5 +69,5 @@ set_property(TARGET hera-buildinfo PROPERTY IMPORTED_LOCATION ${INSTALL_DIR}/lib
 add_library(hera STATIC IMPORTED)
 set_property(TARGET hera PROPERTY IMPORTED_LOCATION ${INSTALL_DIR}/lib/libhera.a)
 set_property(TARGET hera PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${HERA_INCLUDE_DIRS})
-add_dependencies(hera_project evmc)
+# add_dependencies(hera_project evmc)
 add_dependencies(hera hera_project ${WASM_ENGINE_LIBRARY} hera-buildinfo)
