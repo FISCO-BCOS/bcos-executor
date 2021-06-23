@@ -314,8 +314,6 @@ bool Executive::executeCreate(const std::string_view& _sender, const std::string
     // account if it does not exist yet.
     m_s->setNonce(_newAddress, m_s->accountStartNonce());
 
-    grantContractStatusManager(tableFactory, _newAddress, string(_sender), string(_origin));
-
     // Schedule _init execution if not empty.
     if (!_init.empty())
     {
@@ -340,69 +338,6 @@ bool Executive::executeCreate(const std::string_view& _sender, const std::string
             constructorParams, code, m_hashImpl->hash(_init), m_depth, true, false);
     }
     return !m_context;
-}
-
-void Executive::grantContractStatusManager(TableFactoryInterface::Ptr tableFactory,
-    const std::string& newAddress, const std::string& sender, const std::string& origin)
-{
-    EXECUTIVE_LOG(DEBUG) << LOG_DESC("grantContractStatusManager") << LOG_KV("contract", newAddress)
-                         << LOG_KV("sender", sender) << LOG_KV("origin", origin);
-
-    std::string tableName = getContractTableName(newAddress);
-    auto table = tableFactory->openTable(tableName);
-
-    if (!table)
-    {
-        EXECUTIVE_LOG(ERROR) << LOG_DESC("grantContractStatusManager get newAddress table error!");
-        return;
-    }
-#if 0
-    // grant origin authorization
-    auto entry = table->newEntry();
-    entry->setField("key", "authority");
-    entry->setField("value", origin);
-    table->insert("authority", entry);
-    EXECUTIVE_LOG(DEBUG) << LOG_DESC("grantContractStatusManager add authoriy")
-                         << LOG_KV("origin", origin);
-#endif
-    if (origin != sender)
-    {
-        // grant authorization of sender contract
-        std::string senderTableName = getContractTableName(sender);
-        auto senderTable = tableFactory->openTable(senderTableName);
-        if (!senderTable)
-        {
-            EXECUTIVE_LOG(ERROR) << LOG_DESC("grantContractStatusManager get sender table error!");
-            return;
-        }
-#if 0
-// FIXME: authority is not supported for now
-        auto entry = senderTable->getRow("authority");
-        if (!entry)
-        {
-            EXECUTIVE_LOG(ERROR) << LOG_DESC(
-                "grantContractStatusManager no sender authority is granted");
-        }
-        else
-        {
-            for (size_t i = 0; i < entries->size(); i++)
-            {
-                std::string authority = entries->get(i)->getField("value");
-                if (origin != authority)
-                {
-                    // remove duplicate
-                    auto entry = table->newEntry();
-                    entry->setField("key", "authority");
-                    entry->setField("value", authority);
-                    table->insert("authority", entry);
-                    EXECUTIVE_LOG(DEBUG) << LOG_DESC("grantContractStatusManager add authoriy")
-                                         << LOG_KV("sender", authority);
-                }
-            }
-        }
-#endif
-    }
-    return;
 }
 
 bool Executive::go()

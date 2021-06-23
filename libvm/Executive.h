@@ -171,10 +171,6 @@ public:
 private:
     void parseEVMCResult(std::shared_ptr<Result> _result);
 
-
-    void grantContractStatusManager(std::shared_ptr<storage::TableFactoryInterface> tableFactory,
-        const std::string& newAddress, const std::string& sender, const std::string& origin);
-
     void writeErrInfoToOutput(std::string const& errInfo);
 
     void updateGas(std::shared_ptr<precompiled::PrecompiledExecResult> _callResult);

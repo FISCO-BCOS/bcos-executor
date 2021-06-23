@@ -339,7 +339,7 @@ BlockContext::Ptr Executor::executeBlock(
     auto getReceiptRoot_time_cost = utcTime() - record_time;
     // Consensus module execute block, receiptRoot is empty, skip this judgment
     // The sync module execute block, receiptRoot is not empty, need to compare BlockHeader
-    if (originalHeader->hash() != h256() && originalHeader->hash() != currentHeader->hash())
+    if (originalHeader->stateRoot() != h256() && originalHeader->hash() != currentHeader->hash())
     {
         EXECUTOR_LOG(ERROR) << "Invalid Block with bad stateRoot or receiptRoot"
                             << LOG_KV("blkNum", currentHeader->number())
