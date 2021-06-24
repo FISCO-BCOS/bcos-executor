@@ -58,6 +58,21 @@ using namespace bcos::protocol;
 using namespace bcos::storage;
 using namespace bcos::precompiled;
 
+inline std::ostream& operator<<(std::ostream& _out, const TransactionReceipt::Ptr& _r)
+{
+    _out << "Version: " << _r->version() << "\n";
+    _out << "Number: " << _r->blockNumber() << "\n";
+    _out << "Hash: " << _r->hash() << "\n";
+    _out << "Gas used: " << _r->gasUsed() << "\n";
+    _out << "contractAddress : " << _r->contractAddress().toString() << "\n";
+    _out << "status : " << int(_r->status()) << "\n";
+    _out << "output: " << _r->output().toString() << " \n";
+    _out << "Logs: " << _r->logEntries().size() << " entries:"
+         << "\n";
+    _out << "Bloom: " << _r->bloom() << "\n";
+    return _out;
+}
+
 Executor::Executor(const protocol::BlockFactory::Ptr& _blockFactory,
     const dispatcher::DispatcherInterface::Ptr& _dispatcher,
     const ledger::LedgerInterface::Ptr& _ledger,
@@ -219,7 +234,7 @@ void Executor::stop()
 
 void Executor::asyncGetCode(const std::string_view& _address,
     std::function<void(const Error::Ptr&, const std::shared_ptr<bytes>&)> _callback)
-{
+{  // TODO: make state a member of Executor
     auto state = make_shared<State>(m_tableFactory, m_hashImpl, m_isWasm);
     m_threadPool->enqueue([state, address = string(_address), _callback]() {
         auto code = state->code(address);
@@ -363,6 +378,15 @@ BlockContext::Ptr Executor::executeBlock(
                         << LOG_KV("exeTimeCost", exe_time_cost)
                         << LOG_KV("getRootHashTimeCost", getRootHash_time_cost)
                         << LOG_KV("getReceiptRootTimeCost", getReceiptRoot_time_cost);
+#if FISCO_DEBUG
+    for (size_t i = 0; i < block->receiptsSize(); ++i)
+    {
+        EXECUTOR_LOG(DEBUG) << LOG_BADGE("FISCO_DEBUG") << LOG_KV("index", i)
+                                    << LOG_KV("hash", block->transaction(i)->hash())
+                                    << ",receipt=" << block->receipt(i);
+    }
+#endif
+
     return executiveContext;
 }
 

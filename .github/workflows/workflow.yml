@@ -142,7 +142,7 @@ jobs:
           toolchain: stable
           override: false
       - name: configure
-        run: cmake . -DTESTS=ON
+        run: cmake . -DTESTS=ON -DDEBUG=ON
       - name: compile
         run: make -j2
       - name: run test
