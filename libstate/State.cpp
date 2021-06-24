@@ -149,7 +149,8 @@ void State::setBalance(const std::string_view& _address, u256 const& _amount)
     }
 }
 
-void State::transferBalance(const std::string_view& _from, const std::string_view& _to, u256 const& _value)
+void State::transferBalance(
+    const std::string_view& _from, const std::string_view& _to, u256 const& _value)
 {
     subBalance(_from, _value);
     addBalance(_to, _value);
@@ -179,8 +180,8 @@ u256 State::storage(const std::string_view& _address, const std::string_view& _k
     return u256(0);
 }
 
-void State::setStorage(
-    const std::string_view& _address, const std::string_view& _location, const std::string_view& _value)
+void State::setStorage(const std::string_view& _address, const std::string_view& _location,
+    const std::string_view& _value)
 {
     auto table = getTable(_address);
     if (table)
@@ -286,6 +287,8 @@ bool State::frozen(const std::string_view& _contract) const
     auto table = getTable(_contract);
     if (table)
     {
+#if 0
+    // FIXME: if we has permission control
         auto entry = table->getRow(ACCOUNT_FROZEN);
         if (entry)
         {
@@ -295,6 +298,8 @@ bool State::frozen(const std::string_view& _contract) const
         {
             return false;
         }
+#endif
+        return false;
     }
     else
     {
