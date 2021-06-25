@@ -156,16 +156,34 @@ BOOST_AUTO_TEST_CASE(Nonce)
     state->incNonce(addr1);
     nonce = state->getNonce(addr1);
     BOOST_TEST(nonce == u256(6));
+    state->incNonce(addr1);
+    nonce = state->getNonce(addr1);
+    BOOST_TEST(nonce == u256(7));
+    state->incNonce(addr1);
+    nonce = state->getNonce(addr1);
+    BOOST_TEST(nonce == u256(8));
+    state->incNonce(addr1);
+    nonce = state->getNonce(addr1);
+    BOOST_TEST(nonce == u256(9));
 
     string addr2("0x100002");
     state->incNonce(addr2);
     nonce = state->getNonce(addr2);
     BOOST_TEST(nonce == state->accountStartNonce() + 1);
+    state->incNonce(addr2);
+    nonce = state->getNonce(addr2);
+    BOOST_TEST(nonce == state->accountStartNonce() + 2);
+    state->incNonce(addr2);
+    nonce = state->getNonce(addr2);
+    BOOST_TEST(nonce == state->accountStartNonce() + 3);
+    state->incNonce(addr2);
+    nonce = state->getNonce(addr2);
+    BOOST_TEST(nonce == state->accountStartNonce() + 4);
 
     string addr3("0x100003");
     state->setNonce(addr3, nonce);
     nonce = state->getNonce(addr3);
-    BOOST_TEST(nonce == state->accountStartNonce() + 1);
+    BOOST_TEST(nonce == state->accountStartNonce() + 4);
 }
 
 BOOST_AUTO_TEST_CASE(Operate)

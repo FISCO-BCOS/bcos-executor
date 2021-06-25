@@ -181,6 +181,9 @@ public:
 
 private:
     void createAccount(const std::string_view& _address, u256 const& _nonce, u256 const& _amount = u256(0));
+    std::string getTableName(const std::string_view& _address) const {
+        return m_isWasm ? std::string(_address) : std::string("c_" + *toHexString(_address));
+    }
     std::shared_ptr<storage::TableInterface> getTable(const std::string_view& _address) const;
     u256 m_accountStartNonce = 0;
     std::shared_ptr<storage::TableFactoryInterface> m_tableFactory;

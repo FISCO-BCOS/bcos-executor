@@ -29,8 +29,8 @@
 #include "bcos-framework/testutils/protocol/FakeBlock.h"
 #include "bcos-framework/testutils/protocol/FakeBlockHeader.h"
 #include "libprecompiled/Common.h"
-#include "libvm/Executive.h"
 #include "libvm/BlockContext.h"
+#include "libvm/Executive.h"
 #include <boost/test/unit_test.hpp>
 #include <iostream>
 #include <set>
@@ -141,6 +141,7 @@ BOOST_AUTO_TEST_CASE(executeTransaction_DeployHelloWorld)
 
     auto input = *fromHexString(helloworld);
     auto tx = fakeTransaction(cryptoSuite, keyPair, bytes(), input, 101, 100001, "1", "1");
+    auto sender = string_view((char *)tx->sender().data(), tx->sender().size());
     auto executive = std::make_shared<Executive>(executiveContext);
     auto receipt = executor->executeTransaction(tx, executive);
     BOOST_TEST(receipt->status() == (int32_t)TransactionStatus::None);
@@ -151,7 +152,13 @@ BOOST_AUTO_TEST_CASE(executeTransaction_DeployHelloWorld)
         *toHexString(receipt->contractAddress()) == "8968b494f66b2508330b24a7d1cafa06a14f6315");
     BOOST_TEST(*toHexString(receipt->output()) == "");
     BOOST_TEST(receipt->blockNumber() == 1);
+    auto nonce = executiveContext->getState()->getNonce(
+        string_view((char *)receipt->contractAddress().data(), receipt->contractAddress().size()));
+    BOOST_TEST(nonce == executiveContext->getState()->accountStartNonce());
+    nonce = executiveContext->getState()->getNonce(sender);
+    BOOST_TEST(nonce == executiveContext->getState()->accountStartNonce() + 1);
     auto newAddress = receipt->contractAddress().toBytes();
+
     // call helloworld get
     input = *fromHexString("0x6d4ce63c");
     auto getTx = fakeTransaction(cryptoSuite, keyPair, newAddress, input, 101, 100001, "1", "1");
@@ -167,6 +174,8 @@ BOOST_AUTO_TEST_CASE(executeTransaction_DeployHelloWorld)
                "00000000000000000000000000000000000000000000d48656c6c6f2c20576f726c6421000000000000"
                "00000000000000000000000000");
     BOOST_TEST(receipt->blockNumber() == 1);
+    nonce = executiveContext->getState()->getNonce(sender);
+    BOOST_TEST(nonce == executiveContext->getState()->accountStartNonce() + 1);
 
     // call helloworld set fisco
     input = *fromHexString(
@@ -189,6 +198,15 @@ BOOST_AUTO_TEST_CASE(executeTransaction_DeployHelloWorld)
                "00000000000000000000000000000000000000000000000000000000000000200000000000000000000"
                "000000000000000000000000000000000000000000005666973636f0000000000000000000000000000"
                "00000000000000000000000000");
+    nonce = executiveContext->getState()->getNonce(sender);
+    BOOST_TEST(nonce == executiveContext->getState()->accountStartNonce() + 1);
+
+    executor->executeTransaction(tx, executive);
+    nonce = executiveContext->getState()->getNonce(sender);
+    BOOST_TEST(nonce == executiveContext->getState()->accountStartNonce() + 2);
+    executor->executeTransaction(tx, executive);
+    nonce = executiveContext->getState()->getNonce(sender);
+    BOOST_TEST(nonce == executiveContext->getState()->accountStartNonce() + 3);
 }
 
 BOOST_AUTO_TEST_CASE(executeBlock)
@@ -268,7 +286,7 @@ BOOST_AUTO_TEST_CASE(executeBlock)
     BOOST_TEST(block->blockHeader()->receiptsRoot().hexPrefixed() ==
                "0x5838cfc06b6881518763d5af6347dd654de2df2d1862062ea87046884bc8069e");
     BOOST_TEST(block->blockHeader()->stateRoot().hexPrefixed() ==
-               "0x9c14ee6b56c187aa4d064583b1bdc0e954cc59f5e2ad5840a9f702d7851b7fd1");
+               "0xa46b2f7a199a45cf38bae4b42e45d7580ed44367e0b6d9532c347a2afecedadb");
     BOOST_TEST(block->blockHeader()->stateRoot().hexPrefixed() ==
                result->getTableFactory()->hash().hexPrefixed());
 }
