@@ -25,13 +25,12 @@
 #include "bcos-framework/libutilities/Log.h"
 #include <memory>
 
-#define EXECUTOR_LOG(LEVEL) LOG(LEVEL) << LOG_BADGE("EXECUTOR")
-#define PARA_LOG(LEVEL) LOG(LEVEL) << LOG_BADGE("PARA") << LOG_BADGE(utcTime())
+#define EXECUTOR_LOG(LEVEL) BCOS_LOG(LEVEL) << LOG_BADGE("EXECUTOR")
+#define PARA_LOG(LEVEL) BCOS_LOG(LEVEL) << LOG_BADGE("PARA") << LOG_BADGE(utcTime())
 
 namespace bcos
 {
 namespace executor
 {
-
 }  // namespace executor
 }  // namespace bcos

@@ -20,8 +20,8 @@
  */
 
 #include "Executive.h"
-#include "EVMHostInterface.h"
 #include "BlockContext.h"
+#include "EVMHostInterface.h"
 #include "HostContext.h"
 #include "VMFactory.h"
 #include "VMInstance.h"
@@ -31,7 +31,7 @@
 #include <limits.h>
 #include <numeric>
 
-#define EXECUTIVE_LOG(LEVEL) LOG(LEVEL) << "[EXECUTIVE]"
+#define EXECUTIVE_LOG(LEVEL) BCOS_LOG(LEVEL) << "[EXECUTIVE]"
 
 using namespace std;
 using namespace bcos;
@@ -261,7 +261,7 @@ bool Executive::create2Opcode(const std::string_view& _sender, u256 const& _gas,
 }
 
 bool Executive::executeCreate(const std::string_view& _sender, const std::string_view& _origin,
-    const std::string& _newAddress,u256 const& _gasLeft,  bytesConstRef _init,
+    const std::string& _newAddress, u256 const& _gasLeft, bytesConstRef _init,
     bytesConstRef constructorParams)
 {
     // check authority for deploy contract

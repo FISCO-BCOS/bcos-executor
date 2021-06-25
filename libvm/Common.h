@@ -38,7 +38,7 @@ DERIVE_BCOS_EXCEPTION(InvalidEncoding);
 
 namespace executor
 {
-#define EXECUTIVE_LOG(LEVEL) LOG(LEVEL) << "[EXECUTIVE]"
+#define EXECUTIVE_LOG(LEVEL) BCOS_LOG(LEVEL) << "[EXECUTIVE]"
 struct SubState
 {
     std::set<std::string> suicides;  ///< Any accounts that have suicided.

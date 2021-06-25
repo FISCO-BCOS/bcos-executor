@@ -94,10 +94,14 @@ BOOST_AUTO_TEST_CASE(insertTest)
     std::string contractVersion = "1.0";
     Address contractAddress = Address("0x420f853b49838bd3e9466c85a4cc3428c960dde2");
     std::string contractAbi =
-        "[{\"constant\":false,\"inputs\":[{\"name\":\"num\",\"type\":\"uint256\"}],\"name\":"
-        "\"trans\",\"outputs\":[],\"payable\":false,\"type\":\"function\"},{\"constant\":true,"
-        "\"inputs\":[],\"name\":\"get\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],"
-        "\"payable\":false,\"type\":\"function\"},{\"inputs\":[],\"payable\":false,\"type\":"
+        "[{\"constant\":false,\"inputs\":[{\"name\":"
+        "\"num\",\"type\":\"uint256\"}],\"name\":"
+        "\"trans\",\"outputs\":[],\"payable\":false,"
+        "\"type\":\"function\"},{\"constant\":true,"
+        "\"inputs\":[],\"name\":\"get\",\"outputs\":[{"
+        "\"name\":\"\",\"type\":\"uint256\"}],"
+        "\"payable\":false,\"type\":\"function\"},{"
+        "\"inputs\":[],\"payable\":false,\"type\":"
         "\"constructor\"}]";
 
     // insert overflow
@@ -170,10 +174,14 @@ BOOST_AUTO_TEST_CASE(selectTest)
     std::string contractVersion = "1.0";
     Address contractAddress = Address("0x420f853b49838bd3e9466c85a4cc3428c960dde2");
     std::string contractAbi =
-        "[{\"constant\":false,\"inputs\":[{\"name\":\"num\",\"type\":\"uint256\"}],\"name\":"
-        "\"trans\",\"outputs\":[],\"payable\":false,\"type\":\"function\"},{\"constant\":true,"
-        "\"inputs\":[],\"name\":\"get\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],"
-        "\"payable\":false,\"type\":\"function\"},{\"inputs\":[],\"payable\":false,\"type\":"
+        "[{\"constant\":false,\"inputs\":[{\"name\":"
+        "\"num\",\"type\":\"uint256\"}],\"name\":"
+        "\"trans\",\"outputs\":[],\"payable\":false,"
+        "\"type\":\"function\"},{\"constant\":true,"
+        "\"inputs\":[],\"name\":\"get\",\"outputs\":[{"
+        "\"name\":\"\",\"type\":\"uint256\"}],"
+        "\"payable\":false,\"type\":\"function\"},{"
+        "\"inputs\":[],\"payable\":false,\"type\":"
         "\"constructor\"}]";
     bytes in = codec->encodeWithSig("insert(string,string,address,string)", contractName,
         contractVersion, contractAddress, contractAbi);
@@ -194,7 +202,7 @@ BOOST_AUTO_TEST_CASE(selectTest)
     std::string retStr;
     codec->decode(&out, retStr);
 
-    LOG(TRACE) << "select result:" << retStr;
+    BCOS_LOG(TRACE) << "select result:" << retStr;
     Json::Value retJson;
     Json::Reader reader;
     BOOST_TEST(reader.parse(retStr, retJson) == true);
@@ -224,7 +232,7 @@ BOOST_AUTO_TEST_CASE(selectTest)
     callResult = cnsPrecompiled->call(context, bytesConstRef(&in), "", "", gas);
     out = callResult->execResult();
     codec->decode(&out, retStr);
-    LOG(TRACE) << "select result:" << retStr;
+    BCOS_LOG(TRACE) << "select result:" << retStr;
     BOOST_TEST(reader.parse(retStr, retJson) == true);
     BOOST_TEST(retJson.size() == 0);
 
@@ -236,7 +244,7 @@ BOOST_AUTO_TEST_CASE(selectTest)
     std::string abi;
 
     codec->decode(&out, ret, abi);
-    LOG(TRACE) << "select result: address:" << ret.hex() << " abi:" << abi;
+    BCOS_LOG(TRACE) << "select result: address:" << ret.hex() << " abi:" << abi;
     BOOST_TEST(abi == contractAbi);
     BOOST_TEST(ret == contractAddress);
 
@@ -247,7 +255,7 @@ BOOST_AUTO_TEST_CASE(selectTest)
     out = callResult->execResult();
     abi = "";
     codec->decode(&out, ret, abi);
-    LOG(TRACE) << "select result: address:" << ret.hex() << " abi:" << abi;
+    BCOS_LOG(TRACE) << "select result: address:" << ret.hex() << " abi:" << abi;
     BOOST_TEST(abi != contractAbi);
     BOOST_TEST(ret != contractAddress);
     codec->decode(&out, errorCode);
@@ -258,7 +266,7 @@ BOOST_AUTO_TEST_CASE(selectTest)
     callResult = cnsPrecompiled->call(context, bytesConstRef(&in), "", "", gas);
     out = callResult->execResult();
     codec->decode(&out, ret, abi);
-    LOG(TRACE) << "select result: address:" << ret.hex() << " abi:" << abi;
+    BCOS_LOG(TRACE) << "select result: address:" << ret.hex() << " abi:" << abi;
     BOOST_TEST(abi != contractAbi);
     BOOST_TEST(ret != contractAddress);
     codec->decode(&out, errorCode);

@@ -31,7 +31,7 @@ namespace bcos
 {
 namespace precompiled
 {
-#define PRECOMPILED_LOG(LEVEL) LOG(LEVEL) << "[PRECOMPILED]"
+#define PRECOMPILED_LOG(LEVEL) BCOS_LOG(LEVEL) << "[PRECOMPILED]"
 
 using EntriesConstPtr = std::shared_ptr<const std::vector<storage::Entry::Ptr>>;
 using Entries = std::vector<storage::Entry::Ptr>;

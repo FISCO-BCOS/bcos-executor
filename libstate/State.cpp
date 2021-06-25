@@ -404,8 +404,8 @@ void State::createAccount(const std::string_view& _address, u256 const& _nonce, 
     auto ret = m_tableFactory->createTable(tableName, STORAGE_KEY, STORAGE_VALUE);
     if (!ret)
     {
-        LOG(ERROR) << LOG_BADGE("State") << LOG_DESC("createAccount failed")
-                   << LOG_KV("Account", tableName);
+        BCOS_LOG(ERROR) << LOG_BADGE("State") << LOG_DESC("createAccount failed")
+                        << LOG_KV("Account", tableName);
         return;
     }
     auto table = m_tableFactory->openTable(tableName);

@@ -31,7 +31,7 @@
 using namespace std;
 using namespace wabt;
 
-#define METER_LOG(LEVEL) LOG(LEVEL) << "[METER]"
+#define METER_LOG(LEVEL) BCOS_LOG(LEVEL) << "[METER]"
 
 namespace wasm
 {
@@ -56,9 +56,9 @@ void GasInjector::InjectMeterExprList(
         return ++current;
     };
     auto isFloatOpcode = [](const Opcode& opcode) -> bool {
-        #ifdef WASM_FLOAT_ENABLE
-            return false;
-        #endif
+#ifdef WASM_FLOAT_ENABLE
+        return false;
+#endif
         uint32_t op = opcode.GetCode();
         if ((op >= 0x2A && op <= 0x2B) || (op >= 0x38 && op <= 0x39) ||
             (op >= 0x43 && op <= 0x44) || (op >= 0x5B && op <= 0x66) ||
@@ -163,11 +163,11 @@ void GasInjector::InjectMeterExprList(
             }
             else
             {
-        #ifndef WASM_FLOAT_ENABLE
+#ifndef WASM_FLOAT_ENABLE
                 METER_LOG(WARNING) << LOG_BADGE("invalid Const instruction");
-            throw InvalidInstruction(constValue.type() == Type::F32 ? "f32.const" : "f64.const",
+                throw InvalidInstruction(constValue.type() == Type::F32 ? "f32.const" : "f64.const",
                     ((Expr*)(&*it))->loc.offset);
-        #endif
+#endif
             }
 
             break;

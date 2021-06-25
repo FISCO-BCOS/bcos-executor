@@ -29,15 +29,15 @@ using namespace std;
 using namespace bcos;
 using namespace bcos::executor;
 
-#define DAG_LOG(LEVEL) LOG(LEVEL) << LOG_BADGE("DAG")
+#define DAG_LOG(LEVEL) BCOS_LOG(LEVEL) << LOG_BADGE("DAG")
 
 // Generate DAG according with given transactions
-void TxDAG::init(
-    BlockContext::Ptr _ctx, const protocol::Block::Ptr& _block)
+void TxDAG::init(BlockContext::Ptr _ctx, const protocol::Block::Ptr& _block)
 {
     m_block = _block;
     auto txsSize = m_block->transactionsSize();
-    DAG_LOG(TRACE) << LOG_DESC("Begin init transaction DAG") << LOG_KV("blockHeight", m_block->blockHeader()->number())
+    DAG_LOG(TRACE) << LOG_DESC("Begin init transaction DAG")
+                   << LOG_KV("blockHeight", m_block->blockHeader()->number())
                    << LOG_KV("transactionNum", txsSize);
     m_dag.init(txsSize);
 
@@ -96,7 +96,8 @@ void TxDAG::init(
 
     m_totalParaTxs = txsSize;
 
-    DAG_LOG(TRACE) << LOG_DESC("End init transaction DAG") << LOG_KV("blockHeight", m_block->blockHeader()->number());
+    DAG_LOG(TRACE) << LOG_DESC("End init transaction DAG")
+                   << LOG_KV("blockHeight", m_block->blockHeader()->number());
 }
 
 // Set transaction execution function
