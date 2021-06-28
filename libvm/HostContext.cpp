@@ -432,7 +432,7 @@ uint64_t HostContext::issueNotFungibleAsset(
 void HostContext::depositFungibleAsset(
     const std::string_view& _to, const std::string& _assetName, uint64_t _amount)
 {
-    auto tableName = getContractTableName(_to);
+    auto tableName = getContractTableName(_to, true);
     auto table = m_tableFactory->openTable(tableName);
     if (!table)
     {
@@ -461,7 +461,7 @@ void HostContext::depositFungibleAsset(
 void HostContext::depositNotFungibleAsset(const std::string_view& _to,
     const std::string& _assetName, uint64_t _assetID, const std::string& _uri)
 {
-    auto tableName = getContractTableName(_to);
+    auto tableName = getContractTableName(_to, true);
     auto table = m_tableFactory->openTable(tableName);
     if (!table)
     {
@@ -518,7 +518,7 @@ bool HostContext::transferAsset(const std::string_view& _to, const std::string& 
     {
         from = myAddress();
     }
-    auto tableName = getContractTableName(from);
+    auto tableName = getContractTableName(from, true);
     table = m_tableFactory->openTable(tableName);
     auto entry = table->getRow(_assetName);
     if (!entry)
@@ -591,7 +591,7 @@ uint64_t HostContext::getAssetBanlance(
         return false;
     }
     auto fungible = boost::lexical_cast<bool>(assetEntry->getField(SYS_ASSET_FUNGIBLE));
-    auto tableName = getContractTableName(_account);
+    auto tableName = getContractTableName(_account, true);
     table = m_tableFactory->openTable(tableName);
     if (!table)
     {
@@ -616,7 +616,7 @@ uint64_t HostContext::getAssetBanlance(
 std::string HostContext::getNotFungibleAssetInfo(
     const std::string_view& _owner, const std::string& _assetName, uint64_t _assetID)
 {
-    auto tableName = getContractTableName(_owner);
+    auto tableName = getContractTableName(_owner, true);
     auto table = m_tableFactory->openTable(tableName);
     if (!table)
     {
@@ -641,7 +641,7 @@ std::string HostContext::getNotFungibleAssetInfo(
 std::vector<uint64_t> HostContext::getNotFungibleAssetIDs(
     const std::string_view& _account, const std::string& _assetName)
 {
-    auto tableName = getContractTableName(_account);
+    auto tableName = getContractTableName(_account, true);
     auto table = m_tableFactory->openTable(tableName);
     if (!table)
     {

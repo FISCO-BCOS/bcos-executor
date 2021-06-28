@@ -279,7 +279,7 @@ storage::TableInterface::Ptr Precompiled::createTable(
 bool Precompiled::checkAuthority(storage::TableFactoryInterface::Ptr _tableFactory,
     const std::string& _origin, const std::string& _contract)
 {
-    auto tableName = executor::getContractTableName(_contract);
+    auto tableName = executor::getContractTableName(_contract, true);
     return _tableFactory->checkAuthority(tableName, _origin);
 }
 }  // namespace precompiled

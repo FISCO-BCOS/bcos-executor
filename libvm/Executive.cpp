@@ -31,8 +31,6 @@
 #include <limits.h>
 #include <numeric>
 
-#define EXECUTIVE_LOG(LEVEL) BCOS_LOG(LEVEL) << "[EXECUTIVE]"
-
 using namespace std;
 using namespace bcos;
 using namespace bcos::executor;

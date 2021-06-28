@@ -58,6 +58,7 @@ private:
         bytesConstRef _data, std::string const& _origin, bytes& _out);
     void unregisterParallelFunction(std::shared_ptr<executor::BlockContext> _context,
         bytesConstRef _data, std::string const& _origin, bytes& _out);
+    std::string getTableName(std::string const& _contractName, bool _isWasm);
 
 public:
     /// get parallel config, return nullptr if not found

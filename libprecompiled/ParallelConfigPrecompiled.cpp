@@ -106,14 +106,22 @@ PrecompiledExecResult::Ptr ParallelConfigPrecompiled::call(
     return callResult;
 }
 
+std::string ParallelConfigPrecompiled::getTableName(std::string const& _contractName, bool _isWasm)
+{
+    std::string tableName = PARA_CONFIG_TABLE_PREFIX_SHORT + _contractName;
+    if (!_isWasm)
+    {
+        tableName = PARA_CONFIG_TABLE_PREFIX_SHORT + *toHexString(_contractName);
+    }
+    return tableName;
+}
 
 // TODO: use origin to check authority
 TableInterface::Ptr ParallelConfigPrecompiled::openTable(
     std::shared_ptr<executor::BlockContext> _context, std::string const& _contractName,
     std::string const&, bool _needCreate)
 {
-    std::string tableName = PARA_CONFIG_TABLE_PREFIX_SHORT + _contractName;
-
+    std::string tableName = getTableName(_contractName, _context->isWasm());
     auto tableFactory = _context->getTableFactory();
     auto table = tableFactory->openTable(tableName);
 
@@ -191,7 +199,7 @@ void ParallelConfigPrecompiled::unregisterParallelFunction(
         std::string contractAddress;
         m_codec->decode(_data, contractAddress, functionName);
         table = _context->getTableFactory()->openTable(
-            PARA_CONFIG_TABLE_PREFIX_SHORT + contractAddress);
+            getTableName(contractAddress, _context->isWasm()));
     }
     else
     {
@@ -217,7 +225,7 @@ ParallelConfig::Ptr ParallelConfigPrecompiled::getParallelConfig(
     uint32_t _selector, std::string const&)
 {
     auto table =
-        _context->getTableFactory()->openTable(PARA_CONFIG_TABLE_PREFIX_SHORT + _contractAddress);
+        _context->getTableFactory()->openTable(getTableName(_contractAddress, _context->isWasm()));
     if (!table)
     {
         return nullptr;

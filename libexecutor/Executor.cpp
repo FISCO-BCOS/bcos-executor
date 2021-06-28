@@ -42,7 +42,6 @@
 #include "bcos-framework/libutilities/ThreadPool.h"
 #include <tbb/parallel_for.h>
 #include <exception>
-#include <future>
 #include <thread>
 // #include "include/UserPrecompiled.h"
 // #include "../libprecompiled/CRUDPrecompiled.h"
@@ -140,8 +139,9 @@ Executor::Executor(const protocol::BlockFactory::Ptr& _blockFactory,
 void Executor::start()
 {
     m_stop.store(false);
+
     m_worker = make_unique<thread>([&]() {
-        EXECUTOR_LOG(INFO) << LOG_BADGE("executor") << LOG_DESC("started");
+        EXECUTOR_LOG(INFO) << LOG_DESC("started");
         while (!m_stop.load())
         {
             std::promise<protocol::Block::Ptr> prom;
@@ -149,9 +149,8 @@ void Executor::start()
                 [&prom](const Error::Ptr& error, const protocol::Block::Ptr& block) {
                     if (error)
                     {
-                        EXECUTOR_LOG(WARNING)
-                            << LOG_BADGE("executor") << LOG_DESC("asyncGetLatestBlock failed")
-                            << LOG_KV("message", error->errorMessage());
+                        EXECUTOR_LOG(WARNING) << LOG_DESC("asyncGetLatestBlock failed")
+                                              << LOG_KV("message", error->errorMessage());
                     }
                     prom.set_value(block);
                 });
@@ -162,12 +161,16 @@ void Executor::start()
             }
             // check the current block's number == m_lastHeader number + 1
             if (currentBlock->blockHeader()->number() != m_lastHeader->number() + 1)
-            {  // the continuity of blockNumber is broken, clear executor's state
-                EXECUTOR_LOG(ERROR)
-                    << LOG_BADGE("executor") << LOG_DESC("check BlockNumber continuity failed")
-                    << LOG_KV("ledger", m_lastHeader->number() + 1)
-                    << LOG_KV("latest", currentBlock->blockHeader()->number());
+            {
+                EXECUTOR_LOG(ERROR) << LOG_DESC("check BlockNumber continuity failed")
+                                    << LOG_KV("expect", m_lastHeader->number() + 1)
+                                    << LOG_KV("got", currentBlock->blockHeader()->number());
+                // FIXME: use error code instead of -1, process return error
+                resultNotifier(make_shared<Error>(-1, "check BlockNumber continuity failed"),
+                    m_blockFactory->blockHeaderFactory()->createBlockHeader(
+                        currentBlock->blockHeader()->number()));
                 m_lastHeader = nullptr;
+                // the continuity of blockNumber is broken, clear executor's state
                 m_tableFactory = std::make_shared<TableFactory>(
                     m_stateStorage, m_hashImpl, currentBlock->blockHeader()->number());
                 continue;
@@ -176,12 +179,16 @@ void Executor::start()
             BlockContext::Ptr context = nullptr;
             try
             {
-                context = executeBlock(currentBlock, m_lastHeader);
+                context = executeBlock(currentBlock);
             }
             catch (exception& e)
             {
-                EXECUTOR_LOG(ERROR) << LOG_BADGE("executor") << LOG_DESC("executeBlock failed")
-                                    << LOG_KV("message", e.what());
+                EXECUTOR_LOG(ERROR)
+                    << LOG_DESC("executeBlock failed") << LOG_KV("message", e.what());
+                // FIXME: use error code instead of -1, process return error
+                resultNotifier(make_shared<Error>(-1, e.what()),
+                    m_blockFactory->blockHeaderFactory()->createBlockHeader(
+                        currentBlock->blockHeader()->number()));
                 continue;
             }
 
@@ -194,17 +201,11 @@ void Executor::start()
             auto error = errorProm.get_future().get();
             if (error)
             {
-                EXECUTOR_LOG(ERROR)
-                    << LOG_BADGE("executor") << LOG_DESC("asyncStoreReceipts failed")
-                    << LOG_KV("message", error->errorMessage());
+                EXECUTOR_LOG(ERROR) << LOG_DESC("asyncStoreReceipts failed")
+                                    << LOG_KV("message", error->errorMessage());
                 continue;
             }
-
-            // async notify dispatcher
-            std::promise<Error::Ptr> barrier;
-            m_dispatcher->asyncNotifyExecutionResult(nullptr, currentBlock->blockHeader(),
-                [&barrier](const Error::Ptr& error) { barrier.set_value(error); });
-            error = barrier.get_future().get();
+            error = resultNotifier(nullptr, currentBlock->blockHeader());
             if (!error)
             {
                 // set m_lastHeader to current block header
@@ -212,17 +213,18 @@ void Executor::start()
                 // create a new TableFactory and import data with new blocknumber
                 m_tableFactory = std::make_shared<TableFactory>(
                     m_stateStorage, m_hashImpl, m_lastHeader->number() + 1);
-                // TODO: the cache will grow, need clean some cold cache
+                // FIXME: the cache will grow, need clean some cold cache
                 m_tableFactory->importData(data.first, data.second, false);
+                EXECUTOR_LOG(DEBUG) << LOG_DESC("asyncNotifyExecutionResult")
+                                    << LOG_KV("BlockNumber", m_lastHeader->number());
             }
             else
             {
-                EXECUTOR_LOG(ERROR)
-                    << LOG_BADGE("executor") << LOG_DESC("asyncNotifyExecutionResult failed")
-                    << LOG_KV("message", error->errorMessage());
+                EXECUTOR_LOG(ERROR) << LOG_DESC("asyncNotifyExecutionResult failed")
+                                    << LOG_KV("message", error->errorMessage());
             }
         }
-        EXECUTOR_LOG(INFO) << LOG_BADGE("executor") << LOG_DESC("stopped");
+        EXECUTOR_LOG(INFO) << LOG_DESC("stopped");
     });
 }
 
@@ -246,7 +248,8 @@ void Executor::asyncExecuteTransaction(const protocol::Transaction::ConstPtr& _t
     std::function<void(const Error::Ptr&, const protocol::TransactionReceipt::ConstPtr&)> _callback)
 {
     // use m_lastHeader to execute transaction
-    BlockContext::Ptr executiveContext = createExecutiveContext(m_lastHeader);
+    auto currentHeader = m_blockFactory->blockHeaderFactory()->populateBlockHeader(m_lastHeader);
+    BlockContext::Ptr executiveContext = createExecutiveContext(currentHeader);
     auto executive = std::make_shared<Executive>(executiveContext);
     m_threadPool->enqueue([&, executiveContext, executive, _tx, _callback]() {
         // only Rpc::call will use executeTransaction, RPC do catch exception
@@ -255,8 +258,7 @@ void Executor::asyncExecuteTransaction(const protocol::Transaction::ConstPtr& _t
     });
 }
 
-BlockContext::Ptr Executor::executeBlock(
-    const protocol::Block::Ptr& block, const protocol::BlockHeader::Ptr& parentBlockHeader)
+BlockContext::Ptr Executor::executeBlock(const protocol::Block::Ptr& block)
 
 {
     // return nullptr prepare to exit when m_stop is true
@@ -264,12 +266,6 @@ BlockContext::Ptr Executor::executeBlock(
     {
         return nullptr;
     }
-    EXECUTOR_LOG(INFO) << LOG_DESC("[executeBlock]Executing")
-                       << LOG_KV("txNum", block->transactionsSize())
-                       << LOG_KV("num", block->blockHeader()->number())
-                       << LOG_KV("parentHash", parentBlockHeader->hash())
-                       << LOG_KV("parentNum", parentBlockHeader->number())
-                       << LOG_KV("parentStateRoot", parentBlockHeader->stateRoot());
 
     auto start_time = utcTime();
     auto record_time = utcTime();
@@ -281,9 +277,14 @@ BlockContext::Ptr Executor::executeBlock(
     // create a new block header to return
     auto currentHeader = m_blockFactory->blockHeaderFactory()->populateBlockHeader(originalHeader);
     // set current block header's ParentInfo use setParentInfo
-    currentHeader->setParentInfo({{parentBlockHeader->number(), parentBlockHeader->hash()}});
     block->setBlockHeader(currentHeader);
     BlockContext::Ptr executiveContext = createExecutiveContext(currentHeader);
+    EXECUTOR_LOG(INFO) << LOG_DESC("[executeBlock]Executing")
+                       << LOG_KV("blockNumber", originalHeader->number())
+                       << LOG_KV("txNum", block->transactionsSize())
+                       << LOG_KV("parentHash", currentHeader->parentInfo()[0].blockHash)
+                       << LOG_KV("parentNum", currentHeader->parentInfo()[0].blockNumber);
+
     auto initExeCtx_time_cost = utcTime() - record_time;
     record_time = utcTime();
 
@@ -357,18 +358,26 @@ BlockContext::Ptr Executor::executeBlock(
     if (originalHeader->stateRoot() != h256() && originalHeader->hash() != currentHeader->hash())
     {
         EXECUTOR_LOG(ERROR) << "Invalid Block with bad stateRoot or receiptRoot"
-                            << LOG_KV("blkNum", currentHeader->number())
+                            << LOG_KV("blockNumber", currentHeader->number())
                             << LOG_KV("Hash", originalHeader->hash().abridged())
                             << LOG_KV("currentHash", currentHeader->hash().abridged())
                             << LOG_KV("Receipt", originalHeader->receiptsRoot().abridged())
                             << LOG_KV("currentRecepit", currentHeader->receiptsRoot().abridged())
                             << LOG_KV("State", originalHeader->stateRoot().abridged())
                             << LOG_KV("currentState", currentHeader->stateRoot().abridged());
+#if FISCO_DEBUG
+        for (size_t i = 0; i < block->receiptsSize(); ++i)
+        {
+            EXECUTOR_LOG(DEBUG) << LOG_BADGE("FISCO_DEBUG") << LOG_KV("index", i)
+                                << LOG_KV("hash", block->transaction(i)->hash())
+                                << ",receipt=" << block->receipt(i);
+        }
+#endif
     }
     EXECUTOR_LOG(DEBUG) << LOG_BADGE("executeBlock") << LOG_DESC("Para execute block takes")
+                        << LOG_KV("blockNumber", currentHeader->number())
                         << LOG_KV("time(ms)", utcTime() - start_time)
                         << LOG_KV("txNum", block->transactionsSize())
-                        << LOG_KV("blockNumber", currentHeader->number())
                         << LOG_KV("blockHash", currentHeader->hash())
                         << LOG_KV("stateRoot", currentHeader->stateRoot())
                         << LOG_KV("transactionRoot", currentHeader->txsRoot())
@@ -378,14 +387,7 @@ BlockContext::Ptr Executor::executeBlock(
                         << LOG_KV("exeTimeCost", exe_time_cost)
                         << LOG_KV("getRootHashTimeCost", getRootHash_time_cost)
                         << LOG_KV("getReceiptRootTimeCost", getReceiptRoot_time_cost);
-#if FISCO_DEBUG
-    for (size_t i = 0; i < block->receiptsSize(); ++i)
-    {
-        EXECUTOR_LOG(DEBUG) << LOG_BADGE("FISCO_DEBUG") << LOG_KV("index", i)
-                                    << LOG_KV("hash", block->transaction(i)->hash())
-                                    << ",receipt=" << block->receipt(i);
-    }
-#endif
+
 
     return executiveContext;
 }

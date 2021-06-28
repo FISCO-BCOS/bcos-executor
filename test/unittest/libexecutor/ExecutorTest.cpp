@@ -141,7 +141,7 @@ BOOST_AUTO_TEST_CASE(executeTransaction_DeployHelloWorld)
 
     auto input = *fromHexString(helloworld);
     auto tx = fakeTransaction(cryptoSuite, keyPair, bytes(), input, 101, 100001, "1", "1");
-    auto sender = string_view((char *)tx->sender().data(), tx->sender().size());
+    auto sender = string_view((char*)tx->sender().data(), tx->sender().size());
     auto executive = std::make_shared<Executive>(executiveContext);
     auto receipt = executor->executeTransaction(tx, executive);
     BOOST_TEST(receipt->status() == (int32_t)TransactionStatus::None);
@@ -153,7 +153,7 @@ BOOST_AUTO_TEST_CASE(executeTransaction_DeployHelloWorld)
     BOOST_TEST(*toHexString(receipt->output()) == "");
     BOOST_TEST(receipt->blockNumber() == 1);
     auto nonce = executiveContext->getState()->getNonce(
-        string_view((char *)receipt->contractAddress().data(), receipt->contractAddress().size()));
+        string_view((char*)receipt->contractAddress().data(), receipt->contractAddress().size()));
     BOOST_TEST(nonce == executiveContext->getState()->accountStartNonce());
     nonce = executiveContext->getState()->getNonce(sender);
     BOOST_TEST(nonce == executiveContext->getState()->accountStartNonce() + 1);
@@ -235,6 +235,7 @@ BOOST_AUTO_TEST_CASE(executeBlock)
         101, 100001, "1", "1");
     block->appendTransaction(getTx);
     block->setBlockType(BlockType::CompleteBlock);
+    block->blockHeader()->setParentInfo({ParentInfo{100, crypto::HashType()}});
     auto txsRoot = block->blockHeader()->txsRoot();
     auto receiptsRoot = block->blockHeader()->receiptsRoot();
     auto stateRoot = block->blockHeader()->stateRoot();
@@ -242,7 +243,7 @@ BOOST_AUTO_TEST_CASE(executeBlock)
 
     // execute block
     auto parentHeader = blockFactory->blockHeaderFactory()->createBlockHeader(0);
-    auto result = executor->executeBlock(block, parentHeader);
+    auto result = executor->executeBlock(block);
     auto deployReceipt = block->receipt(0);
     BOOST_TEST(deployReceipt->status() == (int32_t)TransactionStatus::None);
     BOOST_TEST(deployReceipt->gasUsed() == 430575);

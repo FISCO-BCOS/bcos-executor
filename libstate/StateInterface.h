@@ -153,9 +153,10 @@ public:
     virtual bool checkAuthority(const std::string& _origin, const std::string& _address) const = 0;
 };
 
-inline std::string getContractTableName(const std::string_view& _address)
+inline std::string getContractTableName(const std::string_view& _address, bool _isWasm)
 {
-    return std::string("c_") + std::string(_address);
+    return _isWasm ? std::string(_address) : std::string("c_" + *toHexString(_address));
 }
+
 }  // namespace executor
 }  // namespace bcos

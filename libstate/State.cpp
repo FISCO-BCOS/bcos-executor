@@ -400,7 +400,7 @@ bool State::checkAuthority(const std::string& _origin, const std::string& _calle
 
 void State::createAccount(const std::string_view& _address, u256 const& _nonce, u256 const& _amount)
 {
-    std::string tableName = getTableName(_address);
+    std::string tableName = getContractTableName(_address, m_isWasm);
     auto ret = m_tableFactory->createTable(tableName, STORAGE_KEY, STORAGE_VALUE);
     if (!ret)
     {
@@ -438,7 +438,7 @@ void State::createAccount(const std::string_view& _address, u256 const& _nonce, 
 
 inline storage::TableInterface::Ptr State::getTable(const std::string_view& _address) const
 {
-    std::string tableName = getTableName(_address);
+    std::string tableName = getContractTableName(_address, m_isWasm);
     return m_tableFactory->openTable(tableName);
 }
 }  // namespace executor

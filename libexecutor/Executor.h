@@ -31,6 +31,7 @@
 #include <boost/function.hpp>
 #include <algorithm>
 #include <functional>
+#include <future>
 #include <memory>
 #include <thread>
 
@@ -64,8 +65,7 @@ public:
     Executor(const protocol::BlockFactory::Ptr& _blockFactory,
         const dispatcher::DispatcherInterface::Ptr& _dispatcher,
         const ledger::LedgerInterface::Ptr& _ledger,
-        const storage::StorageInterface::Ptr& _stateStorage, bool _isWasm,
-        size_t _poolSize = 2);
+        const storage::StorageInterface::Ptr& _stateStorage, bool _isWasm, size_t _poolSize = 2);
 
     virtual ~Executor()
     {
@@ -76,8 +76,7 @@ public:
         }
     }
 
-    std::shared_ptr<BlockContext> executeBlock(
-        const protocol::Block::Ptr& block, const protocol::BlockHeader::Ptr& parentBlockInfo);
+    std::shared_ptr<BlockContext> executeBlock(const protocol::Block::Ptr& block);
 
     protocol::TransactionReceipt::Ptr executeTransaction(
         protocol::Transaction::ConstPtr _t, std::shared_ptr<executor::Executive> executive);
@@ -95,6 +94,14 @@ public:
 
 private:
     protocol::BlockHeader::Ptr getLatestHeaderFromStorage();
+    Error::Ptr resultNotifier(const Error::Ptr& _error, const protocol::BlockHeader::Ptr& _header)
+    {
+        // async notify dispatcher
+        std::promise<Error::Ptr> barrier;
+        m_dispatcher->asyncNotifyExecutionResult(
+            _error, _header, [&barrier](const Error::Ptr& error) { barrier.set_value(error); });
+        return barrier.get_future().get();
+    };
     protocol::BlockFactory::Ptr m_blockFactory;
     dispatcher::DispatcherInterface::Ptr m_dispatcher;
     ledger::LedgerInterface::Ptr m_ledger;

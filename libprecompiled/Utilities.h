@@ -38,7 +38,6 @@ namespace precompiled
 static const std::string USER_TABLE_PREFIX = "u_";
 static const std::string USER_DATA_DIR = "/data";
 static const std::string USER_TABLE_PREFIX_WASM = "/data/";
-static const std::string CONTRACT_TABLE_PREFIX = "c_";
 
 enum class Comparator
 {
@@ -148,10 +147,7 @@ inline std::string getTableName(const std::string& _tableName)
 {
     return USER_TABLE_PREFIX + _tableName;
 }
-inline std::string getContractTableName(const std::string& _contractAddress)
-{
-    return CONTRACT_TABLE_PREFIX + _contractAddress;
-}
+std::string getContractTableName(const std::string& _contractAddress);
 
 void checkNameValidate(const std::string& tableName, std::vector<std::string>& keyFieldList,
     std::vector<std::string>& valueFieldList);
