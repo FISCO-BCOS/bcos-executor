@@ -158,6 +158,8 @@ void Executor::start()
             if (!m_lastHeader)
             {
                 m_lastHeader = getLatestHeaderFromStorage();
+                m_tableFactory = std::make_shared<TableFactory>(
+                    m_stateStorage, m_hashImpl, m_lastHeader->number() + 1);
             }
             // check the current block's number == m_lastHeader number + 1
             if (currentBlock->blockHeader()->number() != m_lastHeader->number() + 1)
@@ -171,8 +173,7 @@ void Executor::start()
                         currentBlock->blockHeader()->number()));
                 m_lastHeader = nullptr;
                 // the continuity of blockNumber is broken, clear executor's state
-                m_tableFactory = std::make_shared<TableFactory>(
-                    m_stateStorage, m_hashImpl, currentBlock->blockHeader()->number());
+                m_tableFactory = nullptr;
                 continue;
             }
             // execute current block
