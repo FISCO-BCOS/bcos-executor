@@ -42,6 +42,12 @@ public:
     std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::BlockContext> _context,
         bytesConstRef _param, const std::string& _origin, const std::string& _sender,
         u256& _remainGas) override;
+
+private:
+    void listDir(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& data,
+        std::shared_ptr<PrecompiledExecResult> callResult, const PrecompiledGas::Ptr& gasPricer);
+    void makeDir(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& data,
+        std::shared_ptr<PrecompiledExecResult> callResult, const PrecompiledGas::Ptr& gasPricer);
 };
 }  // namespace precompiled
 }  // namespace bcos

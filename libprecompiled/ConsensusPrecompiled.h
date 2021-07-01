@@ -48,6 +48,20 @@ public:
         u256& _remainGas) override;
 
 private:
+    int addSealer(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& _data,
+        const std::string& _origin);
+
+    int addObserver(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& _data,
+        const std::string& _origin);
+
+    int removeNode(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& _data,
+        const std::string& _origin);
+
+    int setWeight(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& _data,
+        const std::string& _origin);
+
+
+private:
     void showConsensusTable(std::shared_ptr<executor::BlockContext> context);
     bool checkIsLastSealer(bcos::storage::TableInterface::Ptr table, std::string const& nodeID);
     std::shared_ptr<std::map<std::string, storage::Entry::Ptr>> getRowsByNodeType(

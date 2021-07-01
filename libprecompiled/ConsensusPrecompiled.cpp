@@ -63,189 +63,22 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
     if (func == name2Selector[CSS_METHOD_ADD_SEALER])
     {
         // addSealer(string, uint256)
-        std::string nodeID;
-        u256 weight;
-        m_codec->decode(data, nodeID, weight);
-        // Uniform lowercase nodeID
-        boost::to_lower(nodeID);
-
-        PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("addSealer func")
-                               << LOG_KV("nodeID", nodeID);
-        if (nodeID.size() != 128u)
-        {
-            PRECOMPILED_LOG(ERROR) << LOG_BADGE("ConsensusPrecompiled")
-                                   << LOG_DESC("nodeID length error") << LOG_KV("nodeID", nodeID);
-            result = CODE_INVALID_NODE_ID;
-        }
-        else
-        {
-            auto table = _context->getTableFactory()->openTable(SYS_CONSENSUS);
-
-            auto newEntry = table->newEntry();
-            newEntry->setField(NODE_TYPE, ledger::CONSENSUS_SEALER);
-            newEntry->setField(
-                NODE_ENABLE_NUMBER, boost::lexical_cast<std::string>(_context->currentNumber()));
-            newEntry->setField(NODE_WEIGHT, boost::lexical_cast<std::string>(weight));
-
-            if (_context->getTableFactory()->checkAuthority(ledger::SYS_CONSENSUS, _origin))
-            {
-                table->setRow(nodeID, newEntry);
-                result = 0;
-                PRECOMPILED_LOG(DEBUG)
-                    << LOG_BADGE("ConsensusPrecompiled")
-                    << LOG_DESC("addSealer successfully insert") << LOG_KV("result", result);
-            }
-            else
-            {
-                PRECOMPILED_LOG(DEBUG)
-                    << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("permission denied");
-                result = CODE_NO_AUTHORIZED;
-            }
-        }
+        result = addSealer(_context, data, _origin);
     }
     else if (func == name2Selector[CSS_METHOD_ADD_SER])
     {
         // addObserver(string)
-        std::string nodeID;
-        m_codec->decode(data, nodeID);
-        // Uniform lowercase nodeID
-        boost::to_lower(nodeID);
-        PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("addObserver func")
-                               << LOG_KV("nodeID", nodeID);
-        if (nodeID.size() != 128u)
-        {
-            PRECOMPILED_LOG(ERROR) << LOG_BADGE("ConsensusPrecompiled")
-                                   << LOG_DESC("nodeID length error") << LOG_KV("nodeID", nodeID);
-            result = CODE_INVALID_NODE_ID;
-        }
-        else
-        {
-            auto table = _context->getTableFactory()->openTable(SYS_CONSENSUS);
-            auto nodeIdList = table->getPrimaryKeys(nullptr);
-
-            auto newEntry = table->newEntry();
-            newEntry->setField(NODE_TYPE, ledger::CONSENSUS_OBSERVER);
-            newEntry->setField(
-                NODE_ENABLE_NUMBER, boost::lexical_cast<std::string>(_context->currentNumber()));
-            newEntry->setField(NODE_WEIGHT, "-1");
-            if (_context->getTableFactory()->checkAuthority(ledger::SYS_CONSENSUS, _origin))
-            {
-                if (checkIsLastSealer(table, nodeID))
-                {
-                    PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
-                                           << LOG_DESC("addObserver failed, because last sealer");
-                    result = CODE_LAST_SEALER;
-                }
-                else
-                {
-                    table->setRow(nodeID, newEntry);
-                    result = 0;
-                    PRECOMPILED_LOG(DEBUG)
-                        << LOG_BADGE("ConsensusPrecompiled")
-                        << LOG_DESC("addObserver successfully insert") << LOG_KV("result", result);
-                }
-            }
-            else
-            {
-                PRECOMPILED_LOG(DEBUG)
-                    << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("permission denied");
-                result = CODE_NO_AUTHORIZED;
-            }
-        }
+        result = addObserver(_context, data, _origin);
     }
     else if (func == name2Selector[CSS_METHOD_REMOVE])
     {
         // remove(string)
-        std::string nodeID;
-        m_codec->decode(data, nodeID);
-        // Uniform lowercase nodeID
-        boost::to_lower(nodeID);
-        PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("remove func")
-                               << LOG_KV("nodeID", nodeID);
-        if (nodeID.size() != 128u)
-        {
-            PRECOMPILED_LOG(ERROR) << LOG_BADGE("ConsensusPrecompiled")
-                                   << LOG_DESC("nodeID length error") << LOG_KV("nodeID", nodeID);
-            result = CODE_INVALID_NODE_ID;
-        }
-        else
-        {
-            auto table = _context->getTableFactory()->openTable(ledger::SYS_CONSENSUS);
-
-            if (_context->getTableFactory()->checkAuthority(ledger::SYS_CONSENSUS, _origin))
-            {
-                if (checkIsLastSealer(table, nodeID))
-                {
-                    PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
-                                           << LOG_DESC("remove failed, because last sealer");
-                    result = CODE_LAST_SEALER;
-                }
-                else
-                {
-                    table->remove(nodeID);
-                    result = 0;
-                    PRECOMPILED_LOG(DEBUG)
-                        << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("remove successfully")
-                        << LOG_KV("result", result);
-                }
-            }
-            else
-            {
-                PRECOMPILED_LOG(DEBUG)
-                    << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("permission denied");
-                result = CODE_NO_AUTHORIZED;
-            }
-        }
+        result = removeNode(_context, data, _origin);
     }
     else if (func == name2Selector[CSS_METHOD_SET_WEIGHT])
     {
         // setWeight(string,uint256)
-        std::string nodeID;
-        u256 weight;
-        m_codec->decode(data, nodeID, weight);
-        // Uniform lowercase nodeID
-        boost::to_lower(nodeID);
-        PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("remove func")
-                               << LOG_KV("nodeID", nodeID);
-        if (nodeID.size() != 128u)
-        {
-            PRECOMPILED_LOG(ERROR) << LOG_BADGE("ConsensusPrecompiled")
-                                   << LOG_DESC("nodeID length error") << LOG_KV("nodeID", nodeID);
-            result = CODE_INVALID_NODE_ID;
-        }
-        else if (weight == 0)
-        {
-            PRECOMPILED_LOG(ERROR) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("weight is 0")
-                                   << LOG_KV("nodeID", nodeID);
-            result = CODE_INVALID_WEIGHT;
-        }
-        else
-        {
-            auto table = _context->getTableFactory()->openTable(ledger::SYS_CONSENSUS);
-            auto entry = table->getRow(nodeID);
-            if (!entry)
-            {
-                PRECOMPILED_LOG(ERROR) << LOG_BADGE("ConsensusPrecompiled")
-                                       << LOG_DESC("nodeID not exists") << LOG_KV("nodeID", nodeID);
-                result = CODE_NODE_NOT_EXIST;
-            }
-            else if (_context->getTableFactory()->checkAuthority(ledger::SYS_CONSENSUS, _origin))
-            {
-                auto newEntry = table->newEntry();
-                entry->setField(NODE_WEIGHT, boost::lexical_cast<std::string>(weight));
-                table->setRow(nodeID, entry);
-                result = 0;
-                PRECOMPILED_LOG(DEBUG)
-                    << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("remove successfully")
-                    << LOG_KV("result", result);
-            }
-            else
-            {
-                PRECOMPILED_LOG(DEBUG)
-                    << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("permission denied");
-                result = CODE_NO_AUTHORIZED;
-            }
-        }
+        result = setWeight(_context, data, _origin);
     }
     else
     {
@@ -256,6 +89,170 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
     gasPricer->updateMemUsed(callResult->m_execResult.size());
     _remainGas -= gasPricer->calTotalGas();
     return callResult;
+}
+
+int ConsensusPrecompiled::addSealer(const std::shared_ptr<executor::BlockContext>& _context,
+    bytesConstRef& _data, const std::string& _origin)
+{
+    // addSealer(string, uint256)
+    std::string nodeID;
+    u256 weight;
+    m_codec->decode(_data, nodeID, weight);
+    // Uniform lowercase nodeID
+    boost::to_lower(nodeID);
+
+    PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("addSealer func")
+                           << LOG_KV("nodeID", nodeID);
+    if (nodeID.size() != 128u)
+    {
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("ConsensusPrecompiled")
+                               << LOG_DESC("nodeID length error") << LOG_KV("nodeID", nodeID);
+        return CODE_INVALID_NODE_ID;
+    }
+
+    auto table = _context->getTableFactory()->openTable(SYS_CONSENSUS);
+    auto newEntry = table->newEntry();
+    newEntry->setField(NODE_TYPE, ledger::CONSENSUS_SEALER);
+    newEntry->setField(
+        NODE_ENABLE_NUMBER, boost::lexical_cast<std::string>(_context->currentNumber()));
+    newEntry->setField(NODE_WEIGHT, boost::lexical_cast<std::string>(weight));
+
+    if (_context->getTableFactory()->checkAuthority(ledger::SYS_CONSENSUS, _origin))
+    {
+        table->setRow(nodeID, newEntry);
+        PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
+                               << LOG_DESC("addSealer successfully insert");
+        return 0;
+    }
+    else
+    {
+        PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
+                               << LOG_DESC("permission denied");
+        return CODE_NO_AUTHORIZED;
+    }
+}
+
+int ConsensusPrecompiled::addObserver(const std::shared_ptr<executor::BlockContext>& _context,
+    bytesConstRef& _data, const std::string& _origin)
+{
+    // addObserver(string)
+    std::string nodeID;
+    m_codec->decode(_data, nodeID);
+    // Uniform lowercase nodeID
+    boost::to_lower(nodeID);
+    PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("addObserver func")
+                           << LOG_KV("nodeID", nodeID);
+    if (nodeID.size() != 128u)
+    {
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("ConsensusPrecompiled")
+                               << LOG_DESC("nodeID length error") << LOG_KV("nodeID", nodeID);
+        return CODE_INVALID_NODE_ID;
+    }
+
+    auto table = _context->getTableFactory()->openTable(SYS_CONSENSUS);
+    auto nodeIdList = table->getPrimaryKeys(nullptr);
+
+    auto newEntry = table->newEntry();
+    newEntry->setField(NODE_TYPE, ledger::CONSENSUS_OBSERVER);
+    newEntry->setField(
+        NODE_ENABLE_NUMBER, boost::lexical_cast<std::string>(_context->currentNumber()));
+    newEntry->setField(NODE_WEIGHT, "-1");
+    if (!_context->getTableFactory()->checkAuthority(ledger::SYS_CONSENSUS, _origin))
+    {
+        PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
+                               << LOG_DESC("permission denied");
+        return CODE_NO_AUTHORIZED;
+    }
+    if (checkIsLastSealer(table, nodeID))
+    {
+        PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
+                               << LOG_DESC("addObserver failed, because last sealer");
+        return CODE_LAST_SEALER;
+    }
+    table->setRow(nodeID, newEntry);
+    PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
+                           << LOG_DESC("addObserver successfully insert");
+    return 0;
+}
+
+int ConsensusPrecompiled::removeNode(const std::shared_ptr<executor::BlockContext>& _context,
+    bytesConstRef& _data, const std::string& _origin)
+{
+    // remove(string)
+    std::string nodeID;
+    m_codec->decode(_data, nodeID);
+    // Uniform lowercase nodeID
+    boost::to_lower(nodeID);
+    PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("remove func")
+                           << LOG_KV("nodeID", nodeID);
+    if (nodeID.size() != 128u)
+    {
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("ConsensusPrecompiled")
+                               << LOG_DESC("nodeID length error") << LOG_KV("nodeID", nodeID);
+        return CODE_INVALID_NODE_ID;
+    }
+
+    auto table = _context->getTableFactory()->openTable(ledger::SYS_CONSENSUS);
+    if (!_context->getTableFactory()->checkAuthority(ledger::SYS_CONSENSUS, _origin))
+    {
+        PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
+                               << LOG_DESC("permission denied");
+        return CODE_NO_AUTHORIZED;
+
+    }
+    if (checkIsLastSealer(table, nodeID))
+    {
+        PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
+                               << LOG_DESC("remove failed, because last sealer");
+        return CODE_LAST_SEALER;
+    }
+    table->remove(nodeID);
+    PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("remove successfully");
+    return 0;
+}
+
+int ConsensusPrecompiled::setWeight(const std::shared_ptr<executor::BlockContext>& _context,
+    bytesConstRef& _data, const std::string& _origin)
+{
+    // setWeight(string,uint256)
+    std::string nodeID;
+    u256 weight;
+    m_codec->decode(_data, nodeID, weight);
+    // Uniform lowercase nodeID
+    boost::to_lower(nodeID);
+    PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("remove func")
+                           << LOG_KV("nodeID", nodeID);
+    if (nodeID.size() != 128u)
+    {
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("ConsensusPrecompiled")
+                               << LOG_DESC("nodeID length error") << LOG_KV("nodeID", nodeID);
+        return CODE_INVALID_NODE_ID;
+    }
+    if (weight == 0)
+    {
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("weight is 0")
+                               << LOG_KV("nodeID", nodeID);
+        return CODE_INVALID_WEIGHT;
+    }
+    auto table = _context->getTableFactory()->openTable(ledger::SYS_CONSENSUS);
+    auto entry = table->getRow(nodeID);
+    if (!entry)
+    {
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("nodeID not exists")
+                               << LOG_KV("nodeID", nodeID);
+        return CODE_NODE_NOT_EXIST;
+    }
+    if (!_context->getTableFactory()->checkAuthority(ledger::SYS_CONSENSUS, _origin))
+    {
+        PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
+                               << LOG_DESC("permission denied");
+        return CODE_NO_AUTHORIZED;
+    }
+    auto newEntry = table->newEntry();
+    entry->setField(NODE_WEIGHT, boost::lexical_cast<std::string>(weight));
+    table->setRow(nodeID, entry);
+    PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("remove successfully");
+    return 0;
 }
 
 void ConsensusPrecompiled::showConsensusTable(std::shared_ptr<executor::BlockContext> _context)

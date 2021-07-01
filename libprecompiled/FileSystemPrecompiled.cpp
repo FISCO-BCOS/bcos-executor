@@ -63,91 +63,12 @@ std::shared_ptr<PrecompiledExecResult> FileSystemPrecompiled::call(
     if (func == name2Selector[FILE_SYSTEM_METHOD_LIST])
     {
         // list(string)
-        std::string absolutePath;
-        m_codec->decode(data, absolutePath);
-        auto table = _context->getTableFactory()->openTable(absolutePath);
-        gasPricer->appendOperation(InterfaceOpcode::OpenTable);
-
-        if (table)
-        {
-            auto type = table->getRow(FS_KEY_TYPE)->getField(SYS_VALUE);
-            if (type == "directory")
-            {
-                Json::Value directory;
-                Json::Value subdirectory(Json::arrayValue);
-                auto subdirectories = table->getRow(FS_KEY_SUB)->getField(SYS_VALUE);
-                DirInfo dirInfo;
-                DirInfo::fromString(dirInfo, subdirectories);
-                for (auto& fileInfo : dirInfo.getSubDir())
-                {
-                    Json::Value file;
-                    file["type"] = fileInfo.getType();
-                    file["name"] = fileInfo.getName();
-                    file["enable_number"] = fileInfo.getNumber();
-                    subdirectory.append(file);
-                }
-                directory[FS_KEY_TYPE] = type;
-                directory[FS_KEY_SUB] = subdirectory;
-                directory[FS_KEY_NUM] = table->getRow(FS_KEY_NUM)->getField(SYS_VALUE);
-
-                Json::FastWriter fastWriter;
-                std::string str = fastWriter.write(directory);
-                PRECOMPILED_LOG(TRACE) << LOG_BADGE("FileSystemPrecompiled")
-                                       << LOG_DESC("ls dir, return subdirectories");
-                callResult->setExecResult(m_codec->encode(str));
-            }
-            else
-            {
-                // regular file
-                Json::Value file;
-                file[FS_KEY_TYPE] = type;
-                file[FS_KEY_NUM] = table->getRow(FS_KEY_NUM)->getField(SYS_VALUE);
-                Json::FastWriter fastWriter;
-                std::string str = fastWriter.write(file);
-                // TODO: add permission mod when permission support
-                callResult->setExecResult(m_codec->encode(str));
-            }
-        }
-        else
-        {
-            PRECOMPILED_LOG(ERROR)
-                << LOG_BADGE("FileSystemPrecompiled") << LOG_DESC("can't open table of file path")
-                << LOG_KV("path", absolutePath);
-            getErrorCodeOut(callResult->mutableExecResult(), CODE_FILE_NOT_EXIST, m_codec);
-        }
+        listDir(_context, data, callResult, gasPricer);
     }
     else if (func == name2Selector[FILE_SYSTEM_METHOD_MKDIR])
     {
         // mkdir(string)
-        std::string absolutePath;
-        m_codec->decode(data, absolutePath);
-        auto table = _context->getTableFactory()->openTable(absolutePath);
-        gasPricer->appendOperation(InterfaceOpcode::OpenTable);
-        if (table)
-        {
-            auto type = table->getRow(FS_KEY_TYPE)->getField(SYS_VALUE);
-            if (type == "directory")
-            {
-                PRECOMPILED_LOG(TRACE)
-                    << LOG_BADGE("FileSystemPrecompiled") << LOG_DESC("directory exists");
-                callResult->setExecResult(m_codec->encode(true));
-            }
-            else
-            {
-                // regular file
-                PRECOMPILED_LOG(ERROR) << LOG_BADGE("FileSystemPrecompiled")
-                                       << LOG_DESC("file name exists, not a directory");
-                callResult->setExecResult(m_codec->encode(false));
-            }
-        }
-        else
-        {
-            PRECOMPILED_LOG(TRACE)
-                << LOG_BADGE("FileSystemPrecompiled") << LOG_DESC("directory not exists")
-                << LOG_KV("path", absolutePath);
-            auto result = recursiveBuildDir(_context->getTableFactory(), absolutePath);
-            callResult->setExecResult(m_codec->encode(result));
-        }
+        makeDir(_context, data, callResult, gasPricer);
     }
     else
     {
@@ -158,4 +79,97 @@ std::shared_ptr<PrecompiledExecResult> FileSystemPrecompiled::call(
     gasPricer->updateMemUsed(callResult->m_execResult.size());
     _remainGas -= gasPricer->calTotalGas();
     return callResult;
+}
+void FileSystemPrecompiled::makeDir(const std::shared_ptr<executor::BlockContext>& _context,
+    bytesConstRef& data, std::shared_ptr<PrecompiledExecResult> callResult,
+    const PrecompiledGas::Ptr& gasPricer)
+{
+    // mkdir(string)
+    std::string absolutePath;
+    this->m_codec->decode(data, absolutePath);
+    auto table = _context->getTableFactory()->openTable(absolutePath);
+    gasPricer->appendOperation(InterfaceOpcode::OpenTable);
+    if (table)
+    {
+        auto type = table->getRow(FS_KEY_TYPE)->getField(SYS_VALUE);
+        if (type == "directory")
+        {
+            PRECOMPILED_LOG(TRACE)
+                << LOG_BADGE("FileSystemPrecompiled") << LOG_DESC("directory exists");
+            callResult->setExecResult(this->m_codec->encode(true));
+        }
+        else
+        {
+            // regular file
+            PRECOMPILED_LOG(ERROR) << LOG_BADGE("FileSystemPrecompiled")
+                                   << LOG_DESC("file name exists, not a directory");
+            callResult->setExecResult(this->m_codec->encode(false));
+        }
+    }
+    else
+    {
+        PRECOMPILED_LOG(TRACE) << LOG_BADGE("FileSystemPrecompiled")
+                               << LOG_DESC("directory not exists") << LOG_KV("path", absolutePath);
+        auto result = recursiveBuildDir(_context->getTableFactory(), absolutePath);
+        callResult->setExecResult(this->m_codec->encode(result));
+    }
+}
+
+void FileSystemPrecompiled::listDir(const std::shared_ptr<executor::BlockContext>& _context,
+    bytesConstRef& data, std::shared_ptr<PrecompiledExecResult> callResult,
+    const PrecompiledGas::Ptr& gasPricer)
+{
+    // list(string)
+    std::string absolutePath;
+    this->m_codec->decode(data, absolutePath);
+    auto table = _context->getTableFactory()->openTable(absolutePath);
+    gasPricer->appendOperation(InterfaceOpcode::OpenTable);
+
+    if (table)
+    {
+        auto type = table->getRow(FS_KEY_TYPE)->getField(SYS_VALUE);
+        if (type == "directory")
+        {
+            Json::Value directory;
+            Json::Value subdirectory(Json::arrayValue);
+            auto subdirectories = table->getRow(FS_KEY_SUB)->getField(SYS_VALUE);
+            DirInfo dirInfo;
+            DirInfo::fromString(dirInfo, subdirectories);
+            for (auto& fileInfo : dirInfo.getSubDir())
+            {
+                Json::Value file;
+                file["type"] = fileInfo.getType();
+                file["name"] = fileInfo.getName();
+                file["enable_number"] = fileInfo.getNumber();
+                subdirectory.append(file);
+            }
+            directory[FS_KEY_TYPE] = type;
+            directory[FS_KEY_SUB] = subdirectory;
+            directory[FS_KEY_NUM] = table->getRow(FS_KEY_NUM)->getField(SYS_VALUE);
+
+            Json::FastWriter fastWriter;
+            std::string str = fastWriter.write(directory);
+            PRECOMPILED_LOG(TRACE)
+                << LOG_BADGE("FileSystemPrecompiled") << LOG_DESC("ls dir, return subdirectories");
+            callResult->setExecResult(this->m_codec->encode(str));
+        }
+        else
+        {
+            // regular file
+            Json::Value file;
+            file[FS_KEY_TYPE] = type;
+            file[FS_KEY_NUM] = table->getRow(FS_KEY_NUM)->getField(SYS_VALUE);
+            Json::FastWriter fastWriter;
+            std::string str = fastWriter.write(file);
+            // TODO: add permission mod when permission support
+            callResult->setExecResult(this->m_codec->encode(str));
+        }
+    }
+    else
+    {
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("FileSystemPrecompiled")
+                               << LOG_DESC("can't open table of file path")
+                               << LOG_KV("path", absolutePath);
+        getErrorCodeOut(callResult->mutableExecResult(), CODE_FILE_NOT_EXIST, this->m_codec);
+    }
 }
