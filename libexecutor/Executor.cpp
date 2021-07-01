@@ -366,6 +366,8 @@ BlockContext::Ptr Executor::executeBlock(const protocol::Block::Ptr& block)
                             << LOG_KV("currentRecepit", currentHeader->receiptsRoot().abridged())
                             << LOG_KV("State", originalHeader->stateRoot().abridged())
                             << LOG_KV("currentState", currentHeader->stateRoot().abridged());
+        BOOST_THROW_EXCEPTION(InvalidBlockWithBadRoot() << errinfo_comment(
+                                  "The correct blockHash is " + originalHeader->hash().abridged()));
 #if FISCO_DEBUG
         for (size_t i = 0; i < block->receiptsSize(); ++i)
         {
