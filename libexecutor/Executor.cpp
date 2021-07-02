@@ -184,12 +184,14 @@ void Executor::start()
             }
             catch (exception& e)
             {
-                EXECUTOR_LOG(ERROR)
-                    << LOG_DESC("executeBlock failed") << LOG_KV("message", e.what());
+                EXECUTOR_LOG(ERROR) << LOG_DESC("executeBlock failed")
+                                    << LOG_KV("message", boost::diagnostic_information(e));
                 // FIXME: use error code instead of -1, process return error
-                resultNotifier(make_shared<Error>(-1, e.what()),
+                resultNotifier(make_shared<Error>(-1, boost::diagnostic_information(e)),
                     m_blockFactory->blockHeaderFactory()->createBlockHeader(
                         currentBlock->blockHeader()->number()));
+                m_lastHeader = nullptr;
+                m_tableFactory = nullptr;
                 continue;
             }
 
@@ -202,7 +204,7 @@ void Executor::start()
             auto error = errorProm.get_future().get();
             if (error)
             {
-                EXECUTOR_LOG(ERROR) << LOG_DESC("asyncStoreReceipts failed")
+                EXECUTOR_LOG(FATAL) << LOG_DESC("asyncStoreReceipts failed")
                                     << LOG_KV("message", error->errorMessage());
                 continue;
             }
@@ -360,11 +362,11 @@ BlockContext::Ptr Executor::executeBlock(const protocol::Block::Ptr& block)
     {
         EXECUTOR_LOG(ERROR) << "Invalid Block with bad stateRoot or receiptRoot"
                             << LOG_KV("blockNumber", currentHeader->number())
-                            << LOG_KV("Hash", originalHeader->hash().abridged())
+                            << LOG_KV("originalHash", originalHeader->hash().abridged())
                             << LOG_KV("currentHash", currentHeader->hash().abridged())
-                            << LOG_KV("Receipt", originalHeader->receiptsRoot().abridged())
+                            << LOG_KV("originalReceipt", originalHeader->receiptsRoot().abridged())
                             << LOG_KV("currentRecepit", currentHeader->receiptsRoot().abridged())
-                            << LOG_KV("State", originalHeader->stateRoot().abridged())
+                            << LOG_KV("originalState", originalHeader->stateRoot().abridged())
                             << LOG_KV("currentState", currentHeader->stateRoot().abridged());
         BOOST_THROW_EXCEPTION(InvalidBlockWithBadRoot() << errinfo_comment(
                                   "The correct blockHash is " + originalHeader->hash().abridged()));
@@ -422,7 +424,7 @@ protocol::TransactionReceipt::Ptr Executor::executeTransaction(
     }
     catch (std::exception const& _e)
     {
-        EXECUTOR_LOG(ERROR) << _e.what();
+        EXECUTOR_LOG(ERROR) << boost::diagnostic_information(_e);
     }
 
     executive->loggingException();
