@@ -36,8 +36,7 @@ namespace bcos
 namespace precompiled
 {
 static const std::string USER_TABLE_PREFIX = "u_";
-static const std::string USER_DATA_DIR = "/data";
-static const std::string USER_TABLE_PREFIX_WASM = "/data/";
+static const std::string USER_TABLE_PREFIX_WASM = "/data";
 
 enum class Comparator
 {
@@ -143,9 +142,10 @@ inline void getErrorCodeOut(bytes& out, int const& result, const PrecompiledCode
     }
     out = _codec->encode(s256(result));
 }
-inline std::string getTableName(const std::string& _tableName)
+inline std::string getTableName(const std::string& _tableName, bool _isWasm)
 {
-    return USER_TABLE_PREFIX + _tableName;
+    return _isWasm ? USER_TABLE_PREFIX + USER_TABLE_PREFIX_WASM + _tableName :
+                     USER_TABLE_PREFIX + _tableName;
 }
 std::string getContractTableName(const std::string& _contractAddress);
 

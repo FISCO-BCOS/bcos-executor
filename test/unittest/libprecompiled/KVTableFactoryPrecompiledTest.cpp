@@ -52,7 +52,7 @@ BOOST_FIXTURE_TEST_SUITE(precompiledKVTableFactoryTest, KVTableFactoryPrecompile
 BOOST_AUTO_TEST_CASE(createTableTest)
 {
     BOOST_TEST(kvTableFactoryPrecompiled->toString() == "KVTableFactory");
-    bytes param = codec->encodeWithSig("createTable(string,string,string)", std::string("t_test"),
+    bytes param = codec->encodeWithSig("createTable(string,string,string)", std::string("/t_test"),
         std::string("id"), std::string("item_name,item_id"));
     auto callResult = kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas);
     bytes out = callResult->execResult();
@@ -62,7 +62,7 @@ BOOST_AUTO_TEST_CASE(createTableTest)
 
     out.clear();
     // createTable exist
-    param = codec->encodeWithSig("createTable(string,string,string)", std::string("t_test"),
+    param = codec->encodeWithSig("createTable(string,string,string)", std::string("/t_test"),
         std::string("id"), std::string("item_name,item_id"));
     callResult = kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas);
     out = callResult->execResult();
@@ -70,64 +70,63 @@ BOOST_AUTO_TEST_CASE(createTableTest)
     BOOST_TEST(errCode == CODE_TABLE_NAME_ALREADY_EXIST);
 
     // createTable too long tableName, key and filed
-    std::string errorStr =
-        "012345678901234567890123456789012345678901234567890123456789123456789"
-        "0123456789012345678901234567890123456789012345678901234567890123456789"
-        "0123456789012345678901234567890123456789012345678901234567890123456789"
-        "0123456789012345678901234567890123456789012345678901234567890123456789"
-        "0123456789012345678901234567890123456789012345678901234567890123456789"
-        "0123456789012345678901234567890123456789012345678901234567890123456789"
-        "0123456789012345678901234567890123456789012345678901234567890123456789"
-        "0123456789012345678901234567890123456789012345678901234567890123456789"
-        "0123456789012345678901234567890123456789012345678901234567890123456789"
-        "0123456789012345678901234567890123456789012345678901234567890123456789"
-        "0123456789012345678901234567890123456789012345678901234567890123456789"
-        "0123456789012345678901234567890123456789012345678901234567890123456789"
-        "0123456789012345678901234567890123456789012345678901234567890123456789"
-        "0123456789012345678901234567890123456789012345678901234567890123456789"
-        "0123456789012345678901234567890123456789012345678901234567890123456789"
-        "0123456789012345678901234567890123456789012345678901234567890123456789";
+    std::string errorStr;
+    for (int i = 0; i <= SYS_TABLE_VALUE_FIELD_MAX_LENGTH; i++)
+    {
+        errorStr += std::to_string(9);
+    }
 
     BOOST_CHECK(errorStr.size() > (size_t)SYS_TABLE_VALUE_FIELD_MAX_LENGTH);
-    param = codec->encodeWithSig("createTable(string,string,string)", errorStr, std::string("id"),
-        std::string("item_name,item_id"));
+    param = codec->encodeWithSig("createTable(string,string,string)", std::string("/" + errorStr),
+        std::string("id"), std::string("item_name,item_id"));
     BOOST_CHECK_THROW(kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas),
         PrecompiledError);
 
-    param = codec->encodeWithSig("createTable(string,string,string)", std::string("t_test"),
+    param = codec->encodeWithSig("createTable(string,string,string)", std::string("/t_test"),
         errorStr, std::string("item_name,item_id"));
     BOOST_CHECK_THROW(kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas),
         PrecompiledError);
 
     param = codec->encodeWithSig(
-        "createTable(string,string,string)", std::string("t_test"), std::string("id"), errorStr);
+        "createTable(string,string,string)", std::string("/t_test"), std::string("id"), errorStr);
     BOOST_CHECK_THROW(kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas),
         PrecompiledError);
 
     // createTable error key and filed
-    std::string errorStr2 = "test&";
+    std::string errorStr2 = "/test&";
     std::string rightStr = "test@1";
     param = codec->encodeWithSig("createTable(string,string,string)", errorStr2, std::string("id"),
         std::string("item_name,item_id"));
     BOOST_CHECK_THROW(kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas),
         PrecompiledError);
 
-    param = codec->encodeWithSig("createTable(string,string,string)", std::string("t_test"),
+    param = codec->encodeWithSig("createTable(string,string,string)", std::string("/t_test"),
         errorStr2, std::string("item_name,item_id"));
     BOOST_CHECK_THROW(kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas),
         PrecompiledError);
 
     param = codec->encodeWithSig(
-        "createTable(string,string,string)", std::string("t_test"), std::string("id"), errorStr2);
+        "createTable(string,string,string)", std::string("/t_test"), std::string("id"), errorStr2);
     BOOST_CHECK_THROW(kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas),
         PrecompiledError);
 
-    param = codec->encodeWithSig("createTable(string,string,string)", std::string("t_test2"),
+    param = codec->encodeWithSig("createTable(string,string,string)", std::string("/t_test2"),
         rightStr, std::string("item_name,item_id"));
     callResult = kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas);
     out = callResult->execResult();
     codec->decode(&out, errCode);
     BOOST_TEST(errCode == 0);
+
+    // error table name in wasm
+    param = codec->encodeWithSig("createTable(string,string,string)", std::string("t_test"),
+        std::string("id"), std::string("item1,item2"));
+    BOOST_CHECK_THROW(kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas),
+        PrecompiledError);
+
+    param = codec->encodeWithSig("createTable(string,string,string)", std::string(""),
+        std::string("id"), std::string("item1,item2"));
+    BOOST_CHECK_THROW(kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas),
+        PrecompiledError);
 }
 
 BOOST_AUTO_TEST_CASE(openTableTest)
@@ -135,7 +134,7 @@ BOOST_AUTO_TEST_CASE(openTableTest)
     // test wasm
     {
         bytes param = codec->encodeWithSig("createTable(string,string,string)",
-            std::string("t_test"), std::string("id"), std::string("item_name,item_id"));
+            std::string("/data/t_test"), std::string("id"), std::string("item_name,item_id"));
         auto callResult =
             kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas);
         bytes out = callResult->execResult();
@@ -143,28 +142,17 @@ BOOST_AUTO_TEST_CASE(openTableTest)
         codec->decode(&out, errCode);
         BOOST_TEST(errCode == 0);
 
-        param = codec->encodeWithSig("openTable(string)", std::string("t_poor"));
-        BOOST_CHECK_THROW(
-            kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas),
-            PrecompiledError);
-
         param = codec->encodeWithSig("openTable(string)", std::string("/data/t_poor"));
         BOOST_CHECK_THROW(
             kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas),
             PrecompiledError);
 
-        param = codec->encodeWithSig("openTable(string)", std::string("t_test"));
+        param = codec->encodeWithSig("openTable(string)", std::string("/data/t_test"));
         callResult = kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas);
         out = callResult->execResult();
         std::string addressOut;
         codec->decode(&out, addressOut);
         BOOST_TEST(Address(addressOut) == Address(std::to_string(addressCount + 1)));
-
-        param = codec->encodeWithSig("openTable(string)", std::string("/data/t_test"));
-        callResult = kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas);
-        out = callResult->execResult();
-        codec->decode(&out, addressOut);
-        BOOST_TEST(Address(addressOut) == Address(std::to_string(addressCount + 2)));
     }
 
     setIsWasm(false);

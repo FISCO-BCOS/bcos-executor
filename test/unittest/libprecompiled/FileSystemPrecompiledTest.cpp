@@ -46,9 +46,9 @@ public:
 
         // create table test1 test2, there are two data files in /data/
         bytes param = codec->encodeWithSig("createTable(string,string,string)",
-            std::string("test1"), std::string("id"), std::string("item_name,item_id"));
+            std::string("/test1"), std::string("id"), std::string("item_name,item_id"));
         kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas);
-        param = codec->encodeWithSig("createTable(string,string,string)", std::string("test2"),
+        param = codec->encodeWithSig("createTable(string,string,string)", std::string("/test2"),
             std::string("id"), std::string("item_name,item_id"));
         kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas);
         context->getTableFactory()->commit();

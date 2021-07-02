@@ -198,7 +198,6 @@ int ConsensusPrecompiled::removeNode(const std::shared_ptr<executor::BlockContex
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
                                << LOG_DESC("permission denied");
         return CODE_NO_AUTHORIZED;
-
     }
     if (checkIsLastSealer(table, nodeID))
     {

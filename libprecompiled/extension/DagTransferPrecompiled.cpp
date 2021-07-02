@@ -138,7 +138,7 @@ std::string DagTransferPrecompiled::toString()
 storage::TableInterface::Ptr DagTransferPrecompiled::openTable(
     std::shared_ptr<executor::BlockContext> _context)
 {
-    std::string dagTableName = precompiled::getTableName(DAG_TRANSFER);
+    std::string dagTableName = precompiled::getTableName(DAG_TRANSFER, _context->isWasm());
     auto table = _context->getTableFactory()->openTable(dagTableName);
     if (!table)
     {

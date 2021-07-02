@@ -479,21 +479,18 @@ bool precompiled::recursiveBuildDir(
             return false;
         }
         FileInfo newDirectory(dir, FS_TYPE_DIR, 0);
-        bool exist = false;
-        for (const FileInfo& _f : parentDir.getSubDir())
-        {
-            if (_f.getName() == dir)
-            {
-                exist = true;
-                break;
-            }
-        }
+        auto checkExist = std::find_if(parentDir.getSubDir().begin(), parentDir.getSubDir().end(),
+            [&dir](const FileInfo& _f) { return _f.getName() == dir; });
         if (root != "/")
         {
             root += "/";
         }
-        if (exist)
+        if (checkExist != parentDir.getSubDir().end())
         {
+            if (checkExist->getType() != FS_TYPE_DIR)
+            {
+                return false;
+            }
             root += dir;
             continue;
         }

@@ -65,126 +65,12 @@ PrecompiledExecResult::Ptr TableFactoryPrecompiled::call(
     if (func == name2Selector[TABLE_METHOD_OPT_STR])
     {
         // openTable(string)
-        std::string tableName;
-        m_codec->decode(data, tableName);
-        if (_context->isWasm() && tableName.rfind(USER_TABLE_PREFIX_WASM, 0) == 0)
-        {
-            // if tableName start with /data/
-            auto table = m_memoryTableFactory->openTable(tableName);
-            gasPricer->appendOperation(InterfaceOpcode::OpenTable);
-            if (!table)
-            {
-                PRECOMPILED_LOG(ERROR)
-                    << LOG_BADGE("TableFactoryPrecompiled") << LOG_DESC("Open new table failed")
-                    << LOG_KV("table name", tableName);
-                BOOST_THROW_EXCEPTION(
-                    PrecompiledError() << errinfo_comment(tableName + " does not exist"));
-            }
-            auto addressTableName = table->getRow(FS_TABLE_KEY_ADDRESS)->getField(SYS_VALUE);
-            // addressTable must exist
-            auto addressTable = m_memoryTableFactory->openTable(addressTableName);
-            auto tablePrecompiled = std::make_shared<TablePrecompiled>(m_hashImpl);
-            tablePrecompiled->setTable(addressTable);
-            auto address = _context->registerPrecompiled(tablePrecompiled);
-            callResult->setExecResult(m_codec->encode(address));
-        }
-        else
-        {
-            tableName = getTableName(tableName);
-            auto table = m_memoryTableFactory->openTable(tableName);
-            gasPricer->appendOperation(InterfaceOpcode::OpenTable);
-            if (!table)
-            {
-                PRECOMPILED_LOG(WARNING)
-                    << LOG_BADGE("TableFactoryPrecompiled") << LOG_DESC("Open new table failed")
-                    << LOG_KV("table name", tableName);
-                BOOST_THROW_EXCEPTION(
-                    PrecompiledError() << errinfo_comment(tableName + " does not exist"));
-            }
-            auto tablePrecompiled = std::make_shared<TablePrecompiled>(m_hashImpl);
-            tablePrecompiled->setTable(table);
-            if (_context->isWasm())
-            {
-                auto address = _context->registerPrecompiled(tablePrecompiled);
-                callResult->setExecResult(m_codec->encode(address));
-            }
-            else
-            {
-                auto address = Address(
-                    _context->registerPrecompiled(tablePrecompiled), FixedBytes<20>::FromBinary);
-                callResult->setExecResult(m_codec->encode(address));
-            }
-        }
+        openTable(_context, data, callResult, gasPricer);
     }
     else if (func == name2Selector[TABLE_METHOD_CRT_STR_STR])
     {
         // createTable(string,string,string)
-        if (!checkAuthority(_context->getTableFactory(), _origin, _sender))
-        {
-            PRECOMPILED_LOG(ERROR)
-                << LOG_BADGE("TableFactoryPrecompiled") << LOG_DESC("permission denied")
-                << LOG_KV("origin", _origin) << LOG_KV("contract", _sender);
-            BOOST_THROW_EXCEPTION(
-                protocol::PrecompiledError() << errinfo_comment(
-                    "Permission denied. " + _origin + " can't call contract " + _sender));
-        }
-        std::string tableName;
-        std::string keyField;
-        std::string valueField;
-        m_codec->decode(data, tableName, keyField, valueField);
-        checkCreateTableParam(tableName, keyField, valueField);
-        PRECOMPILED_LOG(DEBUG) << LOG_BADGE("TableFactory") << LOG_KV("createTable", tableName)
-                               << LOG_KV("keyField", keyField) << LOG_KV("valueFiled", valueField);
-
-        auto newTableName = getTableName(tableName);
-        int result = 0;
-        auto table = m_memoryTableFactory->openTable(newTableName);
-        if (table)
-        {
-            // table already exist
-            result = CODE_TABLE_NAME_ALREADY_EXIST;
-        }
-        else
-        {
-            m_memoryTableFactory->createTable(newTableName, keyField, valueField);
-            gasPricer->appendOperation(InterfaceOpcode::CreateTable);
-            if (_context->isWasm())
-            {
-                // check if tableName start with /data/
-                auto inodeTableName = (tableName.rfind(USER_TABLE_PREFIX_WASM, 0) == 0) ?
-                                          tableName :
-                                          USER_TABLE_PREFIX_WASM + tableName;
-                // create inode table
-                m_memoryTableFactory->createTable(inodeTableName, SYS_KEY, SYS_VALUE);
-
-                // set inode data of table in file system
-                auto inodeTable = m_memoryTableFactory->openTable(inodeTableName);
-                auto typeEntry = inodeTable->newEntry();
-                typeEntry->setField(SYS_VALUE, FS_TYPE_DATA);
-                inodeTable->setRow(FS_KEY_TYPE, typeEntry);
-                auto addressEntry = inodeTable->newEntry();
-                addressEntry->setField(SYS_VALUE, newTableName);
-                inodeTable->setRow(FS_TABLE_KEY_ADDRESS, addressEntry);
-                auto numEntry = inodeTable->newEntry();
-                numEntry->setField(SYS_VALUE, std::to_string(_context->currentNumber()));
-                inodeTable->setRow(FS_TABLE_KEY_NUM, numEntry);
-
-                // FIXME: add recursive file path add subdirectory
-                // /data must exist
-                // update /data subdirectories
-                auto dataTable = m_memoryTableFactory->openTable(USER_DATA_DIR);
-                auto entry = dataTable->getRow(FS_KEY_SUB);
-                DirInfo parentDir;
-                DirInfo::fromString(parentDir, entry->getField(SYS_VALUE));
-                FileInfo fileInfo(tableName, FS_TYPE_DATA, _context->currentNumber());
-                parentDir.getMutableSubDir().emplace_back(fileInfo);
-
-                auto newEntry = dataTable->newEntry();
-                newEntry->setField(SYS_VALUE, parentDir.toString());
-                dataTable->setRow(FS_KEY_SUB, newEntry);
-            }
-        }
-        getErrorCodeOut(callResult->mutableExecResult(), result, m_codec);
+        createTable(_context, data, callResult, _origin, _sender, gasPricer);
     }
     else
     {
@@ -258,7 +144,7 @@ void TableFactoryPrecompiled::checkCreateTableParam(
                                   std::to_string(SYS_TABLE_VALUE_FIELD_MAX_LENGTH)));
     }
 
-    auto tableName = precompiled::getTableName(_tableName);
+    auto tableName = precompiled::getTableName(_tableName, true);
     if (tableName.size() > (size_t)USER_TABLE_NAME_MAX_LENGTH ||
         (tableName.size() > (size_t)USER_TABLE_NAME_MAX_LENGTH_S))
     {
@@ -269,4 +155,119 @@ void TableFactoryPrecompiled::checkCreateTableParam(
             << errinfo_comment(std::string("tableName length overflow ") +
                                std::to_string(USER_TABLE_NAME_MAX_LENGTH)));
     }
+}
+
+void TableFactoryPrecompiled::openTable(const std::shared_ptr<executor::BlockContext>& _context,
+    bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
+    const PrecompiledGas::Ptr& gasPricer)
+{
+    // openTable(string)
+    std::string tableName;
+    m_codec->decode(data, tableName);
+    tableName = getTableName(tableName, _context->isWasm());
+    auto table = m_memoryTableFactory->openTable(tableName);
+    gasPricer->appendOperation(InterfaceOpcode::OpenTable);
+    if (!table)
+    {
+        PRECOMPILED_LOG(WARNING) << LOG_BADGE("TableFactoryPrecompiled")
+                                 << LOG_DESC("Open new table failed")
+                                 << LOG_KV("table name", tableName);
+        BOOST_THROW_EXCEPTION(PrecompiledError() << errinfo_comment(tableName + " does not exist"));
+    }
+    auto tablePrecompiled = std::make_shared<TablePrecompiled>(m_hashImpl);
+    tablePrecompiled->setTable(table);
+    if (_context->isWasm())
+    {
+        auto address = _context->registerPrecompiled(tablePrecompiled);
+        callResult->setExecResult(m_codec->encode(address));
+    }
+    else
+    {
+        auto address =
+            Address(_context->registerPrecompiled(tablePrecompiled), FixedBytes<20>::FromBinary);
+        callResult->setExecResult(m_codec->encode(address));
+    }
+}
+
+void TableFactoryPrecompiled::createTable(const std::shared_ptr<executor::BlockContext>& _context,
+    bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
+    const std::string& _origin, const std::string& _sender, const PrecompiledGas::Ptr& gasPricer)
+{
+    // createTable(string,string,string)
+    if (!checkAuthority(_context->getTableFactory(), _origin, _sender))
+    {
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("TableFactoryPrecompiled")
+                               << LOG_DESC("permission denied") << LOG_KV("origin", _origin)
+                               << LOG_KV("contract", _sender);
+        BOOST_THROW_EXCEPTION(
+            protocol::PrecompiledError() << errinfo_comment(
+                "Permission denied. " + _origin + " can't call contract " + _sender));
+    }
+    std::string tableName;
+    std::string keyField;
+    std::string valueField;
+    m_codec->decode(data, tableName, keyField, valueField);
+
+    if (_context->isWasm() && (tableName.empty() || tableName.at(0) != '/'))
+    {
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("TableFactoryPrecompiled")
+                               << LOG_DESC("create table in wasm env: error tableName")
+                               << LOG_KV("tableName", tableName);
+        BOOST_THROW_EXCEPTION(PrecompiledError() << errinfo_comment("Error table name."));
+    }
+
+    checkCreateTableParam(tableName, keyField, valueField);
+    PRECOMPILED_LOG(DEBUG) << LOG_BADGE("TableFactory") << LOG_KV("createTable", tableName)
+                           << LOG_KV("keyField", keyField) << LOG_KV("valueFiled", valueField);
+
+    // wasm: /data + tableName, evm: u_ + tableName
+    auto newTableName = getTableName(tableName, _context->isWasm());
+    int result = 0;
+    auto table = m_memoryTableFactory->openTable(newTableName);
+    if (table)
+    {
+        // table already exist
+        result = CODE_TABLE_NAME_ALREADY_EXIST;
+    }
+    else
+    {
+        m_memoryTableFactory->createTable(newTableName, keyField, valueField);
+        gasPricer->appendOperation(InterfaceOpcode::CreateTable);
+        if (_context->isWasm())
+        {
+            auto inodeTableName = USER_TABLE_PREFIX_WASM + tableName;
+            // create inode table
+            m_memoryTableFactory->createTable(inodeTableName, SYS_KEY, SYS_VALUE);
+
+            // set inode data of table in file system
+            auto inodeTable = m_memoryTableFactory->openTable(inodeTableName);
+            auto typeEntry = inodeTable->newEntry();
+            typeEntry->setField(SYS_VALUE, FS_TYPE_DATA);
+            inodeTable->setRow(FS_KEY_TYPE, typeEntry);
+            auto addressEntry = inodeTable->newEntry();
+            addressEntry->setField(SYS_VALUE, newTableName);
+            inodeTable->setRow(FS_TABLE_KEY_ADDRESS, addressEntry);
+            auto numEntry = inodeTable->newEntry();
+            numEntry->setField(SYS_VALUE, std::to_string(_context->currentNumber()));
+            inodeTable->setRow(FS_TABLE_KEY_NUM, numEntry);
+
+            auto parentPath = inodeTableName.substr(0, inodeTableName.find_last_of('/'));
+            auto tableRelativePath = tableName.substr(tableName.find_last_of('/'));
+            recursiveBuildDir(m_memoryTableFactory, parentPath);
+
+            // parentPath table must exist
+            // update parentPath subdirectories
+            auto parentTable = m_memoryTableFactory->openTable(parentPath);
+            auto entry = parentTable->getRow(FS_KEY_SUB);
+            DirInfo parentDir;
+            DirInfo::fromString(parentDir, entry->getField(SYS_VALUE));
+            FileInfo fileInfo(tableRelativePath, FS_TYPE_DATA, _context->currentNumber());
+            parentDir.getMutableSubDir().emplace_back(fileInfo);
+
+            auto newEntry = parentTable->newEntry();
+            newEntry->setField(SYS_VALUE, parentDir.toString());
+            parentTable->setRow(FS_KEY_SUB, newEntry);
+        }
+    }
+    getErrorCodeOut(callResult->mutableExecResult(), result, m_codec);
 }

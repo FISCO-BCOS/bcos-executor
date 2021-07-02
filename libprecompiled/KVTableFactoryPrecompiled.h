@@ -61,6 +61,12 @@ public:
     crypto::HashType hash();
 
 private:
+    void openTable(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& data,
+        const std::shared_ptr<PrecompiledExecResult>& callResult,
+        const PrecompiledGas::Ptr& gasPricer);
+    void createTable(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& data,
+        const std::shared_ptr<PrecompiledExecResult>& callResult, const std::string& _origin,
+        const std::string& _sender, const PrecompiledGas::Ptr& gasPricer);
     void checkCreateTableParam(
         const std::string& _tableName, std::string& _keyField, std::string& _valueField);
     bcos::storage::TableFactoryInterface::Ptr m_memoryTableFactory;
