@@ -26,21 +26,19 @@ jobs:
       - uses: actions/checkout@v2
         with:
           fetch-depth: 5
-      - name: Nightly default
-        run: rustup default nightly
       - uses: actions/cache@v2
         id: cache
         with:
           path: |
-            /home/runner/.hunter
-            /Users/runner/.hunter/
+            /home/runner/.hunter/_Base/Download/
+            /Users/runner/.hunter/_Base/Download/
             deps/src
             ccache
-          key: hunter-clang-v5-notest-${{ runner.temp }}-${{ github.base_ref }}-${{ hashFiles('.github/workflows/workflow.yml') }}
+          key: hunter-clang-v6-notest-${{ runner.temp }}-${{ github.base_ref }}-${{ hashFiles('.github/workflows/workflow.yml') }}
           restore-keys: |
-            hunter-clang-v5-notest-${{ runner.temp }}-${{ github.base_ref }}-${{ hashFiles('.github/workflows/workflow.yml') }}
-            hunter-clang-v5-notest-${{ runner.temp }}-${{ github.base_ref }}-
-            hunter-clang-v5-notest-${{ runner.temp }}-
+            hunter-clang-v6-notest-${{ runner.temp }}-${{ github.base_ref }}-${{ hashFiles('.github/workflows/workflow.yml') }}
+            hunter-clang-v6-notest-${{ runner.temp }}-${{ github.base_ref }}-
+            hunter-clang-v6-notest-${{ runner.temp }}-
       - name: install macOS dependencies
         if: runner.os == 'macOS'
         run: brew install ccache
@@ -80,7 +78,7 @@ jobs:
         id: cache
         with:
           path: |
-            /home/runner/.hunter
+            /home/runner/.hunter/_Base/Download/
             deps/src
             ccache
           key: hunter-gcc-v5-notest-${{ runner.temp }}-${{ github.base_ref }}-${{ hashFiles('.github/workflows/workflow.yml') }}
@@ -121,20 +119,18 @@ jobs:
       - uses: actions/checkout@v2
         with:
           fetch-depth: 5
-      - name: Nightly default
-        run: rustup default nightly
       - uses: actions/cache@v2
         id: cache
         with:
           path: |
-            /home/runner/.hunter
+            /home/runner/.hunter/_Base/Download/
             deps/src
             ccache
-          key: hunter-ubuntu-v4-notest-${{ runner.temp }}-${{ github.base_ref }}-${{ hashFiles('.github/workflows/workflow.yml') }}
+          key: hunter-ubuntu-v5-notest-${{ runner.temp }}-${{ github.base_ref }}-${{ hashFiles('.github/workflows/workflow.yml') }}
           restore-keys: |
-            hunter-ubuntu-v4-notest-${{ runner.temp }}-${{ github.base_ref }}-${{ hashFiles('.github/workflows/workflow.yml') }}
-            hunter-ubuntu-v4-notest-${{ runner.temp }}-${{ github.base_ref }}-
-            hunter-ubuntu-v4-notest-${{ runner.temp }}-
+            hunter-ubuntu-v5-notest-${{ runner.temp }}-${{ github.base_ref }}-${{ hashFiles('.github/workflows/workflow.yml') }}
+            hunter-ubuntu-v5-notest-${{ runner.temp }}-${{ github.base_ref }}-
+            hunter-ubuntu-v5-notest-${{ runner.temp }}-
       - name: install Ubuntu dependencies
         run: sudo apt install -y git curl build-essential cmake ccache
       - name: install rust language
@@ -164,8 +160,8 @@ jobs:
         id: cache
         with:
           path: |
-            /home/runner/.hunter
-            /github/home/.hunter
+            /home/runner/.hunter/_Base/Download/
+            /github/home/.hunter/_Base/Download/
             deps/src
             ccache
           key: hunter-centos-v5-notest-${{ runner.temp }}-${{ github.base_ref }}-${{ hashFiles('.github/workflows/workflow.yml') }}

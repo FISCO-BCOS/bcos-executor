@@ -589,9 +589,14 @@ protocol::BlockHeader::Ptr Executor::getLatestHeaderFromStorage()
     auto currentNumber = prom.get_future().get();
     // use ledger to get lastest header
     promise<protocol::BlockHeader::Ptr> latestHeaderProm;
-    m_ledger->asyncGetBlockDataByNumber(
-        currentNumber, ledger::HEADER, [&latestHeaderProm](Error::Ptr, protocol::Block::Ptr block) {
-            // FIXME: process the error
+    m_ledger->asyncGetBlockDataByNumber(currentNumber, ledger::HEADER,
+        [&latestHeaderProm, currentNumber](Error::Ptr error, protocol::Block::Ptr block) {
+            if (error)
+            {
+                EXECUTOR_LOG(FATAL) << LOG_DESC("getLatestHeaderFromStorage failed")
+                                    << LOG_KV("blockNumber", currentNumber)
+                                    << LOG_KV("message", error->errorMessage());
+            }
             latestHeaderProm.set_value(block->blockHeader());
         });
     return latestHeaderProm.get_future().get();

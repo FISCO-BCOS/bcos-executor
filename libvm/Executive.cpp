@@ -300,7 +300,8 @@ bool Executive::executeCreate(const std::string_view& _sender, const std::string
     bool accountAlreadyExist = (m_s->addressHasCode(_newAddress) || m_s->getNonce(_newAddress) > 0);
     if (accountAlreadyExist)
     {
-        EXECUTIVE_LOG(DEBUG) << "address already used: " << _newAddress;
+        EXECUTIVE_LOG(DEBUG) << "address already used: "
+                             << (m_envInfo->isWasm() ? _newAddress : *toHexString(_newAddress));
         m_remainGas = 0;
         m_excepted = TransactionStatus::ContractAddressAlreadyUsed;
         revert();

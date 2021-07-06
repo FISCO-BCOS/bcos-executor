@@ -31,6 +31,7 @@ set(HUNTER_STATUS_DEBUG OFF CACHE STRING "Hunter debug output" FORCE)
 set(HUNTER_USE_CACHE_SERVERS NO CACHE STRING "Download cache from cache server" FORCE)
 set(HUNTER_CONFIGURATION_TYPES Release CACHE STRING "Build type of Hunter packages")
 # set(HUNTER_STATUS_PRINT OFF CACHE STRING "Hunter status output")
+# set(CMAKE_CXX_STANDARD 17)
 
 include(HunterGate)
 HunterGate(
@@ -49,12 +50,11 @@ project(bcos-executor VERSION "3.0.0")
 include(Options)
 configure_project()
 include(CompilerSettings)
-# set(CMAKE_CXX_STANDARD 17)
+
 include(InstallConfig)
 # include(ProjectEVMC)
-hunter_add_package(evmc)
-find_package(evmc CONFIG REQUIRED)
-include(ProjectEVMONE)
+
+# include(ProjectEVMONE)
 include(ProjectHera)
 include(ProjectWABT)
 
