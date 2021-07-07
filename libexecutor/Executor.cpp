@@ -167,8 +167,9 @@ void Executor::start()
                 EXECUTOR_LOG(ERROR) << LOG_DESC("check BlockNumber continuity failed")
                                     << LOG_KV("expect", m_lastHeader->number() + 1)
                                     << LOG_KV("got", currentBlock->blockHeader()->number());
-                // FIXME: use error code instead of -1, process return error
-                resultNotifier(make_shared<Error>(-1, "check BlockNumber continuity failed"),
+                // TODO: maybe process return error?
+                resultNotifier(make_shared<Error>(ExecutorErrorCode::DiscontinuousBlockNumber,
+                                   "check BlockNumber continuity failed"),
                     m_blockFactory->blockHeaderFactory()->createBlockHeader(
                         currentBlock->blockHeader()->number()));
                 m_lastHeader = nullptr;
@@ -186,8 +187,9 @@ void Executor::start()
             {
                 EXECUTOR_LOG(ERROR) << LOG_DESC("executeBlock failed")
                                     << LOG_KV("message", boost::diagnostic_information(e));
-                // FIXME: use error code instead of -1, process return error
-                resultNotifier(make_shared<Error>(-1, boost::diagnostic_information(e)),
+                // TODO: maybe process return error?
+                resultNotifier(make_shared<Error>(ExecutorErrorCode::ExecuteException,
+                                   boost::diagnostic_information(e)),
                     m_blockFactory->blockHeaderFactory()->createBlockHeader(
                         currentBlock->blockHeader()->number()));
                 m_lastHeader = nullptr;
@@ -196,7 +198,8 @@ void Executor::start()
             }
 
             // copy TableFactory for next block
-            auto data = context->getTableFactory()->exportData();
+            auto latestBlockNumberOfStorage = getLatestBlockNumberFromStorage();
+            auto data = context->getTableFactory()->exportData(latestBlockNumberOfStorage);
             // use ledger to commit receipts
             std::promise<Error::Ptr> errorProm;
             m_ledger->asyncStoreReceipts(context->getTableFactory(), currentBlock,
@@ -216,7 +219,7 @@ void Executor::start()
                 // create a new TableFactory and import data with new blocknumber
                 m_tableFactory = std::make_shared<TableFactory>(
                     m_stateStorage, m_hashImpl, m_lastHeader->number() + 1);
-                // FIXME: the cache will grow, need clean some cold cache
+                // the cache only have some block's state, it is not infinit
                 m_tableFactory->importData(data.first, data.second, false);
                 EXECUTOR_LOG(DEBUG) << LOG_DESC("asyncNotifyExecutionResult")
                                     << LOG_KV("BlockNumber", m_lastHeader->number());
@@ -279,14 +282,14 @@ BlockContext::Ptr Executor::executeBlock(const protocol::Block::Ptr& block)
     }
     // create a new block header to return
     auto currentHeader = m_blockFactory->blockHeaderFactory()->populateBlockHeader(originalHeader);
-    // set current block header's ParentInfo use setParentInfo
-    block->setBlockHeader(currentHeader);
     BlockContext::Ptr executiveContext = createExecutiveContext(currentHeader);
     EXECUTOR_LOG(INFO) << LOG_DESC("[executeBlock]Executing")
                        << LOG_KV("blockNumber", originalHeader->number())
                        << LOG_KV("txNum", block->transactionsSize())
                        << LOG_KV("parentHash", currentHeader->parentInfo()[0].blockHash)
-                       << LOG_KV("parentNum", currentHeader->parentInfo()[0].blockNumber);
+                       << LOG_KV("parentNum", currentHeader->parentInfo()[0].blockNumber)
+                       << LOG_KV("state", originalHeader->stateRoot().abridged())
+                       << LOG_KV("receipt", originalHeader->receiptsRoot().abridged());
 
     auto initExeCtx_time_cost = utcTime() - record_time;
     record_time = utcTime();
@@ -352,7 +355,8 @@ BlockContext::Ptr Executor::executeBlock(const protocol::Block::Ptr& block)
     auto getRootHash_time_cost = utcTime() - record_time;
     record_time = utcTime();
 
-    block->calculateReceiptRoot(true);
+    auto receiptRoot = block->calculateReceiptRoot(false);
+    currentHeader->setReceiptsRoot(receiptRoot);
     currentHeader->setStateRoot(stateRoot);
     currentHeader->setGasUsed(blockGasUsed);
     auto getReceiptRoot_time_cost = utcTime() - record_time;
@@ -378,6 +382,10 @@ BlockContext::Ptr Executor::executeBlock(const protocol::Block::Ptr& block)
                                 << ",receipt=" << block->receipt(i);
         }
 #endif
+    }
+    if (originalHeader->stateRoot() == crypto::HashType())
+    {  // only consensus block setBlockHeader
+        block->setBlockHeader(currentHeader);
     }
     EXECUTOR_LOG(DEBUG) << LOG_BADGE("executeBlock") << LOG_DESC("Para execute block takes")
                         << LOG_KV("blockNumber", currentHeader->number())
@@ -580,13 +588,18 @@ BlockContext::Ptr Executor::createExecutiveContext(const protocol::BlockHeader::
     return context;
 }
 
-protocol::BlockHeader::Ptr Executor::getLatestHeaderFromStorage()
+protocol::BlockNumber Executor::getLatestBlockNumberFromStorage()
 {
     // use ledger to get latest number
     promise<protocol::BlockNumber> prom;
     m_ledger->asyncGetBlockNumber(
         [&prom](Error::Ptr, protocol::BlockNumber _number) { prom.set_value(_number); });
-    auto currentNumber = prom.get_future().get();
+    return prom.get_future().get();
+}
+
+protocol::BlockHeader::Ptr Executor::getLatestHeaderFromStorage()
+{
+    auto currentNumber = getLatestBlockNumberFromStorage();
     // use ledger to get lastest header
     promise<protocol::BlockHeader::Ptr> latestHeaderProm;
     m_ledger->asyncGetBlockDataByNumber(currentNumber, ledger::HEADER,

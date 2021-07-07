@@ -94,6 +94,7 @@ public:
 
 private:
     protocol::BlockHeader::Ptr getLatestHeaderFromStorage();
+    protocol::BlockNumber getLatestBlockNumberFromStorage();
     Error::Ptr resultNotifier(const Error::Ptr& _error, const protocol::BlockHeader::Ptr& _header)
     {
         // async notify dispatcher
