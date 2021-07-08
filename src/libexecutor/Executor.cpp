@@ -211,11 +211,11 @@ void Executor::start()
                                     << LOG_KV("message", error->errorMessage());
                 continue;
             }
-            error = resultNotifier(nullptr, currentBlock->blockHeader());
+            error = resultNotifier(nullptr, context->currentBlockHeader());
             if (!error)
             {
                 // set m_lastHeader to current block header
-                m_lastHeader = currentBlock->blockHeader();
+                m_lastHeader = context->currentBlockHeader();
                 // create a new TableFactory and import data with new blocknumber
                 m_tableFactory = std::make_shared<TableFactory>(
                     m_stateStorage, m_hashImpl, m_lastHeader->number() + 1);
@@ -369,7 +369,7 @@ BlockContext::Ptr Executor::executeBlock(const protocol::Block::Ptr& block)
                             << LOG_KV("originalHash", originalHeader->hash().abridged())
                             << LOG_KV("currentHash", currentHeader->hash().abridged())
                             << LOG_KV("originalReceipt", originalHeader->receiptsRoot().abridged())
-                            << LOG_KV("currentRecepit", currentHeader->receiptsRoot().abridged())
+                            << LOG_KV("currentReceipt", currentHeader->receiptsRoot().abridged())
                             << LOG_KV("originalState", originalHeader->stateRoot().abridged())
                             << LOG_KV("currentState", currentHeader->stateRoot().abridged());
         BOOST_THROW_EXCEPTION(InvalidBlockWithBadRoot() << errinfo_comment(

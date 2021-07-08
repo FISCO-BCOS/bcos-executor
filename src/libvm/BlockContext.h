@@ -61,13 +61,10 @@ public:
 
     BlockContext(std::shared_ptr<storage::TableFactoryInterface> _tableFactory,
         crypto::Hash::Ptr _hashImpl, protocol::BlockHeader::Ptr const& _current,
-        const EVMSchedule& _schedule, CallBackFunction _callback,
-        bool _isWasm);
+        const EVMSchedule& _schedule, CallBackFunction _callback, bool _isWasm);
     using getTxCriticalsHandler = std::function<std::shared_ptr<std::vector<std::string>>(
         const protocol::Transaction::ConstPtr& _tx)>;
-    virtual ~BlockContext()
-    {
-    };
+    virtual ~BlockContext(){};
 
     virtual std::shared_ptr<precompiled::PrecompiledExecResult> call(const std::string& address,
         bytesConstRef param, const std::string& origin, const std::string& sender,
@@ -118,7 +115,7 @@ public:
     int32_t blockVersion() const { return m_currentHeader->version(); }
     /// @return gasLimit of the block header
     u256 const& gasLimit() const { return m_gasLimit; }
-
+    protocol::BlockHeader::Ptr currentBlockHeader() { return m_currentHeader; }
     crypto::HashType numberHash(int64_t x) const { return m_numberHash(x); }
 
     EVMSchedule const& evmSchedule() const { return m_schedule; }
