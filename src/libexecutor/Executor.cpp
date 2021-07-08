@@ -27,6 +27,7 @@
 #include "../libprecompiled/PrecompiledResult.h"
 #include "../libprecompiled/SystemConfigPrecompiled.h"
 #include "../libprecompiled/TableFactoryPrecompiled.h"
+#include "../libprecompiled/DeployWasmPrecompiled.h"
 #include "../libprecompiled/Utilities.h"
 #include "../libprecompiled/extension/DagTransferPrecompiled.h"
 #include "../libstate/State.h"
@@ -36,6 +37,7 @@
 #include "Common.h"
 #include "TxDAG.h"
 #include "bcos-framework/interfaces/protocol/TransactionReceipt.h"
+#include "bcos-framework/interfaces/executor/PrecompiledTypeDef.h"
 #include "bcos-framework/libcodec/abi/ContractABIType.h"
 #include "bcos-framework/libtable/Table.h"
 #include "bcos-framework/libtable/TableFactory.h"
@@ -473,6 +475,8 @@ BlockContext::Ptr Executor::createExecutiveContext(const protocol::BlockHeader::
         DAG_TRANSFER_ADDRESS, std::make_shared<precompiled::DagTransferPrecompiled>(m_hashImpl));
     context->setAddress2Precompiled(
         CRYPTO_ADDRESS, std::make_shared<CryptoPrecompiled>(m_hashImpl));
+    context->setAddress2Precompiled(
+        DEPLOY_WASM_ADDRESS, std::make_shared<DeployWasmPrecompiled>(m_hashImpl));
 
     // context->setAddress2Precompiled(CRUD_ADDRESS,
     // std::make_shared<precompiled::CRUDPrecompiled>());

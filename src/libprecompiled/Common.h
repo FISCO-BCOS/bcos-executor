@@ -83,33 +83,6 @@ const int USER_TABLE_NAME_MAX_LENGTH = 64;
 const int USER_TABLE_NAME_MAX_LENGTH_S = 50;
 const int USER_TABLE_FIELD_VALUE_MAX_LENGTH = 16 * 1024 * 1024 - 1;
 
-// Define precompiled contract address
-const char* const SYS_CONFIG_NAME = "/bin/status";
-const char* const CRUD_NAME = "/bin/crud";
-const char* const CONSENSUS_NAME = "/bin/consensus";
-const char* const CNS_NAME = "/bin/cns";
-const char* const PERMISSION_NAME = "/bin/permission";
-const char* const PARALLEL_CONFIG_NAME = "/bin/parallel_config";
-// const char* const CONTRACT_LIFECYCLE_NAME = "/sys/contract_life_cycle";
-// const char* const CHAIN_GOVERNANCE_NAME = "/sys/governance";
-const char* const KV_TABLE_FACTORY_NAME = "/bin/kv_storage";
-// const char* const WORKING_SEALER_MGR_NAME = "/sys/sealer_manager";
-
-// precompiled contract for solidity
-const char* const SYS_CONFIG_ADDRESS = "0x1000";
-const char* const TABLE_FACTORY_ADDRESS = "0x1001";
-const char* const CRUD_ADDRESS = "0x1002";
-const char* const CONSENSUS_ADDRESS = "0x1003";
-const char* const CNS_ADDRESS = "0x1004";
-const char* const PERMISSION_ADDRESS = "0x1005";
-const char* const PARALLEL_CONFIG_ADDRESS = "0x1006";
-const char* const CONTRACT_LIFECYCLE_ADDRESS = "0x1007";
-const char* const CHAIN_GOVERNANCE_ADDRESS = "0x1008";
-const char* const KV_TABLE_FACTORY_ADDRESS = "0x1009";
-const char* const CRYPTO_ADDRESS = "0x100a";
-const char* const WORKING_SEALER_MGR_ADDRESS = "0x100b";
-const char* const DAG_TRANSFER_ADDRESS = "0x100c";
-
 const int CODE_NO_AUTHORIZED = -50000;
 const int CODE_TABLE_NAME_ALREADY_EXIST = -50001;
 const int CODE_TABLE_NAME_LENGTH_OVERFLOW = -50002;

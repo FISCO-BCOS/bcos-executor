@@ -114,7 +114,7 @@ void CryptoPrecompiled::sm2Verify(bytesConstRef _paramData, PrecompiledExecResul
         bytes message;
         bytes sm2Sign;
         m_codec->decode(_paramData, message, sm2Sign);
-        auto msgHash = HashType(asString(message));
+        auto msgHash = HashType(message.data(), message.size());
         Address account;
         bool verifySuccess = true;
         auto publicKey = crypto::sm2Recover(msgHash, ref(sm2Sign));
@@ -126,10 +126,11 @@ void CryptoPrecompiled::sm2Verify(bytesConstRef _paramData, PrecompiledExecResul
             return;
         }
 
-        account = right160(crypto::sm3Hash(ref(publicKey->data())));
+        account = right160(
+            crypto::sm3Hash(bytesConstRef(publicKey->data().data(), publicKey->data().size())));
         PRECOMPILED_LOG(TRACE) << LOG_DESC("CryptoPrecompiled: sm2Verify")
                                << LOG_KV("verifySuccess", verifySuccess)
-                               << LOG_KV("publicKey", toHexString(publicKey->data()))
+                               << LOG_KV("publicKey", publicKey->hex())
                                << LOG_KV("account", account);
         _callResult->setExecResult(m_codec->encode(verifySuccess, account));
     }

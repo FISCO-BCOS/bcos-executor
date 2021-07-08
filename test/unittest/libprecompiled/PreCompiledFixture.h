@@ -51,6 +51,7 @@ public:
     {
         hashImpl = std::make_shared<Keccak256Hash>();
         assert(hashImpl);
+        smHashImpl = std::make_shared<Sm3Hash>();
         auto signatureImpl = std::make_shared<Secp256k1SignatureImpl>();
         assert(signatureImpl);
         cryptoSuite = std::make_shared<CryptoSuite>(hashImpl, signatureImpl, nullptr);
@@ -117,6 +118,7 @@ public:
 
 protected:
     crypto::Hash::Ptr hashImpl;
+    crypto::Hash::Ptr smHashImpl;
     BlockContext::Ptr context;
     protocol::BlockFactory::Ptr blockFactory;
     CryptoSuite::Ptr cryptoSuite = nullptr;
