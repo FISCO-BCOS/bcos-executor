@@ -7,9 +7,8 @@ endif()
 
 # import bcos-cmake-scripts & hunter & bcos-framework
 include(FetchContent)
-set(BCOS_CMAKE_SCRIPTS_DIR "${CMAKE_SOURCE_DIR}/cmake/scripts")
+set(BCOS_CMAKE_SCRIPTS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/cmake/scripts")
 FetchContent_Declare(bcos-cmake-scripts
-    PREFIX ${CMAKE_SOURCE_DIR}/cmake/deps
     DOWNLOAD_NO_PROGRESS 1
     GIT_REPOSITORY https://${URL_BASE}/FISCO-BCOS/bcos-cmake-scripts.git
     GIT_TAG 08292fda15eea792a90254b3d1c4c80a7595c722
@@ -22,7 +21,7 @@ FetchContent_Declare(bcos-cmake-scripts
 )
 
 FetchContent_MakeAvailable(bcos-cmake-scripts)
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/ ${BCOS_CMAKE_SCRIPTS_DIR})
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/" "${BCOS_CMAKE_SCRIPTS_DIR}")
 
 # init hunter
 set(HUNTER_PACKAGE_LOG_BUILD ON CACHE STRING "Hunter output build info to log" FORCE)
@@ -37,7 +36,7 @@ include(HunterGate)
 HunterGate(
     URL "https://${URL_BASE}/FISCO-BCOS/hunter/archive/f88ce89a9fcd557b7fb2aa0f7abaa3c541dc6903.tar.gz"
     SHA1 "b7792231bf64539602e696e32bfc163c9bc1812a"
-    FILEPATH "${CMAKE_SOURCE_DIR}/cmake/config.cmake"
+    FILEPATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/config.cmake
 )
 
 # set CMP0074 to NEW to suppress warnning, https://cmake.org/cmake/help/latest/policy/CMP0074.html
@@ -53,7 +52,6 @@ include(CompilerSettings)
 
 include(InstallConfig)
 # include(ProjectEVMC)
-
 # include(ProjectEVMONE)
 include(ProjectHera)
 include(ProjectWABT)
@@ -87,12 +85,15 @@ function(install_dependencies target)
     endforeach()
 endfunction()
 
-add_subdirectory(libstate)
-add_subdirectory(libvm)
-add_subdirectory(libprecompiled)
-add_subdirectory(libexecutor)
+add_subdirectory(src)
 
 set(EXECUTOR_TARGET "bcos-executor")
+
+install(
+    DIRECTORY "include/bcos-executor/"
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${CMAKE_PROJECT_NAME}"
+    FILES_MATCHING PATTERN "*.h"
+)
 
 if (TESTS)
     enable_testing()

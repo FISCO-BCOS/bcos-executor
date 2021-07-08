@@ -19,7 +19,7 @@
  * @date: 2021-06-09
  */
 
-#include "libexecutor/Executor.h"
+#include "bcos-executor/Executor.h"
 #include "../MemoryStorage.h"
 #include "../mock/MockDispatcher.h"
 #include "../mock/MockLedger.h"

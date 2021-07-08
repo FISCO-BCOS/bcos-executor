@@ -18,7 +18,7 @@
  * @author: xingqiangbai
  * @date: 2021-05-27
  */
-#include "Executor.h"
+#include "bcos-executor/Executor.h"
 #include "../libprecompiled/CNSPrecompiled.h"
 #include "../libprecompiled/ConsensusPrecompiled.h"
 #include "../libprecompiled/CryptoPrecompiled.h"

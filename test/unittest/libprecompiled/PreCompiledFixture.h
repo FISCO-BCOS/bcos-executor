@@ -22,14 +22,14 @@
 #include "bcos-framework/interfaces/ledger/LedgerTypeDef.h"
 #include "bcos-framework/testutils/protocol/FakeBlock.h"
 #include "bcos-framework/testutils/protocol/FakeBlockHeader.h"
-#include "libexecutor/Executor.h"
+#include "bcos-executor/Executor.h"
 #include "libprecompiled/Utilities.h"
 #include "libprecompiled/extension/UserPrecompiled.h"
 #include "libvm/BlockContext.h"
 #include "libvm/Executive.h"
 #include "mock/MockDispatcher.h"
 #include "mock/MockLedger.h"
-#include "test/unittest/MemoryStorage.h"
+#include "../MemoryStorage.h"
 #include <bcos-framework/interfaces/storage/TableInterface.h>
 #include <bcos-framework/testutils/TestPromptFixture.h>
 #include <bcos-framework/testutils/crypto/HashImpl.h>
