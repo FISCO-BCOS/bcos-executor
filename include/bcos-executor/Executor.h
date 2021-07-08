@@ -67,14 +67,7 @@ public:
         const ledger::LedgerInterface::Ptr& _ledger,
         const storage::StorageInterface::Ptr& _stateStorage, bool _isWasm, size_t _poolSize = 2);
 
-    virtual ~Executor()
-    {
-        if (m_worker)
-        {
-            m_stop.store(true);
-            m_worker->join();
-        }
-    }
+    virtual ~Executor() { stop(); }
 
     std::shared_ptr<BlockContext> executeBlock(const protocol::Block::Ptr& block);
 

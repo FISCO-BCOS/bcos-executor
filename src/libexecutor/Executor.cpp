@@ -236,8 +236,19 @@ void Executor::start()
 
 void Executor::stop()
 {
+    if (m_stop)
+    {
+        EXECUTOR_LOG(WARNING) << LOG_DESC("Executor already has been stopped!");
+        return;
+    }
+    EXECUTOR_LOG(INFO) << LOG_DESC("Stop Executor");
     m_stop.store(true);
     m_threadPool->stop();
+    if (m_worker)
+    {
+        m_worker->join();
+    }
+    EXECUTOR_LOG(INFO) << LOG_DESC("Stop Executor success");
 }
 
 void Executor::asyncGetCode(const std::string_view& _address,
