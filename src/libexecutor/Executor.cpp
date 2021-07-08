@@ -201,6 +201,9 @@ void Executor::start()
 
             // copy TableFactory for next block
             auto latestBlockNumberOfStorage = getLatestBlockNumberFromStorage();
+            EXECUTOR_LOG(DEBUG) << LOG_DESC("export state data")
+                                << LOG_KV("export", latestBlockNumberOfStorage)
+                                << LOG_KV("current", context->currentBlockHeader()->number());
             auto data = context->getTableFactory()->exportData(latestBlockNumberOfStorage);
             // use ledger to commit receipts
             std::promise<Error::Ptr> errorProm;
@@ -224,7 +227,7 @@ void Executor::start()
                 // the cache only have some block's state, it is not infinit
                 m_tableFactory->importData(data.first, data.second, false);
                 EXECUTOR_LOG(DEBUG) << LOG_DESC("asyncNotifyExecutionResult")
-                                    << LOG_KV("BlockNumber", m_lastHeader->number());
+                                    << LOG_KV("blockNumber", m_lastHeader->number());
             }
             else
             {
