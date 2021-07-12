@@ -157,6 +157,10 @@ void Executor::start()
                     prom.set_value(block);
                 });
             auto currentBlock = prom.get_future().get();
+            if(!currentBlock)
+            {
+                continue;
+            }
             if (!m_lastHeader)
             {
                 m_lastHeader = getLatestHeaderFromStorage();
