@@ -22,12 +22,12 @@
 #include "../libprecompiled/CNSPrecompiled.h"
 #include "../libprecompiled/ConsensusPrecompiled.h"
 #include "../libprecompiled/CryptoPrecompiled.h"
+#include "../libprecompiled/DeployWasmPrecompiled.h"
 #include "../libprecompiled/KVTableFactoryPrecompiled.h"
 #include "../libprecompiled/ParallelConfigPrecompiled.h"
 #include "../libprecompiled/PrecompiledResult.h"
 #include "../libprecompiled/SystemConfigPrecompiled.h"
 #include "../libprecompiled/TableFactoryPrecompiled.h"
-#include "../libprecompiled/DeployWasmPrecompiled.h"
 #include "../libprecompiled/Utilities.h"
 #include "../libprecompiled/extension/DagTransferPrecompiled.h"
 #include "../libstate/State.h"
@@ -36,8 +36,8 @@
 #include "../libvm/Precompiled.h"
 #include "Common.h"
 #include "TxDAG.h"
-#include "bcos-framework/interfaces/protocol/TransactionReceipt.h"
 #include "bcos-framework/interfaces/executor/PrecompiledTypeDef.h"
+#include "bcos-framework/interfaces/protocol/TransactionReceipt.h"
 #include "bcos-framework/libcodec/abi/ContractABIType.h"
 #include "bcos-framework/libtable/Table.h"
 #include "bcos-framework/libtable/TableFactory.h"
@@ -149,15 +149,17 @@ void Executor::start()
             std::promise<protocol::Block::Ptr> prom;
             m_dispatcher->asyncGetLatestBlock(
                 [&prom](const Error::Ptr& error, const protocol::Block::Ptr& block) {
+                    // Note: the local implementation will not into this logic
                     if (error)
                     {
                         EXECUTOR_LOG(WARNING) << LOG_DESC("asyncGetLatestBlock failed")
                                               << LOG_KV("message", error->errorMessage());
+                        prom.set_value(nullptr);
                     }
                     prom.set_value(block);
                 });
             auto currentBlock = prom.get_future().get();
-            if(!currentBlock)
+            if (!currentBlock)
             {
                 continue;
             }
