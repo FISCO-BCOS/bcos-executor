@@ -74,7 +74,8 @@ public:
         _callback(nullptr, m_blocks.front());
     }
 
-    void asyncNotifyExecutionResult(const Error::Ptr&, const std::shared_ptr<BlockHeader>& _header,
+    void asyncNotifyExecutionResult(const Error::Ptr&, bcos::crypto::HashType const&,
+        const std::shared_ptr<BlockHeader>& _header,
         std::function<void(const Error::Ptr&)>) override
     {
         // the process it in order

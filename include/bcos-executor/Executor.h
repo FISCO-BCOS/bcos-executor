@@ -88,12 +88,13 @@ public:
 private:
     protocol::BlockHeader::Ptr getLatestHeaderFromStorage();
     protocol::BlockNumber getLatestBlockNumberFromStorage();
-    Error::Ptr resultNotifier(const Error::Ptr& _error, const protocol::BlockHeader::Ptr& _header)
+    Error::Ptr resultNotifier(const Error::Ptr& _error, bcos::crypto::HashType const& _orgHash,
+        const protocol::BlockHeader::Ptr& _header)
     {
         // async notify dispatcher
         std::promise<Error::Ptr> barrier;
-        m_dispatcher->asyncNotifyExecutionResult(
-            _error, _header, [&barrier](const Error::Ptr& error) { barrier.set_value(error); });
+        m_dispatcher->asyncNotifyExecutionResult(_error, _orgHash, _header,
+            [&barrier](const Error::Ptr& error) { barrier.set_value(error); });
         return barrier.get_future().get();
     };
     protocol::BlockFactory::Ptr m_blockFactory;

@@ -22,12 +22,12 @@
 #include "../libprecompiled/CNSPrecompiled.h"
 #include "../libprecompiled/ConsensusPrecompiled.h"
 #include "../libprecompiled/CryptoPrecompiled.h"
+#include "../libprecompiled/DeployWasmPrecompiled.h"
 #include "../libprecompiled/KVTableFactoryPrecompiled.h"
 #include "../libprecompiled/ParallelConfigPrecompiled.h"
 #include "../libprecompiled/PrecompiledResult.h"
 #include "../libprecompiled/SystemConfigPrecompiled.h"
 #include "../libprecompiled/TableFactoryPrecompiled.h"
-#include "../libprecompiled/DeployWasmPrecompiled.h"
 #include "../libprecompiled/Utilities.h"
 #include "../libprecompiled/extension/DagTransferPrecompiled.h"
 #include "../libstate/State.h"
@@ -36,8 +36,8 @@
 #include "../libvm/Precompiled.h"
 #include "Common.h"
 #include "TxDAG.h"
-#include "bcos-framework/interfaces/protocol/TransactionReceipt.h"
 #include "bcos-framework/interfaces/executor/PrecompiledTypeDef.h"
+#include "bcos-framework/interfaces/protocol/TransactionReceipt.h"
 #include "bcos-framework/libcodec/abi/ContractABIType.h"
 #include "bcos-framework/libtable/Table.h"
 #include "bcos-framework/libtable/TableFactory.h"
@@ -157,10 +157,11 @@ void Executor::start()
                     prom.set_value(block);
                 });
             auto currentBlock = prom.get_future().get();
-            if(!currentBlock)
+            if (!currentBlock)
             {
                 continue;
             }
+            auto orgHash = currentBlock->blockHeader()->hash();
             if (!m_lastHeader)
             {
                 m_lastHeader = getLatestHeaderFromStorage();
@@ -176,6 +177,7 @@ void Executor::start()
                 // TODO: maybe process return error?
                 resultNotifier(make_shared<Error>(ExecutorErrorCode::DiscontinuousBlockNumber,
                                    "check BlockNumber continuity failed"),
+                    orgHash,
                     m_blockFactory->blockHeaderFactory()->createBlockHeader(
                         currentBlock->blockHeader()->number()));
                 m_lastHeader = nullptr;
@@ -196,6 +198,7 @@ void Executor::start()
                 // TODO: maybe process return error?
                 resultNotifier(make_shared<Error>(ExecutorErrorCode::ExecuteException,
                                    boost::diagnostic_information(e)),
+                    orgHash,
                     m_blockFactory->blockHeaderFactory()->createBlockHeader(
                         currentBlock->blockHeader()->number()));
                 m_lastHeader = nullptr;
@@ -220,7 +223,7 @@ void Executor::start()
                                     << LOG_KV("message", error->errorMessage());
                 continue;
             }
-            error = resultNotifier(nullptr, context->currentBlockHeader());
+            error = resultNotifier(nullptr, orgHash, context->currentBlockHeader());
             if (!error)
             {
                 // set m_lastHeader to current block header
