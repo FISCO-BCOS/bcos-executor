@@ -146,8 +146,9 @@ BOOST_AUTO_TEST_CASE(executeTransaction_DeployHelloWorld)
     auto receipt = executor->executeTransaction(tx, executive);
     BOOST_TEST(receipt->status() == (int32_t)TransactionStatus::None);
     BOOST_TEST(receipt->gasUsed() == 430575);
+    // std::cout << "##### hash:" << receipt->hash().hexPrefixed() << std::endl;
     BOOST_TEST(receipt->hash().hexPrefixed() ==
-               "0xaebfa6e88818037c65afed2d33c9cd634cdf0d7f4d0d4e5084af72185706aa28");
+               "0x0e6a9efb937726a763ccec40e1c15869b2d1d2fdb6f229038f503e3ab011b814");
     BOOST_TEST(
         *toHexString(receipt->contractAddress()) == "8968b494f66b2508330b24a7d1cafa06a14f6315");
     BOOST_TEST(*toHexString(receipt->output()) == "");
@@ -165,8 +166,9 @@ BOOST_AUTO_TEST_CASE(executeTransaction_DeployHelloWorld)
     receipt = executor->executeTransaction(getTx, executive);
     BOOST_TEST(receipt->status() == (int32_t)TransactionStatus::None);
     BOOST_TEST(receipt->gasUsed() == 22742);
+    // std::cout << "##### hash:" << receipt->hash().hexPrefixed() << std::endl;
     BOOST_TEST(receipt->hash().hexPrefixed() ==
-               "0xe86887f45811fc1c0862cce8aa66429bcb8845fa56ace5cad406a2d2fb89cb57");
+               "0xeeef9c8a72141a2d3184509fa21fb5496f59acae2596f0c027747a0a9ffbf38b");
     BOOST_TEST(*toHexString(receipt->contractAddress()) == "");
     // Hello, World! == 48656c6c6f2c20576f726c6421
     BOOST_TEST(*toHexString(receipt->output()) ==
@@ -186,8 +188,9 @@ BOOST_AUTO_TEST_CASE(executeTransaction_DeployHelloWorld)
     receipt = executor->executeTransaction(setTx, executive);
     BOOST_TEST(receipt->status() == (int32_t)TransactionStatus::None);
     BOOST_TEST(receipt->gasUsed() == 30791);
+    // std::cout << "##### hash:" << receipt->hash().hexPrefixed() << std::endl;
     BOOST_TEST(receipt->hash().hexPrefixed() ==
-               "0x407edb8616a3772a18c89fb7da1326c9b0d690ba1b60cf3942d86383b6a62b0a");
+               "0x93b72fd6aba4b872700ac82f1d7b632a88aca5ec28ff8528dc774072968b94c7");
     BOOST_TEST(*toHexString(receipt->contractAddress()) == "");
     BOOST_TEST(*toHexString(receipt->output()) == "");
     BOOST_TEST(receipt->blockNumber() == 1);
@@ -247,8 +250,9 @@ BOOST_AUTO_TEST_CASE(executeBlock)
     auto deployReceipt = block->receipt(0);
     BOOST_TEST(deployReceipt->status() == (int32_t)TransactionStatus::None);
     BOOST_TEST(deployReceipt->gasUsed() == 430575);
+    // std::cout << "##### hash:" << deployReceipt->hash().hexPrefixed() << std::endl;
     BOOST_TEST(deployReceipt->hash().hexPrefixed() ==
-               "0xaebfa6e88818037c65afed2d33c9cd634cdf0d7f4d0d4e5084af72185706aa28");
+               "0x0e6a9efb937726a763ccec40e1c15869b2d1d2fdb6f229038f503e3ab011b814");
     BOOST_TEST(*toHexString(deployReceipt->contractAddress()) ==
                "8968b494f66b2508330b24a7d1cafa06a14f6315");
     BOOST_TEST(*toHexString(deployReceipt->output()) == "");
@@ -257,8 +261,9 @@ BOOST_AUTO_TEST_CASE(executeBlock)
     deployReceipt = block->receipt(1);
     BOOST_TEST(deployReceipt->status() == (int32_t)TransactionStatus::None);
     BOOST_TEST(deployReceipt->gasUsed() == 430575);
+    // std::cout << "##### hash:" << deployReceipt->hash().hexPrefixed() << std::endl;
     BOOST_TEST(deployReceipt->hash().hexPrefixed() ==
-               "0xf3e7e4895752ef0d6c1ba617801790732f7fc6424f08d61cae52d315beb4d408");
+               "0x38a33a70f9f008cc867daf48239c020ed58350157e86462274c466efa419e907");
     BOOST_TEST(*toHexString(deployReceipt->contractAddress()) ==
                "21f7f2c888221d771e103cb2e56a7da15a2d898e");
     BOOST_TEST(*toHexString(deployReceipt->output()) == "");
@@ -267,8 +272,10 @@ BOOST_AUTO_TEST_CASE(executeBlock)
     auto getReceipt = block->receipt(2);
     BOOST_TEST(getReceipt->status() == (int32_t)TransactionStatus::None);
     BOOST_TEST(getReceipt->gasUsed() == 22742);
+
+    // std::cout << "##### hash:" << getReceipt->hash().hexPrefixed() << std::endl;
     BOOST_TEST(getReceipt->hash().hexPrefixed() ==
-               "0xe86887f45811fc1c0862cce8aa66429bcb8845fa56ace5cad406a2d2fb89cb57");
+               "0xeeef9c8a72141a2d3184509fa21fb5496f59acae2596f0c027747a0a9ffbf38b");
     BOOST_TEST(*toHexString(getReceipt->contractAddress()) == "");
     // Hello, World! == 48656c6c6f2c20576f726c6421
     BOOST_TEST(*toHexString(getReceipt->output()) ==
@@ -284,8 +291,12 @@ BOOST_AUTO_TEST_CASE(executeBlock)
     BOOST_TEST(receiptsRoot != block->blockHeader()->receiptsRoot());
     BOOST_TEST(block->blockHeader()->stateRoot() != stateRoot);
 
+    // std::cout << "##### receiptsRoot:" << block->blockHeader()->receiptsRoot().hexPrefixed() <<
+    // std::endl; std::cout << "##### stateRoot:" << block->blockHeader()->stateRoot().hexPrefixed()
+    // << std::endl;
+
     BOOST_TEST(block->blockHeader()->receiptsRoot().hexPrefixed() ==
-               "0x5838cfc06b6881518763d5af6347dd654de2df2d1862062ea87046884bc8069e");
+               "0x23840197d938458f3715de4068148b9e5006d1c36f3b8279070d6fcfb894456d");
     BOOST_TEST(block->blockHeader()->stateRoot().hexPrefixed() ==
                "0xa46b2f7a199a45cf38bae4b42e45d7580ed44367e0b6d9532c347a2afecedadb");
     BOOST_TEST(block->blockHeader()->stateRoot().hexPrefixed() ==

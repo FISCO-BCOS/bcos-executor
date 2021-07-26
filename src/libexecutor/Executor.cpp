@@ -70,7 +70,6 @@ inline std::ostream& operator<<(std::ostream& _out, const TransactionReceipt::Pt
     _out << "output: " << _r->output().toString() << " \n";
     _out << "Logs: " << _r->logEntries().size() << " entries:"
          << "\n";
-    _out << "Bloom: " << _r->bloom() << "\n";
     return _out;
 }
 
