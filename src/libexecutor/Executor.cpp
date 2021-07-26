@@ -255,6 +255,10 @@ void Executor::stop()
     EXECUTOR_LOG(INFO) << LOG_DESC("Stop Executor");
     m_stop.store(true);
     m_threadPool->stop();
+    if (m_dispatcher)
+    {
+        m_dispatcher->stop();
+    }
     if (m_worker)
     {
         m_worker->join();
