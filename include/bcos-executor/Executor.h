@@ -112,6 +112,9 @@ private:
     std::unique_ptr<std::thread> m_worker = nullptr;
     const ExecutorVersion m_version;
     std::map<std::string, std::shared_ptr<PrecompiledContract>> m_precompiledContract;
+    // at most wait for the promise for 2s
+    // TODO: make this configurable
+    const unsigned c_waitTimeout = 2000;
 };
 
 }  // namespace executor

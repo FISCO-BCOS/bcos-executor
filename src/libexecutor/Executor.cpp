@@ -155,6 +155,15 @@ void Executor::start()
                     }
                     prom.set_value(block);
                 });
+            // Note: here must add timeout logic, or the thread maybe can't stopped
+            while (std::future_status::timeout ==
+                   prom.get_future().wait_for(std::chrono::milliseconds(c_waitTimeout)))
+            {
+                if (m_stop)
+                {
+                    break;
+                }
+            }
             auto currentBlock = prom.get_future().get();
             if (!currentBlock)
             {
@@ -215,6 +224,15 @@ void Executor::start()
             std::promise<Error::Ptr> errorProm;
             m_ledger->asyncStoreReceipts(context->getTableFactory(), currentBlock,
                 [&errorProm](Error::Ptr error) { errorProm.set_value(error); });
+            // Note: here must add timeout logic, or the thread maybe can't stopped
+            while (std::future_status::timeout ==
+                   errorProm.get_future().wait_for(std::chrono::milliseconds(c_waitTimeout)))
+            {
+                if (m_stop)
+                {
+                    break;
+                }
+            }
             auto error = errorProm.get_future().get();
             if (error)
             {
