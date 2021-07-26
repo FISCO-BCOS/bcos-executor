@@ -255,6 +255,8 @@ void Executor::stop()
     EXECUTOR_LOG(INFO) << LOG_DESC("Stop Executor");
     m_stop.store(true);
     m_threadPool->stop();
+    // in the bcos-node mode, the dispatcher will notify all waiting callbacks to exectuor when stop
+    // to in case of the executor stucked at promise wait
     if (m_dispatcher)
     {
         m_dispatcher->stop();
