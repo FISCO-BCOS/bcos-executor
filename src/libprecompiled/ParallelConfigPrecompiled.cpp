@@ -27,6 +27,7 @@
 #include <bcos-framework/interfaces/storage/TableInterface.h>
 #include <boost/algorithm/string.hpp>
 
+using namespace std;
 using namespace bcos;
 using namespace bcos::storage;
 using namespace bcos::executor;
@@ -106,9 +107,10 @@ PrecompiledExecResult::Ptr ParallelConfigPrecompiled::call(
     return callResult;
 }
 
-std::string ParallelConfigPrecompiled::getTableName(std::string const& _contractName, bool _isWasm)
+std::string ParallelConfigPrecompiled::getTableName(
+    const std::string_view& _contractName, bool _isWasm)
 {
-    std::string tableName = PARA_CONFIG_TABLE_PREFIX_SHORT + _contractName;
+    std::string tableName = std::string(PARA_CONFIG_TABLE_PREFIX_SHORT).append(_contractName);
     if (!_isWasm)
     {
         tableName = PARA_CONFIG_TABLE_PREFIX_SHORT + *toHexString(_contractName);
@@ -221,8 +223,8 @@ void ParallelConfigPrecompiled::unregisterParallelFunction(
 
 // TODO: use origin to check authority
 ParallelConfig::Ptr ParallelConfigPrecompiled::getParallelConfig(
-    std::shared_ptr<executor::BlockContext> _context, std::string const& _contractAddress,
-    uint32_t _selector, std::string const&)
+    std::shared_ptr<executor::BlockContext> _context, const std::string_view& _contractAddress,
+    uint32_t _selector, const std::string_view&)
 {
     auto table =
         _context->getTableFactory()->openTable(getTableName(_contractAddress, _context->isWasm()));

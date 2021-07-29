@@ -46,6 +46,7 @@ BlockContext::BlockContext(std::shared_ptr<storage::TableFactoryInterface> _tabl
     m_hashImpl(_hashImpl)
 {
     m_state = make_shared<State>(m_tableFactory, m_hashImpl, _isWasm);
+    m_parallelConfigCache = make_shared<ParallelConfigCache>();
 }
 
 shared_ptr<PrecompiledExecResult> BlockContext::call(const string& address, bytesConstRef param,
@@ -82,8 +83,7 @@ shared_ptr<PrecompiledExecResult> BlockContext::call(const string& address, byte
     }
 }
 
-string BlockContext::registerPrecompiled(
-    std::shared_ptr<precompiled::Precompiled> p)
+string BlockContext::registerPrecompiled(std::shared_ptr<precompiled::Precompiled> p)
 {
     auto count = ++m_addressCount;
     std::string addressFilled(20, '0');

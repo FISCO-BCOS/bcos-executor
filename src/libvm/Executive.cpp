@@ -112,12 +112,12 @@ bool Executive::execute()
 
     if (m_t->type() == TransactionType::ContractCreation)
     {
-        return create(fromBytes(m_t->sender()), txGasLimit - (u256)m_baseGasRequired, m_t->input(),
-            fromBytes(m_t->sender()));
+        return create(
+            m_t->sender(), txGasLimit - (u256)m_baseGasRequired, m_t->input(), m_t->sender());
     }
     else
     {
-        return call(fromBytes(m_t->to()), fromBytes(m_t->sender()), m_t->input(),
+        return call(string(m_t->to()), string(m_t->sender()), m_t->input(),
             txGasLimit - (u256)m_baseGasRequired);
     }
 }
@@ -130,6 +130,7 @@ bool Executive::call(const std::string& _receiveAddress, const std::string& _sen
         CallParameters params{_senderAddress, _receiveAddress, _receiveAddress, _gas, _data};
         return call(params, _senderAddress);
     }
+    // FIXME: check if the address is valid hex string, if not revert
     auto receiveAddress = asString(*fromHexString(_receiveAddress));
     CallParameters params{_senderAddress, receiveAddress, receiveAddress, _gas, _data};
     return call(params, _senderAddress);
@@ -170,10 +171,10 @@ bool Executive::call(CallParameters const& _p, const std::string& _origin)
         m_excepted = TransactionStatus::AccountFrozen;
         return !m_context;
     }
-
-    if (m_envInfo && m_envInfo->isEthereumPrecompiled(_p.codeAddress))
+    auto precompiledAddress = toHexStringWithPrefix(_p.codeAddress);
+    if (m_envInfo && m_envInfo->isEthereumPrecompiled(precompiledAddress))
     {
-        auto gas = m_envInfo->costOfPrecompiled(_p.codeAddress, _p.data);
+        auto gas = m_envInfo->costOfPrecompiled(precompiledAddress, _p.data);
         if (m_remainGas < gas)
         {
             m_excepted = TransactionStatus::OutOfGas;
@@ -186,7 +187,7 @@ bool Executive::call(CallParameters const& _p, const std::string& _origin)
         }
         bytes output;
         bool success;
-        tie(success, output) = m_envInfo->executeOriginPrecompiled(_p.codeAddress, _p.data);
+        tie(success, output) = m_envInfo->executeOriginPrecompiled(precompiledAddress, _p.data);
         if (!success)
         {
             m_remainGas = 0;
@@ -196,12 +197,12 @@ bool Executive::call(CallParameters const& _p, const std::string& _origin)
         size_t outputSize = output.size();
         m_output = owning_bytes_ref{std::move(output), 0, outputSize};
     }
-    else if (m_envInfo && m_envInfo->isPrecompiled(_p.codeAddress))
+    else if (m_envInfo && m_envInfo->isPrecompiled(precompiledAddress))
     {
         try
         {
-            auto callResult =
-                m_envInfo->call(_p.codeAddress, _p.data, _origin, _p.senderAddress, m_remainGas);
+            auto callResult = m_envInfo->call(
+                precompiledAddress, _p.data, _origin, _p.senderAddress, m_remainGas);
             // TODO: calculate gas for the precompiled contract
             // updateGas(callResult);
             size_t outputSize = callResult->m_execResult.size();

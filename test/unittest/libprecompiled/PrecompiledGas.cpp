@@ -33,7 +33,7 @@ namespace bcos
 namespace test
 {
 BOOST_FIXTURE_TEST_SUITE(precompiledGasTest, TestPromptFixture)
-void checkGasCost(GasMetrics::Ptr _metric, InterfaceOpcode const& _key, int64_t const& _value)
+void checkGasCost(GasMetrics::Ptr _metric, InterfaceOpcode const& _key, int64_t _value)
 {
     BOOST_CHECK(_metric->OpCode2GasCost[_key] == _value);
 }

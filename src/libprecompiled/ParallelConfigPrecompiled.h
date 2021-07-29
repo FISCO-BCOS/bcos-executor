@@ -58,12 +58,13 @@ private:
         bytesConstRef _data, std::string const& _origin, bytes& _out);
     void unregisterParallelFunction(std::shared_ptr<executor::BlockContext> _context,
         bytesConstRef _data, std::string const& _origin, bytes& _out);
-    std::string getTableName(std::string const& _contractName, bool _isWasm);
+    std::string getTableName(std::string_view const& _contractName, bool _isWasm);
 
 public:
     /// get parallel config, return nullptr if not found
     ParallelConfig::Ptr getParallelConfig(std::shared_ptr<executor::BlockContext> _context,
-        std::string const& _contractAddress, uint32_t _selector, std::string const& _origin);
+        const std::string_view& _contractAddress, uint32_t _selector,
+        const std::string_view& _origin);
 };
 }  // namespace precompiled
 }  // namespace bcos

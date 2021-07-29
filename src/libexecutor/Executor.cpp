@@ -65,7 +65,7 @@ inline std::ostream& operator<<(std::ostream& _out, const TransactionReceipt::Pt
     _out << "Number: " << _r->blockNumber() << "\n";
     _out << "Hash: " << _r->hash() << "\n";
     _out << "Gas used: " << _r->gasUsed() << "\n";
-    _out << "contractAddress : " << _r->contractAddress().toString() << "\n";
+    _out << "contractAddress : " << _r->contractAddress() << "\n";
     _out << "status : " << int(_r->status()) << "\n";
     _out << "output: " << _r->output().toString() << " \n";
     _out << "Logs: " << _r->logEntries().size() << " entries:"
@@ -439,33 +439,28 @@ protocol::TransactionReceipt::Ptr Executor::executeTransaction(
     // transaction is bad in any way.
     executive->reset();
 
-    // OK - transaction looks valid - execute.
+
     try
-    {
+    {  // OK - transaction looks valid - execute.
         executive->initialize(_t);
         if (!executive->execute())
             executive->go();
         executive->finalize();
     }
-    // catch (StorageException const& e)
-    // {
-    //     EXECUTOR_LOG(ERROR) << LOG_DESC("get StorageException") << LOG_KV("what", e.what());
-    //     BOOST_THROW_EXCEPTION(e);
-    // }
     catch (Exception const& _e)
-    {
-        // only OutOfGasBase ExecutorNotFound exception will throw
-        EXECUTOR_LOG(ERROR) << diagnostic_information(_e);
+    {  // only OutOfGasBase ExecutorNotFound exception will throw
+        EXECUTOR_LOG(ERROR) << "executeTransaction Exception" << diagnostic_information(_e);
     }
     catch (std::exception const& _e)
     {
-        EXECUTOR_LOG(ERROR) << boost::diagnostic_information(_e);
+        EXECUTOR_LOG(ERROR) << "executeTransaction std::exception"
+                            << boost::diagnostic_information(_e);
     }
 
     executive->loggingException();
     // use receiptFactory to create the receiptFactory from blockFactory
     auto receiptFactory = m_blockFactory->receiptFactory();
-    return receiptFactory->createReceipt(executive->gasUsed(), toBytes(executive->newAddress()),
+    return receiptFactory->createReceipt(executive->gasUsed(), executive->newAddress(),
         executive->logs(), (int32_t)executive->status(), executive->takeOutput().takeBytes(),
         executive->getEnvInfo()->currentNumber());
 }
@@ -531,7 +526,7 @@ BlockContext::Ptr Executor::createExecutiveContext(const protocol::BlockHeader::
             return nullptr;
         }
 
-        auto p = context->getPrecompiled(_tx->to().toString());
+        auto p = context->getPrecompiled(string(_tx->to()));
         if (p)
         {
             // Precompile transaction
@@ -540,7 +535,7 @@ BlockContext::Ptr Executor::createExecutiveContext(const protocol::BlockHeader::
                 auto ret = make_shared<vector<string>>(p->getParallelTag(_tx->input()));
                 for (string& critical : *ret)
                 {
-                    critical += _tx->to().toString();
+                    critical += _tx->to();
                 }
                 return ret;
             }
@@ -553,14 +548,22 @@ BlockContext::Ptr Executor::createExecutiveContext(const protocol::BlockHeader::
         {
             uint32_t selector = precompiled::getParamFunc(_tx->input());
 
-            auto receiveAddress = _tx->to().toString();
+            auto receiveAddress = _tx->to();
             std::shared_ptr<precompiled::ParallelConfig> config = nullptr;
             // hit the cache, fetch ParallelConfig from the cache directly
             // Note: Only when initializing DAG, get ParallelConfig, will not get ParallelConfig
             // during transaction execution
-            auto parallelKey = std::make_pair(receiveAddress, selector);
-            config = parallelConfigPrecompiled->getParallelConfig(
-                context, receiveAddress, selector, _tx->sender().toString());
+            auto parallelKey = std::make_pair(string(receiveAddress), selector);
+            if (context->getParallelConfigCache()->count(parallelKey))
+            {
+                config = context->getParallelConfigCache()->at(parallelKey);
+            }
+            else
+            {
+                config = parallelConfigPrecompiled->getParallelConfig(
+                    context, receiveAddress, selector, _tx->sender());
+                context->getParallelConfigCache()->insert(std::make_pair(parallelKey, config));
+            }
 
             if (config == nullptr)
             {
@@ -607,7 +610,7 @@ BlockContext::Ptr Executor::createExecutiveContext(const protocol::BlockHeader::
 
                 for (string& critical : *res)
                 {
-                    critical += _tx->to().toString();
+                    critical += _tx->to();
                 }
 
                 return res;

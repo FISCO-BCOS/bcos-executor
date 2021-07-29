@@ -140,7 +140,7 @@ BOOST_AUTO_TEST_CASE(executeTransaction_DeployHelloWorld)
     auto helloworld = string(helloBin);
 
     auto input = *fromHexString(helloworld);
-    auto tx = fakeTransaction(cryptoSuite, keyPair, bytes(), input, 101, 100001, "1", "1");
+    auto tx = fakeTransaction(cryptoSuite, keyPair, "", input, 101, 100001, "1", "1");
     auto sender = string_view((char*)tx->sender().data(), tx->sender().size());
     auto executive = std::make_shared<Executive>(executiveContext);
     auto receipt = executor->executeTransaction(tx, executive);
@@ -149,15 +149,15 @@ BOOST_AUTO_TEST_CASE(executeTransaction_DeployHelloWorld)
     // std::cout << "##### hash:" << receipt->hash().hexPrefixed() << std::endl;
     BOOST_TEST(receipt->hash().hexPrefixed() ==
                "0x1ea6ad9487c4a45408908d70478ba23e7354ee8beddb7ecae1c4bcb3c02604dd");
-    BOOST_TEST(receipt->contractAddress().toString() == "8968B494F66b2508330B24A7d1caFA06a14f6315");
+    BOOST_TEST(receipt->contractAddress() == "8968B494F66b2508330B24A7d1caFA06a14f6315");
     BOOST_TEST(*toHexString(receipt->output()) == "");
     BOOST_TEST(receipt->blockNumber() == 1);
-    auto addressbytes = asString(*fromHexString(receipt->contractAddress().toString()));
+    auto addressbytes = asString(*fromHexString(string(receipt->contractAddress())));
     auto nonce = executiveContext->getState()->getNonce(addressbytes);
     BOOST_TEST(nonce == executiveContext->getState()->accountStartNonce());
     nonce = executiveContext->getState()->getNonce(sender);
     BOOST_TEST(nonce == executiveContext->getState()->accountStartNonce() + 1);
-    auto newAddress = receipt->contractAddress().toBytes();
+    auto newAddress = string(receipt->contractAddress());
 
     // call helloworld get
     input = *fromHexString("0x6d4ce63c");
@@ -168,7 +168,7 @@ BOOST_AUTO_TEST_CASE(executeTransaction_DeployHelloWorld)
     // std::cout << "##### hash:" << receipt->hash().hexPrefixed() << std::endl;
     BOOST_TEST(receipt->hash().hexPrefixed() ==
                "0xeeef9c8a72141a2d3184509fa21fb5496f59acae2596f0c027747a0a9ffbf38b");
-    BOOST_TEST(receipt->contractAddress().toString() == "");
+    BOOST_TEST(receipt->contractAddress() == "");
     // Hello, World! == 48656c6c6f2c20576f726c6421
     BOOST_TEST(*toHexString(receipt->output()) ==
                "00000000000000000000000000000000000000000000000000000000000000200000000000000000000"
@@ -183,6 +183,7 @@ BOOST_AUTO_TEST_CASE(executeTransaction_DeployHelloWorld)
         "0x4ed3885e00000000000000000000000000000000000000000000000000000000000000200000000000000000"
         "000000000000000000000000000000000000000000000005666973636f00000000000000000000000000000000"
         "0000000000000000000000");
+    // cout << "##### newAddress: " << newAddress << endl;
     auto setTx = fakeTransaction(cryptoSuite, keyPair, newAddress, input, 101, 100001, "1", "1");
     receipt = executor->executeTransaction(setTx, executive);
     BOOST_TEST(receipt->status() == (int32_t)TransactionStatus::None);
@@ -190,7 +191,7 @@ BOOST_AUTO_TEST_CASE(executeTransaction_DeployHelloWorld)
     // std::cout << "##### hash:" << receipt->hash().hexPrefixed() << std::endl;
     BOOST_TEST(receipt->hash().hexPrefixed() ==
                "0x92f866a0f12010ed7b8a41b82aece81db64ee1eef4d12619fb5cf401e0b8cdff");
-    BOOST_TEST(receipt->contractAddress().toString() == "");
+    BOOST_TEST(receipt->contractAddress() == "");
     BOOST_TEST(*toHexString(receipt->output()) == "");
     BOOST_TEST(receipt->blockNumber() == 1);
     // get
@@ -228,13 +229,13 @@ BOOST_AUTO_TEST_CASE(executeBlock)
     auto to = keyPair->address(cryptoSuite->hashImpl()).asBytes();
     auto helloworld = string(helloBin);
     auto input = *fromHexString(helloworld);
-    auto tx = fakeTransaction(cryptoSuite, keyPair, bytes(), input, 101, 100001, "1", "1");
+    auto tx = fakeTransaction(cryptoSuite, keyPair, "", input, 101, 100001, "1", "1");
     block->appendTransaction(tx);
-    tx = fakeTransaction(cryptoSuite, keyPair, bytes(), input, 102, 100002, "1", "1");
+    tx = fakeTransaction(cryptoSuite, keyPair, "", input, 102, 100002, "1", "1");
     block->appendTransaction(tx);
-    auto getTx = fakeTransaction(cryptoSuite, keyPair,
-        asBytes(string("8968B494F66b2508330B24A7d1caFA06a14f6315")), *fromHexString("0x6d4ce63c"),
-        101, 100001, "1", "1");
+    auto getTx =
+        fakeTransaction(cryptoSuite, keyPair, string("8968B494F66b2508330B24A7d1caFA06a14f6315"),
+            *fromHexString("0x6d4ce63c"), 101, 100001, "1", "1");
     block->appendTransaction(getTx);
     block->setBlockType(BlockType::CompleteBlock);
     block->blockHeader()->setParentInfo({ParentInfo{100, crypto::HashType()}});
@@ -252,7 +253,7 @@ BOOST_AUTO_TEST_CASE(executeBlock)
     // std::cout << "##### hash:" << deployReceipt->hash().hexPrefixed() << std::endl;
     BOOST_TEST(deployReceipt->hash().hexPrefixed() ==
                "0x1ea6ad9487c4a45408908d70478ba23e7354ee8beddb7ecae1c4bcb3c02604dd");
-    BOOST_TEST(deployReceipt->contractAddress().toString() == "8968B494F66b2508330B24A7d1caFA06a14f6315");
+    BOOST_TEST(deployReceipt->contractAddress() == "8968B494F66b2508330B24A7d1caFA06a14f6315");
     BOOST_TEST(*toHexString(deployReceipt->output()) == "");
     BOOST_TEST(deployReceipt->blockNumber() == 1);
 
@@ -262,7 +263,7 @@ BOOST_AUTO_TEST_CASE(executeBlock)
     // std::cout << "##### hash:" << deployReceipt->hash().hexPrefixed() << std::endl;
     BOOST_TEST(deployReceipt->hash().hexPrefixed() ==
                "0xadbaadfd1f16d7f44248cff9a09add0b1cbbf83e2265094a7d79f444941ffb88");
-    BOOST_TEST(deployReceipt->contractAddress().toString() == "21f7F2c888221d771e103CB2E56A7Da15a2d898e");
+    BOOST_TEST(deployReceipt->contractAddress() == "21f7F2c888221d771e103CB2E56A7Da15a2d898e");
     BOOST_TEST(*toHexString(deployReceipt->output()) == "");
     BOOST_TEST(deployReceipt->blockNumber() == 1);
 
@@ -273,7 +274,7 @@ BOOST_AUTO_TEST_CASE(executeBlock)
     // std::cout << "##### hash:" << getReceipt->hash().hexPrefixed() << std::endl;
     BOOST_TEST(getReceipt->hash().hexPrefixed() ==
                "0xeeef9c8a72141a2d3184509fa21fb5496f59acae2596f0c027747a0a9ffbf38b");
-    BOOST_TEST(getReceipt->contractAddress().toString() == "");
+    BOOST_TEST(getReceipt->contractAddress() == "");
     // Hello, World! == 48656c6c6f2c20576f726c6421
     BOOST_TEST(*toHexString(getReceipt->output()) ==
                "00000000000000000000000000000000000000000000000000000000000000200000000000000000000"

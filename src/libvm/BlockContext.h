@@ -58,7 +58,8 @@ class BlockContext : public std::enable_shared_from_this<BlockContext>
 {
 public:
     typedef std::shared_ptr<BlockContext> Ptr;
-
+    using ParallelConfigCache = tbb::concurrent_map<std::pair<std::string, uint32_t>,
+        std::shared_ptr<bcos::precompiled::ParallelConfig>>;
     BlockContext(std::shared_ptr<storage::TableFactoryInterface> _tableFactory,
         crypto::Hash::Ptr _hashImpl, protocol::BlockHeader::Ptr const& _current,
         const EVMSchedule& _schedule, CallBackFunction _callback, bool _isWasm);
@@ -87,6 +88,11 @@ public:
         const std::string& _a, bytesConstRef _in) const;
 
     virtual bigint costOfPrecompiled(const std::string& _a, bytesConstRef _in) const;
+
+    virtual std::shared_ptr<ParallelConfigCache> getParallelConfigCache()
+    {
+        return m_parallelConfigCache;
+    }
 
     void setPrecompiledContract(
         std::map<std::string, std::shared_ptr<PrecompiledContract>> const& precompiledContract);
@@ -135,6 +141,9 @@ private:
     uint64_t m_txGasLimit = 300000000;
     getTxCriticalsHandler m_getTxCriticals = nullptr;
     std::shared_ptr<storage::TableFactoryInterface> m_tableFactory;
+    // map between {receiveAddress, selector} to {ParallelConfig}
+    // avoid multiple concurrent transactions of openTable to obtain ParallelConfig
+    std::shared_ptr<ParallelConfigCache> m_parallelConfigCache = nullptr;
     crypto::Hash::Ptr m_hashImpl;
 };
 
