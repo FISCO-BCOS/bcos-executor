@@ -293,7 +293,6 @@ void Executor::asyncExecuteTransaction(const protocol::Transaction::ConstPtr& _t
 }
 
 BlockContext::Ptr Executor::executeBlock(const protocol::Block::Ptr& block)
-
 {
     // return nullptr prepare to exit when m_stop is true
     if (m_stop.load())

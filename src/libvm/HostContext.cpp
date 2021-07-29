@@ -21,8 +21,8 @@
 
 #include "HostContext.h"
 #include "../libstate/StateInterface.h"
-#include "EVMHostInterface.h"
 #include "BlockContext.h"
+#include "EVMHostInterface.h"
 #include "bcos-framework/interfaces/storage/TableInterface.h"
 #include "evmc/evmc.hpp"
 #include <boost/algorithm/string/split.hpp>
@@ -210,11 +210,10 @@ evmc_bytes32 evm_hash_fn(const uint8_t* data, size_t size)
 }  // namespace
 
 
-HostContext::HostContext(
-    const std::shared_ptr<BlockContext>& _envInfo, const std::string_view& _myAddress,
-    const std::string_view& _caller, const std::string_view& _origin, bytesConstRef _data,
-    const std::shared_ptr<bytes>& _code, h256 const& _codeHash, unsigned _depth, bool _isCreate,
-    bool _staticCall)
+HostContext::HostContext(const std::shared_ptr<BlockContext>& _envInfo,
+    const std::string_view& _myAddress, const std::string_view& _caller,
+    const std::string_view& _origin, bytesConstRef _data, const std::shared_ptr<bytes>& _code,
+    h256 const& _codeHash, unsigned _depth, bool _isCreate, bool _staticCall)
   : m_envInfo(_envInfo),
     m_myAddress(_myAddress),
     m_caller(_caller),
@@ -288,7 +287,7 @@ void HostContext::setStore(u256 const& _n, u256 const& _v)
 
 evmc_result HostContext::create(u256& io_gas, bytesConstRef _code, evmc_opcode _op, u256 _salt)
 {  // TODO: if liquid support contract create contract add a branch
-    Executive e{ envInfo(), depth() + 1};
+    Executive e{envInfo(), depth() + 1};
     // Note: When create initializes Executive, the flags of evmc context must be passed in
     bool result = false;
     if (_op == evmc_opcode::OP_CREATE)
@@ -310,6 +309,25 @@ evmc_result HostContext::create(u256& io_gas, bytesConstRef _code, evmc_opcode _
     generateCreateResult(&evmcResult, transactionStatusToEvmcStatus(e.status()), io_gas,
         e.takeOutput(), e.newAddress());
     return evmcResult;
+}
+
+void HostContext::log(h256s&& _topics, bytesConstRef _data)
+{
+    if (m_envInfo->isWasm() || m_myAddress.empty())
+    {
+        m_sub.logs->push_back(
+            protocol::LogEntry(bytes(m_myAddress.data(), m_myAddress.data() + m_myAddress.size()),
+                std::move(_topics), _data.toBytes()));
+    }
+    else
+    {
+        // convert solidity address to hex string
+        auto hexAddress = *toHexString(m_myAddress);
+        boost::algorithm::to_lower(hexAddress);  // this is in case of toHexString be modified
+        toChecksumAddress(hexAddress, m_envInfo->hashHandler()->hash(hexAddress).hex());
+        m_sub.logs->push_back(
+            protocol::LogEntry(asBytes(hexAddress), std::move(_topics), _data.toBytes()));
+    }
 }
 
 void HostContext::suicide(const std::string_view& _a)

@@ -318,4 +318,35 @@ inline bytes toBytes(const std::string_view& _addr)
     return bytes((char*)_addr.data(), (char*)(_addr.data() + _addr.size()));
 }
 
+inline void toChecksumAddress(std::string& _addr, const std::string_view& addressHashHex)
+{
+    auto convertHexCharToInt = [](char byte) {
+        int ret = 0;
+        if (byte >= '0' && byte <= '9')
+        {
+            ret = byte - '0';
+        }
+        else if (byte >= 'a' && byte <= 'f')
+        {
+            ret = byte - 'a' + 10;
+        }
+        else if (byte >= 'A' && byte <= 'F')
+        {
+            ret = byte - 'A' + 10;
+        }
+        return ret;
+    };
+    for (size_t i = 0; i < _addr.size(); ++i)
+    {
+        if (isdigit(_addr[i]))
+        {
+            continue;
+        }
+        if (convertHexCharToInt(addressHashHex[i]) >= 8)
+        {
+            _addr[i] = toupper(_addr[i]);
+        }
+    }
+}
+
 }  // namespace bcos

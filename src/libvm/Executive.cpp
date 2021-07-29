@@ -29,6 +29,7 @@
 #include "bcos-framework/interfaces/storage/TableInterface.h"
 #include "bcos-framework/libcodec/abi/ContractABICodec.h"
 #include <limits.h>
+#include <boost/algorithm/string.hpp>
 #include <numeric>
 
 using namespace std;
@@ -81,6 +82,18 @@ void Executive::initialize(Transaction::ConstPtr _transaction)
     }
 }
 
+std::string Executive::newAddress() const
+{
+    if (m_envInfo->isWasm() || m_newAddress.empty())
+    {
+        return m_newAddress;
+    }
+    auto hexAddress = *toHexString(m_newAddress);
+    boost::algorithm::to_lower(hexAddress);
+    toChecksumAddress(hexAddress, m_hashImpl->hash(hexAddress).hex());
+    return hexAddress;
+}
+
 bool Executive::execute()
 {
     uint64_t txGasLimit = m_envInfo->txGasLimit();
@@ -112,7 +125,13 @@ bool Executive::execute()
 bool Executive::call(const std::string& _receiveAddress, const std::string& _senderAddress,
     bytesConstRef _data, u256 const& _gas)
 {
-    CallParameters params{_senderAddress, _receiveAddress, _receiveAddress, _gas, _data};
+    if (m_envInfo->isWasm())
+    {
+        CallParameters params{_senderAddress, _receiveAddress, _receiveAddress, _gas, _data};
+        return call(params, _senderAddress);
+    }
+    auto receiveAddress = asString(*fromHexString(_receiveAddress));
+    CallParameters params{_senderAddress, receiveAddress, receiveAddress, _gas, _data};
     return call(params, _senderAddress);
 }
 

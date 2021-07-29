@@ -135,7 +135,7 @@ public:
     u256 gas() const { return m_remainGas; }
     protocol::TransactionStatus status() const { return m_excepted; }
     /// @returns the new address for the created contract in the CREATE operation.
-    std::string newAddress() const { return m_newAddress; }
+    std::string newAddress() const;
 
     /// Revert all changes made to the state by this execution.
     void revert();

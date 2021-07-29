@@ -121,7 +121,7 @@ BOOST_FIXTURE_TEST_SUITE(ExecutorTest, ExecutorFixture)
 
 BOOST_AUTO_TEST_CASE(construct)
 {
-    executor = make_shared<Executor>(blockFactory, dispatcher, ledger, storage, true);
+    auto tmp = make_shared<Executor>(blockFactory, dispatcher, ledger, storage, true);
 }
 
 BOOST_AUTO_TEST_CASE(executeTransaction_DeployHelloWorld)
@@ -148,13 +148,12 @@ BOOST_AUTO_TEST_CASE(executeTransaction_DeployHelloWorld)
     BOOST_TEST(receipt->gasUsed() == 430575);
     // std::cout << "##### hash:" << receipt->hash().hexPrefixed() << std::endl;
     BOOST_TEST(receipt->hash().hexPrefixed() ==
-               "0x0e6a9efb937726a763ccec40e1c15869b2d1d2fdb6f229038f503e3ab011b814");
-    BOOST_TEST(
-        *toHexString(receipt->contractAddress()) == "8968b494f66b2508330b24a7d1cafa06a14f6315");
+               "0x1ea6ad9487c4a45408908d70478ba23e7354ee8beddb7ecae1c4bcb3c02604dd");
+    BOOST_TEST(receipt->contractAddress().toString() == "8968B494F66b2508330B24A7d1caFA06a14f6315");
     BOOST_TEST(*toHexString(receipt->output()) == "");
     BOOST_TEST(receipt->blockNumber() == 1);
-    auto nonce = executiveContext->getState()->getNonce(
-        string_view((char*)receipt->contractAddress().data(), receipt->contractAddress().size()));
+    auto addressbytes = asString(*fromHexString(receipt->contractAddress().toString()));
+    auto nonce = executiveContext->getState()->getNonce(addressbytes);
     BOOST_TEST(nonce == executiveContext->getState()->accountStartNonce());
     nonce = executiveContext->getState()->getNonce(sender);
     BOOST_TEST(nonce == executiveContext->getState()->accountStartNonce() + 1);
@@ -169,7 +168,7 @@ BOOST_AUTO_TEST_CASE(executeTransaction_DeployHelloWorld)
     // std::cout << "##### hash:" << receipt->hash().hexPrefixed() << std::endl;
     BOOST_TEST(receipt->hash().hexPrefixed() ==
                "0xeeef9c8a72141a2d3184509fa21fb5496f59acae2596f0c027747a0a9ffbf38b");
-    BOOST_TEST(*toHexString(receipt->contractAddress()) == "");
+    BOOST_TEST(receipt->contractAddress().toString() == "");
     // Hello, World! == 48656c6c6f2c20576f726c6421
     BOOST_TEST(*toHexString(receipt->output()) ==
                "00000000000000000000000000000000000000000000000000000000000000200000000000000000000"
@@ -190,8 +189,8 @@ BOOST_AUTO_TEST_CASE(executeTransaction_DeployHelloWorld)
     BOOST_TEST(receipt->gasUsed() == 30791);
     // std::cout << "##### hash:" << receipt->hash().hexPrefixed() << std::endl;
     BOOST_TEST(receipt->hash().hexPrefixed() ==
-               "0x93b72fd6aba4b872700ac82f1d7b632a88aca5ec28ff8528dc774072968b94c7");
-    BOOST_TEST(*toHexString(receipt->contractAddress()) == "");
+               "0x92f866a0f12010ed7b8a41b82aece81db64ee1eef4d12619fb5cf401e0b8cdff");
+    BOOST_TEST(receipt->contractAddress().toString() == "");
     BOOST_TEST(*toHexString(receipt->output()) == "");
     BOOST_TEST(receipt->blockNumber() == 1);
     // get
@@ -234,7 +233,7 @@ BOOST_AUTO_TEST_CASE(executeBlock)
     tx = fakeTransaction(cryptoSuite, keyPair, bytes(), input, 102, 100002, "1", "1");
     block->appendTransaction(tx);
     auto getTx = fakeTransaction(cryptoSuite, keyPair,
-        *fromHexString("8968b494f66b2508330b24a7d1cafa06a14f6315"), *fromHexString("0x6d4ce63c"),
+        asBytes(string("8968B494F66b2508330B24A7d1caFA06a14f6315")), *fromHexString("0x6d4ce63c"),
         101, 100001, "1", "1");
     block->appendTransaction(getTx);
     block->setBlockType(BlockType::CompleteBlock);
@@ -252,9 +251,8 @@ BOOST_AUTO_TEST_CASE(executeBlock)
     BOOST_TEST(deployReceipt->gasUsed() == 430575);
     // std::cout << "##### hash:" << deployReceipt->hash().hexPrefixed() << std::endl;
     BOOST_TEST(deployReceipt->hash().hexPrefixed() ==
-               "0x0e6a9efb937726a763ccec40e1c15869b2d1d2fdb6f229038f503e3ab011b814");
-    BOOST_TEST(*toHexString(deployReceipt->contractAddress()) ==
-               "8968b494f66b2508330b24a7d1cafa06a14f6315");
+               "0x1ea6ad9487c4a45408908d70478ba23e7354ee8beddb7ecae1c4bcb3c02604dd");
+    BOOST_TEST(deployReceipt->contractAddress().toString() == "8968B494F66b2508330B24A7d1caFA06a14f6315");
     BOOST_TEST(*toHexString(deployReceipt->output()) == "");
     BOOST_TEST(deployReceipt->blockNumber() == 1);
 
@@ -263,9 +261,8 @@ BOOST_AUTO_TEST_CASE(executeBlock)
     BOOST_TEST(deployReceipt->gasUsed() == 430575);
     // std::cout << "##### hash:" << deployReceipt->hash().hexPrefixed() << std::endl;
     BOOST_TEST(deployReceipt->hash().hexPrefixed() ==
-               "0x38a33a70f9f008cc867daf48239c020ed58350157e86462274c466efa419e907");
-    BOOST_TEST(*toHexString(deployReceipt->contractAddress()) ==
-               "21f7f2c888221d771e103cb2e56a7da15a2d898e");
+               "0xadbaadfd1f16d7f44248cff9a09add0b1cbbf83e2265094a7d79f444941ffb88");
+    BOOST_TEST(deployReceipt->contractAddress().toString() == "21f7F2c888221d771e103CB2E56A7Da15a2d898e");
     BOOST_TEST(*toHexString(deployReceipt->output()) == "");
     BOOST_TEST(deployReceipt->blockNumber() == 1);
 
@@ -276,7 +273,7 @@ BOOST_AUTO_TEST_CASE(executeBlock)
     // std::cout << "##### hash:" << getReceipt->hash().hexPrefixed() << std::endl;
     BOOST_TEST(getReceipt->hash().hexPrefixed() ==
                "0xeeef9c8a72141a2d3184509fa21fb5496f59acae2596f0c027747a0a9ffbf38b");
-    BOOST_TEST(*toHexString(getReceipt->contractAddress()) == "");
+    BOOST_TEST(getReceipt->contractAddress().toString() == "");
     // Hello, World! == 48656c6c6f2c20576f726c6421
     BOOST_TEST(*toHexString(getReceipt->output()) ==
                "00000000000000000000000000000000000000000000000000000000000000200000000000000000000"
@@ -296,7 +293,7 @@ BOOST_AUTO_TEST_CASE(executeBlock)
     // << std::endl;
 
     BOOST_TEST(block->blockHeader()->receiptsRoot().hexPrefixed() ==
-               "0x23840197d938458f3715de4068148b9e5006d1c36f3b8279070d6fcfb894456d");
+               "0x07e51cac5e5869abc628c8f95db66a54a8917152e5ea6b48b75f9c381426bcb7");
     BOOST_TEST(block->blockHeader()->stateRoot().hexPrefixed() ==
                "0xa46b2f7a199a45cf38bae4b42e45d7580ed44367e0b6d9532c347a2afecedadb");
     BOOST_TEST(block->blockHeader()->stateRoot().hexPrefixed() ==
@@ -308,7 +305,6 @@ BOOST_AUTO_TEST_CASE(start_stop)
 {
     executor = make_shared<Executor>(blockFactory, dispatcher, ledger, storage, true);
     executor->start();
-
     executor->stop();
 }
 

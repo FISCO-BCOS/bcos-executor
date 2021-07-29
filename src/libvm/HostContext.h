@@ -122,12 +122,7 @@ public:
     virtual std::shared_ptr<BlockContext> const& envInfo() const { return m_envInfo; }
 
     /// Revert any changes made (by any of the other calls).
-    virtual void log(h256s&& _topics, bytesConstRef _data)
-    {
-        m_sub.logs->push_back(
-            protocol::LogEntry(bytes(m_myAddress.data(), m_myAddress.data() + m_myAddress.size()),
-                std::move(_topics), _data.toBytes()));
-    }
+    virtual void log(h256s&& _topics, bytesConstRef _data);
 
     /// ------ get interfaces related to HostContext------
     virtual const std::string& myAddress() { return m_myAddress; }
