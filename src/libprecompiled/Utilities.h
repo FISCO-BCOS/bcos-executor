@@ -147,7 +147,6 @@ inline std::string getTableName(const std::string& _tableName, bool _isWasm)
     return _isWasm ? USER_TABLE_PREFIX + USER_TABLE_PREFIX_WASM + _tableName :
                      USER_TABLE_PREFIX + _tableName;
 }
-std::string getContractTableName(const std::string& _contractAddress);
 
 void checkNameValidate(const std::string& tableName, std::vector<std::string>& keyFieldList,
     std::vector<std::string>& valueFieldList);

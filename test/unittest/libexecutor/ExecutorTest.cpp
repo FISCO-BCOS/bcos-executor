@@ -296,7 +296,7 @@ BOOST_AUTO_TEST_CASE(executeBlock)
     BOOST_TEST(block->blockHeader()->receiptsRoot().hexPrefixed() ==
                "0x07e51cac5e5869abc628c8f95db66a54a8917152e5ea6b48b75f9c381426bcb7");
     BOOST_TEST(block->blockHeader()->stateRoot().hexPrefixed() ==
-               "0xa46b2f7a199a45cf38bae4b42e45d7580ed44367e0b6d9532c347a2afecedadb");
+               "0x21dab5dd8587fc014a29aaa96aa6ba93911fe84f05b1c7c4402c54303e73941b");
     BOOST_TEST(block->blockHeader()->stateRoot().hexPrefixed() ==
                result->getTableFactory()->hash().hexPrefixed());
 }

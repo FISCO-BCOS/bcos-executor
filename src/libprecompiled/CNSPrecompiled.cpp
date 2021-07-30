@@ -56,7 +56,8 @@ int CNSPrecompiled::checkCNSParam(BlockContext::Ptr _context, Address const& _co
     boost::trim(_contractName);
     boost::trim(_contractVersion);
     // check the status of the contract(only print the error message to the log)
-    std::string tableName = precompiled::getContractTableName(_contractAddress.hex());
+    std::string tableName = executor::getContractTableName(
+        _contractAddress.hex(), _context->isWasm(), _context->hashHandler());
     ContractStatus contractStatus = getContractStatus(_context, tableName);
 
     if (contractStatus != ContractStatus::Available)

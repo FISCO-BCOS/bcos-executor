@@ -272,8 +272,17 @@ void Executor::asyncGetCode(const std::string_view& _address,
     std::function<void(const Error::Ptr&, const std::shared_ptr<bytes>&)> _callback)
 {  // TODO: make state a member of Executor
     auto state = make_shared<State>(m_tableFactory, m_hashImpl, m_isWasm);
-    m_threadPool->enqueue([state, address = string(_address), _callback]() {
-        auto code = state->code(address);
+    m_threadPool->enqueue([state, address = string(_address), isWasm = m_isWasm, _callback]() {
+        shared_ptr<bytes> code = nullptr;
+        if (!isWasm)
+        {
+            auto s = fromHexString(address);
+            code = state->code(string_view((char*)s->data(), s->size()));
+        }
+        else
+        {
+            code = state->code(address);
+        }
         _callback(nullptr, code);
     });
 }

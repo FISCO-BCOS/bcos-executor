@@ -25,11 +25,11 @@
 #include "HostContext.h"
 #include "VMFactory.h"
 #include "VMInstance.h"
+#include "../ChecksumAddress.h"
 #include "bcos-framework/interfaces/protocol/Exceptions.h"
 #include "bcos-framework/interfaces/storage/TableInterface.h"
 #include "bcos-framework/libcodec/abi/ContractABICodec.h"
 #include <limits.h>
-#include <boost/algorithm/string.hpp>
 #include <numeric>
 
 using namespace std;
@@ -88,9 +88,7 @@ std::string Executive::newAddress() const
     {
         return m_newAddress;
     }
-    auto hexAddress = *toHexString(m_newAddress);
-    boost::algorithm::to_lower(hexAddress);
-    toChecksumAddress(hexAddress, m_hashImpl->hash(hexAddress).hex());
+    auto hexAddress = toChecksumAddressFromBytes(m_newAddress, m_hashImpl);
     return hexAddress;
 }
 

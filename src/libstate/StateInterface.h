@@ -20,6 +20,7 @@
  */
 
 #pragma once
+#include "../ChecksumAddress.h"
 #include "bcos-framework/interfaces/crypto/CommonType.h"
 #include "bcos-framework/interfaces/protocol/ProtocolTypeDef.h"
 #include "bcos-framework/interfaces/storage/TableInterface.h"
@@ -153,9 +154,15 @@ public:
     virtual bool checkAuthority(const std::string& _origin, const std::string& _address) const = 0;
 };
 
-inline std::string getContractTableName(const std::string_view& _address, bool _isWasm)
+inline std::string getContractTableName(
+    const std::string_view& _address, bool _isWasm, crypto::Hash::Ptr _hashImpl)
 {
-    return _isWasm ? std::string(_address) : std::string("c_" + *toHexString(_address));
+    if (_isWasm)
+    {
+        return std::string(_address);
+    }
+    auto address = toChecksumAddressFromBytes(_address, _hashImpl);
+    return std::string("c_").append(address);
 }
 
 }  // namespace executor

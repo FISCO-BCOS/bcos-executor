@@ -429,11 +429,6 @@ uint64_t precompiled::getEntriesCapacity(precompiled::EntriesConstPtr _entries)
     return totalCapacity;
 }
 
-std::string precompiled::getContractTableName(const std::string& _contractAddress)
-{
-    return executor::getContractTableName(_contractAddress, false);
-}
-
 bool precompiled::recursiveBuildDir(
     const storage::TableFactoryInterface::Ptr& _tableFactory, const std::string& _absoluteDir)
 {
