@@ -146,6 +146,7 @@ void Executor::start()
         while (!m_stop.load())
         {
             std::promise<protocol::Block::Ptr> prom;
+            auto future = prom.get_future();
             m_dispatcher->asyncGetLatestBlock(
                 [&prom](const Error::Ptr& error, const protocol::Block::Ptr& block) {
                     if (error)
@@ -155,7 +156,13 @@ void Executor::start()
                     }
                     prom.set_value(block);
                 });
-            auto currentBlock = prom.get_future().get();
+            // Note: must wait_for with future(not with prom.get_future)
+            if (future.wait_for(std::chrono::milliseconds(c_fetchBlockTimeout)) !=
+                std::future_status::ready)
+            {
+                continue;
+            }
+            auto currentBlock = future.get();
             if (!currentBlock)
             {
                 continue;

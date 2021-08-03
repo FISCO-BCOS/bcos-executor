@@ -112,6 +112,9 @@ private:
     std::unique_ptr<std::thread> m_worker = nullptr;
     const ExecutorVersion m_version;
     std::map<std::string, std::shared_ptr<PrecompiledContract>> m_precompiledContract;
+
+    // asyncGetLatestBlock timeout 1000ms
+    unsigned const c_fetchBlockTimeout = 1000;
 };
 
 }  // namespace executor
