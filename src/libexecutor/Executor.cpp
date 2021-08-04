@@ -145,107 +145,115 @@ void Executor::start()
         EXECUTOR_LOG(INFO) << LOG_DESC("started");
         while (!m_stop.load())
         {
-            std::promise<protocol::Block::Ptr> prom;
-            auto future = prom.get_future();
-            m_dispatcher->asyncGetLatestBlock(
-                [&prom](const Error::Ptr& error, const protocol::Block::Ptr& block) {
-                    if (error)
-                    {
-                        EXECUTOR_LOG(WARNING) << LOG_DESC("asyncGetLatestBlock failed")
-                                              << LOG_KV("message", error->errorMessage());
-                    }
-                    prom.set_value(block);
-                });
-            // Note: must wait_for with future(not with prom.get_future)
-            if (future.wait_for(std::chrono::milliseconds(c_fetchBlockTimeout)) !=
-                std::future_status::ready)
-            {
-                continue;
-            }
-            auto currentBlock = future.get();
-            if (!currentBlock)
-            {
-                continue;
-            }
-            auto orgHash = currentBlock->blockHeader()->hash();
-            if (!m_lastHeader)
-            {
-                m_lastHeader = getLatestHeaderFromStorage();
-                m_tableFactory = std::make_shared<TableFactory>(
-                    m_stateStorage, m_hashImpl, m_lastHeader->number() + 1);
-            }
-            // check the current block's number == m_lastHeader number + 1
-            if (currentBlock->blockHeader()->number() != m_lastHeader->number() + 1)
-            {
-                EXECUTOR_LOG(ERROR) << LOG_DESC("check BlockNumber continuity failed")
-                                    << LOG_KV("expect", m_lastHeader->number() + 1)
-                                    << LOG_KV("got", currentBlock->blockHeader()->number());
-                // TODO: maybe process return error?
-                resultNotifier(make_shared<Error>(ExecutorErrorCode::DiscontinuousBlockNumber,
-                                   "check BlockNumber continuity failed"),
-                    orgHash,
-                    m_blockFactory->blockHeaderFactory()->createBlockHeader(
-                        currentBlock->blockHeader()->number()));
-                m_lastHeader = nullptr;
-                // the continuity of blockNumber is broken, clear executor's state
-                m_tableFactory = nullptr;
-                continue;
-            }
-            // execute current block
-            BlockContext::Ptr context = nullptr;
             try
             {
-                context = executeBlock(currentBlock);
-            }
-            catch (exception& e)
-            {
-                EXECUTOR_LOG(ERROR) << LOG_DESC("executeBlock failed")
-                                    << LOG_KV("message", boost::diagnostic_information(e));
-                // TODO: maybe process return error?
-                resultNotifier(make_shared<Error>(ExecutorErrorCode::ExecuteException,
-                                   boost::diagnostic_information(e)),
-                    orgHash,
-                    m_blockFactory->blockHeaderFactory()->createBlockHeader(
-                        currentBlock->blockHeader()->number()));
-                m_lastHeader = nullptr;
-                m_tableFactory = nullptr;
-                continue;
-            }
+                std::promise<protocol::Block::Ptr> prom;
+                auto future = prom.get_future();
+                m_dispatcher->asyncGetLatestBlock(
+                    [&prom](const Error::Ptr& error, const protocol::Block::Ptr& block) {
+                        if (error)
+                        {
+                            EXECUTOR_LOG(WARNING) << LOG_DESC("asyncGetLatestBlock failed")
+                                                  << LOG_KV("message", error->errorMessage());
+                        }
+                        prom.set_value(block);
+                    });
+                // Note: must wait_for with future(not with prom.get_future)
+                if (future.wait_for(std::chrono::milliseconds(c_fetchBlockTimeout)) !=
+                    std::future_status::ready)
+                {
+                    continue;
+                }
+                auto currentBlock = future.get();
+                if (!currentBlock)
+                {
+                    continue;
+                }
+                auto orgHash = currentBlock->blockHeader()->hash();
+                if (!m_lastHeader)
+                {
+                    m_lastHeader = getLatestHeaderFromStorage();
+                    m_tableFactory = std::make_shared<TableFactory>(
+                        m_stateStorage, m_hashImpl, m_lastHeader->number() + 1);
+                }
+                // check the current block's number == m_lastHeader number + 1
+                if (currentBlock->blockHeader()->number() != m_lastHeader->number() + 1)
+                {
+                    EXECUTOR_LOG(ERROR) << LOG_DESC("check BlockNumber continuity failed")
+                                        << LOG_KV("expect", m_lastHeader->number() + 1)
+                                        << LOG_KV("got", currentBlock->blockHeader()->number());
+                    // TODO: maybe process return error?
+                    resultNotifier(make_shared<Error>(ExecutorErrorCode::DiscontinuousBlockNumber,
+                                       "check BlockNumber continuity failed"),
+                        orgHash,
+                        m_blockFactory->blockHeaderFactory()->createBlockHeader(
+                            currentBlock->blockHeader()->number()));
+                    m_lastHeader = nullptr;
+                    // the continuity of blockNumber is broken, clear executor's state
+                    m_tableFactory = nullptr;
+                    continue;
+                }
+                // execute current block
+                BlockContext::Ptr context = nullptr;
+                try
+                {
+                    context = executeBlock(currentBlock);
+                }
+                catch (exception& e)
+                {
+                    EXECUTOR_LOG(ERROR) << LOG_DESC("executeBlock failed")
+                                        << LOG_KV("message", boost::diagnostic_information(e));
+                    // TODO: maybe process return error?
+                    resultNotifier(make_shared<Error>(ExecutorErrorCode::ExecuteException,
+                                       boost::diagnostic_information(e)),
+                        orgHash,
+                        m_blockFactory->blockHeaderFactory()->createBlockHeader(
+                            currentBlock->blockHeader()->number()));
+                    m_lastHeader = nullptr;
+                    m_tableFactory = nullptr;
+                    continue;
+                }
 
-            // copy TableFactory for next block
-            auto latestBlockNumberOfStorage = getLatestBlockNumberFromStorage();
-            EXECUTOR_LOG(DEBUG) << LOG_DESC("export state data")
-                                << LOG_KV("export", latestBlockNumberOfStorage)
-                                << LOG_KV("current", context->currentBlockHeader()->number());
-            auto data = context->getTableFactory()->exportData(latestBlockNumberOfStorage);
-            // use ledger to commit receipts
-            std::promise<Error::Ptr> errorProm;
-            m_ledger->asyncStoreReceipts(context->getTableFactory(), currentBlock,
-                [&errorProm](Error::Ptr error) { errorProm.set_value(error); });
-            auto error = errorProm.get_future().get();
-            if (error)
-            {
-                EXECUTOR_LOG(FATAL) << LOG_DESC("asyncStoreReceipts failed")
-                                    << LOG_KV("message", error->errorMessage());
-                continue;
+                // copy TableFactory for next block
+                auto latestBlockNumberOfStorage = getLatestBlockNumberFromStorage();
+                EXECUTOR_LOG(DEBUG)
+                    << LOG_DESC("export state data") << LOG_KV("export", latestBlockNumberOfStorage)
+                    << LOG_KV("current", context->currentBlockHeader()->number());
+                auto data = context->getTableFactory()->exportData(latestBlockNumberOfStorage);
+                // use ledger to commit receipts
+                std::promise<Error::Ptr> errorProm;
+                m_ledger->asyncStoreReceipts(context->getTableFactory(), currentBlock,
+                    [&errorProm](Error::Ptr error) { errorProm.set_value(error); });
+                auto error = errorProm.get_future().get();
+                if (error)
+                {
+                    EXECUTOR_LOG(FATAL) << LOG_DESC("asyncStoreReceipts failed")
+                                        << LOG_KV("message", error->errorMessage());
+                    continue;
+                }
+                error = resultNotifier(nullptr, orgHash, context->currentBlockHeader());
+                if (!error)
+                {
+                    // set m_lastHeader to current block header
+                    m_lastHeader = context->currentBlockHeader();
+                    // create a new TableFactory and import data with new blocknumber
+                    m_tableFactory = std::make_shared<TableFactory>(
+                        m_stateStorage, m_hashImpl, m_lastHeader->number() + 1);
+                    // the cache only have some block's state, it is not infinit
+                    m_tableFactory->importData(data.first, data.second, false);
+                    EXECUTOR_LOG(DEBUG) << LOG_DESC("asyncNotifyExecutionResult")
+                                        << LOG_KV("blockNumber", m_lastHeader->number());
+                }
+                else
+                {
+                    EXECUTOR_LOG(ERROR) << LOG_DESC("asyncNotifyExecutionResult failed")
+                                        << LOG_KV("message", error->errorMessage());
+                }
             }
-            error = resultNotifier(nullptr, orgHash, context->currentBlockHeader());
-            if (!error)
+            catch (std::exception const& e)
             {
-                // set m_lastHeader to current block header
-                m_lastHeader = context->currentBlockHeader();
-                // create a new TableFactory and import data with new blocknumber
-                m_tableFactory = std::make_shared<TableFactory>(
-                    m_stateStorage, m_hashImpl, m_lastHeader->number() + 1);
-                // the cache only have some block's state, it is not infinit
-                m_tableFactory->importData(data.first, data.second, false);
-                EXECUTOR_LOG(DEBUG) << LOG_DESC("asyncNotifyExecutionResult")
-                                    << LOG_KV("blockNumber", m_lastHeader->number());
-            }
-            else
-            {
-                EXECUTOR_LOG(ERROR) << LOG_DESC("asyncNotifyExecutionResult failed")
-                                    << LOG_KV("message", error->errorMessage());
+                EXECUTOR_LOG(WARNING) << LOG_DESC("execute block exception")
+                                      << LOG_KV("error", boost::diagnostic_information(e));
             }
         }
         EXECUTOR_LOG(INFO) << LOG_DESC("stopped");
