@@ -168,28 +168,46 @@ void Executor::start()
                 continue;
             }
             auto orgHash = currentBlock->blockHeader()->hash();
+            bool isLastHeaderFromStorage = false;
             if (!m_lastHeader)
             {
                 m_lastHeader = getLatestHeaderFromStorage();
                 m_tableFactory = std::make_shared<TableFactory>(
                     m_stateStorage, m_hashImpl, m_lastHeader->number() + 1);
+                isLastHeaderFromStorage = true;
             }
             // check the current block's number == m_lastHeader number + 1
             if (currentBlock->blockHeader()->number() != m_lastHeader->number() + 1)
-            {
-                EXECUTOR_LOG(ERROR) << LOG_DESC("check BlockNumber continuity failed")
-                                    << LOG_KV("expect", m_lastHeader->number() + 1)
-                                    << LOG_KV("got", currentBlock->blockHeader()->number());
-                // TODO: maybe process return error?
-                resultNotifier(make_shared<Error>(ExecutorErrorCode::DiscontinuousBlockNumber,
-                                   "check BlockNumber continuity failed"),
-                    orgHash,
-                    m_blockFactory->blockHeaderFactory()->createBlockHeader(
-                        currentBlock->blockHeader()->number()));
-                m_lastHeader = nullptr;
-                // the continuity of blockNumber is broken, clear executor's state
-                m_tableFactory = nullptr;
-                continue;
+            {  // the continuity of blockNumber is broken, clear executor's state
+                auto storageHeader = m_lastHeader;
+                if (!isLastHeaderFromStorage)
+                {  // if the blockNumber is storage blockNumber + 1
+                    auto storageHeader = getLatestHeaderFromStorage();
+                }
+                if (currentBlock->blockHeader()->number() != storageHeader->number() + 1)
+                {  // notify dispatcher and not clear executor state
+                    // TODO: maybe process return error?
+                    EXECUTOR_LOG(WARNING)
+                        << LOG_DESC(
+                               "check BlockNumber continuity failed, notify dispatcher and skip")
+                        << LOG_KV("ledger", storageHeader->number())
+                        << LOG_KV("blockNumber", currentBlock->blockHeader()->number());
+                    resultNotifier(make_shared<Error>(ExecutorErrorCode::DiscontinuousBlockNumber,
+                                       "check BlockNumber continuity failed"),
+                        orgHash,
+                        m_blockFactory->blockHeaderFactory()->createBlockHeader(
+                            currentBlock->blockHeader()->number()));
+                    continue;
+                }
+                // clear executor state and execute the current block
+                EXECUTOR_LOG(WARNING)
+                    << LOG_DESC("check BlockNumber continuity failed, clear state and execute")
+                    << LOG_KV("ledger", storageHeader->number())
+                    << LOG_KV("expect", m_lastHeader->number() + 1)
+                    << LOG_KV("got", currentBlock->blockHeader()->number());
+                m_lastHeader = storageHeader;
+                m_tableFactory = std::make_shared<TableFactory>(
+                    m_stateStorage, m_hashImpl, m_lastHeader->number() + 1);
             }
             // execute current block
             BlockContext::Ptr context = nullptr;
@@ -319,10 +337,6 @@ BlockContext::Ptr Executor::executeBlock(const protocol::Block::Ptr& block)
     auto start_time = utcTime();
     auto record_time = utcTime();
     auto originalHeader = block->blockHeader();
-    if (originalHeader->version() == 0)
-    {  // if block version is 0, set the block version to current executor version
-        originalHeader->setVersion(m_version);
-    }
     // create a new block header to return
     auto currentHeader = m_blockFactory->blockHeaderFactory()->populateBlockHeader(originalHeader);
     BlockContext::Ptr executiveContext = createExecutiveContext(currentHeader);

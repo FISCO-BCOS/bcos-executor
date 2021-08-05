@@ -584,7 +584,6 @@ void Executive::parseEVMCResult(std::shared_ptr<Result> _result)
         revert();
         break;
     }
-
     case EVMC_BAD_JUMP_DESTINATION:
     {
         m_remainGas = 0;
