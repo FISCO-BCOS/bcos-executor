@@ -14,12 +14,12 @@
  *  limitations under the License.
  *
  * @brief executive of vm
- * @file Executive.cpp
+ * @file TransactionExecutive.cpp
  * @author: xingqiangbai
  * @date: 2021-05-24
  */
 
-#include "Executive.h"
+#include "TransactionExecutive.h"
 #include "BlockContext.h"
 #include "EVMHostInterface.h"
 #include "HostContext.h"
@@ -42,32 +42,32 @@ using namespace bcos::codec;
 /// Error info for VMInstance status code.
 using errinfo_evmcStatusCode = boost::error_info<struct tag_evmcStatusCode, evmc_status_code>;
 
-u256 Executive::gasUsed() const
+u256 TransactionExecutive::gasUsed() const
 {
-    return m_envInfo->txGasLimit() - m_remainGas;
+    return m_blockContext->txGasLimit() - m_remainGas;
 }
 
-void Executive::accrueSubState(SubState& _parentContext)
+void TransactionExecutive::accrueSubState(SubState& _parentContext)
 {
     if (m_context)
         _parentContext += m_context->sub();
 }
 
-void Executive::initialize(Transaction::ConstPtr _transaction)
+void TransactionExecutive::initialize(Transaction::ConstPtr _transaction)
 {
     m_t = _transaction;
 
     m_baseGasRequired = (m_t->type() == protocol::TransactionType::ContractCreation) ?
-                            m_envInfo->evmSchedule().txCreateGas :
-                            m_envInfo->evmSchedule().txGas;
+                            m_blockContext->evmSchedule().txCreateGas :
+                            m_blockContext->evmSchedule().txGas;
     // Calculate the cost of input data.
     // No risk of overflow by using int64 until txDataNonZeroGas is quite small
     // (the value not in billions).
     for (auto i : m_t->input())
         m_baseGasRequired +=
-            i ? m_envInfo->evmSchedule().txDataNonZeroGas : m_envInfo->evmSchedule().txDataZeroGas;
+            i ? m_blockContext->evmSchedule().txDataNonZeroGas : m_blockContext->evmSchedule().txDataZeroGas;
 
-    uint64_t txGasLimit = m_envInfo->txGasLimit();
+    uint64_t txGasLimit = m_blockContext->txGasLimit();
     // The gas limit is dynamic, not fixed.
     // Pre calculate the gas needed for execution
     if (m_baseGasRequired > (bigint)txGasLimit)
@@ -82,9 +82,9 @@ void Executive::initialize(Transaction::ConstPtr _transaction)
     }
 }
 
-std::string Executive::newAddress() const
+std::string TransactionExecutive::newAddress() const
 {
-    if (m_envInfo->isWasm() || m_newAddress.empty())
+    if (m_blockContext->isWasm() || m_newAddress.empty())
     {
         return m_newAddress;
     }
@@ -92,9 +92,9 @@ std::string Executive::newAddress() const
     return hexAddress;
 }
 
-bool Executive::execute()
+bool TransactionExecutive::execute()
 {
-    uint64_t txGasLimit = m_envInfo->txGasLimit();
+    uint64_t txGasLimit = m_blockContext->txGasLimit();
 
     if (txGasLimit < (u256)m_baseGasRequired)
     {
@@ -120,10 +120,10 @@ bool Executive::execute()
     }
 }
 
-bool Executive::call(const std::string& _receiveAddress, const std::string& _senderAddress,
+bool TransactionExecutive::call(const std::string& _receiveAddress, const std::string& _senderAddress,
     bytesConstRef _data, u256 const& _gas)
 {
-    if (m_envInfo->isWasm())
+    if (m_blockContext->isWasm())
     {
         CallParameters params{_senderAddress, _receiveAddress, _receiveAddress, _gas, _data};
         return call(params, _senderAddress);
@@ -134,7 +134,7 @@ bool Executive::call(const std::string& _receiveAddress, const std::string& _sen
     return call(params, _senderAddress);
 }
 
-void Executive::updateGas(std::shared_ptr<precompiled::PrecompiledExecResult>)
+void TransactionExecutive::updateGas(std::shared_ptr<precompiled::PrecompiledExecResult>)
 {
 // TODO: calculate gas
 #if 0
@@ -153,7 +153,7 @@ void Executive::updateGas(std::shared_ptr<precompiled::PrecompiledExecResult>)
 #endif
 }
 
-bool Executive::call(CallParameters const& _p, const std::string& _origin)
+bool TransactionExecutive::call(CallParameters const& _p, const std::string& _origin)
 {
     // no nonce increase
 
@@ -170,9 +170,9 @@ bool Executive::call(CallParameters const& _p, const std::string& _origin)
         return !m_context;
     }
     auto precompiledAddress = toHexStringWithPrefix(_p.codeAddress);
-    if (m_envInfo && m_envInfo->isEthereumPrecompiled(precompiledAddress))
+    if (m_blockContext && m_blockContext->isEthereumPrecompiled(precompiledAddress))
     {
-        auto gas = m_envInfo->costOfPrecompiled(precompiledAddress, _p.data);
+        auto gas = m_blockContext->costOfPrecompiled(precompiledAddress, _p.data);
         if (m_remainGas < gas)
         {
             m_excepted = TransactionStatus::OutOfGas;
@@ -185,7 +185,7 @@ bool Executive::call(CallParameters const& _p, const std::string& _origin)
         }
         bytes output;
         bool success;
-        tie(success, output) = m_envInfo->executeOriginPrecompiled(precompiledAddress, _p.data);
+        tie(success, output) = m_blockContext->executeOriginPrecompiled(precompiledAddress, _p.data);
         if (!success)
         {
             m_remainGas = 0;
@@ -195,11 +195,11 @@ bool Executive::call(CallParameters const& _p, const std::string& _origin)
         size_t outputSize = output.size();
         m_output = owning_bytes_ref{std::move(output), 0, outputSize};
     }
-    else if (m_envInfo && m_envInfo->isPrecompiled(precompiledAddress))
+    else if (m_blockContext && m_blockContext->isPrecompiled(precompiledAddress))
     {
         try
         {
-            auto callResult = m_envInfo->call(
+            auto callResult = m_blockContext->call(
                 precompiledAddress, _p.data, _origin, _p.senderAddress, m_remainGas);
             // TODO: calculate gas for the precompiled contract
             // updateGas(callResult);
@@ -237,7 +237,7 @@ bool Executive::call(CallParameters const& _p, const std::string& _origin)
     {
         auto c = m_s->code(_p.codeAddress);
         h256 codeHash = m_s->codeHash(_p.codeAddress);
-        m_context = make_shared<HostContext>(m_envInfo, _p.receiveAddress, _p.senderAddress,
+        m_context = make_shared<HostContext>(m_blockContext, _p.receiveAddress, _p.senderAddress,
             _origin, _p.data, c, codeHash, m_depth, false, _p.staticCall);
     }
     else
@@ -251,14 +251,14 @@ bool Executive::call(CallParameters const& _p, const std::string& _origin)
     return !m_context;
 }
 
-bool Executive::create(const std::string_view& _txSender, u256 const& _gas, bytesConstRef _init,
+bool TransactionExecutive::create(const std::string_view& _txSender, u256 const& _gas, bytesConstRef _init,
     const std::string_view& _origin)
 {
     // Contract creation by an external account is the same as CREATE opcode
     return createOpcode(_txSender, _gas, _init, _origin);
 }
 
-bool Executive::createOpcode(const std::string_view& _sender, u256 const& _gas, bytesConstRef _init,
+bool TransactionExecutive::createOpcode(const std::string_view& _sender, u256 const& _gas, bytesConstRef _init,
     const std::string_view& _origin)
 {
     u256 nonce = m_s->getNonce(_sender);
@@ -267,7 +267,7 @@ bool Executive::createOpcode(const std::string_view& _sender, u256 const& _gas, 
     return executeCreate(_sender, _origin, m_newAddress, _gas, _init);
 }
 
-bool Executive::create2Opcode(const std::string_view& _sender, u256 const& _gas,
+bool TransactionExecutive::create2Opcode(const std::string_view& _sender, u256 const& _gas,
     bytesConstRef _init, const std::string_view& _origin, u256 const& _salt)
 {
     auto hash = m_hashImpl->hash(
@@ -276,16 +276,16 @@ bool Executive::create2Opcode(const std::string_view& _sender, u256 const& _gas,
     return executeCreate(_sender, _origin, m_newAddress, _gas, _init);
 }
 
-bool Executive::executeCreate(const std::string_view& _sender, const std::string_view& _origin,
+bool TransactionExecutive::executeCreate(const std::string_view& _sender, const std::string_view& _origin,
     const std::string& _newAddress, u256 const& _gasLeft, bytesConstRef _init,
     bytesConstRef constructorParams)
 {
     // check authority for deploy contract
-    auto tableFactory = m_envInfo->getTableFactory();
+    auto tableFactory = m_blockContext->getTableFactory();
     // permission control
     if (!tableFactory->checkAuthority(SYS_TABLE, string(_origin)))
     {
-        EXECUTIVE_LOG(WARNING) << "Executive deploy contract checkAuthority of " << _origin
+        EXECUTIVE_LOG(WARNING) << "TransactionExecutive deploy contract checkAuthority of " << _origin
                                << " failed!";
         m_remainGas = 0;
         m_excepted = TransactionStatus::PermissionDenied;
@@ -319,7 +319,7 @@ bool Executive::executeCreate(const std::string_view& _sender, const std::string
     if (accountAlreadyExist)
     {
         EXECUTIVE_LOG(DEBUG) << "address already used: "
-                             << (m_envInfo->isWasm() ? _newAddress : *toHexString(_newAddress));
+                             << (m_blockContext->isWasm() ? _newAddress : *toHexString(_newAddress));
         m_remainGas = 0;
         m_excepted = TransactionStatus::ContractAddressAlreadyUsed;
         revert();
@@ -351,13 +351,13 @@ bool Executive::executeCreate(const std::string_view& _sender, const std::string
                 return !m_context;
             }
         }
-        m_context = make_shared<HostContext>(m_envInfo, _newAddress, _sender, _origin,
+        m_context = make_shared<HostContext>(m_blockContext, _newAddress, _sender, _origin,
             constructorParams, code, m_hashImpl->hash(_init), m_depth, true, false);
     }
     return !m_context;
 }
 
-bool Executive::go()
+bool TransactionExecutive::go()
 {
     if (m_context)
     {
@@ -513,7 +513,7 @@ bool Executive::go()
     return true;
 }
 
-bool Executive::finalize()
+bool TransactionExecutive::finalize()
 {
     // Accumulate refunds for suicides.
     if (m_context)
@@ -532,7 +532,7 @@ bool Executive::finalize()
     return (m_excepted == TransactionStatus::None);
 }
 
-void Executive::revert()
+void TransactionExecutive::revert()
 {
     if (m_context)
         m_context->sub().clear();
@@ -542,7 +542,7 @@ void Executive::revert()
     m_s->rollback(m_savepoint);
 }
 
-void Executive::parseEVMCResult(std::shared_ptr<Result> _result)
+void TransactionExecutive::parseEVMCResult(std::shared_ptr<Result> _result)
 {
     // FIXME: if EVMC_REJECTED, then use default vm to run. maybe wasm call evm need this
     auto outputRef = _result->output();
@@ -659,7 +659,7 @@ void Executive::parseEVMCResult(std::shared_ptr<Result> _result)
     }
 }
 
-void Executive::loggingException()
+void TransactionExecutive::loggingException()
 {
     if (m_excepted != TransactionStatus::None)
     {
@@ -672,7 +672,7 @@ void Executive::loggingException()
     }
 }
 
-void Executive::writeErrInfoToOutput(string const& errInfo)
+void TransactionExecutive::writeErrInfoToOutput(string const& errInfo)
 {
     codec::abi::ContractABICodec abi(m_hashImpl);
     auto output = abi.abiIn("Error(string)", errInfo);

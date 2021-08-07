@@ -49,7 +49,7 @@ class TransactionReceipt;
 
 namespace executor
 {
-class Executive;
+class TransactionExecutive;
 class BlockContext;
 class PrecompiledContract;
 
@@ -72,7 +72,7 @@ public:
     std::shared_ptr<BlockContext> executeBlock(const protocol::Block::Ptr& block);
 
     protocol::TransactionReceipt::Ptr executeTransaction(
-        protocol::Transaction::ConstPtr _t, std::shared_ptr<executor::Executive> executive);
+        protocol::Transaction::ConstPtr _t, std::shared_ptr<executor::TransactionExecutive> executive);
 
     void asyncGetCode(const std::string_view& _address,
         std::function<void(const Error::Ptr&, const std::shared_ptr<bytes>&)> _callback) override;

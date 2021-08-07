@@ -23,7 +23,7 @@
 
 #include "../libstate/StateInterface.h"
 #include "Common.h"
-#include "Executive.h"
+#include "TransactionExecutive.h"
 #include <evmc/evmc.h>
 #include <evmc/helpers.h>
 #include <evmc/instructions.h>
@@ -109,7 +109,7 @@ public:
     virtual void suicide(const std::string_view& _a);
 
     /// Return the EVM gas-price schedule for this execution context.
-    virtual EVMSchedule const& evmSchedule() const { return m_envInfo->evmSchedule(); }
+    virtual EVMSchedule const& evmSchedule() const { return m_blockContext->evmSchedule(); }
 
     virtual std::shared_ptr<executor::StateInterface> const& state() const { return m_s; }
 
@@ -119,7 +119,7 @@ public:
     virtual bool isPermitted();
 
     /// Get the execution environment information.
-    virtual std::shared_ptr<BlockContext> const& envInfo() const { return m_envInfo; }
+    virtual std::shared_ptr<BlockContext> const& envInfo() const { return m_blockContext; }
 
     /// Revert any changes made (by any of the other calls).
     virtual void log(h256s&& _topics, bytesConstRef _data);
@@ -144,7 +144,7 @@ private:
         uint64_t _assetID, const std::string& _uri);
 
 protected:
-    std::shared_ptr<BlockContext> m_envInfo;
+    std::shared_ptr<BlockContext> m_blockContext;
 
 private:
     std::string m_myAddress;    ///< address associated with executing code (a contract, or

@@ -26,7 +26,7 @@
 #include "libprecompiled/Utilities.h"
 #include "libprecompiled/extension/UserPrecompiled.h"
 #include "libvm/BlockContext.h"
-#include "libvm/Executive.h"
+#include "libvm/TransactionExecutive.h"
 #include "mock/MockDispatcher.h"
 #include "mock/MockLedger.h"
 #include "../MemoryStorage.h"

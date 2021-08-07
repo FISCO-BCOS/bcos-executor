@@ -33,9 +33,9 @@ namespace bcos
 {
 namespace executor
 {
-class Executive;
+class TransactionExecutive;
 using ExecuteTxFunc =
-    std::function<bool(protocol::Transaction::ConstPtr, ID, std::shared_ptr<Executive>)>;
+    std::function<bool(protocol::Transaction::ConstPtr, ID, std::shared_ptr<TransactionExecutive>)>;
 
 class TxDAG
 {
@@ -59,7 +59,7 @@ public:
     // Called by thread
     // Execute a unit in DAG
     // This function can be parallel
-    int executeUnit(std::shared_ptr<Executive> _executive);
+    int executeUnit(std::shared_ptr<TransactionExecutive> _executive);
 
     ID paraTxsNumber() { return m_totalParaTxs; }
 

@@ -19,7 +19,7 @@
  */
 
 #include "DeployWasmPrecompiled.h"
-#include "../libvm/Executive.h"
+#include "../libvm/TransactionExecutive.h"
 #include "Common.h"
 #include "PrecompiledResult.h"
 #include "Utilities.h"
@@ -73,7 +73,7 @@ std::shared_ptr<PrecompiledExecResult> DeployWasmPrecompiled::call(
             std::string contractName = path.substr(path.find_last_of('/'));
             recursiveBuildDir(_context->getTableFactory(), parentDir);
             // TODO: get critical domains in jsonABI
-            auto executive = std::make_shared<Executive>(_context);
+            auto executive = std::make_shared<TransactionExecutive>(_context);
             if (!executive->executeCreate(
                     _sender, _origin, path, _remainGas, ref(code), ref(param)))
             {

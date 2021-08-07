@@ -32,7 +32,7 @@
 #include "../libprecompiled/extension/DagTransferPrecompiled.h"
 #include "../libstate/State.h"
 #include "../libvm/BlockContext.h"
-#include "../libvm/Executive.h"
+#include "../libvm/TransactionExecutive.h"
 #include "../libvm/Precompiled.h"
 #include "Common.h"
 #include "TxDAG.h"
@@ -318,7 +318,7 @@ void Executor::asyncExecuteTransaction(const protocol::Transaction::ConstPtr& _t
     // use m_lastHeader to execute transaction
     auto currentHeader = m_blockFactory->blockHeaderFactory()->populateBlockHeader(m_lastHeader);
     BlockContext::Ptr executiveContext = createExecutiveContext(currentHeader);
-    auto executive = std::make_shared<Executive>(executiveContext);
+    auto executive = std::make_shared<TransactionExecutive>(executiveContext);
     m_threadPool->enqueue([&, executiveContext, executive, _tx, _callback]() {
         // only Rpc::call will use executeTransaction, RPC do catch exception
         auto receipt = executeTransaction(_tx, executive);
@@ -355,7 +355,7 @@ BlockContext::Ptr Executor::executeBlock(const protocol::Block::Ptr& block)
     txDag->init(executiveContext, block);
     mutex blockGasMutex;
     u256 blockGasUsed = 0;
-    txDag->setTxExecuteFunc([&](Transaction::ConstPtr _tr, ID _txId, Executive::Ptr _executive) {
+    txDag->setTxExecuteFunc([&](Transaction::ConstPtr _tr, ID _txId, TransactionExecutive::Ptr _executive) {
         auto resultReceipt = executeTransaction(_tr, _executive);
         block->setReceipt(_txId, resultReceipt);
         {
@@ -375,7 +375,7 @@ BlockContext::Ptr Executor::executeBlock(const protocol::Block::Ptr& block)
         tbb::parallel_for(tbb::blocked_range<unsigned int>(0, m_threadNum),
             [&](const tbb::blocked_range<unsigned int>& _r) {
                 (void)_r;
-                auto executive = std::make_shared<Executive>(executiveContext);
+                auto executive = std::make_shared<TransactionExecutive>(executiveContext);
 
                 while (!txDag->hasFinished())
                 {
@@ -463,7 +463,7 @@ BlockContext::Ptr Executor::executeBlock(const protocol::Block::Ptr& block)
 }
 
 protocol::TransactionReceipt::Ptr Executor::executeTransaction(
-    protocol::Transaction::ConstPtr _t, Executive::Ptr executive)
+    protocol::Transaction::ConstPtr _t, TransactionExecutive::Ptr executive)
 {
     // Create and initialize the executive. This will throw fairly cheaply and quickly if the
     // transaction is bad in any way.

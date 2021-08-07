@@ -30,7 +30,7 @@
 #include "bcos-framework/testutils/protocol/FakeBlockHeader.h"
 #include "libprecompiled/Common.h"
 #include "libvm/BlockContext.h"
-#include "libvm/Executive.h"
+#include "libvm/TransactionExecutive.h"
 #include <boost/test/unit_test.hpp>
 #include <iostream>
 #include <set>
@@ -142,7 +142,7 @@ BOOST_AUTO_TEST_CASE(executeTransaction_DeployHelloWorld)
     auto input = *fromHexString(helloworld);
     auto tx = fakeTransaction(cryptoSuite, keyPair, "", input, 101, 100001, "1", "1");
     auto sender = string_view((char*)tx->sender().data(), tx->sender().size());
-    auto executive = std::make_shared<Executive>(executiveContext);
+    auto executive = std::make_shared<TransactionExecutive>(executiveContext);
     auto receipt = executor->executeTransaction(tx, executive);
     BOOST_TEST(receipt->status() == (int32_t)TransactionStatus::None);
     BOOST_TEST(receipt->gasUsed() == 430575);

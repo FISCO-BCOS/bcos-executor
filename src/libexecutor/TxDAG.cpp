@@ -20,7 +20,7 @@
  */
 
 #include "TxDAG.h"
-#include "../libvm/Executive.h"
+#include "../libvm/TransactionExecutive.h"
 #include "Common.h"
 #include <tbb/parallel_for.h>
 #include <map>
@@ -106,7 +106,7 @@ void TxDAG::setTxExecuteFunc(ExecuteTxFunc const& _f)
     f_executeTx = _f;
 }
 
-int TxDAG::executeUnit(Executive::Ptr _executive)
+int TxDAG::executeUnit(TransactionExecutive::Ptr _executive)
 {
     int exeCnt = 0;
     ID id = m_dag.waitPop();

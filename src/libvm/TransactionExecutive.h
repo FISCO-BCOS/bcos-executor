@@ -14,7 +14,7 @@
  *  limitations under the License.
  *
  * @brief executive of vm
- * @file Executive.h
+ * @file TransactionExecutive.h
  * @author: xingqiangbai
  * @date: 2021-05-24
  */
@@ -60,7 +60,7 @@ struct PrecompiledExecResult;
  *
  * Example:
  * @code
- * Executive e(state, blockchain, 0);
+ * TransactionExecutive e(state, blockchain, 0);
  * e.initialize(transaction);
  * if (!e.execute())
  *    e.go();
@@ -71,21 +71,21 @@ namespace executor
 {
 class HostContext;
 class StateInterface;
-class Executive
+class TransactionExecutive
 {
 public:
-    using Ptr = std::shared_ptr<Executive>;
+    using Ptr = std::shared_ptr<TransactionExecutive>;
     /// Simple constructor; executive will operate on given state, with the given environment info.
-    Executive(const std::shared_ptr<BlockContext>& _envInfo, unsigned _level = 0)
+    TransactionExecutive(const std::shared_ptr<BlockContext>& _envInfo, unsigned _level = 0)
       : m_s(_envInfo->getState()),
-        m_envInfo(_envInfo),
+        m_blockContext(_envInfo),
         m_hashImpl(_envInfo->hashHandler()),
         m_depth(_level),
         m_gasInjector(std::make_shared<wasm::GasInjector>(wasm::GetInstructionTable()))
     {}
 
-    Executive(Executive const&) = delete;
-    void operator=(Executive) = delete;
+    TransactionExecutive(TransactionExecutive const&) = delete;
+    void operator=(TransactionExecutive) = delete;
 
     void initialize(protocol::Transaction::ConstPtr _transaction);
     /// Finalise a transaction previously set up with initialize().
@@ -162,7 +162,7 @@ public:
         m_t.reset();
     }
 
-    std::shared_ptr<BlockContext> getEnvInfo() { return m_envInfo; }
+    std::shared_ptr<BlockContext> getEnvInfo() { return m_blockContext; }
     /// @returns false iff go() must be called (and thus a VM execution in required).
     bool executeCreate(const std::string_view& _txSender, const std::string_view& _originAddress,
         const std::string& _newAddress, u256 const& _gas, bytesConstRef _code,
@@ -177,7 +177,7 @@ private:
 
     std::shared_ptr<StateInterface> m_s;  ///< The state to which this operation/transaction is
                                           ///< applied.
-    std::shared_ptr<BlockContext> m_envInfo;  ///< Information on the runtime environment.
+    std::shared_ptr<BlockContext> m_blockContext;  ///< Information on the runtime environment.
     crypto::Hash::Ptr m_hashImpl;
     std::shared_ptr<HostContext> m_context;  ///< The VM externality object for the VM execution
                                              ///< or null if no VM is required. shared_ptr used

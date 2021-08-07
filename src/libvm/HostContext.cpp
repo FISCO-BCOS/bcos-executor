@@ -71,7 +71,7 @@ static size_t const c_entryOverhead = 128 * 1024;
 static unsigned const c_offloadPoint =
     (c_defaultStackSize - c_entryOverhead) / c_singleExecutionStackSize;
 
-void goOnOffloadedStack(Executive& _e)
+void goOnOffloadedStack(TransactionExecutive& _e)
 {
     // Set new stack size enouth to handle the rest of the calls up to the limit.
     boost::thread::attributes attrs;
@@ -98,7 +98,7 @@ void goOnOffloadedStack(Executive& _e)
         boost::rethrow_exception(exception);
 }
 
-void go(unsigned _depth, Executive& _e)
+void go(unsigned _depth, TransactionExecutive& _e)
 {
     // If in the offloading point we need to switch to additional separated stack space.
     // Current stack is too small to handle more CALL/CREATE executions.
@@ -214,7 +214,7 @@ HostContext::HostContext(const std::shared_ptr<BlockContext>& _envInfo,
     const std::string_view& _myAddress, const std::string_view& _caller,
     const std::string_view& _origin, bytesConstRef _data, const std::shared_ptr<bytes>& _code,
     h256 const& _codeHash, unsigned _depth, bool _isCreate, bool _staticCall)
-  : m_envInfo(_envInfo),
+  : m_blockContext(_envInfo),
     m_myAddress(_myAddress),
     m_caller(_caller),
     m_origin(_origin),
@@ -226,9 +226,9 @@ HostContext::HostContext(const std::shared_ptr<BlockContext>& _envInfo,
     m_staticCall(_staticCall),
     m_s(_envInfo->getState())
 {
-    m_tableFactory = m_envInfo->getTableFactory();
+    m_tableFactory = m_blockContext->getTableFactory();
     interface = getHostInterface();
-    g_hashImpl = m_envInfo->hashHandler();
+    g_hashImpl = m_blockContext->hashHandler();
     // FIXME: rename sm3_hash_fn to evm_hash_fn and add a context pointer to get hashImpl
     sm3_hash_fn = evm_hash_fn;
     version = 0x03000000;
@@ -238,9 +238,9 @@ HostContext::HostContext(const std::shared_ptr<BlockContext>& _envInfo,
 
 evmc_result HostContext::call(CallParameters& _p)
 {
-    Executive e{envInfo(), depth() + 1};
+    TransactionExecutive e{envInfo(), depth() + 1};
     stringstream ss;
-    // Note: When create initializes Executive, the flags of evmc context must be passed in
+    // Note: When create initializes TransactionExecutive, the flags of evmc context must be passed in
     if (!e.call(_p, origin()))
     {
         go(depth(), e);
@@ -256,7 +256,8 @@ evmc_result HostContext::call(CallParameters& _p)
 
 size_t HostContext::codeSizeAt(const std::string_view& _a)
 {
-    if (m_envInfo->isPrecompiled(string(_a)))
+    auto precompiledAddress = toHexStringWithPrefix(_a);
+    if (m_blockContext->isPrecompiled(precompiledAddress))
     {
         return 1;
     }
@@ -287,8 +288,8 @@ void HostContext::setStore(u256 const& _n, u256 const& _v)
 
 evmc_result HostContext::create(u256& io_gas, bytesConstRef _code, evmc_opcode _op, u256 _salt)
 {  // TODO: if liquid support contract create contract add a branch
-    Executive e{envInfo(), depth() + 1};
-    // Note: When create initializes Executive, the flags of evmc context must be passed in
+    TransactionExecutive e{envInfo(), depth() + 1};
+    // Note: When create initializes TransactionExecutive, the flags of evmc context must be passed in
     bool result = false;
     if (_op == evmc_opcode::OP_CREATE)
         result = e.createOpcode(myAddress(), io_gas, _code, origin());
@@ -313,7 +314,7 @@ evmc_result HostContext::create(u256& io_gas, bytesConstRef _code, evmc_opcode _
 
 void HostContext::log(h256s&& _topics, bytesConstRef _data)
 {
-    if (m_envInfo->isWasm() || m_myAddress.empty())
+    if (m_blockContext->isWasm() || m_myAddress.empty())
     {
         m_sub.logs->push_back(
             protocol::LogEntry(bytes(m_myAddress.data(), m_myAddress.data() + m_myAddress.size()),
@@ -324,7 +325,7 @@ void HostContext::log(h256s&& _topics, bytesConstRef _data)
         // convert solidity address to hex string
         auto hexAddress = *toHexString(m_myAddress);
         boost::algorithm::to_lower(hexAddress);  // this is in case of toHexString be modified
-        toChecksumAddress(hexAddress, m_envInfo->hashHandler()->hash(hexAddress).hex());
+        toChecksumAddress(hexAddress, m_blockContext->hashHandler()->hash(hexAddress).hex());
         m_sub.logs->push_back(
             protocol::LogEntry(asBytes(hexAddress), std::move(_topics), _data.toBytes()));
     }
@@ -450,7 +451,7 @@ uint64_t HostContext::issueNotFungibleAsset(
 void HostContext::depositFungibleAsset(
     const std::string_view& _to, const std::string& _assetName, uint64_t _amount)
 {
-    auto tableName = getContractTableName(_to, true, m_envInfo->hashHandler());
+    auto tableName = getContractTableName(_to, true, m_blockContext->hashHandler());
     auto table = m_tableFactory->openTable(tableName);
     if (!table)
     {
@@ -479,7 +480,7 @@ void HostContext::depositFungibleAsset(
 void HostContext::depositNotFungibleAsset(const std::string_view& _to,
     const std::string& _assetName, uint64_t _assetID, const std::string& _uri)
 {
-    auto tableName = getContractTableName(_to, true, m_envInfo->hashHandler());
+    auto tableName = getContractTableName(_to, true, m_blockContext->hashHandler());
     auto table = m_tableFactory->openTable(tableName);
     if (!table)
     {
@@ -536,7 +537,7 @@ bool HostContext::transferAsset(const std::string_view& _to, const std::string& 
     {
         from = myAddress();
     }
-    auto tableName = getContractTableName(from, true, m_envInfo->hashHandler());
+    auto tableName = getContractTableName(from, true, m_blockContext->hashHandler());
     table = m_tableFactory->openTable(tableName);
     auto entry = table->getRow(_assetName);
     if (!entry)
@@ -609,7 +610,7 @@ uint64_t HostContext::getAssetBanlance(
         return false;
     }
     auto fungible = boost::lexical_cast<bool>(assetEntry->getField(SYS_ASSET_FUNGIBLE));
-    auto tableName = getContractTableName(_account, true, m_envInfo->hashHandler());
+    auto tableName = getContractTableName(_account, true, m_blockContext->hashHandler());
     table = m_tableFactory->openTable(tableName);
     if (!table)
     {
@@ -634,7 +635,7 @@ uint64_t HostContext::getAssetBanlance(
 std::string HostContext::getNotFungibleAssetInfo(
     const std::string_view& _owner, const std::string& _assetName, uint64_t _assetID)
 {
-    auto tableName = getContractTableName(_owner, true, m_envInfo->hashHandler());
+    auto tableName = getContractTableName(_owner, true, m_blockContext->hashHandler());
     auto table = m_tableFactory->openTable(tableName);
     if (!table)
     {
@@ -659,7 +660,7 @@ std::string HostContext::getNotFungibleAssetInfo(
 std::vector<uint64_t> HostContext::getNotFungibleAssetIDs(
     const std::string_view& _account, const std::string& _assetName)
 {
-    auto tableName = getContractTableName(_account, true, m_envInfo->hashHandler());
+    auto tableName = getContractTableName(_account, true, m_blockContext->hashHandler());
     auto table = m_tableFactory->openTable(tableName);
     if (!table)
     {

@@ -309,7 +309,12 @@ bool State::frozen(const std::string_view& _contract) const
 
 size_t State::codeSize(const std::string_view& _address) const
 {  // TODO: code should be cached
-    return code(_address)->size();
+    auto c = code(_address);
+    if (!c)
+    {
+        return 0;
+    }
+    return c->size();
 }
 
 void State::createContract(const std::string_view& _address)
