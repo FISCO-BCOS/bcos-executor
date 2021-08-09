@@ -37,7 +37,7 @@ class PrecompiledCodec
 {
 public:
     using Ptr = std::shared_ptr<PrecompiledCodec>;
-    PrecompiledCodec(crypto::Hash::Ptr _hash, bool _isWasm) : m_abi(_hash), m_hash(_hash)
+    PrecompiledCodec(crypto::Hash::Ptr _hash, bool _isWasm) : m_hash(_hash)
     {
         m_type = _isWasm ? VMType::WASM : VMType::EVM;
     }
@@ -47,7 +47,9 @@ public:
         assert(m_type != VMType::UNDEFINED);
         if (m_type == VMType::EVM)
         {
-            return m_abi.abiIn("", _args...);
+            // Note: the codec is not thread-safe, so we can't share this object
+            codec::abi::ContractABICodec abi(m_hash);
+            return abi.abiIn("", _args...);
         }
         else
         {
@@ -62,7 +64,9 @@ public:
         assert(m_type != VMType::UNDEFINED);
         if (m_type == VMType::EVM)
         {
-            return m_abi.abiIn(_sig, _args...);
+            // Note: the codec is not thread-safe, so we can't share this object
+            codec::abi::ContractABICodec abi(m_hash);
+            return abi.abiIn(_sig, _args...);
         }
         else
         {
@@ -77,7 +81,9 @@ public:
         assert(m_type != VMType::UNDEFINED);
         if (m_type == VMType::EVM)
         {
-            return m_abi.abiIn(_sig);
+            // Note: the codec is not thread-safe, so we can't share this object
+            codec::abi::ContractABICodec abi(m_hash);
+            return abi.abiIn(_sig);
         }
         else
         {
@@ -93,7 +99,8 @@ public:
         assert(m_type != VMType::UNDEFINED);
         if (m_type == VMType::EVM)
         {
-            m_abi.abiOut(_data, _t...);
+            codec::abi::ContractABICodec abi(m_hash);
+            abi.abiOut(_data, _t...);
         }
         else if (m_type == VMType::WASM)
         {
@@ -121,7 +128,6 @@ public:
 
 private:
     VMType m_type = VMType::UNDEFINED;
-    codec::abi::ContractABICodec m_abi;
     crypto::Hash::Ptr m_hash;
 };
 }  // namespace precompiled

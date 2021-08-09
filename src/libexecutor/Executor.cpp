@@ -32,8 +32,8 @@
 #include "../libprecompiled/extension/DagTransferPrecompiled.h"
 #include "../libstate/State.h"
 #include "../libvm/BlockContext.h"
-#include "../libvm/TransactionExecutive.h"
 #include "../libvm/Precompiled.h"
+#include "../libvm/TransactionExecutive.h"
 #include "Common.h"
 #include "TxDAG.h"
 #include "bcos-framework/interfaces/executor/PrecompiledTypeDef.h"
@@ -355,15 +355,18 @@ BlockContext::Ptr Executor::executeBlock(const protocol::Block::Ptr& block)
     txDag->init(executiveContext, block);
     mutex blockGasMutex;
     u256 blockGasUsed = 0;
-    txDag->setTxExecuteFunc([&](Transaction::ConstPtr _tr, ID _txId, TransactionExecutive::Ptr _executive) {
-        auto resultReceipt = executeTransaction(_tr, _executive);
-        block->setReceipt(_txId, resultReceipt);
-        {
-            lock_guard l(blockGasMutex);
-            blockGasUsed += resultReceipt->gasUsed();
-        }
-        return true;
-    });
+    std::vector<TransactionReceipt::Ptr> receipts;
+    receipts.resize(block->transactionsSize());
+    txDag->setTxExecuteFunc(
+        [&](Transaction::ConstPtr _tr, ID _txId, TransactionExecutive::Ptr _executive) {
+            auto resultReceipt = executeTransaction(_tr, _executive);
+            receipts[_txId] = resultReceipt;
+            {
+                lock_guard l(blockGasMutex);
+                blockGasUsed += resultReceipt->gasUsed();
+            }
+            return true;
+        });
     auto initDag_time_cost = utcTime() - record_time;
     record_time = utcTime();
 
@@ -412,6 +415,11 @@ BlockContext::Ptr Executor::executeBlock(const protocol::Block::Ptr& block)
     auto getRootHash_time_cost = utcTime() - record_time;
     record_time = utcTime();
 
+    // Note: setReceipt is not thread-safe, can't set the receipt inner multi-threads concurrently
+    for (size_t i = 0; i < receipts.size(); i++)
+    {
+        block->setReceipt(i, receipts[i]);
+    }
     auto receiptRoot = block->calculateReceiptRoot(false);
     currentHeader->setReceiptsRoot(receiptRoot);
     currentHeader->setStateRoot(stateRoot);
