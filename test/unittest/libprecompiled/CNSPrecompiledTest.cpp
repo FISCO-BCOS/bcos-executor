@@ -183,10 +183,19 @@ BOOST_AUTO_TEST_CASE(selectTest)
         "\"payable\":false,\"type\":\"function\"},{"
         "\"inputs\":[],\"payable\":false,\"type\":"
         "\"constructor\"}]";
-    bytes in = codec->encodeWithSig("insert(string,string,address,string)", contractName,
-        contractVersion, contractAddress, contractAbi);
+
+    // select not exist keys
+    bytes in = codec->encodeWithSig("selectByName(string)", contractName);
     auto callResult = cnsPrecompiled->call(context, bytesConstRef(&in), "", "", gas);
     bytes out = callResult->execResult();
+    std::string retStr;
+    codec->decode(&out, retStr);
+    BOOST_CHECK(!retStr.empty());
+
+    in = codec->encodeWithSig("insert(string,string,address,string)", contractName, contractVersion,
+        contractAddress, contractAbi);
+    callResult = cnsPrecompiled->call(context, bytesConstRef(&in), "", "", gas);
+    out = callResult->execResult();
 
     // insert new item with same name, address and abi
     contractVersion = "2.0";
@@ -199,7 +208,6 @@ BOOST_AUTO_TEST_CASE(selectTest)
     in = codec->encodeWithSig("selectByName(string)", contractName);
     callResult = cnsPrecompiled->call(context, bytesConstRef(&in), "", "", gas);
     out = callResult->execResult();
-    std::string retStr;
     codec->decode(&out, retStr);
 
     BCOS_LOG(TRACE) << "select result:" << retStr;
@@ -225,7 +233,7 @@ BOOST_AUTO_TEST_CASE(selectTest)
     BOOST_TEST(ret != contractAddress);
     s256 errorCode;
     codec->decode(&out, errorCode);
-    BOOST_TEST(errorCode == s256((int)CODE_ADDRESS_AND_VERSION_EXIST));
+    BOOST_TEST(errorCode == s256((int)CODE_ADDRESS_OR_VERSION_ERROR));
 
     // select no existing keys
     in = codec->encodeWithSig("selectByName(string)", std::string("Ok2"));
@@ -259,7 +267,7 @@ BOOST_AUTO_TEST_CASE(selectTest)
     BOOST_TEST(abi != contractAbi);
     BOOST_TEST(ret != contractAddress);
     codec->decode(&out, errorCode);
-    BOOST_TEST(errorCode == s256((int)CODE_ADDRESS_AND_VERSION_EXIST));
+    BOOST_TEST(errorCode == s256((int)CODE_ADDRESS_OR_VERSION_ERROR));
 
     in = codec->encodeWithSig(
         "selectByNameAndVersion(string,string)", std::string("Ok2"), contractVersion);
@@ -270,7 +278,7 @@ BOOST_AUTO_TEST_CASE(selectTest)
     BOOST_TEST(abi != contractAbi);
     BOOST_TEST(ret != contractAddress);
     codec->decode(&out, errorCode);
-    BOOST_TEST(errorCode == s256((int)CODE_ADDRESS_AND_VERSION_EXIST));
+    BOOST_TEST(errorCode == s256((int)CODE_ADDRESS_OR_VERSION_ERROR));
 }
 
 BOOST_AUTO_TEST_CASE(errFunc)

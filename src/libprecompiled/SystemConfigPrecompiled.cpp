@@ -27,6 +27,7 @@ using namespace bcos;
 using namespace bcos::storage;
 using namespace bcos::precompiled;
 using namespace bcos::executor;
+using namespace bcos::ledger;
 
 const char* const SYSCONFIG_METHOD_SET_STR = "setValueByKey(string,string)";
 const char* const SYSCONFIG_METHOD_GET_STR = "getValueByKey(string)";
@@ -36,6 +37,15 @@ SystemConfigPrecompiled::SystemConfigPrecompiled(crypto::Hash::Ptr _hashImpl)
 {
     name2Selector[SYSCONFIG_METHOD_SET_STR] = getFuncSelector(SYSCONFIG_METHOD_SET_STR, _hashImpl);
     name2Selector[SYSCONFIG_METHOD_GET_STR] = getFuncSelector(SYSCONFIG_METHOD_GET_STR, _hashImpl);
+    m_sysValueCmp.insert(std::make_pair(
+        SYSTEM_KEY_TX_GAS_LIMIT, [](int64_t _v) -> bool { return _v > TX_GAS_LIMIT_MIN; }));
+    m_sysValueCmp.insert(std::make_pair(SYSTEM_KEY_CONSENSUS_TIMEOUT, [](int64_t _v) -> bool {
+        return (_v >= SYSTEM_CONSENSUS_TIMEOUT_MIN && _v < SYSTEM_CONSENSUS_TIMEOUT_MAX);
+    }));
+    m_sysValueCmp.insert(std::make_pair(
+        SYSTEM_KEY_CONSENSUS_LEADER_PERIOD, [](int64_t _v) -> bool { return (_v >= 1); }));
+    m_sysValueCmp.insert(std::make_pair(
+        SYSTEM_KEY_TX_COUNT_LIMIT, [](int64_t _v) -> bool { return (_v >= TX_COUNT_LIMIT_MIN); }));
 }
 
 PrecompiledExecResult::Ptr SystemConfigPrecompiled::call(
@@ -81,9 +91,9 @@ PrecompiledExecResult::Ptr SystemConfigPrecompiled::call(
         if (tableFactory->checkAuthority(ledger::SYS_CONFIG, _origin))
         {
             table->setRow(configKey, entry);
-            PRECOMPILED_LOG(ERROR)
-                << LOG_BADGE("SystemConfigPrecompiled") << LOG_DESC("table commit occurs error")
-                << LOG_KV("configKey", configKey);
+            PRECOMPILED_LOG(INFO) << LOG_BADGE("SystemConfigPrecompiled")
+                                  << LOG_DESC("set system config") << LOG_KV("configKey", configKey)
+                                  << LOG_KV("configValue", configValue);
             result = 0;
         }
         else
@@ -126,39 +136,34 @@ std::string SystemConfigPrecompiled::toString()
 
 bool SystemConfigPrecompiled::checkValueValid(std::string const& key, std::string const& value)
 {
-    int64_t configuredValue = 0;
-    if (ledger::SYSTEM_KEY_TX_COUNT_LIMIT == key)
+    int64_t configuredValue;
+    if (value.empty())
     {
-        try
-        {
-            configuredValue = boost::lexical_cast<int64_t>(value);
-        }
-        catch (std::exception const& e)
-        {
-            PRECOMPILED_LOG(ERROR)
-                << LOG_BADGE("SystemConfigPrecompiled") << LOG_DESC("checkValueValid failed")
-                << LOG_KV("key", key) << LOG_KV("value", value) << LOG_KV("errorInfo", e.what());
-            return false;
-        }
-        return (configuredValue >= TX_COUNT_LIMIT_MIN);
+        return false;
     }
-    else if (ledger::SYSTEM_KEY_CONSENSUS_TIMEOUT == key)
+    try
     {
-        try
-        {
-            configuredValue = boost::lexical_cast<int64_t>(value);
-        }
-        catch (std::exception const& e)
-        {
-            PRECOMPILED_LOG(ERROR)
-                << LOG_BADGE("SystemConfigPrecompiled") << LOG_DESC("checkValueValid failed")
-                << LOG_KV("key", key) << LOG_KV("value", value) << LOG_KV("errorInfo", e.what());
-            return false;
-        }
-        return (configuredValue >= SYSTEM_CONSENSUS_TIMEOUT_MIN &&
-                configuredValue < SYSTEM_CONSENSUS_TIMEOUT_MAX);
+        configuredValue = boost::lexical_cast<int64_t>(value);
     }
-    return true;
+    catch (std::exception const& e)
+    {
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("SystemConfigPrecompiled")
+                               << LOG_DESC("checkValueValid failed") << LOG_KV("key", key)
+                               << LOG_KV("value", value) << LOG_KV("errorInfo", e.what());
+        return false;
+    }
+    try
+    {
+        auto cmp = m_sysValueCmp.at(key);
+        return cmp(configuredValue);
+    }
+    catch (const std::out_of_range& e)
+    {
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("SystemConfigPrecompiled")
+                               << LOG_DESC("error key to get") << LOG_KV("key", key)
+                               << LOG_KV("value", value) << LOG_KV("errorInfo", e.what());
+        return false;
+    }
 }
 
 std::pair<std::string, protocol::BlockNumber> SystemConfigPrecompiled::getSysConfigByKey(

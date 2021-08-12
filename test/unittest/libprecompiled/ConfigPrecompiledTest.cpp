@@ -116,7 +116,7 @@ BOOST_AUTO_TEST_CASE(sysConfig_test)
     BOOST_CHECK(systemConfigPrecompiled->toString() == "SystemConfig");
 
     bytes in = codec->encodeWithSig(
-        "setValueByKey(string,string)", ledger::SYSTEM_KEY_TX_GAS_LIMIT, std::string("1000"));
+        "setValueByKey(string,string)", ledger::SYSTEM_KEY_TX_GAS_LIMIT, std::string("1000000"));
     auto callResult = systemConfigPrecompiled->call(context, bytesConstRef(&in), "", "", gas);
     bytes out = callResult->execResult();
     u256 code;
@@ -129,7 +129,7 @@ BOOST_AUTO_TEST_CASE(sysConfig_test)
     std::string value;
     u256 number;
     codec->decode(&out, value, number);
-    BOOST_CHECK(value == "1000");
+    BOOST_CHECK(value == "1000000");
 
     in = codec->encodeWithSig(
         "setValueByKey(string,string)", ledger::SYSTEM_KEY_TX_COUNT_LIMIT, std::string("1000"));
@@ -159,6 +159,13 @@ BOOST_AUTO_TEST_CASE(sysConfig_test)
     out = callResult->execResult();
     codec->decode(&out, errorCode);
     BOOST_CHECK(errorCode == s256((int)CODE_INVALID_CONFIGURATION_VALUES));
+
+    in = codec->encodeWithSig(
+        "setValueByKey(string,string)", std::string("errorKey"), std::string("1000"));
+    callResult = systemConfigPrecompiled->call(context, bytesConstRef(&in), "", "", gas);
+    out = callResult->execResult();
+    codec->decode(&out, code);
+    BOOST_CHECK(code == u256((int)CODE_INVALID_CONFIGURATION_VALUES));
 }
 
 BOOST_AUTO_TEST_CASE(consensus_test)
@@ -254,6 +261,13 @@ BOOST_AUTO_TEST_CASE(consensus_test)
     out = callResult->execResult();
     codec->decode(&out, errorCode);
     BOOST_CHECK(errorCode == s256((int)CODE_INVALID_WEIGHT));
+
+    // set an invalid weight(-1) to node, -1 will be overflow in u256
+    in = codec->encodeWithSig("addSealer(string,uint256)", node1, s256(-1));
+    callResult = consensusPrecompiled->call(context, bytesConstRef(&in), "", "", gas);
+    out = callResult->execResult();
+    codec->decode(&out, code);
+    BOOST_CHECK(code == 0u);
 
     // set weight to node1 123
     in = codec->encodeWithSig("setWeight(string,uint256)", node1, u256(123));

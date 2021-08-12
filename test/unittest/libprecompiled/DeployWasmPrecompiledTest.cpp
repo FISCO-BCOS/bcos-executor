@@ -67,7 +67,8 @@ BOOST_AUTO_TEST_CASE(testDeploy)
     // exist path
     in = codec->encodeWithSig(
         "deployWasm(bytes,bytes,string,string)", code, param, deployPath, jsonABI);
-    BOOST_CHECK_THROW(deployWasmPrecompiled->call(context, bytesConstRef(&in), "", "", gas), PrecompiledError);
+    BOOST_CHECK_THROW(
+        deployWasmPrecompiled->call(context, bytesConstRef(&in), "", "", gas), PrecompiledError);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

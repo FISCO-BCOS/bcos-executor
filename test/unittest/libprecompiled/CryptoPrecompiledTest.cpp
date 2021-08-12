@@ -20,10 +20,10 @@
 
 #include "libprecompiled/CryptoPrecompiled.h"
 #include "PreCompiledFixture.h"
-#include <bcos-framework/testutils/TestPromptFixture.h>
+#include <bcos-crypto/signature/key/KeyFactoryImpl.h>
 #include <bcos-crypto/signature/sm2/SM2Crypto.h>
 #include <bcos-crypto/signature/sm2/SM2KeyPair.h>
-#include <bcos-crypto/signature/key/KeyFactoryImpl.h>
+#include <bcos-framework/testutils/TestPromptFixture.h>
 
 using namespace bcos;
 using namespace bcos::precompiled;
@@ -51,12 +51,15 @@ public:
         std::string stringData = "abcd";
         bytesConstRef dataRef(stringData);
         bytes encodedData = codec->encodeWithSig("sm3(bytes)", dataRef.toBytes());
-        auto callResult = _cryptoPrecompiled->call(_precompiledContext, bytesConstRef(&encodedData), "", "", gas);
+        auto callResult =
+            _cryptoPrecompiled->call(_precompiledContext, bytesConstRef(&encodedData), "", "", gas);
         bytes out = callResult->execResult();
         string32 decodedHash;
         codec->decode(bytesConstRef(&out), decodedHash);
-        HashType hash = HashType("82ec580fe6d36ae4f81cae3c73f4a5b3b5a09c943172dc9053c69fd8e18dca1e");
-        std::cout << "== testHash-sm3: decodedHash: " <<  codec::fromString32(decodedHash).hex() << std::endl;
+        HashType hash =
+            HashType("82ec580fe6d36ae4f81cae3c73f4a5b3b5a09c943172dc9053c69fd8e18dca1e");
+        std::cout << "== testHash-sm3: decodedHash: " << codec::fromString32(decodedHash).hex()
+                  << std::endl;
         std::cout << "== testHash-sm3: hash:" << hash.hex() << std::endl;
         BOOST_CHECK(hash == codec::fromString32(decodedHash));
 

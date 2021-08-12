@@ -109,6 +109,13 @@ int ConsensusPrecompiled::addSealer(const std::shared_ptr<executor::BlockContext
                                << LOG_DESC("nodeID length error") << LOG_KV("nodeID", nodeID);
         return CODE_INVALID_NODE_ID;
     }
+    if (weight == 0)
+    {
+        // u256 weight be then 0
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("weight is 0")
+                               << LOG_KV("nodeID", nodeID);
+        return CODE_INVALID_WEIGHT;
+    }
 
     auto table = _context->getTableFactory()->openTable(SYS_CONSENSUS);
     auto newEntry = table->newEntry();
@@ -121,7 +128,8 @@ int ConsensusPrecompiled::addSealer(const std::shared_ptr<executor::BlockContext
     {
         table->setRow(nodeID, newEntry);
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
-                               << LOG_DESC("addSealer successfully insert");
+                               << LOG_DESC("addSealer successfully insert")
+                               << LOG_KV("nodeID", nodeID) << LOG_KV("weight", weight);
         return 0;
     }
     else
@@ -229,6 +237,7 @@ int ConsensusPrecompiled::setWeight(const std::shared_ptr<executor::BlockContext
     }
     if (weight == 0)
     {
+        // u256 weight be then 0
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("weight is 0")
                                << LOG_KV("nodeID", nodeID);
         return CODE_INVALID_WEIGHT;

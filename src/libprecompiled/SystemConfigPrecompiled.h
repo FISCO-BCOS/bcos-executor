@@ -48,6 +48,7 @@ public:
 
 private:
     bool checkValueValid(std::string const& key, std::string const& value);
+    std::map<std::string, std::function<bool(int64_t)>> m_sysValueCmp;
 };
 
 }  // namespace precompiled
