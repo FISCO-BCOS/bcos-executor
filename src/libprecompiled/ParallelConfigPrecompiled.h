@@ -54,10 +54,12 @@ public:
         std::string const& _contractAddress, std::string const& _origin, bool _needCreate = true);
 
 private:
-    void registerParallelFunction(std::shared_ptr<executor::BlockContext> _context,
-        bytesConstRef _data, std::string const& _origin, bytes& _out);
-    void unregisterParallelFunction(std::shared_ptr<executor::BlockContext> _context,
-        bytesConstRef _data, std::string const& _origin, bytes& _out);
+    void registerParallelFunction(PrecompiledCodec::Ptr _codec,
+        std::shared_ptr<executor::BlockContext> _context, bytesConstRef _data,
+        std::string const& _origin, bytes& _out);
+    void unregisterParallelFunction(PrecompiledCodec::Ptr _codec,
+        std::shared_ptr<executor::BlockContext> _context, bytesConstRef _data,
+        std::string const& _origin, bytes& _out);
     std::string getTableName(std::string_view const& _contractName, bool _isWasm);
 
 public:

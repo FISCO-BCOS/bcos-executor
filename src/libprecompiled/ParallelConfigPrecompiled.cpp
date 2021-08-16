@@ -83,19 +83,19 @@ PrecompiledExecResult::Ptr ParallelConfigPrecompiled::call(
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
 
-    m_codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
 
     if (func == name2Selector[PARA_CONFIG_REGISTER_METHOD_ADDR_STR_UINT] ||
         func == name2Selector[PARA_CONFIG_REGISTER_METHOD_STR_STR_UINT])
     {
-        registerParallelFunction(_context, data, _origin, callResult->mutableExecResult());
+        registerParallelFunction(codec, _context, data, _origin, callResult->mutableExecResult());
     }
     else if (func == name2Selector[PARA_CONFIG_UNREGISTER_METHOD_ADDR_STR] ||
              func == name2Selector[PARA_CONFIG_UNREGISTER_METHOD_STR_STR])
     {
-        unregisterParallelFunction(_context, data, _origin, callResult->mutableExecResult());
+        unregisterParallelFunction(codec, _context, data, _origin, callResult->mutableExecResult());
     }
     else
     {
@@ -148,7 +148,7 @@ TableInterface::Ptr ParallelConfigPrecompiled::openTable(
     return table;
 }
 
-void ParallelConfigPrecompiled::registerParallelFunction(
+void ParallelConfigPrecompiled::registerParallelFunction(PrecompiledCodec::Ptr _codec,
     std::shared_ptr<executor::BlockContext> _context, bytesConstRef _data,
     std::string const& _origin, bytes& _out)
 {
@@ -158,13 +158,13 @@ void ParallelConfigPrecompiled::registerParallelFunction(
     if (_context->isWasm())
     {
         std::string contractName;
-        m_codec->decode(_data, contractName, functionName, criticalSize);
+        _codec->decode(_data, contractName, functionName, criticalSize);
         table = openTable(_context, contractName, _origin);
     }
     else
     {
         Address contractName;
-        m_codec->decode(_data, contractName, functionName, criticalSize);
+        _codec->decode(_data, contractName, functionName, criticalSize);
         table = openTable(_context, contractName.hex(), _origin);
     }
     uint32_t selector = getFuncSelector(functionName, m_hashImpl);
@@ -180,7 +180,7 @@ void ParallelConfigPrecompiled::registerParallelFunction(
                                << LOG_KV(PARA_SELECTOR, std::to_string(selector))
                                << LOG_KV(PARA_FUNC_NAME, functionName)
                                << LOG_KV(PARA_CRITICAL_SIZE, criticalSize);
-        _out = m_codec->encode(u256(0));
+        _out = _codec->encode(u256(0));
 
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ParallelConfigPrecompiled")
                                << LOG_DESC("registerParallelFunction success")
@@ -190,7 +190,7 @@ void ParallelConfigPrecompiled::registerParallelFunction(
     }
 }
 
-void ParallelConfigPrecompiled::unregisterParallelFunction(
+void ParallelConfigPrecompiled::unregisterParallelFunction(PrecompiledCodec::Ptr _codec,
     std::shared_ptr<executor::BlockContext> _context, bytesConstRef _data, std::string const&,
     bytes& _out)
 {
@@ -199,14 +199,14 @@ void ParallelConfigPrecompiled::unregisterParallelFunction(
     if (_context->isWasm())
     {
         std::string contractAddress;
-        m_codec->decode(_data, contractAddress, functionName);
+        _codec->decode(_data, contractAddress, functionName);
         table = _context->getTableFactory()->openTable(
             getTableName(contractAddress, _context->isWasm()));
     }
     else
     {
         Address contractAddress;
-        m_codec->decode(_data, contractAddress, functionName);
+        _codec->decode(_data, contractAddress, functionName);
         table = _context->getTableFactory()->openTable(contractAddress.hex());
     }
 
@@ -214,7 +214,7 @@ void ParallelConfigPrecompiled::unregisterParallelFunction(
     if (table)
     {
         table->remove(std::to_string(selector));
-        _out = m_codec->encode(u256(0));
+        _out = _codec->encode(u256(0));
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ParallelConfigPrecompiled")
                                << LOG_DESC("unregisterParallelFunction success")
                                << LOG_KV(PARA_SELECTOR, std::to_string(selector));
