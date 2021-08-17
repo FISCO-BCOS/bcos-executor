@@ -145,16 +145,19 @@ void Executor::start()
         EXECUTOR_LOG(INFO) << LOG_DESC("started");
         while (!m_stop.load())
         {
-            std::promise<protocol::Block::Ptr> prom;
-            auto future = prom.get_future();
+            // Note: since the prom may be accessed in the scope of dispatcher
+            // asyncExecuteCompletedBlock, the prom should ensure the lifetime
+            std::shared_ptr<std::promise<protocol::Block::Ptr>> prom =
+                std::make_shared<std::promise<protocol::Block::Ptr>>();
+            auto future = prom->get_future();
             m_dispatcher->asyncGetLatestBlock(
-                [&prom](const Error::Ptr& error, const protocol::Block::Ptr& block) {
+                [prom](const Error::Ptr& error, const protocol::Block::Ptr& block) {
                     if (error)
                     {
                         EXECUTOR_LOG(WARNING) << LOG_DESC("asyncGetLatestBlock failed")
                                               << LOG_KV("message", error->errorMessage());
                     }
-                    prom.set_value(block);
+                    prom->set_value(block);
                 });
             // Note: must wait_for with future(not with prom.get_future)
             if (future.wait_for(std::chrono::milliseconds(c_fetchBlockTimeout)) !=
@@ -182,7 +185,7 @@ void Executor::start()
                 auto storageHeader = m_lastHeader;
                 if (!isLastHeaderFromStorage)
                 {  // if the blockNumber is storage blockNumber + 1
-                    auto storageHeader = getLatestHeaderFromStorage();
+                    storageHeader = getLatestHeaderFromStorage();
                 }
                 if (currentBlock->blockHeader()->number() != storageHeader->number() + 1)
                 {  // notify dispatcher and not clear executor state
