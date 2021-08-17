@@ -78,7 +78,7 @@ std::shared_ptr<PrecompiledExecResult> DeployWasmPrecompiled::call(
                     _sender, _origin, path, _remainGas, ref(code), ref(param)))
             {
                 if (!executive->go())
-                {
+                { // FIXME: shoud judge success use status, go always return true
                     PRECOMPILED_LOG(ERROR)
                         << LOG_BADGE("DeployWasmPrecompiled") << LOG_DESC("executive->go error")
                         << LOG_KV("path", path);

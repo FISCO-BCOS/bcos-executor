@@ -240,7 +240,7 @@ evmc_result HostContext::call(CallParameters& _p)
 {
     TransactionExecutive e{envInfo(), depth() + 1};
     stringstream ss;
-    // Note: When create initializes TransactionExecutive, the flags of evmc context must be passed in
+    // Note: When create TransactionExecutive, the flags of evmc context must be passed
     if (!e.call(_p, origin()))
     {
         go(depth(), e);
@@ -256,7 +256,15 @@ evmc_result HostContext::call(CallParameters& _p)
 
 size_t HostContext::codeSizeAt(const std::string_view& _a)
 {
-    auto precompiledAddress = toHexStringWithPrefix(_a);
+    string precompiledAddress;
+    if (m_blockContext->isWasm())
+    {
+        precompiledAddress = string(_a);
+    }
+    else
+    {
+        precompiledAddress = toHexStringWithPrefix(_a);
+    }
     if (m_blockContext->isPrecompiled(precompiledAddress))
     {
         return 1;
@@ -289,7 +297,7 @@ void HostContext::setStore(u256 const& _n, u256 const& _v)
 evmc_result HostContext::create(u256& io_gas, bytesConstRef _code, evmc_opcode _op, u256 _salt)
 {  // TODO: if liquid support contract create contract add a branch
     TransactionExecutive e{envInfo(), depth() + 1};
-    // Note: When create initializes TransactionExecutive, the flags of evmc context must be passed in
+    // Note: When create TransactionExecutive, the flags of evmc context must be passed
     bool result = false;
     if (_op == evmc_opcode::OP_CREATE)
         result = e.createOpcode(myAddress(), io_gas, _code, origin());

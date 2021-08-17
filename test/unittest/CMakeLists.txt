@@ -28,6 +28,7 @@ target_include_directories(${TEST_BINARY_NAME} PRIVATE ./ ../../src ../../includ
 find_package(Boost CONFIG QUIET REQUIRED unit_test_framework)
 
 target_link_libraries(${TEST_BINARY_NAME} executor bcos-framework::protocol-pb bcos-framework::protocol bcos-framework::utilities bcos-framework::table wedpr-crypto::crypto)
+# target_link_options(${TEST_BINARY_NAME} "LINKER:SHELL: --allow-multiple-definition")
 
 # for code coverage
 if (COVERAGE)

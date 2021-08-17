@@ -20,12 +20,12 @@
  */
 
 #include "TransactionExecutive.h"
+#include "../ChecksumAddress.h"
 #include "BlockContext.h"
 #include "EVMHostInterface.h"
 #include "HostContext.h"
 #include "VMFactory.h"
 #include "VMInstance.h"
-#include "../ChecksumAddress.h"
 #include "bcos-framework/interfaces/protocol/Exceptions.h"
 #include "bcos-framework/interfaces/storage/TableInterface.h"
 #include "bcos-framework/libcodec/abi/ContractABICodec.h"
@@ -64,8 +64,8 @@ void TransactionExecutive::initialize(Transaction::ConstPtr _transaction)
     // No risk of overflow by using int64 until txDataNonZeroGas is quite small
     // (the value not in billions).
     for (auto i : m_t->input())
-        m_baseGasRequired +=
-            i ? m_blockContext->evmSchedule().txDataNonZeroGas : m_blockContext->evmSchedule().txDataZeroGas;
+        m_baseGasRequired += i ? m_blockContext->evmSchedule().txDataNonZeroGas :
+                                 m_blockContext->evmSchedule().txDataZeroGas;
 
     uint64_t txGasLimit = m_blockContext->txGasLimit();
     // The gas limit is dynamic, not fixed.
@@ -120,8 +120,8 @@ bool TransactionExecutive::execute()
     }
 }
 
-bool TransactionExecutive::call(const std::string& _receiveAddress, const std::string& _senderAddress,
-    bytesConstRef _data, u256 const& _gas)
+bool TransactionExecutive::call(const std::string& _receiveAddress,
+    const std::string& _senderAddress, bytesConstRef _data, u256 const& _gas)
 {
     if (m_blockContext->isWasm())
     {
@@ -185,7 +185,8 @@ bool TransactionExecutive::call(CallParameters const& _p, const std::string& _or
         }
         bytes output;
         bool success;
-        tie(success, output) = m_blockContext->executeOriginPrecompiled(precompiledAddress, _p.data);
+        tie(success, output) =
+            m_blockContext->executeOriginPrecompiled(precompiledAddress, _p.data);
         if (!success)
         {
             m_remainGas = 0;
@@ -251,15 +252,15 @@ bool TransactionExecutive::call(CallParameters const& _p, const std::string& _or
     return !m_context;
 }
 
-bool TransactionExecutive::create(const std::string_view& _txSender, u256 const& _gas, bytesConstRef _init,
-    const std::string_view& _origin)
+bool TransactionExecutive::create(const std::string_view& _txSender, u256 const& _gas,
+    bytesConstRef _init, const std::string_view& _origin)
 {
     // Contract creation by an external account is the same as CREATE opcode
     return createOpcode(_txSender, _gas, _init, _origin);
 }
 
-bool TransactionExecutive::createOpcode(const std::string_view& _sender, u256 const& _gas, bytesConstRef _init,
-    const std::string_view& _origin)
+bool TransactionExecutive::createOpcode(const std::string_view& _sender, u256 const& _gas,
+    bytesConstRef _init, const std::string_view& _origin)
 {
     u256 nonce = m_s->getNonce(_sender);
     auto hash = m_hashImpl->hash(string(_sender) + nonce.str());
@@ -276,17 +277,17 @@ bool TransactionExecutive::create2Opcode(const std::string_view& _sender, u256 c
     return executeCreate(_sender, _origin, m_newAddress, _gas, _init);
 }
 
-bool TransactionExecutive::executeCreate(const std::string_view& _sender, const std::string_view& _origin,
-    const std::string& _newAddress, u256 const& _gasLeft, bytesConstRef _init,
-    bytesConstRef constructorParams)
+bool TransactionExecutive::executeCreate(const std::string_view& _sender,
+    const std::string_view& _origin, const std::string& _newAddress, u256 const& _gasLeft,
+    bytesConstRef _init, bytesConstRef constructorParams)
 {
     // check authority for deploy contract
     auto tableFactory = m_blockContext->getTableFactory();
     // permission control
     if (!tableFactory->checkAuthority(SYS_TABLE, string(_origin)))
     {
-        EXECUTIVE_LOG(WARNING) << "TransactionExecutive deploy contract checkAuthority of " << _origin
-                               << " failed!";
+        EXECUTIVE_LOG(WARNING) << "TransactionExecutive deploy contract checkAuthority of "
+                               << _origin << " failed!";
         m_remainGas = 0;
         m_excepted = TransactionStatus::PermissionDenied;
         revert();
@@ -319,7 +320,8 @@ bool TransactionExecutive::executeCreate(const std::string_view& _sender, const 
     if (accountAlreadyExist)
     {
         EXECUTIVE_LOG(DEBUG) << "address already used: "
-                             << (m_blockContext->isWasm() ? _newAddress : *toHexString(_newAddress));
+                             << (m_blockContext->isWasm() ? _newAddress :
+                                                            *toHexString(_newAddress));
         m_remainGas = 0;
         m_excepted = TransactionStatus::ContractAddressAlreadyUsed;
         revert();
@@ -335,6 +337,7 @@ bool TransactionExecutive::executeCreate(const std::string_view& _sender, const 
     if (!_init.empty())
     {
         auto code = make_shared<bytes>(_init.data(), _init.data() + _init.size());
+        // FIXME: if isWASM and the code is not wasm code, make it failed
         if (hasWasmPreamble(*code))
         {  // the Wasm deploy use a precompiled which call this function, so inject meter here
             auto result = m_gasInjector->InjectMeter(*code);

@@ -194,6 +194,7 @@ void Executor::start()
                         << LOG_DESC(
                                "check BlockNumber continuity failed, notify dispatcher and skip")
                         << LOG_KV("ledger", storageHeader->number())
+                        << LOG_KV("expect", m_lastHeader->number() + 1)
                         << LOG_KV("blockNumber", currentBlock->blockHeader()->number());
                     resultNotifier(make_shared<Error>(ExecutorErrorCode::DiscontinuousBlockNumber,
                                        "check BlockNumber continuity failed"),
