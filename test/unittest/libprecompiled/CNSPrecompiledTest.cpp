@@ -231,9 +231,6 @@ BOOST_AUTO_TEST_CASE(selectTest)
     out = callResult->execResult();
     codec->decode(&out, ret);
     BOOST_TEST(ret != contractAddress);
-    s256 errorCode;
-    codec->decode(&out, errorCode);
-    BOOST_TEST(errorCode == s256((int)CODE_ADDRESS_OR_VERSION_ERROR));
 
     // select no existing keys
     in = codec->encodeWithSig("selectByName(string)", std::string("Ok2"));
@@ -266,8 +263,6 @@ BOOST_AUTO_TEST_CASE(selectTest)
     BCOS_LOG(TRACE) << "select result: address:" << ret.hex() << " abi:" << abi;
     BOOST_TEST(abi != contractAbi);
     BOOST_TEST(ret != contractAddress);
-    codec->decode(&out, errorCode);
-    BOOST_TEST(errorCode == s256((int)CODE_ADDRESS_OR_VERSION_ERROR));
 
     in = codec->encodeWithSig(
         "selectByNameAndVersion(string,string)", std::string("Ok2"), contractVersion);
@@ -277,8 +272,6 @@ BOOST_AUTO_TEST_CASE(selectTest)
     BCOS_LOG(TRACE) << "select result: address:" << ret.hex() << " abi:" << abi;
     BOOST_TEST(abi != contractAbi);
     BOOST_TEST(ret != contractAddress);
-    codec->decode(&out, errorCode);
-    BOOST_TEST(errorCode == s256((int)CODE_ADDRESS_OR_VERSION_ERROR));
 }
 
 BOOST_AUTO_TEST_CASE(errFunc)

@@ -77,11 +77,12 @@ std::shared_ptr<PrecompiledExecResult> DeployWasmPrecompiled::call(
             if (!executive->executeCreate(
                     _sender, _origin, path, _remainGas, ref(code), ref(param)))
             {
-                if (!executive->go())
-                { // FIXME: shoud judge success use status, go always return true
+                executive->go();
+                if (executive->status() != TransactionStatus::None)
+                {
                     PRECOMPILED_LOG(ERROR)
-                        << LOG_BADGE("DeployWasmPrecompiled") << LOG_DESC("executive->go error")
-                        << LOG_KV("path", path);
+                            << LOG_BADGE("DeployWasmPrecompiled") << LOG_DESC("executive->go error")
+                            << LOG_KV("path", path);
                     // FIXME:  return error message in PrecompiledError
                     BOOST_THROW_EXCEPTION(protocol::PrecompiledError());
                 }

@@ -182,7 +182,6 @@ std::pair<std::string, protocol::BlockNumber> SystemConfigPrecompiled::getSysCon
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("SystemConfigPrecompiled")
                                << LOG_DESC("get sys config error") << LOG_KV("configKey", _key);
-        // FIXME: use unified code to return
         return {"", -1};
     }
 }

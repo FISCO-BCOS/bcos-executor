@@ -294,7 +294,7 @@ void CNSPrecompiled::selectByNameAndVersion(const std::shared_ptr<executor::Bloc
                                << LOG_DESC("can't get cns selectByNameAndVersion")
                                << LOG_KV("contractName", contractName)
                                << LOG_KV("contractVersion", contractVersion);
-        callResult->setExecResult(m_codec->encode((int)CODE_ADDRESS_OR_VERSION_ERROR));
+        callResult->setExecResult(m_codec->encode(Address(), std::string("")));
     }
     else
     {
@@ -330,7 +330,7 @@ void CNSPrecompiled::getContractAddress(const std::shared_ptr<executor::BlockCon
                                << LOG_DESC("can't get cns selectByNameAndVersion")
                                << LOG_KV("contractName", contractName)
                                << LOG_KV("contractVersion", contractVersion);
-        callResult->setExecResult(m_codec->encode((int)CODE_ADDRESS_OR_VERSION_ERROR));
+        callResult->setExecResult(m_codec->encode(Address()));
     }
     else
     {
