@@ -55,7 +55,6 @@ std::shared_ptr<PrecompiledExecResult> FileSystemPrecompiled::call(
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("FileSystemPrecompiled") << LOG_DESC("call")
                            << LOG_KV("func", func);
 
-    m_codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->setMemUsed(_param.size());
@@ -86,7 +85,8 @@ void FileSystemPrecompiled::makeDir(const std::shared_ptr<executor::BlockContext
 {
     // mkdir(string)
     std::string absolutePath;
-    this->m_codec->decode(data, absolutePath);
+    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    codec->decode(data, absolutePath);
     auto table = _context->getTableFactory()->openTable(absolutePath);
     gasPricer->appendOperation(InterfaceOpcode::OpenTable);
     if (table)
@@ -96,14 +96,14 @@ void FileSystemPrecompiled::makeDir(const std::shared_ptr<executor::BlockContext
         {
             PRECOMPILED_LOG(TRACE)
                 << LOG_BADGE("FileSystemPrecompiled") << LOG_DESC("directory exists");
-            callResult->setExecResult(this->m_codec->encode(true));
+            callResult->setExecResult(codec->encode(true));
         }
         else
         {
             // regular file
             PRECOMPILED_LOG(ERROR) << LOG_BADGE("FileSystemPrecompiled")
                                    << LOG_DESC("file name exists, not a directory");
-            callResult->setExecResult(this->m_codec->encode(false));
+            callResult->setExecResult(codec->encode(false));
         }
     }
     else
@@ -111,7 +111,7 @@ void FileSystemPrecompiled::makeDir(const std::shared_ptr<executor::BlockContext
         PRECOMPILED_LOG(TRACE) << LOG_BADGE("FileSystemPrecompiled")
                                << LOG_DESC("directory not exists") << LOG_KV("path", absolutePath);
         auto result = recursiveBuildDir(_context->getTableFactory(), absolutePath);
-        callResult->setExecResult(this->m_codec->encode(result));
+        callResult->setExecResult(codec->encode(result));
     }
 }
 
@@ -121,7 +121,8 @@ void FileSystemPrecompiled::listDir(const std::shared_ptr<executor::BlockContext
 {
     // list(string)
     std::string absolutePath;
-    this->m_codec->decode(data, absolutePath);
+    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    codec->decode(data, absolutePath);
     auto table = _context->getTableFactory()->openTable(absolutePath);
     gasPricer->appendOperation(InterfaceOpcode::OpenTable);
 
@@ -151,7 +152,7 @@ void FileSystemPrecompiled::listDir(const std::shared_ptr<executor::BlockContext
             std::string str = fastWriter.write(directory);
             PRECOMPILED_LOG(TRACE)
                 << LOG_BADGE("FileSystemPrecompiled") << LOG_DESC("ls dir, return subdirectories");
-            callResult->setExecResult(this->m_codec->encode(str));
+            callResult->setExecResult(codec->encode(str));
         }
         else
         {
@@ -162,7 +163,7 @@ void FileSystemPrecompiled::listDir(const std::shared_ptr<executor::BlockContext
             Json::FastWriter fastWriter;
             std::string str = fastWriter.write(file);
             // TODO: add permission mod when permission support
-            callResult->setExecResult(this->m_codec->encode(str));
+            callResult->setExecResult(codec->encode(str));
         }
     }
     else
@@ -170,6 +171,6 @@ void FileSystemPrecompiled::listDir(const std::shared_ptr<executor::BlockContext
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("FileSystemPrecompiled")
                                << LOG_DESC("can't open table of file path")
                                << LOG_KV("path", absolutePath);
-        getErrorCodeOut(callResult->mutableExecResult(), CODE_FILE_NOT_EXIST, this->m_codec);
+        getErrorCodeOut(callResult->mutableExecResult(), CODE_FILE_NOT_EXIST, codec);
     }
 }

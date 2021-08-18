@@ -165,7 +165,7 @@ PrecompiledExecResult::Ptr DagTransferPrecompiled::call(
     std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
     const std::string& _origin, const std::string&, u256& _remainGas)
 {
-    auto codec = std::make_shared<PrecompiledCodec>(m_hashImpl, _context->isWasm());
+    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     // parse function name
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);

@@ -19,7 +19,4 @@
  */
 
 #include "DagTransferPrecompiled.h"
-#include "GroupSigPrecompiled.h"
 #include "HelloWorldPrecompiled.h"
-#include "PaillierPrecompiled.h"
-#include "RingSigPrecompiled.h"

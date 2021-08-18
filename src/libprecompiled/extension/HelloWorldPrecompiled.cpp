@@ -69,7 +69,7 @@ PrecompiledExecResult::Ptr HelloWorldPrecompiled::call(
     // parse function name
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
-    m_codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->setMemUsed(_param.size());
@@ -89,7 +89,7 @@ PrecompiledExecResult::Ptr HelloWorldPrecompiled::call(
         {
             PRECOMPILED_LOG(ERROR) << LOG_BADGE("HelloWorldPrecompiled") << LOG_DESC("set")
                                    << LOG_DESC("open table failed.");
-            getErrorCodeOut(callResult->mutableExecResult(), CODE_NO_AUTHORIZED, m_codec);
+            getErrorCodeOut(callResult->mutableExecResult(), CODE_NO_AUTHORIZED, codec);
             return callResult;
         }
     }
@@ -108,13 +108,13 @@ PrecompiledExecResult::Ptr HelloWorldPrecompiled::call(
             PRECOMPILED_LOG(ERROR) << LOG_BADGE("HelloWorldPrecompiled") << LOG_DESC("get")
                                    << LOG_KV("value", retValue);
         }
-        callResult->setExecResult(m_codec->encode(retValue));
+        callResult->setExecResult(codec->encode(retValue));
     }
     else if (func == name2Selector[HELLO_WORLD_METHOD_SET])
     {  // set(string) function call
 
         std::string strValue;
-        m_codec->decode(data, strValue);
+        codec->decode(data, strValue);
         auto entry = table->getRow(HELLO_WORLD_KEY_FIELD_NAME);
         gasPricer->updateMemUsed(entry->capacityOfHashField());
         gasPricer->appendOperation(InterfaceOpcode::Select, 1);
@@ -129,13 +129,13 @@ PrecompiledExecResult::Ptr HelloWorldPrecompiled::call(
         table->setRow(HELLO_WORLD_KEY_FIELD_NAME, entry);
         gasPricer->appendOperation(InterfaceOpcode::Update, 1);
         gasPricer->updateMemUsed(entry->capacityOfHashField());
-        getErrorCodeOut(callResult->mutableExecResult(), 1, m_codec);
+        getErrorCodeOut(callResult->mutableExecResult(), 1, codec);
     }
     else
     {  // unknown function call
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("HelloWorldPrecompiled")
                                << LOG_DESC(" unknown function ") << LOG_KV("func", func);
-        callResult->setExecResult(m_codec->encode(u256((int)CODE_UNKNOW_FUNCTION_CALL)));
+        callResult->setExecResult(codec->encode(u256((int)CODE_UNKNOW_FUNCTION_CALL)));
     }
     gasPricer->updateMemUsed(callResult->m_execResult.size());
     _remainGas -= gasPricer->calTotalGas();

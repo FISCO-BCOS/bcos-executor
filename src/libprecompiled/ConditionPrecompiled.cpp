@@ -79,7 +79,7 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(
     bytesConstRef data = getParamData(_param);
 
     STORAGE_LOG(DEBUG) << "func:" << std::hex << func;
-    m_codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->setMemUsed(_param.size());
@@ -89,7 +89,7 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(
         // EQ(string,int256)
         std::string str;
         s256 num;
-        m_codec->decode(data, str, num);
+        codec->decode(data, str, num);
 
         m_condition->EQ(str, boost::lexical_cast<std::string>(num));
         gasPricer->appendOperation(InterfaceOpcode::EQ);
@@ -99,7 +99,7 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(
         // EQ(string,string)
         std::string str;
         std::string value;
-        m_codec->decode(data, str, value);
+        codec->decode(data, str, value);
 
         m_condition->EQ(str, value);
         gasPricer->appendOperation(InterfaceOpcode::EQ);
@@ -109,7 +109,7 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(
         // EQ(string,address)
         std::string str;
         Address value;
-        m_codec->decode(data, str, value);
+        codec->decode(data, str, value);
         m_condition->EQ(str, value.hex());
         gasPricer->appendOperation(InterfaceOpcode::EQ);
     }
@@ -118,7 +118,7 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(
         // GE(string,int256)
         std::string str;
         s256 value;
-        m_codec->decode(data, str, value);
+        codec->decode(data, str, value);
 
         m_condition->GE(str, boost::lexical_cast<std::string>(value));
         gasPricer->appendOperation(InterfaceOpcode::GE);
@@ -128,7 +128,7 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(
         // GT(string,int256)
         std::string str;
         s256 value;
-        m_codec->decode(data, str, value);
+        codec->decode(data, str, value);
 
         m_condition->GT(str, boost::lexical_cast<std::string>(value));
         gasPricer->appendOperation(InterfaceOpcode::GT);
@@ -138,7 +138,7 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(
         // LE(string,int256)
         std::string str;
         s256 value;
-        m_codec->decode(data, str, value);
+        codec->decode(data, str, value);
 
         m_condition->LE(str, boost::lexical_cast<std::string>(value));
         gasPricer->appendOperation(InterfaceOpcode::LE);
@@ -148,7 +148,7 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(
         // LT(string,int256)
         std::string str;
         s256 value;
-        m_codec->decode(data, str, value);
+        codec->decode(data, str, value);
 
         m_condition->LT(str, boost::lexical_cast<std::string>(value));
         gasPricer->appendOperation(InterfaceOpcode::LT);
@@ -158,7 +158,7 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(
         // NE(string,int256)
         std::string str;
         s256 num;
-        m_codec->decode(data, str, num);
+        codec->decode(data, str, num);
 
         m_condition->NE(str, boost::lexical_cast<std::string>(num));
         gasPricer->appendOperation(InterfaceOpcode::NE);
@@ -168,7 +168,7 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(
         // NE(string,string)
         std::string str;
         std::string value;
-        m_codec->decode(data, str, value);
+        codec->decode(data, str, value);
 
         m_condition->NE(str, value);
         gasPricer->appendOperation(InterfaceOpcode::NE);
@@ -177,7 +177,7 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(
     {
         // limit(int256)
         s256 num;
-        m_codec->decode(data, num);
+        codec->decode(data, num);
         num = (num < 0) ? 0 : num;
 
         m_condition->limit(size_t(num));
@@ -188,7 +188,7 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(
         // limit(int256,int256)
         s256 start;
         s256 end;
-        m_codec->decode(data, start, end);
+        codec->decode(data, start, end);
         start = (start < 0) ? 0 : start;
         end = (end < start) ? start : end;
 

@@ -53,7 +53,6 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
 
-    m_codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
 
@@ -85,7 +84,8 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("ConsensusPrecompiled")
                                << LOG_DESC("call undefined function") << LOG_KV("func", func);
     }
-    getErrorCodeOut(callResult->mutableExecResult(), result, m_codec);
+    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    getErrorCodeOut(callResult->mutableExecResult(), result, codec);
     gasPricer->updateMemUsed(callResult->m_execResult.size());
     _remainGas -= gasPricer->calTotalGas();
     return callResult;
@@ -97,7 +97,8 @@ int ConsensusPrecompiled::addSealer(const std::shared_ptr<executor::BlockContext
     // addSealer(string, uint256)
     std::string nodeID;
     u256 weight;
-    m_codec->decode(_data, nodeID, weight);
+    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    codec->decode(_data, nodeID, weight);
     // Uniform lowercase nodeID
     boost::to_lower(nodeID);
 
@@ -121,7 +122,7 @@ int ConsensusPrecompiled::addSealer(const std::shared_ptr<executor::BlockContext
     auto newEntry = table->newEntry();
     newEntry->setField(NODE_TYPE, ledger::CONSENSUS_SEALER);
     newEntry->setField(
-        NODE_ENABLE_NUMBER, boost::lexical_cast<std::string>(_context->currentNumber()));
+        NODE_ENABLE_NUMBER, boost::lexical_cast<std::string>(_context->currentNumber() + 1));
     newEntry->setField(NODE_WEIGHT, boost::lexical_cast<std::string>(weight));
 
     if (_context->getTableFactory()->checkAuthority(ledger::SYS_CONSENSUS, _origin))
@@ -145,7 +146,8 @@ int ConsensusPrecompiled::addObserver(const std::shared_ptr<executor::BlockConte
 {
     // addObserver(string)
     std::string nodeID;
-    m_codec->decode(_data, nodeID);
+    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    codec->decode(_data, nodeID);
     // Uniform lowercase nodeID
     boost::to_lower(nodeID);
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("addObserver func")
@@ -163,7 +165,7 @@ int ConsensusPrecompiled::addObserver(const std::shared_ptr<executor::BlockConte
     auto newEntry = table->newEntry();
     newEntry->setField(NODE_TYPE, ledger::CONSENSUS_OBSERVER);
     newEntry->setField(
-        NODE_ENABLE_NUMBER, boost::lexical_cast<std::string>(_context->currentNumber()));
+        NODE_ENABLE_NUMBER, boost::lexical_cast<std::string>(_context->currentNumber() + 1));
     newEntry->setField(NODE_WEIGHT, "-1");
     if (!_context->getTableFactory()->checkAuthority(ledger::SYS_CONSENSUS, _origin))
     {
@@ -188,7 +190,8 @@ int ConsensusPrecompiled::removeNode(const std::shared_ptr<executor::BlockContex
 {
     // remove(string)
     std::string nodeID;
-    m_codec->decode(_data, nodeID);
+    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    codec->decode(_data, nodeID);
     // Uniform lowercase nodeID
     boost::to_lower(nodeID);
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("remove func")
@@ -224,7 +227,8 @@ int ConsensusPrecompiled::setWeight(const std::shared_ptr<executor::BlockContext
     // setWeight(string,uint256)
     std::string nodeID;
     u256 weight;
-    m_codec->decode(_data, nodeID, weight);
+    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    codec->decode(_data, nodeID, weight);
     // Uniform lowercase nodeID
     boost::to_lower(nodeID);
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("remove func")

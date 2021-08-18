@@ -124,7 +124,6 @@ PrecompiledExecResult::Ptr CNSPrecompiled::call(std::shared_ptr<executor::BlockC
     PRECOMPILED_LOG(TRACE) << LOG_BADGE("CNSPrecompiled") << LOG_DESC("call")
                            << LOG_KV("func", func);
 
-    m_codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
 
@@ -167,7 +166,8 @@ void CNSPrecompiled::insert(const std::shared_ptr<executor::BlockContext>& _cont
     // insert(name, version, address, abi), 4 fields in table, the key of table is name field
     std::string contractName, contractVersion, contractAbi;
     Address contractAddress;
-    m_codec->decode(data, contractName, contractVersion, contractAddress, contractAbi);
+    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    codec->decode(data, contractName, contractVersion, contractAddress, contractAbi);
 
     int validCode =
         checkCNSParam(_context, contractAddress, contractName, contractVersion, contractAbi);
@@ -218,7 +218,7 @@ void CNSPrecompiled::insert(const std::shared_ptr<executor::BlockContext>& _cont
             result = CODE_NO_AUTHORIZED;
         }
     }
-    getErrorCodeOut(callResult->mutableExecResult(), result, m_codec);
+    getErrorCodeOut(callResult->mutableExecResult(), result, codec);
 }
 
 void CNSPrecompiled::selectByName(const std::shared_ptr<executor::BlockContext>& _context,
@@ -227,7 +227,8 @@ void CNSPrecompiled::selectByName(const std::shared_ptr<executor::BlockContext>&
 {
     // selectByName(string) returns(string)
     std::string contractName;
-    m_codec->decode(data, contractName);
+    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    codec->decode(data, contractName);
     auto table = _context->getTableFactory()->openTable(SYS_CNS);
     gasPricer->appendOperation(InterfaceOpcode::OpenTable);
     if (!table)
@@ -266,7 +267,7 @@ void CNSPrecompiled::selectByName(const std::shared_ptr<executor::BlockContext>&
     }
     Json::FastWriter fastWriter;
     std::string str = fastWriter.write(CNSInfos);
-    callResult->setExecResult(m_codec->encode(str));
+    callResult->setExecResult(codec->encode(str));
 }
 
 void CNSPrecompiled::selectByNameAndVersion(const std::shared_ptr<executor::BlockContext>& _context,
@@ -275,7 +276,8 @@ void CNSPrecompiled::selectByNameAndVersion(const std::shared_ptr<executor::Bloc
 {
     // selectByNameAndVersion(string,string) returns(address,string)
     std::string contractName, contractVersion;
-    m_codec->decode(data, contractName, contractVersion);
+    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    codec->decode(data, contractName, contractVersion);
     auto table = _context->getTableFactory()->openTable(SYS_CNS);
     gasPricer->appendOperation(InterfaceOpcode::OpenTable);
     if (!table)
@@ -294,14 +296,14 @@ void CNSPrecompiled::selectByNameAndVersion(const std::shared_ptr<executor::Bloc
                                << LOG_DESC("can't get cns selectByNameAndVersion")
                                << LOG_KV("contractName", contractName)
                                << LOG_KV("contractVersion", contractVersion);
-        callResult->setExecResult(m_codec->encode(Address(), std::string("")));
+        callResult->setExecResult(codec->encode(Address(), std::string("")));
     }
     else
     {
         gasPricer->appendOperation(InterfaceOpcode::Select, entry->capacityOfHashField());
         Address contractAddress = toAddress(entry->getField(SYS_CNS_FIELD_ADDRESS));
         std::string abi = entry->getField(SYS_CNS_FIELD_ABI);
-        callResult->setExecResult(m_codec->encode(contractAddress, abi));
+        callResult->setExecResult(codec->encode(contractAddress, abi));
     }
 }
 
@@ -311,7 +313,8 @@ void CNSPrecompiled::getContractAddress(const std::shared_ptr<executor::BlockCon
 {
     // getContractAddress(string,string) returns(address)
     std::string contractName, contractVersion;
-    m_codec->decode(data, contractName, contractVersion);
+    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    codec->decode(data, contractName, contractVersion);
     auto table = _context->getTableFactory()->openTable(SYS_CNS);
     if (!table)
     {
@@ -330,12 +333,12 @@ void CNSPrecompiled::getContractAddress(const std::shared_ptr<executor::BlockCon
                                << LOG_DESC("can't get cns selectByNameAndVersion")
                                << LOG_KV("contractName", contractName)
                                << LOG_KV("contractVersion", contractVersion);
-        callResult->setExecResult(m_codec->encode(Address()));
+        callResult->setExecResult(codec->encode(Address()));
     }
     else
     {
         gasPricer->appendOperation(InterfaceOpcode::Select, entry->capacityOfHashField());
         Address contractAddress = toAddress(entry->getField(SYS_CNS_FIELD_ADDRESS));
-        callResult->setExecResult(m_codec->encode(contractAddress));
+        callResult->setExecResult(codec->encode(contractAddress));
     }
 }

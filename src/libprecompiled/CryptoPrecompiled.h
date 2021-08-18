@@ -21,6 +21,7 @@
 #pragma once
 #include "../libvm/Precompiled.h"
 #include "Common.h"
+#include "PrecompiledResult.h"
 
 namespace bcos
 {
@@ -46,9 +47,8 @@ public:
         u256& _remainGas) override;
 
 private:
-    void sm2Verify(bytesConstRef _paramData, std::shared_ptr<PrecompiledExecResult> _callResult);
-    void curve25519VRFVerify(
-        bytesConstRef _paramData, std::shared_ptr<PrecompiledExecResult> _callResult);
+    void sm2Verify(bytesConstRef _paramData, PrecompiledExecResult::Ptr _callResult,
+        PrecompiledCodec::Ptr _codec);
 };
 }  // namespace precompiled
 }  // namespace bcos

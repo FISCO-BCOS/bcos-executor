@@ -61,7 +61,6 @@ PrecompiledExecResult::Ptr KVTableFactoryPrecompiled::call(
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("KVTableFactory") << LOG_DESC("call")
                            << LOG_KV("func", func);
 
-    m_codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->setMemUsed(_param.size());
@@ -142,7 +141,8 @@ void KVTableFactoryPrecompiled::openTable(const std::shared_ptr<executor::BlockC
 {
     // openTable(string)
     std::string tableName;
-    m_codec->decode(data, tableName);
+    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    codec->decode(data, tableName);
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("KVTableFactory") << LOG_KV("openTable", tableName);
     tableName = getTableName(tableName, _context->isWasm());
     auto table = m_memoryTableFactory->openTable(tableName);
@@ -159,13 +159,13 @@ void KVTableFactoryPrecompiled::openTable(const std::shared_ptr<executor::BlockC
     if (_context->isWasm())
     {
         auto address = _context->registerPrecompiled(kvTablePrecompiled);
-        callResult->setExecResult(m_codec->encode(address));
+        callResult->setExecResult(codec->encode(address));
     }
     else
     {
         auto address =
             Address(_context->registerPrecompiled(kvTablePrecompiled), FixedBytes<20>::FromBinary);
-        callResult->setExecResult(m_codec->encode(address));
+        callResult->setExecResult(codec->encode(address));
     }
 }
 
@@ -186,8 +186,8 @@ void KVTableFactoryPrecompiled::createTable(const std::shared_ptr<executor::Bloc
     std::string tableName;
     std::string keyField;
     std::string valueFiled;
-
-    m_codec->decode(data, tableName, keyField, valueFiled);
+    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    codec->decode(data, tableName, keyField, valueFiled);
 
     if (_context->isWasm() && (tableName.empty() || tableName.at(0) != '/'))
     {
@@ -249,5 +249,5 @@ void KVTableFactoryPrecompiled::createTable(const std::shared_ptr<executor::Bloc
             parentTable->setRow(FS_KEY_SUB, newEntry);
         }
     }
-    getErrorCodeOut(callResult->mutableExecResult(), result, m_codec);
+    getErrorCodeOut(callResult->mutableExecResult(), result, codec);
 }

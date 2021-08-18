@@ -63,8 +63,7 @@ PrecompiledExecResult::Ptr EntryPrecompiled::call(std::shared_ptr<executor::Bloc
 {
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
-
-    m_codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->setMemUsed(_param.size());
@@ -73,26 +72,26 @@ PrecompiledExecResult::Ptr EntryPrecompiled::call(std::shared_ptr<executor::Bloc
     {
         // getInt(string)
         std::string str;
-        m_codec->decode(data, str);
+        codec->decode(data, str);
         s256 num = boost::lexical_cast<s256>(m_entry->getField(str));
         gasPricer->appendOperation(InterfaceOpcode::GetInt);
-        callResult->setExecResult(m_codec->encode(num));
+        callResult->setExecResult(codec->encode(num));
     }
     else if (func == name2Selector[ENTRY_GET_UINT])
     {
         // getUInt(string)
         std::string str;
-        m_codec->decode(data, str);
+        codec->decode(data, str);
         u256 num = boost::lexical_cast<u256>(m_entry->getField(str));
         gasPricer->appendOperation(InterfaceOpcode::GetInt);
-        callResult->setExecResult(m_codec->encode(num));
+        callResult->setExecResult(codec->encode(num));
     }
     else if (func == name2Selector[ENTRY_SET_STR_INT])
     {
         // set(string,int256)
         std::string key;
         s256 num;
-        m_codec->decode(data, key, num);
+        codec->decode(data, key, num);
         auto value = boost::lexical_cast<std::string>(num);
         m_entry->setField(key, value);
         gasPricer->appendOperation(InterfaceOpcode::Set);
@@ -102,7 +101,7 @@ PrecompiledExecResult::Ptr EntryPrecompiled::call(std::shared_ptr<executor::Bloc
         // set(string,uint256)
         std::string key;
         u256 num;
-        m_codec->decode(data, key, num);
+        codec->decode(data, key, num);
         auto value = boost::lexical_cast<std::string>(num);
         m_entry->setField(key, value);
         gasPricer->appendOperation(InterfaceOpcode::Set);
@@ -112,7 +111,7 @@ PrecompiledExecResult::Ptr EntryPrecompiled::call(std::shared_ptr<executor::Bloc
         // set(string,string)
         std::string str;
         std::string value;
-        m_codec->decode(data, str, value);
+        codec->decode(data, str, value);
 
         m_entry->setField(str, value);
         gasPricer->appendOperation(InterfaceOpcode::Set);
@@ -122,7 +121,7 @@ PrecompiledExecResult::Ptr EntryPrecompiled::call(std::shared_ptr<executor::Bloc
         // set(string,address)
         std::string str;
         Address value;
-        m_codec->decode(data, str, value);
+        codec->decode(data, str, value);
 
         m_entry->setField(str, value.hex());
         gasPricer->appendOperation(InterfaceOpcode::Set);
@@ -131,17 +130,17 @@ PrecompiledExecResult::Ptr EntryPrecompiled::call(std::shared_ptr<executor::Bloc
     {
         // getAddress(string)
         std::string str;
-        m_codec->decode(data, str);
+        codec->decode(data, str);
 
         std::string value = m_entry->getField(str);
         if (_context->isWasm())
         {
-            callResult->setExecResult(m_codec->encode(value));
+            callResult->setExecResult(codec->encode(value));
         }
         else
         {
             auto ret = Address(value);
-            callResult->setExecResult(m_codec->encode(ret));
+            callResult->setExecResult(codec->encode(ret));
         }
         gasPricer->appendOperation(InterfaceOpcode::GetAddr);
     }
@@ -149,7 +148,7 @@ PrecompiledExecResult::Ptr EntryPrecompiled::call(std::shared_ptr<executor::Bloc
     {
         // getBytes64(string)
         std::string str;
-        m_codec->decode(data, str);
+        codec->decode(data, str);
 
         std::string value = m_entry->getField(str);
 
@@ -161,28 +160,28 @@ PrecompiledExecResult::Ptr EntryPrecompiled::call(std::shared_ptr<executor::Bloc
 
         for (unsigned i = 32; i < 64; ++i)
             ret1[i - 32] = (i < value.size() ? value[i] : 0);
-        callResult->setExecResult(m_codec->encode(ret0, ret1));
+        callResult->setExecResult(codec->encode(ret0, ret1));
         gasPricer->appendOperation(InterfaceOpcode::GetByte64);
     }
     else if (func == name2Selector[ENTRY_GETB_STR32])
     {
         // getBytes32(string)
         std::string str;
-        m_codec->decode(data, str);
+        codec->decode(data, str);
 
         std::string value = m_entry->getField(str);
         bcos::string32 s32 = bcos::codec::toString32(value);
-        callResult->setExecResult(m_codec->encode(s32));
+        callResult->setExecResult(codec->encode(s32));
         gasPricer->appendOperation(InterfaceOpcode::GetByte32);
     }
     else if (func == name2Selector[ENTRY_GET_STR])
     {
         // getString(string)
         std::string str;
-        m_codec->decode(data, str);
+        codec->decode(data, str);
 
         std::string value = m_entry->getField(str);
-        callResult->setExecResult(m_codec->encode(value));
+        callResult->setExecResult(codec->encode(value));
         gasPricer->appendOperation(InterfaceOpcode::GetString);
     }
     else

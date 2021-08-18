@@ -48,8 +48,7 @@ PrecompiledExecResult::Ptr EntriesPrecompiled::call(
 {
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
-
-    m_codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->setMemUsed(_param.size());
@@ -58,7 +57,7 @@ PrecompiledExecResult::Ptr EntriesPrecompiled::call(
     {
         // get(int256)
         u256 num;
-        m_codec->decode(data, num);
+        codec->decode(data, num);
 
         Entry::Ptr entry = getEntriesPtr()->at(num.convert_to<size_t>());
         EntryPrecompiled::Ptr entryPrecompiled = std::make_shared<EntryPrecompiled>(m_hashImpl);
@@ -66,19 +65,19 @@ PrecompiledExecResult::Ptr EntriesPrecompiled::call(
         if (_context->isWasm())
         {
             std::string address = _context->registerPrecompiled(entryPrecompiled);
-            callResult->setExecResult(m_codec->encode(address));
+            callResult->setExecResult(codec->encode(address));
         }
         else
         {
             Address address = Address(_context->registerPrecompiled(entryPrecompiled));
-            callResult->setExecResult(m_codec->encode(address));
+            callResult->setExecResult(codec->encode(address));
         }
     }
     else if (func == name2Selector[ENTRIES_SIZE])
     {
         // size()
         u256 c = getEntriesConstPtr()->size();
-        callResult->setExecResult(m_codec->encode(c));
+        callResult->setExecResult(codec->encode(c));
     }
     else
     {

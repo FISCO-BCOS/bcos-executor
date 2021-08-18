@@ -56,7 +56,8 @@ PrecompiledExecResult::Ptr SystemConfigPrecompiled::call(
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
 
-    m_codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     if (func == name2Selector[SYSCONFIG_METHOD_SET_STR])
@@ -64,7 +65,7 @@ PrecompiledExecResult::Ptr SystemConfigPrecompiled::call(
         int result;
         // setValueByKey(string,string)
         std::string configKey, configValue;
-        m_codec->decode(data, configKey, configValue);
+        codec->decode(data, configKey, configValue);
         // Uniform lowercase configKey
         boost::to_lower(configKey);
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("SystemConfigPrecompiled")
@@ -77,7 +78,7 @@ PrecompiledExecResult::Ptr SystemConfigPrecompiled::call(
                 << LOG_BADGE("SystemConfigPrecompiled") << LOG_DESC("set invalid value")
                 << LOG_KV("configKey", configKey) << LOG_KV("configValue", configValue);
             getErrorCodeOut(
-                callResult->mutableExecResult(), CODE_INVALID_CONFIGURATION_VALUES, m_codec);
+                callResult->mutableExecResult(), CODE_INVALID_CONFIGURATION_VALUES, codec);
             return callResult;
         }
 
@@ -102,13 +103,13 @@ PrecompiledExecResult::Ptr SystemConfigPrecompiled::call(
                 << LOG_BADGE("SystemConfigPrecompiled") << LOG_DESC("permission denied");
             result = CODE_NO_AUTHORIZED;
         }
-        getErrorCodeOut(callResult->mutableExecResult(), result, m_codec);
+        getErrorCodeOut(callResult->mutableExecResult(), result, codec);
     }
     else if (func == name2Selector[SYSCONFIG_METHOD_GET_STR])
     {
         // getValueByKey(string)
         std::string configKey;
-        m_codec->decode(data, configKey);
+        codec->decode(data, configKey);
         // Uniform lowercase configKey
         boost::to_lower(configKey);
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("SystemConfigPrecompiled")
@@ -117,7 +118,7 @@ PrecompiledExecResult::Ptr SystemConfigPrecompiled::call(
         auto valueNumberPair = getSysConfigByKey(configKey, _context->getTableFactory());
 
         callResult->setExecResult(
-            m_codec->encode(valueNumberPair.first, u256(valueNumberPair.second)));
+            codec->encode(valueNumberPair.first, u256(valueNumberPair.second)));
     }
     else
     {
@@ -144,24 +145,14 @@ bool SystemConfigPrecompiled::checkValueValid(std::string const& key, std::strin
     try
     {
         configuredValue = boost::lexical_cast<int64_t>(value);
+        auto cmp = m_sysValueCmp.at(key);
+        return cmp(configuredValue);
     }
     catch (std::exception const& e)
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("SystemConfigPrecompiled")
                                << LOG_DESC("checkValueValid failed") << LOG_KV("key", key)
-                               << LOG_KV("value", value) << LOG_KV("errorInfo", e.what());
-        return false;
-    }
-    try
-    {
-        auto cmp = m_sysValueCmp.at(key);
-        return cmp(configuredValue);
-    }
-    catch (const std::out_of_range& e)
-    {
-        PRECOMPILED_LOG(ERROR) << LOG_BADGE("SystemConfigPrecompiled")
-                               << LOG_DESC("error key to get") << LOG_KV("key", key)
-                               << LOG_KV("value", value) << LOG_KV("errorInfo", e.what());
+                               << LOG_KV("value", value) << LOG_KV("errorInfo", boost::diagnostic_information(e));
         return false;
     }
 }

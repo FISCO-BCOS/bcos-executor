@@ -168,7 +168,6 @@ protected:
         const std::string& _origin, const std::string& _contract);
 
     std::shared_ptr<PrecompiledGasFactory> m_precompiledGasFactory;
-    PrecompiledCodec::Ptr m_codec;
 };
 
 }  // namespace precompiled

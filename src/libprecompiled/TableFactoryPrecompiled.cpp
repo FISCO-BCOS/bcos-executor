@@ -57,7 +57,6 @@ PrecompiledExecResult::Ptr TableFactoryPrecompiled::call(
 {
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
-    m_codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->setMemUsed(_param.size());
@@ -163,7 +162,8 @@ void TableFactoryPrecompiled::openTable(const std::shared_ptr<executor::BlockCon
 {
     // openTable(string)
     std::string tableName;
-    m_codec->decode(data, tableName);
+    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    codec->decode(data, tableName);
     tableName = getTableName(tableName, _context->isWasm());
     auto table = m_memoryTableFactory->openTable(tableName);
     gasPricer->appendOperation(InterfaceOpcode::OpenTable);
@@ -179,13 +179,13 @@ void TableFactoryPrecompiled::openTable(const std::shared_ptr<executor::BlockCon
     if (_context->isWasm())
     {
         auto address = _context->registerPrecompiled(tablePrecompiled);
-        callResult->setExecResult(m_codec->encode(address));
+        callResult->setExecResult(codec->encode(address));
     }
     else
     {
         auto address =
             Address(_context->registerPrecompiled(tablePrecompiled), FixedBytes<20>::FromBinary);
-        callResult->setExecResult(m_codec->encode(address));
+        callResult->setExecResult(codec->encode(address));
     }
 }
 
@@ -206,7 +206,8 @@ void TableFactoryPrecompiled::createTable(const std::shared_ptr<executor::BlockC
     std::string tableName;
     std::string keyField;
     std::string valueField;
-    m_codec->decode(data, tableName, keyField, valueField);
+    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    codec->decode(data, tableName, keyField, valueField);
 
     if (_context->isWasm() && (tableName.empty() || tableName.at(0) != '/'))
     {
@@ -269,5 +270,5 @@ void TableFactoryPrecompiled::createTable(const std::shared_ptr<executor::BlockC
             parentTable->setRow(FS_KEY_SUB, newEntry);
         }
     }
-    getErrorCodeOut(callResult->mutableExecResult(), result, m_codec);
+    getErrorCodeOut(callResult->mutableExecResult(), result, codec);
 }

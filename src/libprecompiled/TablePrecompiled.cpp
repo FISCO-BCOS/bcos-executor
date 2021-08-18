@@ -78,7 +78,8 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
 
-    m_codec = std::make_shared<PrecompiledCodec>(nullptr, _context->isWasm());
+    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    codec = std::make_shared<PrecompiledCodec>(nullptr, _context->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->setMemUsed(_param.size());
@@ -92,7 +93,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
         {
             // wasm env
             std::string conditionAddress;
-            m_codec->decode(data, conditionAddress);
+            codec->decode(data, conditionAddress);
             conditionPrecompiled = std::dynamic_pointer_cast<ConditionPrecompiled>(
                 _context->getPrecompiled(conditionAddress));
         }
@@ -100,7 +101,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
         {
             // evm env
             Address conditionAddress;
-            m_codec->decode(data, conditionAddress);
+            codec->decode(data, conditionAddress);
             conditionPrecompiled =
                 std::dynamic_pointer_cast<ConditionPrecompiled>(_context->getPrecompiled(
                     std::string((char*)conditionAddress.data(), conditionAddress.size)));
@@ -138,14 +139,14 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
             {
                 // wasm env
                 auto newAddress = _context->registerPrecompiled(entriesPrecompiled);
-                callResult->setExecResult(m_codec->encode(newAddress));
+                callResult->setExecResult(codec->encode(newAddress));
             }
             else
             {
                 // evm env
                 auto newAddress = Address(
                     _context->registerPrecompiled(entriesPrecompiled), FixedBytes<20>::FromBinary);
-                callResult->setExecResult(m_codec->encode(newAddress));
+                callResult->setExecResult(codec->encode(newAddress));
             }
         }
         else
@@ -173,14 +174,14 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
             {
                 // wasm env
                 auto newAddress = _context->registerPrecompiled(entriesPrecompiled);
-                callResult->setExecResult(m_codec->encode(newAddress));
+                callResult->setExecResult(codec->encode(newAddress));
             }
             else
             {
                 // evm env
                 auto newAddress = Address(
                     _context->registerPrecompiled(entriesPrecompiled), FixedBytes<20>::FromBinary);
-                callResult->setExecResult(m_codec->encode(newAddress));
+                callResult->setExecResult(codec->encode(newAddress));
             }
         }
     }
@@ -201,7 +202,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
         {
             // wasm env
             std::string entryAddress;
-            m_codec->decode(data, entryAddress);
+            codec->decode(data, entryAddress);
             entryPrecompiled =
                 std::dynamic_pointer_cast<EntryPrecompiled>(_context->getPrecompiled(entryAddress));
         }
@@ -209,7 +210,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
         {
             // evm env
             Address entryAddress;
-            m_codec->decode(data, entryAddress);
+            codec->decode(data, entryAddress);
             entryPrecompiled = std::dynamic_pointer_cast<EntryPrecompiled>(_context->getPrecompiled(
                 std::string((char*)entryAddress.data(), entryAddress.size)));
         }
@@ -230,7 +231,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
             PRECOMPILED_LOG(ERROR) << LOG_BADGE("TablePrecompiled") << LOG_BADGE("INSERT")
                                    << LOG_DESC("can't get any primary key in entry string")
                                    << LOG_KV("primaryKey", m_table->tableInfo()->key);
-            getErrorCodeOut(callResult->mutableExecResult(), CODE_KEY_NOT_EXIST_IN_ENTRY, m_codec);
+            getErrorCodeOut(callResult->mutableExecResult(), CODE_KEY_NOT_EXIST_IN_ENTRY, codec);
         }
         else
         {
@@ -243,14 +244,14 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
                     << LOG_DESC("key already exist in table, please use UPDATE method")
                     << LOG_KV("primaryKey", m_table->tableInfo()->key)
                     << LOG_KV("existKey", findKeyValue);
-                getErrorCodeOut(callResult->mutableExecResult(), CODE_INSERT_KEY_EXIST, m_codec);
+                getErrorCodeOut(callResult->mutableExecResult(), CODE_INSERT_KEY_EXIST, codec);
             }
             else
             {
                 m_table->setRow(findKeyValue, entry);
                 gasPricer->appendOperation(InterfaceOpcode::Insert, 1);
                 gasPricer->updateMemUsed(entry->capacityOfHashField());
-                callResult->setExecResult(m_codec->encode(u256(1)));
+                callResult->setExecResult(codec->encode(u256(1)));
             }
         }
     }
@@ -265,14 +266,14 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
         {
             // wasm env
             std::string newAddress = _context->registerPrecompiled(conditionPrecompiled);
-            callResult->setExecResult(m_codec->encode(newAddress));
+            callResult->setExecResult(codec->encode(newAddress));
         }
         else
         {
             // evm env
             Address newAddress = Address(
                 _context->registerPrecompiled(conditionPrecompiled), FixedBytes<20>::FromBinary);
-            callResult->setExecResult(m_codec->encode(newAddress));
+            callResult->setExecResult(codec->encode(newAddress));
         }
     }
     else if (func == name2Selector[TABLE_METHOD_NEW_ENTRY])
@@ -286,14 +287,14 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
         {
             // wasm env
             std::string newAddress = _context->registerPrecompiled(entryPrecompiled);
-            callResult->setExecResult(m_codec->encode(newAddress));
+            callResult->setExecResult(codec->encode(newAddress));
         }
         else
         {
             // evm env
             Address newAddress = Address(
                 _context->registerPrecompiled(entryPrecompiled), FixedBytes<20>::FromBinary);
-            callResult->setExecResult(m_codec->encode(newAddress));
+            callResult->setExecResult(codec->encode(newAddress));
         }
     }
     else if (func == name2Selector[TABLE_METHOD_RE_STR_ADD] ||
@@ -313,7 +314,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
         {
             // wasm env
             std::string conditionAddress;
-            m_codec->decode(data, conditionAddress);
+            codec->decode(data, conditionAddress);
             conditionPrecompiled = std::dynamic_pointer_cast<ConditionPrecompiled>(
                 _context->getPrecompiled(conditionAddress));
         }
@@ -321,7 +322,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
         {
             // evm env
             Address conditionAddress;
-            m_codec->decode(data, conditionAddress);
+            codec->decode(data, conditionAddress);
             conditionPrecompiled =
                 std::dynamic_pointer_cast<ConditionPrecompiled>(_context->getPrecompiled(
                     std::string((char*)conditionAddress.data(), conditionAddress.size)));
@@ -352,7 +353,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
             PRECOMPILED_LOG(ERROR) << LOG_BADGE("TablePrecompiled") << LOG_BADGE("REMOVE")
                                    << LOG_DESC("can't get any primary key in condition")
                                    << LOG_KV("primaryKey", m_table->tableInfo()->key);
-            getErrorCodeOut(callResult->mutableExecResult(), CODE_KEY_NOT_EXIST_IN_ENTRY, m_codec);
+            getErrorCodeOut(callResult->mutableExecResult(), CODE_KEY_NOT_EXIST_IN_ENTRY, codec);
         }
         else
         {
@@ -368,7 +369,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
                 }
             }
             gasPricer->appendOperation(InterfaceOpcode::Remove, 1);
-            callResult->setExecResult(m_codec->encode(u256(1)));
+            callResult->setExecResult(codec->encode(u256(1)));
         }
     }
     else if (func == name2Selector[TABLE_METHOD_UP_STR_2ADD] ||
@@ -389,7 +390,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
         {
             std::string entryAddress;
             std::string conditionAddress;
-            m_codec->decode(data, entryAddress, conditionAddress);
+            codec->decode(data, entryAddress, conditionAddress);
             entryPrecompiled =
                 std::dynamic_pointer_cast<EntryPrecompiled>(_context->getPrecompiled(entryAddress));
             conditionPrecompiled = std::dynamic_pointer_cast<ConditionPrecompiled>(
@@ -399,7 +400,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
         {
             Address entryAddress;
             Address conditionAddress;
-            m_codec->decode(data, entryAddress, conditionAddress);
+            codec->decode(data, entryAddress, conditionAddress);
             entryPrecompiled = std::dynamic_pointer_cast<EntryPrecompiled>(_context->getPrecompiled(
                 std::string((char*)entryAddress.data(), entryAddress.size)));
             conditionPrecompiled =
@@ -432,7 +433,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
             PRECOMPILED_LOG(ERROR) << LOG_BADGE("TablePrecompiled") << LOG_BADGE("UPDATE")
                                    << LOG_DESC("can't get any primary key in condition")
                                    << LOG_KV("primaryKey", m_table->tableInfo()->key);
-            getErrorCodeOut(callResult->mutableExecResult(), CODE_KEY_NOT_EXIST_IN_COND, m_codec);
+            getErrorCodeOut(callResult->mutableExecResult(), CODE_KEY_NOT_EXIST_IN_COND, codec);
         }
         else
         {
@@ -450,7 +451,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
                         << LOG_KV("notExistKey", key);
                     eqKeyExist = false;
                     getErrorCodeOut(
-                        callResult->mutableExecResult(), CODE_UPDATE_KEY_NOT_EXIST, m_codec);
+                        callResult->mutableExecResult(), CODE_UPDATE_KEY_NOT_EXIST, codec);
                     break;
                 }
             }
@@ -469,7 +470,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
                 }
                 gasPricer->setMemUsed(entry->capacityOfHashField());
                 gasPricer->appendOperation(InterfaceOpcode::Update, tableKeySet.size());
-                callResult->setExecResult(m_codec->encode(u256(1)));
+                callResult->setExecResult(codec->encode(u256(1)));
             }
         }
     }

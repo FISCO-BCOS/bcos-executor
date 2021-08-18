@@ -60,8 +60,8 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("KVTable") << LOG_DESC("call") << LOG_KV("func", func);
-
-    m_codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
 
@@ -71,7 +71,7 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
     {
         // get(string)
         std::string key;
-        m_codec->decode(data, key);
+        codec->decode(data, key);
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("KVTable") << LOG_KV("get", key);
 
         auto entry = m_table->getRow(key);
@@ -80,11 +80,11 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
         {
             if (_context->isWasm())
             {
-                callResult->setExecResult(m_codec->encode(false, std::string("")));
+                callResult->setExecResult(codec->encode(false, std::string("")));
             }
             else
             {
-                callResult->setExecResult(m_codec->encode(false, Address()));
+                callResult->setExecResult(codec->encode(false, Address()));
             }
         }
         else
@@ -96,13 +96,13 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
             if (_context->isWasm())
             {
                 std::string newAddress = _context->registerPrecompiled(entryPrecompiled);
-                callResult->setExecResult(m_codec->encode(true, newAddress));
+                callResult->setExecResult(codec->encode(true, newAddress));
             }
             else
             {
                 Address newAddress = Address(
                     _context->registerPrecompiled(entryPrecompiled), FixedBytes<20>::FromBinary);
-                callResult->setExecResult(m_codec->encode(true, newAddress));
+                callResult->setExecResult(codec->encode(true, newAddress));
             }
         }
     }
@@ -123,7 +123,7 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
             }
             std::string key;
             std::string entryAddress;
-            m_codec->decode(data, key, entryAddress);
+            codec->decode(data, key, entryAddress);
             PRECOMPILED_LOG(DEBUG) << LOG_BADGE("KVTable") << LOG_KV("set", key);
             EntryPrecompiled::Ptr entryPrecompiled =
                 std::dynamic_pointer_cast<EntryPrecompiled>(_context->getPrecompiled(entryAddress));
@@ -141,7 +141,7 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
             m_table->setRow(key, entry);
             gasPricer->setMemUsed(entry->capacityOfHashField());
             gasPricer->appendOperation(InterfaceOpcode::Insert, 1);
-            callResult->setExecResult(m_codec->encode(s256(1)));
+            callResult->setExecResult(codec->encode(s256(1)));
         }
     }
     else if (func == name2Selector[KV_TABLE_METHOD_SET])
@@ -157,7 +157,7 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
         }
         std::string key;
         Address entryAddress;
-        m_codec->decode(data, key, entryAddress);
+        codec->decode(data, key, entryAddress);
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("KVTable") << LOG_KV("set", key);
         // TODO: check this get strategy
         EntryPrecompiled::Ptr entryPrecompiled = std::dynamic_pointer_cast<EntryPrecompiled>(
@@ -176,7 +176,7 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
         m_table->setRow(key, entry);
         gasPricer->setMemUsed(entry->capacityOfHashField());
         gasPricer->appendOperation(InterfaceOpcode::Insert, 1);
-        callResult->setExecResult(m_codec->encode(s256(1)));
+        callResult->setExecResult(codec->encode(s256(1)));
     }
     else if (func == name2Selector[KV_TABLE_METHOD_NEW_ENTRY])
     {  // newEntry()
@@ -187,13 +187,13 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
         if (_context->isWasm())
         {
             auto address = _context->registerPrecompiled(entryPrecompiled);
-            callResult->setExecResult(m_codec->encode(address));
+            callResult->setExecResult(codec->encode(address));
         }
         else
         {
             auto newAddress = Address(
                 _context->registerPrecompiled(entryPrecompiled), FixedBytes<20>::FromBinary);
-            callResult->setExecResult(m_codec->encode(newAddress));
+            callResult->setExecResult(codec->encode(newAddress));
         }
     }
     else

@@ -50,7 +50,7 @@ std::shared_ptr<PrecompiledExecResult> DeployWasmPrecompiled::call(
     bytesConstRef data = getParamData(_param);
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("DeployWasmPrecompiled") << LOG_DESC("call")
                            << LOG_KV("func", func);
-    m_codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->setMemUsed(_param.size());
@@ -58,7 +58,7 @@ std::shared_ptr<PrecompiledExecResult> DeployWasmPrecompiled::call(
     {
         bytes code, param;
         std::string path, jsonABI;
-        m_codec->decode(data, code, param, path, jsonABI);
+        codec->decode(data, code, param, path, jsonABI);
         auto table = _context->getTableFactory()->openTable(path);
         if (table)
         {
@@ -100,14 +100,14 @@ std::shared_ptr<PrecompiledExecResult> DeployWasmPrecompiled::call(
                 PRECOMPILED_LOG(WARNING)
                     << LOG_BADGE("DeployWasmPrecompiled")
                     << LOG_DESC("setContractFile in parentDir error") << LOG_KV("path", path);
-                callResult->setExecResult(m_codec->encode(false));
+                callResult->setExecResult(codec->encode(false));
             }
             else
             {
                 PRECOMPILED_LOG(INFO)
                     << LOG_BADGE("DeployWasmPrecompiled")
                     << LOG_DESC("setContractFile in parentDir success") << LOG_KV("path", path);
-                callResult->setExecResult(m_codec->encode(true));
+                callResult->setExecResult(codec->encode(true));
                 _context->getState()->setAbi(path, jsonABI);
             }
         }
