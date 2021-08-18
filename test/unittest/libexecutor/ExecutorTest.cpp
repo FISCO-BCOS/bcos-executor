@@ -244,6 +244,14 @@ BOOST_AUTO_TEST_CASE(executeBlock)
     auto stateRoot = block->blockHeader()->stateRoot();
     BOOST_TEST(block->blockHeader()->gasUsed() == 0);
 
+    // asyncExecuteTransaction should has no affect on state
+    promise<Error::Ptr> prom;
+    executor->asyncExecuteTransaction(
+        tx, [&prom](const Error::Ptr& err, const protocol::TransactionReceipt::ConstPtr&) {
+            prom.set_value(err);
+        });
+    prom.get_future().get();
+
     // execute block
     auto parentHeader = blockFactory->blockHeaderFactory()->createBlockHeader(0);
     auto result = executor->executeBlock(block);
