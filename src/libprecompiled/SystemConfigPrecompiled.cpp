@@ -88,7 +88,7 @@ PrecompiledExecResult::Ptr SystemConfigPrecompiled::call(
         auto entry = table->newEntry();
         entry->setField(SYS_VALUE, configValue);
         entry->setField(SYS_CONFIG_ENABLE_BLOCK_NUMBER,
-            boost::lexical_cast<std::string>(_context->currentNumber()));
+            boost::lexical_cast<std::string>(_context->currentNumber() + 1));
         if (tableFactory->checkAuthority(ledger::SYS_CONFIG, _origin))
         {
             table->setRow(configKey, entry);
@@ -152,7 +152,8 @@ bool SystemConfigPrecompiled::checkValueValid(std::string const& key, std::strin
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("SystemConfigPrecompiled")
                                << LOG_DESC("checkValueValid failed") << LOG_KV("key", key)
-                               << LOG_KV("value", value) << LOG_KV("errorInfo", boost::diagnostic_information(e));
+                               << LOG_KV("value", value)
+                               << LOG_KV("errorInfo", boost::diagnostic_information(e));
         return false;
     }
 }
@@ -164,10 +165,20 @@ std::pair<std::string, protocol::BlockNumber> SystemConfigPrecompiled::getSysCon
     auto entry = table->getRow(_key);
     if (entry)
     {
-        auto value = entry->getField(SYS_VALUE);
-        auto enableNumber = boost::lexical_cast<protocol::BlockNumber>(
-            entry->getField(SYS_CONFIG_ENABLE_BLOCK_NUMBER));
-        return {value, enableNumber};
+        try
+        {
+            auto value = entry->getField(SYS_VALUE);
+            auto enableNumber = boost::lexical_cast<protocol::BlockNumber>(
+                entry->getField(SYS_CONFIG_ENABLE_BLOCK_NUMBER));
+            return {value, enableNumber};
+        }
+        catch (std::exception const& e)
+        {
+            PRECOMPILED_LOG(ERROR)
+                << LOG_BADGE("SystemConfigPrecompiled") << LOG_DESC("getSysConfigByKey failed")
+                << LOG_KV("key", _key) << LOG_KV("errorInfo", boost::diagnostic_information(e));
+            return {"", -1};
+        }
     }
     else
     {

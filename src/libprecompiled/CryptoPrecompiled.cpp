@@ -43,7 +43,8 @@ const char* const CRYPTO_METHOD_KECCAK256_STR = "keccak256Hash(bytes)";
 const char* const CRYPTO_METHOD_SM2_VERIFY_STR = "sm2Verify(bytes,bytes)";
 // FIXME: add precompiled interfaces related to VRF verify
 // the params are (vrfInput, vrfPublicKey, vrfProof)
-// const char* const CRYPTO_METHOD_CURVE25519_VRF_VERIFY_STR = "curve25519VRFVerify(string,string,string)";
+// const char* const CRYPTO_METHOD_CURVE25519_VRF_VERIFY_STR =
+// "curve25519VRFVerify(string,string,string)";
 
 CryptoPrecompiled::CryptoPrecompiled(crypto::Hash::Ptr _hashImpl) : Precompiled(_hashImpl)
 {
@@ -86,7 +87,7 @@ PrecompiledExecResult::Ptr CryptoPrecompiled::call(std::shared_ptr<executor::Blo
     }
     else if (funcSelector == name2Selector[CRYPTO_METHOD_SM2_VERIFY_STR])
     {
-        sm2Verify(paramData, callResult, bcos::precompiled::PrecompiledCodec::Ptr());
+        sm2Verify(paramData, callResult, codec);
     }
     else
     {

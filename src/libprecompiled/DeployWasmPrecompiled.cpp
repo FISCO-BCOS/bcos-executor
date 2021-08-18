@@ -81,8 +81,8 @@ std::shared_ptr<PrecompiledExecResult> DeployWasmPrecompiled::call(
                 if (executive->status() != TransactionStatus::None)
                 {
                     PRECOMPILED_LOG(ERROR)
-                            << LOG_BADGE("DeployWasmPrecompiled") << LOG_DESC("executive->go error")
-                            << LOG_KV("path", path);
+                        << LOG_BADGE("DeployWasmPrecompiled") << LOG_DESC("executive->go error")
+                        << LOG_KV("path", path);
                     // FIXME:  return error message in PrecompiledError
                     BOOST_THROW_EXCEPTION(protocol::PrecompiledError());
                 }

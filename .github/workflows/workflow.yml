@@ -30,6 +30,8 @@ jobs:
         id: cache
         with:
           path: |
+            /home/runner/.hunter
+            /Users/runner/.hunter
             /home/runner/.hunter/_Base/Download/
             /Users/runner/.hunter/_Base/Download/
             deps/src
@@ -78,6 +80,7 @@ jobs:
         id: cache
         with:
           path: |
+            /home/runner/.hunter
             /home/runner/.hunter/_Base/Download/
             deps/src
             ccache
@@ -123,6 +126,7 @@ jobs:
         id: cache
         with:
           path: |
+            /home/runner/.hunter
             /home/runner/.hunter/_Base/Download/
             deps/src
             ccache
@@ -160,6 +164,8 @@ jobs:
         id: cache
         with:
           path: |
+            /home/runner/.hunter
+            /github/home/.hunter
             /home/runner/.hunter/_Base/Download/
             /github/home/.hunter/_Base/Download/
             deps/src

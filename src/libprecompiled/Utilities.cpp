@@ -278,93 +278,100 @@ bool Condition::filter(storage::Entry::Ptr _entry)
     {
         return false;
     }
-    if (!m_conditions.empty())
+    try
     {
-        for (auto& condition : m_conditions)
+        if (!m_conditions.empty())
         {
-            auto fieldIt = _entry->find(condition.left);
-            if (fieldIt != _entry->end())
+            for (auto& condition : m_conditions)
             {
-                switch (condition.cmp)
+                auto fieldIt = _entry->find(condition.left);
+                if (fieldIt != _entry->end())
                 {
-                case Comparator::EQ:
-                {
-                    if (fieldIt->second != condition.right)
+                    switch (condition.cmp)
                     {
-                        return false;
-                    }
-                    break;
-                }
-                case Comparator::NE:
-                {
-                    if (fieldIt->second == condition.right)
+                    case Comparator::EQ:
                     {
-                        return false;
+                        if (fieldIt->second != condition.right)
+                        {
+                            return false;
+                        }
+                        break;
                     }
-                    break;
-                }
-                case Comparator::GT:
-                {
-                    int64_t lhs = INT64_MIN;
-                    auto rhs = boost::lexical_cast<int64_t>(condition.right);
-                    if (!fieldIt->second.empty())
+                    case Comparator::NE:
                     {
-                        lhs = boost::lexical_cast<int64_t>(fieldIt->second);
+                        if (fieldIt->second == condition.right)
+                        {
+                            return false;
+                        }
+                        break;
                     }
-                    if (lhs <= rhs)
+                    case Comparator::GT:
                     {
-                        return false;
+                        int64_t lhs = INT64_MIN;
+                        auto rhs = boost::lexical_cast<int64_t>(condition.right);
+                        if (!fieldIt->second.empty())
+                        {
+                            lhs = boost::lexical_cast<int64_t>(fieldIt->second);
+                        }
+                        if (lhs <= rhs)
+                        {
+                            return false;
+                        }
+                        break;
                     }
-                    break;
-                }
-                case Comparator::GE:
-                {
-                    int64_t lhs = INT64_MIN;
-                    auto rhs = boost::lexical_cast<int64_t>(condition.right);
-                    if (!fieldIt->second.empty())
+                    case Comparator::GE:
                     {
-                        lhs = boost::lexical_cast<int64_t>(fieldIt->second);
+                        int64_t lhs = INT64_MIN;
+                        auto rhs = boost::lexical_cast<int64_t>(condition.right);
+                        if (!fieldIt->second.empty())
+                        {
+                            lhs = boost::lexical_cast<int64_t>(fieldIt->second);
+                        }
+                        if (lhs < rhs)
+                        {
+                            return false;
+                        }
+                        break;
                     }
-                    if (lhs < rhs)
+                    case Comparator::LT:
                     {
-                        return false;
+                        int64_t lhs = INT64_MAX;
+                        auto rhs = boost::lexical_cast<int64_t>(condition.right);
+                        if (!fieldIt->second.empty())
+                        {
+                            lhs = boost::lexical_cast<int64_t>(fieldIt->second);
+                        }
+                        if (lhs >= rhs)
+                        {
+                            return false;
+                        }
+                        break;
                     }
-                    break;
-                }
-                case Comparator::LT:
-                {
-                    int64_t lhs = INT64_MAX;
-                    auto rhs = boost::lexical_cast<int64_t>(condition.right);
-                    if (!fieldIt->second.empty())
+                    case Comparator::LE:
                     {
-                        lhs = boost::lexical_cast<int64_t>(fieldIt->second);
+                        int64_t lhs = INT64_MAX;
+                        auto rhs = boost::lexical_cast<int64_t>(condition.right);
+                        if (!fieldIt->second.empty())
+                        {
+                            lhs = boost::lexical_cast<int64_t>(fieldIt->second);
+                        }
+                        if (lhs > rhs)
+                        {
+                            return false;
+                        }
+                        break;
                     }
-                    if (lhs >= rhs)
+                    default:
                     {
-                        return false;
                     }
-                    break;
-                }
-                case Comparator::LE:
-                {
-                    int64_t lhs = INT64_MAX;
-                    auto rhs = boost::lexical_cast<int64_t>(condition.right);
-                    if (!fieldIt->second.empty())
-                    {
-                        lhs = boost::lexical_cast<int64_t>(fieldIt->second);
                     }
-                    if (lhs > rhs)
-                    {
-                        return false;
-                    }
-                    break;
-                }
-                default:
-                {
-                }
                 }
             }
         }
+    }
+    catch (...)
+    {
+        return false;
     }
     return true;
 }
