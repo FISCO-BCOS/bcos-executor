@@ -337,9 +337,17 @@ bool TransactionExecutive::executeCreate(const std::string_view& _sender,
     if (!_init.empty())
     {
         auto code = make_shared<bytes>(_init.data(), _init.data() + _init.size());
-        // FIXME: if isWASM and the code is not wasm code, make it failed
-        if (hasWasmPreamble(*code))
+
+        if (m_blockContext->isWasm())
         {  // the Wasm deploy use a precompiled which call this function, so inject meter here
+            if (!hasWasmPreamble(*code))
+            {  // if isWASM and the code is not WASM, make it failed
+                revert();
+                m_context = {};
+                m_excepted = TransactionStatus::WASMValidationFailuer;
+                EXECUTIVE_LOG(ERROR) << "wasm bytecode invalid or use unsupported opcode";
+                return !m_context;
+            }
             auto result = m_gasInjector->InjectMeter(*code);
             if (result.status == wasm::GasInjector::Status::Success)
             {
@@ -369,13 +377,14 @@ bool TransactionExecutive::go()
             auto getEVMCMessage = [=]() -> shared_ptr<evmc_message> {
                 // the block number will be larger than 0,
                 // can be controlled by the programmers
-                assert(m_context->envInfo()->currentNumber() >= 0);
+                assert(m_context->getBlockContext()->currentNumber() >= 0);
                 constexpr int64_t int64max = std::numeric_limits<int64_t>::max();
-                if (m_remainGas > int64max || m_context->envInfo()->gasLimit() > int64max)
+                if (m_remainGas > int64max || m_context->getBlockContext()->gasLimit() > int64max)
                 {
-                    EXECUTIVE_LOG(ERROR) << LOG_DESC("Gas overflow") << LOG_KV("gas", m_remainGas)
-                                         << LOG_KV("gasLimit", m_context->envInfo()->gasLimit())
-                                         << LOG_KV("max gas/gasLimit", int64max);
+                    EXECUTIVE_LOG(ERROR)
+                        << LOG_DESC("Gas overflow") << LOG_KV("gas", m_remainGas)
+                        << LOG_KV("gasLimit", m_context->getBlockContext()->gasLimit())
+                        << LOG_KV("max gas/gasLimit", int64max);
                     BOOST_THROW_EXCEPTION(GasOverflow());
                 }
                 assert(

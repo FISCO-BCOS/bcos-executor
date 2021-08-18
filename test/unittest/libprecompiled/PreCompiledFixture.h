@@ -19,17 +19,17 @@
  */
 
 #pragma once
+#include "../MemoryStorage.h"
+#include "bcos-executor/Executor.h"
 #include "bcos-framework/interfaces/ledger/LedgerTypeDef.h"
 #include "bcos-framework/testutils/protocol/FakeBlock.h"
 #include "bcos-framework/testutils/protocol/FakeBlockHeader.h"
-#include "bcos-executor/Executor.h"
 #include "libprecompiled/Utilities.h"
 #include "libprecompiled/extension/UserPrecompiled.h"
 #include "libvm/BlockContext.h"
 #include "libvm/TransactionExecutive.h"
 #include "mock/MockDispatcher.h"
 #include "mock/MockLedger.h"
-#include "../MemoryStorage.h"
 #include <bcos-framework/interfaces/storage/TableInterface.h>
 #include <bcos-framework/testutils/TestPromptFixture.h>
 #include <bcos-framework/testutils/crypto/HashImpl.h>
@@ -112,7 +112,8 @@ public:
         ledger = std::make_shared<MockLedger>(header, blockFactory);
 
         executor = std::make_shared<Executor>(blockFactory, dispatcher, ledger, storage, isWasm);
-        context = executor->createExecutiveContext(header);
+        auto tableFactory = std::make_shared<TableFactory>(storage, hashImpl, 1);
+        context = executor->createExecutiveContext(header, tableFactory);
         codec = std::make_shared<PrecompiledCodec>(hashImpl, context->isWasm());
     }
 

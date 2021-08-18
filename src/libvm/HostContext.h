@@ -119,7 +119,7 @@ public:
     virtual bool isPermitted();
 
     /// Get the execution environment information.
-    virtual std::shared_ptr<BlockContext> const& envInfo() const { return m_blockContext; }
+    virtual std::shared_ptr<BlockContext> const& getBlockContext() const { return m_blockContext; }
 
     /// Revert any changes made (by any of the other calls).
     virtual void log(h256s&& _topics, bytesConstRef _data);

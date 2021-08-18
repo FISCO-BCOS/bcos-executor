@@ -238,7 +238,7 @@ HostContext::HostContext(const std::shared_ptr<BlockContext>& _envInfo,
 
 evmc_result HostContext::call(CallParameters& _p)
 {
-    TransactionExecutive e{envInfo(), depth() + 1};
+    TransactionExecutive e{getBlockContext(), depth() + 1};
     stringstream ss;
     // Note: When create TransactionExecutive, the flags of evmc context must be passed
     if (!e.call(_p, origin()))
@@ -296,7 +296,7 @@ void HostContext::setStore(u256 const& _n, u256 const& _v)
 
 evmc_result HostContext::create(u256& io_gas, bytesConstRef _code, evmc_opcode _op, u256 _salt)
 {  // TODO: if liquid support contract create contract add a branch
-    TransactionExecutive e{envInfo(), depth() + 1};
+    TransactionExecutive e{getBlockContext(), depth() + 1};
     // Note: When create TransactionExecutive, the flags of evmc context must be passed
     bool result = false;
     if (_op == evmc_opcode::OP_CREATE)
@@ -358,7 +358,7 @@ void HostContext::suicide(const std::string_view& _a)
 
 h256 HostContext::blockHash(int64_t _number)
 {
-    return envInfo()->numberHash(_number);
+    return getBlockContext()->numberHash(_number);
 }
 
 bool HostContext::registerAsset(const std::string& _assetName, const std::string_view& _addr,

@@ -4,8 +4,8 @@
 # 	URL https://${URL_BASE}/WeBankBlockchain/WeDPR-Lab-Crypto/archive/5fd2ab0a0aed570e9fc7d7af6ee5aed89dab2739.tar.gz
 # 	SHA1 d0834d74d2308c4cfa2c9737dc3dcb627cb3dfee)
 hunter_config(bcos-framework VERSION 3.0.0-6d15a7c2
-	URL https://${URL_BASE}/FISCO-BCOS/bcos-framework/archive/6d15a7c25049fbd36134affe9f307f48d17474e9.tar.gz
-	SHA1 ca3003ae4b9459cd5c59b8e2e7c5d1a14a24d8b5
+	URL https://${URL_BASE}/FISCO-BCOS/bcos-framework/archive/78081d04b474ff23b461af5d0a27745f6104f9b4.tar.gz
+	SHA1 75d56aba6166ed2d15073dc6a3cc35345ad067c3
 	CMAKE_ARGS HUNTER_PACKAGE_LOG_BUILD=ON HUNTER_PACKAGE_LOG_INSTALL=ON #DEBUG=ON
 )
 

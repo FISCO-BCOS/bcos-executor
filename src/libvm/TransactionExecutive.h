@@ -162,7 +162,7 @@ public:
         m_t.reset();
     }
 
-    std::shared_ptr<BlockContext> getEnvInfo() { return m_blockContext; }
+    std::shared_ptr<BlockContext> getBlockContext() { return m_blockContext; }
     /// @returns false iff go() must be called (and thus a VM execution in required).
     bool executeCreate(const std::string_view& _txSender, const std::string_view& _originAddress,
         const std::string& _newAddress, u256 const& _gas, bytesConstRef _code,

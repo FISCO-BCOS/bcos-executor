@@ -321,7 +321,9 @@ void Executor::asyncExecuteTransaction(const protocol::Transaction::ConstPtr& _t
 {
     // use m_lastHeader to execute transaction
     auto currentHeader = m_blockFactory->blockHeaderFactory()->populateBlockHeader(m_lastHeader);
-    BlockContext::Ptr executiveContext = createExecutiveContext(currentHeader);
+    auto tableFactory =
+        std::make_shared<TableFactory>(m_stateStorage, m_hashImpl, currentHeader->number());
+    BlockContext::Ptr executiveContext = createExecutiveContext(currentHeader, tableFactory);
     auto executive = std::make_shared<TransactionExecutive>(executiveContext);
     m_threadPool->enqueue([&, executiveContext, executive, _tx, _callback]() {
         // only Rpc::call will use executeTransaction, RPC do catch exception
@@ -343,7 +345,7 @@ BlockContext::Ptr Executor::executeBlock(const protocol::Block::Ptr& block)
     auto originalHeader = block->blockHeader();
     // create a new block header to return
     auto currentHeader = m_blockFactory->blockHeaderFactory()->populateBlockHeader(originalHeader);
-    BlockContext::Ptr executiveContext = createExecutiveContext(currentHeader);
+    BlockContext::Ptr executiveContext = createExecutiveContext(currentHeader, m_tableFactory);
     EXECUTOR_LOG(INFO) << LOG_DESC("[executeBlock]Executing")
                        << LOG_KV("blockNumber", originalHeader->number())
                        << LOG_KV("txNum", block->transactionsSize())
@@ -440,7 +442,9 @@ BlockContext::Ptr Executor::executeBlock(const protocol::Block::Ptr& block)
                             << LOG_KV("originalReceipt", originalHeader->receiptsRoot().abridged())
                             << LOG_KV("currentReceipt", currentHeader->receiptsRoot().abridged())
                             << LOG_KV("originalState", originalHeader->stateRoot().abridged())
-                            << LOG_KV("currentState", currentHeader->stateRoot().abridged());
+                            << LOG_KV("currentState", currentHeader->stateRoot().abridged())
+                            << LOG_KV("originalTransaction", originalHeader->txsRoot().abridged())
+                            << LOG_KV("currentTransaction", currentHeader->txsRoot().abridged());
         BOOST_THROW_EXCEPTION(InvalidBlockWithBadRoot() << errinfo_comment(
                                   "The correct blockHash is " + originalHeader->hash().abridged()));
 #if FISCO_DEBUG
@@ -460,10 +464,10 @@ BlockContext::Ptr Executor::executeBlock(const protocol::Block::Ptr& block)
                         << LOG_KV("blockNumber", currentHeader->number())
                         << LOG_KV("time(ms)", utcTime() - start_time)
                         << LOG_KV("txNum", block->transactionsSize())
-                        << LOG_KV("blockHash", currentHeader->hash())
-                        << LOG_KV("stateRoot", currentHeader->stateRoot())
-                        << LOG_KV("transactionRoot", currentHeader->txsRoot())
-                        << LOG_KV("receiptRoot", currentHeader->receiptsRoot())
+                        << LOG_KV("blockHash", currentHeader->hash().abridged())
+                        << LOG_KV("stateRoot", currentHeader->stateRoot().abridged())
+                        << LOG_KV("transactionRoot", currentHeader->txsRoot().abridged())
+                        << LOG_KV("receiptRoot", currentHeader->receiptsRoot().abridged())
                         << LOG_KV("initExeCtxTimeCost", initExeCtx_time_cost)
                         << LOG_KV("initDagTimeCost", initDag_time_cost)
                         << LOG_KV("exeTimeCost", exe_time_cost)
@@ -504,18 +508,18 @@ protocol::TransactionReceipt::Ptr Executor::executeTransaction(
     auto receiptFactory = m_blockFactory->receiptFactory();
     return receiptFactory->createReceipt(executive->gasUsed(), executive->newAddress(),
         executive->logs(), (int32_t)executive->status(), executive->takeOutput().takeBytes(),
-        executive->getEnvInfo()->currentNumber());
+        executive->getBlockContext()->currentNumber());
 }
 
-BlockContext::Ptr Executor::createExecutiveContext(const protocol::BlockHeader::Ptr& currentHeader)
+BlockContext::Ptr Executor::createExecutiveContext(const protocol::BlockHeader::Ptr& currentHeader,
+    storage::TableFactoryInterface::Ptr tableFactory)
 {
-    // TableFactory is member to continues execute block without write to DB
     (void)m_version;  // TODO: accord to m_version to chose schedule
     BlockContext::Ptr context = make_shared<BlockContext>(
-        m_tableFactory, m_hashImpl, currentHeader, FiscoBcosScheduleV3, m_pNumberHash, m_isWasm);
+        tableFactory, m_hashImpl, currentHeader, FiscoBcosScheduleV3, m_pNumberHash, m_isWasm);
     auto tableFactoryPrecompiled =
         std::make_shared<precompiled::TableFactoryPrecompiled>(m_hashImpl);
-    tableFactoryPrecompiled->setMemoryTableFactory(m_tableFactory);
+    tableFactoryPrecompiled->setMemoryTableFactory(tableFactory);
     auto sysConfig = std::make_shared<precompiled::SystemConfigPrecompiled>(m_hashImpl);
     auto parallelConfigPrecompiled =
         std::make_shared<precompiled::ParallelConfigPrecompiled>(m_hashImpl);
@@ -529,7 +533,7 @@ BlockContext::Ptr Executor::createExecutiveContext(const protocol::BlockHeader::
     context->setAddress2Precompiled(PARALLEL_CONFIG_ADDRESS, parallelConfigPrecompiled);
     auto kvTableFactoryPrecompiled =
         std::make_shared<precompiled::KVTableFactoryPrecompiled>(m_hashImpl);
-    kvTableFactoryPrecompiled->setMemoryTableFactory(m_tableFactory);
+    kvTableFactoryPrecompiled->setMemoryTableFactory(tableFactory);
     context->setAddress2Precompiled(KV_TABLE_FACTORY_ADDRESS, kvTableFactoryPrecompiled);
     context->setAddress2Precompiled(
         CRYPTO_ADDRESS, std::make_shared<precompiled::CryptoPrecompiled>(m_hashImpl));
@@ -558,7 +562,7 @@ BlockContext::Ptr Executor::createExecutiveContext(const protocol::BlockHeader::
 
     context->setPrecompiledContract(m_precompiledContract);
     // getTxGasLimitToContext from precompiled and set to context
-    auto ret = sysConfig->getSysConfigByKey(ledger::SYSTEM_KEY_TX_GAS_LIMIT, m_tableFactory);
+    auto ret = sysConfig->getSysConfigByKey(ledger::SYSTEM_KEY_TX_GAS_LIMIT, tableFactory);
     context->setTxGasLimit(boost::lexical_cast<uint64_t>(ret.first));
     context->setTxCriticalsHandler([&](const protocol::Transaction::ConstPtr& _tx)
                                        -> std::shared_ptr<std::vector<std::string>> {

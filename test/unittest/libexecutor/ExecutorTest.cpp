@@ -71,7 +71,7 @@ struct ExecutorFixture
         entry->setField(SYS_CONFIG_ENABLE_BLOCK_NUMBER, "0");
         table->setRow(SYSTEM_KEY_TX_GAS_LIMIT, entry);
         tableFactory->commit();
-        executiveContext = executor->createExecutiveContext(header);
+        executiveContext = executor->createExecutiveContext(header, tableFactory);
     }
     CryptoSuite::Ptr cryptoSuite = nullptr;
     protocol::BlockFactory::Ptr blockFactory;

@@ -265,9 +265,9 @@ evmc_tx_context getTxContext(evmc_host_context* _context) noexcept
     auto& hostContext = static_cast<HostContext&>(*_context);
     evmc_tx_context result;
     result.tx_origin = toEvmC(hostContext.origin());
-    result.block_number = hostContext.envInfo()->currentNumber();
-    result.block_timestamp = hostContext.envInfo()->timestamp();
-    result.block_gas_limit = static_cast<int64_t>(hostContext.envInfo()->gasLimit());
+    result.block_number = hostContext.getBlockContext()->currentNumber();
+    result.block_timestamp = hostContext.getBlockContext()->timestamp();
+    result.block_gas_limit = static_cast<int64_t>(hostContext.getBlockContext()->gasLimit());
 
     memset(result.tx_gas_price.bytes, 0, 32);
     memset(result.block_coinbase.bytes, 0, 20);

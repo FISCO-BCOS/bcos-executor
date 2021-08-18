@@ -83,7 +83,7 @@ public:
     void start() override;
 
     std::shared_ptr<BlockContext> createExecutiveContext(
-        const protocol::BlockHeader::Ptr& _currentHeader);
+        const protocol::BlockHeader::Ptr& _currentHeader, storage::TableFactoryInterface::Ptr _tableFactory);
 
 private:
     protocol::BlockHeader::Ptr getLatestHeaderFromStorage();
