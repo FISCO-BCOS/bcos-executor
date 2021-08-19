@@ -166,7 +166,7 @@ int ConsensusPrecompiled::addObserver(const std::shared_ptr<executor::BlockConte
     newEntry->setField(NODE_TYPE, ledger::CONSENSUS_OBSERVER);
     newEntry->setField(
         NODE_ENABLE_NUMBER, boost::lexical_cast<std::string>(_context->currentNumber() + 1));
-    newEntry->setField(NODE_WEIGHT, "-1");
+    newEntry->setField(NODE_WEIGHT, "0");
     if (!_context->getTableFactory()->checkAuthority(ledger::SYS_CONSENSUS, _origin))
     {
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
@@ -262,6 +262,7 @@ int ConsensusPrecompiled::setWeight(const std::shared_ptr<executor::BlockContext
     }
     auto newEntry = table->newEntry();
     entry->setField(NODE_WEIGHT, boost::lexical_cast<std::string>(weight));
+    entry->setField(NODE_ENABLE_NUMBER, boost::lexical_cast<std::string>(_context->currentNumber() + 1));
     table->setRow(nodeID, entry);
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("remove successfully");
     return 0;

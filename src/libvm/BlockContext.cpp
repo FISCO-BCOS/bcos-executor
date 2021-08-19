@@ -86,15 +86,11 @@ shared_ptr<PrecompiledExecResult> BlockContext::call(const string& address, byte
 string BlockContext::registerPrecompiled(std::shared_ptr<precompiled::Precompiled> p)
 {
     auto count = ++m_addressCount;
-    std::string addressFilled(20, '0');
-    auto address = to_string(count);
-    int i = (int)address.size() - 1;
-    for (auto it = addressFilled.rbegin(); i >= 0 && it != addressFilled.rend(); it++, i--)
-    {
-        *it = address[i];
-    }
-    m_address2Precompiled.insert(std::make_pair(addressFilled, p));
-    return addressFilled;
+    std::stringstream stream;
+    stream << "0x" << std::setfill('0') << std::setw(40) << std::hex << count;
+    auto address = stream.str();
+    m_address2Precompiled.insert(std::make_pair(address, p));
+    return address;
 }
 
 bool BlockContext::isPrecompiled(const std::string& address) const
@@ -143,7 +139,23 @@ void BlockContext::setPrecompiledContract(
 void BlockContext::setAddress2Precompiled(
     const string& address, std::shared_ptr<precompiled::Precompiled> precompiled)
 {
-    m_address2Precompiled.insert(std::make_pair(address, precompiled));
+    if (m_isWasm)
+    {
+        m_address2Precompiled.insert(std::make_pair(address, precompiled));
+    }
+    else
+    {
+        std::string addressWithoutPrefix =
+            (address.find("0x") != std::string::npos) ? address.substr(2) : address;
+        std::string addressFilled(40, '0');
+        int i = (int)addressWithoutPrefix.length() - 1;
+        for (auto it = addressFilled.rbegin(); i >= 0 && it != addressFilled.rend(); it++, i--)
+        {
+            *it = addressWithoutPrefix[i];
+        }
+        addressFilled = "0x" + addressFilled;
+        m_address2Precompiled.insert(std::make_pair(addressFilled, precompiled));
+    }
 }
 
 void BlockContext::commit()
