@@ -456,7 +456,7 @@ BlockContext::Ptr Executor::executeBlock(const protocol::Block::Ptr& block)
         }
 #endif
     }
-    if (originalHeader->stateRoot() == crypto::HashType())
+    if (originalHeader->receiptsRoot() == crypto::HashType())
     {  // only consensus block setBlockHeader
         block->setBlockHeader(currentHeader);
     }
@@ -484,8 +484,6 @@ protocol::TransactionReceipt::Ptr Executor::executeTransaction(
     // Create and initialize the executive. This will throw fairly cheaply and quickly if the
     // transaction is bad in any way.
     executive->reset();
-
-
     try
     {  // OK - transaction looks valid - execute.
         executive->initialize(_t);
