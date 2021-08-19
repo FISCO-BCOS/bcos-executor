@@ -102,9 +102,8 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
             // evm env
             Address conditionAddress;
             codec->decode(data, conditionAddress);
-            conditionPrecompiled =
-                std::dynamic_pointer_cast<ConditionPrecompiled>(_context->getPrecompiled(
-                    std::string((char*)conditionAddress.data(), conditionAddress.size)));
+            conditionPrecompiled = std::dynamic_pointer_cast<ConditionPrecompiled>(
+                _context->getPrecompiled(conditionAddress.hex()));
         }
 
         precompiled::Condition::Ptr entryCondition = conditionPrecompiled->getCondition();
@@ -144,8 +143,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
             else
             {
                 // evm env
-                auto newAddress = Address(
-                    _context->registerPrecompiled(entriesPrecompiled), FixedBytes<20>::FromBinary);
+                auto newAddress = Address(_context->registerPrecompiled(entriesPrecompiled));
                 callResult->setExecResult(codec->encode(newAddress));
             }
         }
@@ -179,8 +177,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
             else
             {
                 // evm env
-                auto newAddress = Address(
-                    _context->registerPrecompiled(entriesPrecompiled), FixedBytes<20>::FromBinary);
+                auto newAddress = Address(_context->registerPrecompiled(entriesPrecompiled));
                 callResult->setExecResult(codec->encode(newAddress));
             }
         }
@@ -211,8 +208,8 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
             // evm env
             Address entryAddress;
             codec->decode(data, entryAddress);
-            entryPrecompiled = std::dynamic_pointer_cast<EntryPrecompiled>(_context->getPrecompiled(
-                std::string((char*)entryAddress.data(), entryAddress.size)));
+            entryPrecompiled = std::dynamic_pointer_cast<EntryPrecompiled>(
+                _context->getPrecompiled(entryAddress.hex()));
         }
 
         auto entry = entryPrecompiled->getEntry();
@@ -271,8 +268,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
         else
         {
             // evm env
-            Address newAddress = Address(
-                _context->registerPrecompiled(conditionPrecompiled), FixedBytes<20>::FromBinary);
+            Address newAddress = Address(_context->registerPrecompiled(conditionPrecompiled));
             callResult->setExecResult(codec->encode(newAddress));
         }
     }
@@ -292,8 +288,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
         else
         {
             // evm env
-            Address newAddress = Address(
-                _context->registerPrecompiled(entryPrecompiled), FixedBytes<20>::FromBinary);
+            Address newAddress = Address(_context->registerPrecompiled(entryPrecompiled));
             callResult->setExecResult(codec->encode(newAddress));
         }
     }
@@ -323,9 +318,8 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
             // evm env
             Address conditionAddress;
             codec->decode(data, conditionAddress);
-            conditionPrecompiled =
-                std::dynamic_pointer_cast<ConditionPrecompiled>(_context->getPrecompiled(
-                    std::string((char*)conditionAddress.data(), conditionAddress.size)));
+            conditionPrecompiled = std::dynamic_pointer_cast<ConditionPrecompiled>(
+                _context->getPrecompiled(conditionAddress.hex()));
         }
 
         precompiled::Condition::Ptr entryCondition = conditionPrecompiled->getCondition();
@@ -401,11 +395,10 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
             Address entryAddress;
             Address conditionAddress;
             codec->decode(data, entryAddress, conditionAddress);
-            entryPrecompiled = std::dynamic_pointer_cast<EntryPrecompiled>(_context->getPrecompiled(
-                std::string((char*)entryAddress.data(), entryAddress.size)));
-            conditionPrecompiled =
-                std::dynamic_pointer_cast<ConditionPrecompiled>(_context->getPrecompiled(
-                    std::string((char*)conditionAddress.data(), conditionAddress.size)));
+            entryPrecompiled = std::dynamic_pointer_cast<EntryPrecompiled>(
+                _context->getPrecompiled(entryAddress.hex()));
+            conditionPrecompiled = std::dynamic_pointer_cast<ConditionPrecompiled>(
+                _context->getPrecompiled(conditionAddress.hex()));
         }
         auto entry = entryPrecompiled->getEntry();
         auto entryCondition = conditionPrecompiled->getCondition();

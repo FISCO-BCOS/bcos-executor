@@ -100,8 +100,7 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
             }
             else
             {
-                Address newAddress = Address(
-                    _context->registerPrecompiled(entryPrecompiled), FixedBytes<20>::FromBinary);
+                Address newAddress = Address(_context->registerPrecompiled(entryPrecompiled));
                 callResult->setExecResult(codec->encode(true, newAddress));
             }
         }
@@ -161,7 +160,7 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("KVTable") << LOG_KV("set", key);
         // TODO: check this get strategy
         EntryPrecompiled::Ptr entryPrecompiled = std::dynamic_pointer_cast<EntryPrecompiled>(
-            _context->getPrecompiled(std::string((char*)entryAddress.data(), entryAddress.size)));
+            _context->getPrecompiled(entryAddress.hex()));
         auto entry = entryPrecompiled->getEntry();
         checkLengthValidate(
             key, USER_TABLE_KEY_VALUE_MAX_LENGTH, CODE_TABLE_KEY_VALUE_LENGTH_OVERFLOW);
@@ -191,8 +190,7 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
         }
         else
         {
-            auto newAddress = Address(
-                _context->registerPrecompiled(entryPrecompiled), FixedBytes<20>::FromBinary);
+            auto newAddress = Address(_context->registerPrecompiled(entryPrecompiled));
             callResult->setExecResult(codec->encode(newAddress));
         }
     }

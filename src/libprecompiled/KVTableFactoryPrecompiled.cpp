@@ -163,8 +163,7 @@ void KVTableFactoryPrecompiled::openTable(const std::shared_ptr<executor::BlockC
     }
     else
     {
-        auto address =
-            Address(_context->registerPrecompiled(kvTablePrecompiled), FixedBytes<20>::FromBinary);
+        auto address = Address(_context->registerPrecompiled(kvTablePrecompiled));
         callResult->setExecResult(codec->encode(address));
     }
 }

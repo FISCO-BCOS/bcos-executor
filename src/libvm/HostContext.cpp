@@ -263,7 +263,7 @@ size_t HostContext::codeSizeAt(const std::string_view& _a)
     }
     else
     {
-        precompiledAddress = toHexStringWithPrefix(_a);
+        precompiledAddress = *toHexString(_a);
     }
     if (m_blockContext->isPrecompiled(precompiledAddress))
     {

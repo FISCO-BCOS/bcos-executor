@@ -152,7 +152,7 @@ BOOST_AUTO_TEST_CASE(openTableTest)
         out = callResult->execResult();
         std::string addressOut;
         codec->decode(&out, addressOut);
-        BOOST_TEST(Address(addressOut) == Address(std::to_string(addressCount + 1)));
+        BOOST_TEST(Address(addressOut) == Address(addressCount + 1));
     }
 
     setIsWasm(false);
@@ -177,8 +177,8 @@ BOOST_AUTO_TEST_CASE(openTableTest)
         out = callResult->execResult();
         Address addressOutAddress;
         codec->decode(&out, addressOutAddress);
-        auto o1 = std::string((char*)addressOutAddress.data(), 20);
-        BOOST_TEST(o1 == "00000000000000065537");
+        auto o1 = addressOutAddress.hex();
+        BOOST_TEST(o1 == "0000000000000000000000000000000000010001");
     }
 }
 

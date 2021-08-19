@@ -183,8 +183,7 @@ void TableFactoryPrecompiled::openTable(const std::shared_ptr<executor::BlockCon
     }
     else
     {
-        auto address =
-            Address(_context->registerPrecompiled(tablePrecompiled), FixedBytes<20>::FromBinary);
+        auto address = Address(_context->registerPrecompiled(tablePrecompiled));
         callResult->setExecResult(codec->encode(address));
     }
 }

@@ -262,7 +262,8 @@ int ConsensusPrecompiled::setWeight(const std::shared_ptr<executor::BlockContext
     }
     auto newEntry = table->newEntry();
     entry->setField(NODE_WEIGHT, boost::lexical_cast<std::string>(weight));
-    entry->setField(NODE_ENABLE_NUMBER, boost::lexical_cast<std::string>(_context->currentNumber() + 1));
+    entry->setField(
+        NODE_ENABLE_NUMBER, boost::lexical_cast<std::string>(_context->currentNumber() + 1));
     table->setRow(nodeID, entry);
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("remove successfully");
     return 0;

@@ -113,10 +113,10 @@ BOOST_AUTO_TEST_CASE(get_set_evm)
     auto entryPrecompiled = std::make_shared<EntryPrecompiled>(hashImpl);
     entryPrecompiled->setEntry(newEntry);
     auto entryAddress1 = context->registerPrecompiled(entryPrecompiled);
-    BOOST_CHECK(Address(entryAddress1) == Address(std::to_string(addressCount + 1)));
+    BOOST_CHECK(Address(entryAddress1) == Address(addressCount + 1));
 
     // call set
-    auto addr = Address(entryAddress1, FixedBytes<20>::FromBinary);
+    auto addr = Address(entryAddress1);
     bytes in2 = codec->encodeWithSig("set(string,address)", std::string("123"), addr);
     callResult = kvTablePrecompiled->call(context, bytesConstRef(&in2), "0x00001", "", gas);
     bytes out1 = callResult->execResult();
@@ -159,11 +159,10 @@ BOOST_AUTO_TEST_CASE(get_set_wasm)
     auto entryPrecompiled = std::make_shared<EntryPrecompiled>(hashImpl);
     entryPrecompiled->setEntry(newEntry);
     auto entryAddress1 = context->registerPrecompiled(entryPrecompiled);
-    BOOST_CHECK(Address(entryAddress1) == Address(std::to_string(addressCount + 1)));
+    BOOST_CHECK(Address(entryAddress1) == Address(addressCount + 1));
 
     // call set
-    auto addr = Address(entryAddress1, FixedBytes<20>::FromBinary);
-    bytes in2 = codec->encodeWithSig("set(string,string)", std::string("123"), addr);
+    bytes in2 = codec->encodeWithSig("set(string,string)", std::string("123"), entryAddress1);
     callResult = kvTablePrecompiled->call(context, bytesConstRef(&in2), "0x00001", "", gas);
     bytes out1 = callResult->execResult();
     u256 num;
@@ -193,8 +192,7 @@ BOOST_AUTO_TEST_CASE(newEntryTest)
         bytes out1 = callResult->execResult();
         Address address;
         codec->decode(&out1, address);
-        std::string s((char*)address.data(), 20);
-        BOOST_CHECK(s == "00000000000000065537");
+        BOOST_CHECK(address.hex() == "0000000000000000000000000000000000010001");
     }
     {
         initWasmEnv();
@@ -203,7 +201,7 @@ BOOST_AUTO_TEST_CASE(newEntryTest)
         bytes out1 = callResult->execResult();
         std::string address;
         codec->decode(&out1, address);
-        BOOST_CHECK(Address(address) == Address(std::to_string(addressCount + 1)));
+        BOOST_CHECK(Address(address) == Address(addressCount + 1));
     }
 }
 

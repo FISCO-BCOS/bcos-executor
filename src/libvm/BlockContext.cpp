@@ -87,7 +87,7 @@ string BlockContext::registerPrecompiled(std::shared_ptr<precompiled::Precompile
 {
     auto count = ++m_addressCount;
     std::stringstream stream;
-    stream << "0x" << std::setfill('0') << std::setw(40) << std::hex << count;
+    stream << std::setfill('0') << std::setw(40) << std::hex << count;
     auto address = stream.str();
     m_address2Precompiled.insert(std::make_pair(address, p));
     return address;
@@ -153,7 +153,6 @@ void BlockContext::setAddress2Precompiled(
         {
             *it = addressWithoutPrefix[i];
         }
-        addressFilled = "0x" + addressFilled;
         m_address2Precompiled.insert(std::make_pair(addressFilled, precompiled));
     }
 }
