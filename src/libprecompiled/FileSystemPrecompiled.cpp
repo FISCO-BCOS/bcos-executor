@@ -96,22 +96,23 @@ void FileSystemPrecompiled::makeDir(const std::shared_ptr<executor::BlockContext
         {
             PRECOMPILED_LOG(TRACE)
                 << LOG_BADGE("FileSystemPrecompiled") << LOG_DESC("directory exists");
-            callResult->setExecResult(codec->encode(true));
+            callResult->setExecResult(codec->encode(s256((int)CODE_FILE_ALREADY_EXIST)));
         }
         else
         {
             // regular file
             PRECOMPILED_LOG(ERROR) << LOG_BADGE("FileSystemPrecompiled")
                                    << LOG_DESC("file name exists, not a directory");
-            callResult->setExecResult(codec->encode(false));
+            callResult->setExecResult(codec->encode(s256((int)CODE_FILE_ALREADY_EXIST)));
         }
     }
     else
     {
         PRECOMPILED_LOG(TRACE) << LOG_BADGE("FileSystemPrecompiled")
                                << LOG_DESC("directory not exists") << LOG_KV("path", absolutePath);
-        auto result = recursiveBuildDir(_context->getTableFactory(), absolutePath);
-        callResult->setExecResult(codec->encode(result));
+        auto buildResult = recursiveBuildDir(_context->getTableFactory(), absolutePath);
+        auto result = buildResult ? CODE_SUCCESS : CODE_FILE_BUILD_DIR_FAILED;
+        getErrorCodeOut(callResult->mutableExecResult(), result, codec);
     }
 }
 

@@ -231,7 +231,7 @@ int ConsensusPrecompiled::setWeight(const std::shared_ptr<executor::BlockContext
     codec->decode(_data, nodeID, weight);
     // Uniform lowercase nodeID
     boost::to_lower(nodeID);
-    PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("remove func")
+    PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("setWeight func")
                            << LOG_KV("nodeID", nodeID);
     if (nodeID.size() != 128u)
     {
@@ -265,7 +265,8 @@ int ConsensusPrecompiled::setWeight(const std::shared_ptr<executor::BlockContext
     entry->setField(
         NODE_ENABLE_NUMBER, boost::lexical_cast<std::string>(_context->currentNumber() + 1));
     table->setRow(nodeID, entry);
-    PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("remove successfully");
+    PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
+                           << LOG_DESC("setWeight successfully");
     return 0;
 }
 

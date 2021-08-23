@@ -37,13 +37,6 @@ using EntriesConstPtr = std::shared_ptr<const std::vector<storage::Entry::Ptr>>;
 using Entries = std::vector<storage::Entry::Ptr>;
 using EntriesPtr = std::shared_ptr<std::vector<storage::Entry::Ptr>>;
 
-/// SYS_ACCESS_TABLE table
-const char* const SYS_ACCESS_TABLE = "s_table_access";
-/// SYS_ACCESS_TABLE table fields
-const char* const SYS_AC_TABLE_NAME = "table_name";
-const char* const SYS_AC_ADDRESS = "address";
-const char* const SYS_AC_ENABLE_NUM = "enable_num";
-
 /// SYS_CNS table
 const char* const SYS_CNS = "s_cns";
 
@@ -56,12 +49,13 @@ static const char* const SYS_CONFIG_ENABLE_BLOCK_NUMBER = "enable_number";
 static const std::string FS_KEY_TYPE = "type";
 static const std::string FS_KEY_SUB = "subdirectories";
 static const std::string FS_KEY_NUM = "enable_number";
+static const size_t FS_PATH_MAX_LENGTH = 56;
+static const size_t FS_PATH_MAX_LEVEL = 6;
 
 /// FileSystem file type
 static const std::string FS_TYPE_DIR = "directory";
 static const std::string FS_TYPE_CONTRACT = "contract";
 static const std::string FS_TYPE_DATA = "data";
-static const std::string FS_TYPE_LINK = "link";
 
 /// FileSystem table fields
 static const std::string FS_TABLE_KEY_ADDRESS = "address";
@@ -101,6 +95,9 @@ const unsigned SYSTEM_CONSENSUS_TIMEOUT_MAX = (UINT_MAX / 1000);
 enum PrecompiledErrorCode : int
 {
     // FileSystemPrecompiled -53099 ~ -53000
+    CODE_FILE_SET_WASM_FAILED = -53004,
+    CODE_FILE_BUILD_DIR_FAILED = -53003,
+    CODE_FILE_ALREADY_EXIST = -53002,
     CODE_FILE_NOT_EXIST = -53001,
 
     // ChainGovernancePrecompiled -52099 ~ -52000

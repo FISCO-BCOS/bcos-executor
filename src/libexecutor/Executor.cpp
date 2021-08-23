@@ -20,6 +20,7 @@
  */
 #include "bcos-executor/Executor.h"
 #include "../libprecompiled/CNSPrecompiled.h"
+#include "../libprecompiled/CRUDPrecompiled.h"
 #include "../libprecompiled/ConsensusPrecompiled.h"
 #include "../libprecompiled/CryptoPrecompiled.h"
 #include "../libprecompiled/DeployWasmPrecompiled.h"
@@ -28,6 +29,7 @@
 #include "../libprecompiled/PrecompiledResult.h"
 #include "../libprecompiled/SystemConfigPrecompiled.h"
 #include "../libprecompiled/TableFactoryPrecompiled.h"
+#include "../libprecompiled/FileSystemPrecompiled.h"
 #include "../libprecompiled/Utilities.h"
 #include "../libprecompiled/extension/DagTransferPrecompiled.h"
 #include "../libstate/State.h"
@@ -46,7 +48,6 @@
 #include <exception>
 #include <thread>
 // #include "include/UserPrecompiled.h"
-// #include "../libprecompiled/CRUDPrecompiled.h"
 // #include "../libprecompiled/PermissionPrecompiled.h"
 // #include "../libprecompiled/ChainGovernancePrecompiled.h"
 // #include "../libprecompiled/ContractLifeCyclePrecompiled.h"
@@ -90,27 +91,32 @@ Executor::Executor(const protocol::BlockFactory::Ptr& _blockFactory,
     assert(m_stateStorage);
     m_threadNum = std::max(std::thread::hardware_concurrency(), (unsigned int)1);
     m_hashImpl = m_blockFactory->cryptoSuite()->hashImpl();
-    m_precompiledContract.insert(std::make_pair(std::string("0x1"),
+    auto fillZero = [](int _num) -> std::string {
+        std::stringstream stream;
+        stream << std::setfill('0') << std::setw(40) << std::hex << _num;
+        return stream.str();
+    };
+    m_precompiledContract.insert(std::make_pair(fillZero(1),
         make_shared<PrecompiledContract>(3000, 0, PrecompiledRegistrar::executor("ecrecover"))));
-    m_precompiledContract.insert(std::make_pair(std::string("0x2"),
+    m_precompiledContract.insert(std::make_pair(fillZero(2),
         make_shared<PrecompiledContract>(60, 12, PrecompiledRegistrar::executor("sha256"))));
-    m_precompiledContract.insert(std::make_pair(std::string("0x3"),
+    m_precompiledContract.insert(std::make_pair(fillZero(3),
         make_shared<PrecompiledContract>(600, 120, PrecompiledRegistrar::executor("ripemd160"))));
-    m_precompiledContract.insert(std::make_pair(std::string("0x4"),
+    m_precompiledContract.insert(std::make_pair(fillZero(4),
         make_shared<PrecompiledContract>(15, 3, PrecompiledRegistrar::executor("identity"))));
-    m_precompiledContract.insert({std::string("0x5"),
+    m_precompiledContract.insert({fillZero(5),
         make_shared<PrecompiledContract>(
             PrecompiledRegistrar::pricer("modexp"), PrecompiledRegistrar::executor("modexp"))});
     m_precompiledContract.insert(
-        {std::string("0x6"), make_shared<PrecompiledContract>(
+        {fillZero(6), make_shared<PrecompiledContract>(
                                  150, 0, PrecompiledRegistrar::executor("alt_bn128_G1_add"))});
     m_precompiledContract.insert(
-        {std::string("0x7"), make_shared<PrecompiledContract>(
+        {fillZero(7), make_shared<PrecompiledContract>(
                                  6000, 0, PrecompiledRegistrar::executor("alt_bn128_G1_mul"))});
-    m_precompiledContract.insert({std::string("0x8"),
+    m_precompiledContract.insert({fillZero(8),
         make_shared<PrecompiledContract>(PrecompiledRegistrar::pricer("alt_bn128_pairing_product"),
             PrecompiledRegistrar::executor("alt_bn128_pairing_product"))});
-    m_precompiledContract.insert({std::string("0x9"),
+    m_precompiledContract.insert({fillZero(9),
         make_shared<PrecompiledContract>(PrecompiledRegistrar::pricer("blake2_compression"),
             PrecompiledRegistrar::executor("blake2_compression"))});
 
@@ -542,9 +548,11 @@ BlockContext::Ptr Executor::createExecutiveContext(const protocol::BlockHeader::
         CRYPTO_ADDRESS, std::make_shared<CryptoPrecompiled>(m_hashImpl));
     context->setAddress2Precompiled(
         DEPLOY_WASM_ADDRESS, std::make_shared<DeployWasmPrecompiled>(m_hashImpl));
-
-    // context->setAddress2Precompiled(CRUD_ADDRESS,
-    // std::make_shared<precompiled::CRUDPrecompiled>());
+    context->setAddress2Precompiled(
+        CRUD_ADDRESS, std::make_shared<precompiled::CRUDPrecompiled>(m_hashImpl));
+    // FIXME: add address in framework
+    context->setAddress2Precompiled(
+        "0x100e", std::make_shared<precompiled::FileSystemPrecompiled>(m_hashImpl));
     // context->setAddress2Precompiled(
     //     PERMISSION_ADDRESS, std::make_shared<precompiled::PermissionPrecompiled>());
     // context->setAddress2Precompiled(

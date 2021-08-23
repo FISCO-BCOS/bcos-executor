@@ -68,6 +68,12 @@ std::shared_ptr<PrecompiledExecResult> DeployWasmPrecompiled::call(
         }
         else
         {
+            if (!checkPathValid(path))
+            {
+                PRECOMPILED_LOG(ERROR) << LOG_BADGE("DeployWasmPrecompiled")
+                                       << LOG_DESC("Invalid path") << LOG_KV("path", path);
+                BOOST_THROW_EXCEPTION(protocol::PrecompiledError());
+            }
             // build dir
             std::string parentDir = path.substr(0, path.find_last_of('/'));
             std::string contractName = path.substr(path.find_last_of('/'));
@@ -100,14 +106,14 @@ std::shared_ptr<PrecompiledExecResult> DeployWasmPrecompiled::call(
                 PRECOMPILED_LOG(WARNING)
                     << LOG_BADGE("DeployWasmPrecompiled")
                     << LOG_DESC("setContractFile in parentDir error") << LOG_KV("path", path);
-                callResult->setExecResult(codec->encode(false));
+                callResult->setExecResult(codec->encode(u256((int)CODE_FILE_SET_WASM_FAILED)));
             }
             else
             {
                 PRECOMPILED_LOG(INFO)
                     << LOG_BADGE("DeployWasmPrecompiled")
                     << LOG_DESC("setContractFile in parentDir success") << LOG_KV("path", path);
-                callResult->setExecResult(codec->encode(true));
+                callResult->setExecResult(codec->encode(u256((int)CODE_SUCCESS)));
                 _context->getState()->setAbi(path, jsonABI);
             }
         }
@@ -137,5 +143,67 @@ bool DeployWasmPrecompiled::setContractFile(std::shared_ptr<executor::BlockConte
     auto newEntry = parentTable->newEntry();
     newEntry->setField(SYS_VALUE, parentDif.toString());
     parentTable->setRow(FS_KEY_SUB, newEntry);
+    return true;
+}
+
+bool DeployWasmPrecompiled::checkPathValid(std::string const& _path)
+{
+    if (_path.length() > FS_PATH_MAX_LENGTH)
+    {
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("checkPathValid") << LOG_DESC("path too long")
+                               << LOG_KV("path", _path);
+        return false;
+    }
+    std::string absoluteDir = _path;
+    if (absoluteDir[0] == '/')
+    {
+        absoluteDir = absoluteDir.substr(1);
+    }
+    if (absoluteDir.at(absoluteDir.size() - 1) == '/')
+    {
+        absoluteDir = absoluteDir.substr(0, absoluteDir.size() - 1);
+    }
+    std::vector<std::string> pathList;
+    boost::split(pathList, absoluteDir, boost::is_any_of("/"), boost::token_compress_on);
+    if (pathList.size() > FS_PATH_MAX_LEVEL || pathList.empty())
+    {
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("checkPathValid")
+                               << LOG_DESC("resource path's level is too deep")
+                               << LOG_KV("path", _path);
+        return false;
+    }
+    std::vector<char> allowChar = {'_'};
+    auto checkFieldNameValidate = [&allowChar](const std::string& fieldName) -> bool {
+        if (fieldName.empty() || fieldName[0] == '_')
+        {
+            std::stringstream errorMessage;
+            errorMessage << "Invalid field \"" + fieldName
+                         << "\", the size of the field must be larger than 0 and "
+                            "the field can't start with \"_\"";
+            STORAGE_LOG(ERROR) << LOG_DESC(errorMessage.str()) << LOG_KV("field name", fieldName);
+            return false;
+        }
+        for (size_t i = 0; i < fieldName.size(); i++)
+        {
+            if (!isalnum(fieldName[i]) &&
+                (allowChar.end() == find(allowChar.begin(), allowChar.end(), fieldName[i])))
+            {
+                std::stringstream errorMessage;
+                errorMessage << "Invalid field \"" << fieldName
+                             << "\", the field name must be letters or numbers.";
+                STORAGE_LOG(ERROR)
+                    << LOG_DESC(errorMessage.str()) << LOG_KV("field name", fieldName);
+                return false;
+            }
+        }
+        return true;
+    };
+    for (const auto& path : pathList)
+    {
+        if (!checkFieldNameValidate(path))
+        {
+            return false;
+        }
+    }
     return true;
 }

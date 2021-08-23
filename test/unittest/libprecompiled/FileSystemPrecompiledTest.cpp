@@ -105,30 +105,31 @@ BOOST_AUTO_TEST_CASE(mkdirTest)
     bytes in = codec->encodeWithSig("mkdir(string)", std::string("/data/temp/test"));
     auto callResult = fileSystemPrecompiled->call(context, bytesConstRef(&in), "", "", gas);
     bytes out = callResult->execResult();
-    bool result;
+    u256 result;
     codec->decode(&out, result);
-    BOOST_TEST(result == true);
+    BOOST_TEST(result == 0u);
 
     // mkdir /data/test1/test
     in = codec->encodeWithSig("mkdir(string)", std::string("/data/test1/test"));
     callResult = fileSystemPrecompiled->call(context, bytesConstRef(&in), "", "", gas);
     out = callResult->execResult();
-    codec->decode(&out, result);
-    BOOST_TEST(result == false);
+    s256 errorCode;
+    codec->decode(&out, errorCode);
+    BOOST_TEST(errorCode == s256((int)CODE_FILE_BUILD_DIR_FAILED));
 
     // mkdir /data/test1
     in = codec->encodeWithSig("mkdir(string)", std::string("/data/test1"));
     callResult = fileSystemPrecompiled->call(context, bytesConstRef(&in), "", "", gas);
     out = callResult->execResult();
-    codec->decode(&out, result);
-    BOOST_TEST(result == false);
+    codec->decode(&out, errorCode);
+    BOOST_TEST(errorCode == s256((int)CODE_FILE_ALREADY_EXIST));
 
     // mkdir /data
     in = codec->encodeWithSig("mkdir(string)", std::string("/data"));
     callResult = fileSystemPrecompiled->call(context, bytesConstRef(&in), "", "", gas);
     out = callResult->execResult();
-    codec->decode(&out, result);
-    BOOST_TEST(result == true);
+    codec->decode(&out, errorCode);
+    BOOST_TEST(errorCode == s256((int)CODE_FILE_ALREADY_EXIST));
 }
 
 BOOST_AUTO_TEST_CASE(undefined_test)

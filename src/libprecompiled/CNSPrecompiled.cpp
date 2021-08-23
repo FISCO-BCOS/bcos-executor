@@ -210,7 +210,7 @@ void CNSPrecompiled::insert(const std::shared_ptr<executor::BlockContext>& _cont
             gasPricer->appendOperation(InterfaceOpcode::Insert, 1);
             PRECOMPILED_LOG(DEBUG)
                 << LOG_BADGE("CNSPrecompiled") << LOG_DESC("insert successfully");
-            result = 1;
+            result = CODE_SUCCESS;
         }
         else
         {

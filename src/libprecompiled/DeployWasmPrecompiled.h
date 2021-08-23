@@ -42,8 +42,11 @@ public:
         bytesConstRef _param, const std::string& _origin, const std::string& _sender,
         u256& _remainGas) override;
     std::string toString() override;
+
+private:
     bool setContractFile(std::shared_ptr<executor::BlockContext> _tableFactory,
         const std::string& _parentDir, const std::string& _contractName);
+    bool checkPathValid(std::string const& _path);
 };
 }  // namespace precompiled
 }  // namespace bcos
