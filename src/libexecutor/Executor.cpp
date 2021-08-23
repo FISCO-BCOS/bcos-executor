@@ -254,21 +254,22 @@ void Executor::start()
             error = resultNotifier(nullptr, orgHash, context->currentBlockHeader());
             if (!error)
             {
-                // set m_lastHeader to current block header
-                m_lastHeader = context->currentBlockHeader();
-                // create a new TableFactory and import data with new blocknumber
-                m_tableFactory = std::make_shared<TableFactory>(
-                    m_stateStorage, m_hashImpl, m_lastHeader->number() + 1);
-                // the cache only have some block's state, it is not infinit
-                m_tableFactory->importData(data.first, data.second, false);
                 EXECUTOR_LOG(DEBUG) << LOG_DESC("asyncNotifyExecutionResult")
                                     << LOG_KV("blockNumber", m_lastHeader->number());
             }
             else
             {
                 EXECUTOR_LOG(ERROR) << LOG_DESC("asyncNotifyExecutionResult failed")
+                                    << LOG_KV("blockNumber", m_lastHeader->number())
                                     << LOG_KV("message", error->errorMessage());
             }
+            // set m_lastHeader to current block header
+            m_lastHeader = context->currentBlockHeader();
+            // create a new TableFactory and import data with new blocknumber
+            m_tableFactory = std::make_shared<TableFactory>(
+                m_stateStorage, m_hashImpl, m_lastHeader->number() + 1);
+            // the cache only have some block's state, it is not infinit
+            m_tableFactory->importData(data.first, data.second, false);
         }
         EXECUTOR_LOG(INFO) << LOG_DESC("stopped");
     });
