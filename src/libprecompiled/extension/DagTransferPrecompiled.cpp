@@ -70,7 +70,7 @@ std::vector<std::string> DagTransferPrecompiled::getParallelTag(bytesConstRef _p
     bytesConstRef data = getParamData(_param);
 
     std::vector<std::string> results;
-    codec::abi::ContractABICodec abi(nullptr);
+    codec::abi::ContractABICodec abi(m_hashImpl);
     // user_name user_balance 2 fields in table, the key of table is user_name field
     if (func == name2Selector[DAG_TRANSFER_METHOD_ADD_STR_UINT])
     {  // userAdd(string,uint256)
@@ -165,7 +165,6 @@ PrecompiledExecResult::Ptr DagTransferPrecompiled::call(
     std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
     const std::string& _origin, const std::string&, u256& _remainGas)
 {
-    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     // parse function name
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
@@ -175,23 +174,23 @@ PrecompiledExecResult::Ptr DagTransferPrecompiled::call(
     // user_name user_balance 2 fields in table, the key of table is user_name field
     if (func == name2Selector[DAG_TRANSFER_METHOD_ADD_STR_UINT])
     {  // userAdd(string,uint256)
-        userAddCall(codec, _context, data, _origin, callResult->mutableExecResult());
+        userAddCall(_context, data, _origin, callResult->mutableExecResult());
     }
     else if (func == name2Selector[DAG_TRANSFER_METHOD_SAV_STR_UINT])
     {  // userSave(string,uint256)
-        userSaveCall(codec, _context, data, _origin, callResult->mutableExecResult());
+        userSaveCall(_context, data, _origin, callResult->mutableExecResult());
     }
     else if (func == name2Selector[DAG_TRANSFER_METHOD_DRAW_STR_UINT])
     {  // userDraw(string,uint256)
-        userDrawCall(codec, _context, data, _origin, callResult->mutableExecResult());
+        userDrawCall(_context, data, _origin, callResult->mutableExecResult());
     }
     else if (func == name2Selector[DAG_TRANSFER_METHOD_TRS_STR2_UINT])
     {  // userTransfer(string,string,uint256)
-        userTransferCall(codec, _context, data, _origin, callResult->mutableExecResult());
+        userTransferCall(_context, data, _origin, callResult->mutableExecResult());
     }
     else if (func == name2Selector[DAG_TRANSFER_METHOD_BAL_STR])
     {  // userBalance(string user)
-        userBalanceCall(codec, _context, data, callResult->mutableExecResult());
+        userBalanceCall(_context, data, callResult->mutableExecResult());
     }
     else
     {
@@ -203,14 +202,14 @@ PrecompiledExecResult::Ptr DagTransferPrecompiled::call(
     return callResult;
 }
 
-void DagTransferPrecompiled::userAddCall(PrecompiledCodec::Ptr _codec,
-    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _data,
-    std::string const& _origin, bytes& _out)
+void DagTransferPrecompiled::userAddCall(std::shared_ptr<executor::BlockContext> _context,
+    bytesConstRef _data, std::string const& _origin, bytes& _out)
 {
     // userAdd(string,uint256)
     std::string user;
     u256 amount;
-    _codec->decode(_data, user, amount);
+    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    codec->decode(_data, user, amount);
 
     int ret;
     std::string strErrorMsg;
@@ -255,17 +254,17 @@ void DagTransferPrecompiled::userAddCall(PrecompiledCodec::Ptr _codec,
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("DagTransferPrecompiled") << LOG_DESC(strErrorMsg)
                                << LOG_KV("errorCode", ret);
     }
-    _out = _codec->encode(u256(ret));
+    _out = codec->encode(u256(ret));
 }
 
-void DagTransferPrecompiled::userSaveCall(PrecompiledCodec::Ptr _codec,
-    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _data,
-    std::string const& _origin, bytes& _out)
+void DagTransferPrecompiled::userSaveCall(std::shared_ptr<executor::BlockContext> _context,
+    bytesConstRef _data, std::string const& _origin, bytes& _out)
 {
     // userSave(string,uint256)
     std::string user;
     u256 amount;
-    _codec->decode(_data, user, amount);
+    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    codec->decode(_data, user, amount);
 
     int ret;
     u256 balance;
@@ -341,16 +340,16 @@ void DagTransferPrecompiled::userSaveCall(PrecompiledCodec::Ptr _codec,
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("DagTransferPrecompiled") << LOG_DESC(strErrorMsg)
                                << LOG_KV("errorCode", ret);
     }
-    _out = _codec->encode(u256(ret));
+    _out = codec->encode(u256(ret));
 }
 
-void DagTransferPrecompiled::userDrawCall(PrecompiledCodec::Ptr _codec,
-    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _data,
-    std::string const& _origin, bytes& _out)
+void DagTransferPrecompiled::userDrawCall(std::shared_ptr<executor::BlockContext> _context,
+    bytesConstRef _data, std::string const& _origin, bytes& _out)
 {
     std::string user;
     u256 amount;
-    _codec->decode(_data, user, amount);
+    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    codec->decode(_data, user, amount);
 
     u256 balance;
     int ret;
@@ -412,14 +411,15 @@ void DagTransferPrecompiled::userDrawCall(PrecompiledCodec::Ptr _codec,
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("DagTransferPrecompiled") << LOG_DESC(strErrorMsg)
                                << LOG_KV("errorCode", ret);
     }
-    _out = _codec->encode(u256(ret));
+    _out = codec->encode(u256(ret));
 }
 
-void DagTransferPrecompiled::userBalanceCall(PrecompiledCodec::Ptr _codec,
+void DagTransferPrecompiled::userBalanceCall(
     std::shared_ptr<executor::BlockContext> _context, bytesConstRef _data, bytes& _out)
 {
     std::string user;
-    _codec->decode(_data, user);
+    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    codec->decode(_data, user);
 
     u256 balance;
     int ret;
@@ -459,16 +459,16 @@ void DagTransferPrecompiled::userBalanceCall(PrecompiledCodec::Ptr _codec,
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("DagTransferPrecompiled") << LOG_DESC(strErrorMsg)
                                << LOG_KV("errorCode", ret);
     }
-    _out = _codec->encode(u256(ret), balance);
+    _out = codec->encode(u256(ret), balance);
 }
 
-void DagTransferPrecompiled::userTransferCall(PrecompiledCodec::Ptr _codec,
-    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _data,
-    std::string const& _origin, bytes& _out)
+void DagTransferPrecompiled::userTransferCall(std::shared_ptr<executor::BlockContext> _context,
+    bytesConstRef _data, std::string const& _origin, bytes& _out)
 {
+    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     std::string fromUser, toUser;
     u256 amount;
-    _codec->decode(_data, fromUser, toUser, amount);
+    codec->decode(_data, fromUser, toUser, amount);
 
     u256 fromUserBalance, newFromUserBalance;
     u256 toUserBalance, newToUserBalance;
@@ -565,7 +565,7 @@ void DagTransferPrecompiled::userTransferCall(PrecompiledCodec::Ptr _codec,
         // update toUser balance info.
         entry = table->newEntry();
         entry->setField(DAG_TRANSFER_FIELD_BALANCE, newToUserBalance.str());
-        table->setRow(fromUser, entry);
+        table->setRow(toUser, entry);
         // end with success
         ret = 0;
     } while (false);
@@ -574,5 +574,5 @@ void DagTransferPrecompiled::userTransferCall(PrecompiledCodec::Ptr _codec,
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("DagTransferPrecompiled") << LOG_DESC(strErrorMsg)
                                << LOG_KV("errorCode", ret);
     }
-    _out = _codec->encode(u256(ret));
+    _out = codec->encode(u256(ret));
 }

@@ -49,18 +49,14 @@ protected:
     storage::TableInterface::Ptr openTable(std::shared_ptr<executor::BlockContext> _context);
 
 public:
-    void userAddCall(PrecompiledCodec::Ptr _codec, std::shared_ptr<executor::BlockContext> _context,
+    void userAddCall(std::shared_ptr<executor::BlockContext> _context,
         bytesConstRef _data, std::string const& _origin, bytes& _out);
-    void userSaveCall(PrecompiledCodec::Ptr _codec,
-        std::shared_ptr<executor::BlockContext> _context, bytesConstRef _data,
+    void userSaveCall(std::shared_ptr<executor::BlockContext> _context, bytesConstRef _data,
         std::string const& _origin, bytes& _out);
-    void userDrawCall(PrecompiledCodec::Ptr _codec,
-        std::shared_ptr<executor::BlockContext> _context, bytesConstRef _data,
+    void userDrawCall(std::shared_ptr<executor::BlockContext> _context, bytesConstRef _data,
         std::string const& _origin, bytes& _out);
-    void userBalanceCall(PrecompiledCodec::Ptr _codec,
-        std::shared_ptr<executor::BlockContext> _context, bytesConstRef _data, bytes& _out);
-    void userTransferCall(PrecompiledCodec::Ptr _codec,
-        std::shared_ptr<executor::BlockContext> _context, bytesConstRef _data,
+    void userBalanceCall(std::shared_ptr<executor::BlockContext> _context, bytesConstRef _data, bytes& _out);
+    void userTransferCall(std::shared_ptr<executor::BlockContext> _context, bytesConstRef _data,
         std::string const& _origin, bytes& _out);
 };
 
