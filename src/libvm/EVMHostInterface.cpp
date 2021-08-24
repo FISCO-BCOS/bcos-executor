@@ -42,119 +42,6 @@ bool accountExists(evmc_host_context* _context, const evmc_address* _addr) noexc
     return hostContext.exists(addr);
 }
 
-bool registerAsset(evmc_host_context* _context, const char* _assetName, int32_t _nameLength,
-    const evmc_address* _issuer, bool _fungible, uint64_t _total, const char* _desc,
-    int32_t _descLength)
-{
-    auto& hostContext = static_cast<HostContext&>(*_context);
-    return hostContext.registerAsset(string(_assetName, _nameLength), fromEvmC(*_issuer), _fungible,
-        _total, string(_desc, _descLength));
-}
-
-bool issueFungibleAsset(evmc_host_context* _context, const evmc_address* _to,
-    const char* _assetName, int32_t _nameLength, uint64_t _amount)
-{
-    auto& hostContext = static_cast<HostContext&>(*_context);
-    return hostContext.issueFungibleAsset(fromEvmC(*_to), string(_assetName, _nameLength), _amount);
-}
-
-uint64_t issueNotFungibleAsset(evmc_host_context* _context, const evmc_address* _to,
-    const char* _assetName, int32_t _nameLength, const char* _uri, int32_t _uriLength)
-{
-    auto& hostContext = static_cast<HostContext&>(*_context);
-    return hostContext.issueNotFungibleAsset(
-        fromEvmC(*_to), string(_assetName, _nameLength), string(_uri, _uriLength));
-}
-
-bool transferAsset(evmc_host_context* _context, const evmc_address* _to, const char* _assetName,
-    int32_t _nameLength, uint64_t _amountOrID, bool _fromSelf)
-{
-    auto& hostContext = static_cast<HostContext&>(*_context);
-    return hostContext.transferAsset(
-        fromEvmC(*_to), string(_assetName, _nameLength), _amountOrID, _fromSelf);
-}
-
-uint64_t getAssetBanlance(evmc_host_context* _context, const evmc_address* _account,
-    const char* _assetName, int32_t _nameLength)
-{
-    auto& hostContext = static_cast<HostContext&>(*_context);
-    return hostContext.getAssetBanlance(fromEvmC(*_account), string(_assetName, _nameLength));
-}
-
-int32_t getNotFungibleAssetIDs(evmc_host_context* _context, const evmc_address* _account,
-    const char* _assetName, int32_t _nameLength, char* _value, int32_t _valueLength)
-{
-    auto& hostContext = static_cast<HostContext&>(*_context);
-    auto tokenIDs =
-        hostContext.getNotFungibleAssetIDs(fromEvmC(*_account), string(_assetName, _nameLength));
-    if (tokenIDs.size() > (size_t)_valueLength / sizeof(uint64_t))
-    {
-        return -1;
-    }
-    int32_t length = tokenIDs.size() * sizeof(uint64_t);
-    memcpy(_value, tokenIDs.data(), length);
-    return length;
-}
-
-int32_t getNotFungibleAssetInfo(evmc_host_context* _context, const evmc_address* _account,
-    const char* _assetName, int32_t _nameLength, uint64_t _assetId, char* _value,
-    int32_t _valueLength)
-{
-    auto& hostContext = static_cast<HostContext&>(*_context);
-    auto info = hostContext.getNotFungibleAssetInfo(
-        fromEvmC(*_account), string(_assetName, _nameLength), _assetId);
-    if (info.size() > (size_t)_valueLength)
-    {
-        return -1;
-    }
-    memcpy(_value, info.data(), info.size());
-    return info.size();
-}
-
-int32_t get(evmc_host_context* _context, const evmc_address* _addr, const char* _key,
-    int32_t _keyLength, char* _value, int32_t _valueLength)
-{
-    auto& hostContext = static_cast<HostContext&>(*_context);
-
-    // programming assert for debug
-    assert(fromEvmC(*_addr) == hostContext.myAddress());
-    auto value = hostContext.get(string(_key, _keyLength));
-    if (value.size() > (size_t)_valueLength)
-    {
-        return -1;
-    }
-    memcpy(_value, value.data(), value.size());
-    return value.size();
-}
-
-evmc_storage_status set(evmc_host_context* _context, const evmc_address* _addr, const char* _key,
-    int32_t _keyLength, const char* _value, int32_t _valueLength)
-{
-    auto& hostContext = static_cast<HostContext&>(*_context);
-    if (!hostContext.isPermitted())
-    {  // FIXME: return status instead of throw exception
-        BOOST_THROW_EXCEPTION(PermissionDenied());
-    }
-    assert(fromEvmC(*_addr) == hostContext.myAddress());
-    string key(_key, _keyLength);
-    string value(_value, _valueLength);
-    auto oldValue = hostContext.get(string(_key, _keyLength));
-
-    if (value == oldValue)
-        return EVMC_STORAGE_UNCHANGED;
-
-    auto status = EVMC_STORAGE_MODIFIED;
-    if (oldValue.size() == 0)
-        status = EVMC_STORAGE_ADDED;
-    else if (value.size() == 0)
-    {
-        status = EVMC_STORAGE_DELETED;
-        hostContext.sub().refunds += hostContext.evmSchedule().sstoreRefundGas;
-    }
-    hostContext.set(key, value);  // Interface uses native endianness
-    return status;
-}
-
 evmc_bytes32 getStorage(
     evmc_host_context* _context, const evmc_address* _addr, const evmc_bytes32* _key)
 {
@@ -318,9 +205,18 @@ evmc_result call(evmc_host_context* _context, const evmc_message* _msg) noexcept
     params.gas = _msg->gas;
     // params.apparentValue = fromEvmC(_msg->value);
     // params.valueTransfer = _msg->kind == EVMC_DELEGATECALL ? 0 : params.apparentValue;
-    params.senderAddress = fromEvmC(_msg->sender);
-    params.codeAddress = fromEvmC(_msg->destination);
+    if (hostContext.getBlockContext()->isWasm())
+    {
+        params.senderAddress = string((char*)_msg->sender_ptr, _msg->sender_len);
+        params.codeAddress = string((char*)_msg->destination_ptr, _msg->destination_len);
+    }
+    else
+    {
+        params.senderAddress = fromEvmC(_msg->sender);
+        params.codeAddress = fromEvmC(_msg->destination);
+    }
     params.receiveAddress = _msg->kind == EVMC_CALL ? params.codeAddress : hostContext.myAddress();
+
     params.data = {_msg->input_data, _msg->input_size};
     params.staticCall = (_msg->flags & EVMC_STATIC) != 0;
 
@@ -341,8 +237,180 @@ evmc_host_interface const fnTable = {
     getTxContext,
     getBlockHash,
     log,
+};
+
+// for wasm
+
+bool wasmAccountExists(
+    evmc_host_context* _context, const uint8_t* address, int32_t addressLength) noexcept
+{
+    auto& hostContext = static_cast<HostContext&>(*_context);
+    return hostContext.exists(string_view((char*)address, addressLength));
+}
+
+int32_t get(evmc_host_context* _context, const uint8_t* _addr, int32_t _addressLength,
+    const uint8_t* _key, int32_t _keyLength, uint8_t* _value, int32_t _valueLength)
+{
+    auto& hostContext = static_cast<HostContext&>(*_context);
+
+    // programming assert for debug
+    assert(string_view((char*)_addr, _addressLength) == hostContext.myAddress());
+    auto value = hostContext.get(string((char*)_key, _keyLength));
+    if (value.size() > (size_t)_valueLength)
+    {
+        return -1;
+    }
+    memcpy(_value, value.data(), value.size());
+    return value.size();
+}
+
+evmc_storage_status set(evmc_host_context* _context, const uint8_t* _addr, int32_t _addressLength,
+    const uint8_t* _key, int32_t _keyLength, const uint8_t* _value, int32_t _valueLength)
+{
+    auto& hostContext = static_cast<HostContext&>(*_context);
+    if (!hostContext.isPermitted())
+    {  // FIXME: return status instead of throw exception
+        BOOST_THROW_EXCEPTION(PermissionDenied());
+    }
+    assert(string_view((char*)_addr, _addressLength) == hostContext.myAddress());
+    string key((char*)_key, _keyLength);
+    string value((char*)_value, _valueLength);
+    auto oldValue = hostContext.get(string((char*)_key, _keyLength));
+
+    if (value == oldValue)
+        return EVMC_STORAGE_UNCHANGED;
+
+    auto status = EVMC_STORAGE_MODIFIED;
+    if (oldValue.size() == 0)
+        status = EVMC_STORAGE_ADDED;
+    else if (value.size() == 0)
+    {
+        status = EVMC_STORAGE_DELETED;
+        hostContext.sub().refunds += hostContext.evmSchedule().sstoreRefundGas;
+    }
+    hostContext.set(key, value);  // Interface uses native endianness
+    return status;
+}
+
+size_t wasmGetCodeSize(evmc_host_context* _context, const uint8_t* _addr, int32_t _addressLength)
+{
+    auto& hostContext = static_cast<HostContext&>(*_context);
+    return hostContext.codeSizeAt(string_view((char*)_addr, _addressLength));
+}
+
+evmc_bytes32 wasmGetCodeHash(
+    evmc_host_context* _context, const uint8_t* _addr, int32_t _addressLength)
+{
+    auto& hostContext = static_cast<HostContext&>(*_context);
+    return toEvmC(hostContext.codeHashAt(string_view((char*)_addr, _addressLength)));
+}
+
+size_t wasmCopyCode(evmc_host_context* _context, const uint8_t* _addr, int32_t _addressLength,
+    size_t _codeOffset, uint8_t* _bufferData, size_t _bufferSize)
+{
+    auto& hostContext = static_cast<HostContext&>(*_context);
+    auto code = hostContext.codeAt(string_view((char*)_addr, _addressLength));
+
+    // Handle "big offset" edge case.
+    if (_codeOffset >= code->size())
+        return 0;
+
+    size_t maxToCopy = code->size() - _codeOffset;
+    size_t numToCopy = std::min(maxToCopy, _bufferSize);
+    std::copy_n(code->data() + _codeOffset, numToCopy, _bufferData);
+    return numToCopy;
+}
+
+void wasmLog(evmc_host_context* _context, const uint8_t* _addr, int32_t _addressLength,
+    uint8_t const* _data, size_t _dataSize, const evmc_bytes32 _topics[],
+    size_t _numTopics) noexcept
+{
+    auto& hostContext = static_cast<HostContext&>(*_context);
+    assert(string_view((char*)_addr, _addressLength) == hostContext.myAddress());
+    h256 const* pTopics = reinterpret_cast<h256 const*>(_topics);
+    hostContext.log(h256s{pTopics, pTopics + _numTopics}, bytesConstRef{_data, _dataSize});
+}
+
+bool registerAsset(evmc_host_context* _context, const char* _assetName, int32_t _nameLength,
+    const evmc_address* _issuer, bool _fungible, uint64_t _total, const char* _desc,
+    int32_t _descLength)
+{
+    auto& hostContext = static_cast<HostContext&>(*_context);
+    return hostContext.registerAsset(string(_assetName, _nameLength), fromEvmC(*_issuer), _fungible,
+        _total, string(_desc, _descLength));
+}
+
+bool issueFungibleAsset(evmc_host_context* _context, const uint8_t* _to, int32_t _toLength,
+    const char* _assetName, int32_t _nameLength, uint64_t _amount)
+{
+    auto& hostContext = static_cast<HostContext&>(*_context);
+    return hostContext.issueFungibleAsset(
+        string_view((char*)_to, _toLength), string(_assetName, _nameLength), _amount);
+}
+
+uint64_t issueNotFungibleAsset(evmc_host_context* _context, const uint8_t* _to, int32_t _toLength,
+    const char* _assetName, int32_t _nameLength, const char* _uri, int32_t _uriLength)
+{
+    auto& hostContext = static_cast<HostContext&>(*_context);
+    return hostContext.issueNotFungibleAsset(string_view((char*)_to, _toLength),
+        string(_assetName, _nameLength), string(_uri, _uriLength));
+}
+
+bool transferAsset(evmc_host_context* _context, const uint8_t* _to, int32_t _toLength,
+    const char* _assetName, int32_t _nameLength, uint64_t _amountOrID, bool _fromSelf)
+{
+    auto& hostContext = static_cast<HostContext&>(*_context);
+    return hostContext.transferAsset(string_view((char*)_to, _toLength),
+        string(_assetName, _nameLength), _amountOrID, _fromSelf);
+}
+
+uint64_t getAssetBanlance(evmc_host_context* _context, const uint8_t* _addr, int32_t _addressLength,
+    const char* _assetName, int32_t _nameLength)
+{
+    auto& hostContext = static_cast<HostContext&>(*_context);
+    return hostContext.getAssetBanlance(
+        string_view((char*)_addr, _addressLength), string(_assetName, _nameLength));
+}
+
+int32_t getNotFungibleAssetIDs(evmc_host_context* _context, const uint8_t* _addr,
+    int32_t _addressLength, const char* _assetName, int32_t _nameLength, char* _value,
+    int32_t _valueLength)
+{
+    auto& hostContext = static_cast<HostContext&>(*_context);
+    auto tokenIDs = hostContext.getNotFungibleAssetIDs(
+        string_view((char*)_addr, _addressLength), string(_assetName, _nameLength));
+    if (tokenIDs.size() > (size_t)_valueLength / sizeof(uint64_t))
+    {
+        return -1;
+    }
+    int32_t length = tokenIDs.size() * sizeof(uint64_t);
+    memcpy(_value, tokenIDs.data(), length);
+    return length;
+}
+
+int32_t getNotFungibleAssetInfo(evmc_host_context* _context, const uint8_t* _addr,
+    int32_t _addressLength, const char* _assetName, int32_t _nameLength, uint64_t _assetId,
+    char* _value, int32_t _valueLength)
+{
+    auto& hostContext = static_cast<HostContext&>(*_context);
+    auto info = hostContext.getNotFungibleAssetInfo(
+        string_view((char*)_addr, _addressLength), string(_assetName, _nameLength), _assetId);
+    if (info.size() > (size_t)_valueLength)
+    {
+        return -1;
+    }
+    memcpy(_value, info.data(), info.size());
+    return info.size();
+}
+
+wasm_host_interface const wasmFnTable = {
+    wasmAccountExists,
     get,
     set,
+    wasmGetCodeSize,
+    wasmGetCodeHash,
+    wasmCopyCode,
+    wasmLog,
     registerAsset,
     issueFungibleAsset,
     issueNotFungibleAsset,
@@ -357,6 +425,10 @@ evmc_host_interface const fnTable = {
 const evmc_host_interface* getHostInterface()
 {
     return &fnTable;
+}
+const wasm_host_interface* getWasmHostInterface()
+{
+    return &wasmFnTable;
 }
 }  // namespace executor
 }  // namespace bcos

@@ -31,7 +31,7 @@ ExternalProject_Add(hera_project
         DOWNLOAD_NO_PROGRESS 1
         GIT_REPOSITORY https://${URL_BASE}/FISCO-BCOS/hera.git
         GIT_SHALLOW false
-        GIT_TAG 06eec7873a8df1f2b233dfa22faff30822e5691b
+        GIT_TAG dcff8b286942f7147ff9ee5134b7d69d4f140e31
         CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
                    -DBUILD_SHARED_LIBS=OFF
                    -DHERA_WASMTIME=${USE_WASMTIME}

@@ -396,7 +396,9 @@ bool TransactionExecutive::go()
                 auto leftGas = static_cast<int64_t>(m_remainGas);
                 return shared_ptr<evmc_message>(
                     new evmc_message{kind, flags, static_cast<int32_t>(m_context->depth()), leftGas,
-                        toEvmC(m_context->myAddress()), toEvmC(m_context->caller()),
+                        toEvmC(m_context->myAddress()), (uint8_t*)m_context->myAddress().data(),
+                        (int32_t)m_context->myAddress().size(), toEvmC(m_context->caller()),
+                        (uint8_t*)m_context->caller().data(), (int32_t)m_context->caller().size(),
                         m_context->data().data(), m_context->data().size(), toEvmC(h256(0)),
                         toEvmC(0x0_cppui256)});
             };

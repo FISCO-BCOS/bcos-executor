@@ -228,11 +228,15 @@ HostContext::HostContext(const std::shared_ptr<BlockContext>& _envInfo,
 {
     m_tableFactory = m_blockContext->getTableFactory();
     interface = getHostInterface();
+    wasm_interface = getWasmHostInterface();
     g_hashImpl = m_blockContext->hashHandler();
-    // FIXME: rename sm3_hash_fn to evm_hash_fn and add a context pointer to get hashImpl
-    sm3_hash_fn = evm_hash_fn;
+    hash_fn = evm_hash_fn;
     version = 0x03000000;
-
+    isSMCrypto = false;
+    if (g_hashImpl->getHashImplType() == crypto::HashImplType::Sm3Hash)
+    {
+        isSMCrypto = true;
+    }
     metrics = &ethMetrics;
 }
 
