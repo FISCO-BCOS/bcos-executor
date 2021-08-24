@@ -70,6 +70,7 @@ std::vector<std::string> DagTransferPrecompiled::getParallelTag(bytesConstRef _p
     bytesConstRef data = getParamData(_param);
 
     std::vector<std::string> results;
+    // FIXME: this codec should adapt scale
     codec::abi::ContractABICodec abi(m_hashImpl);
     // user_name user_balance 2 fields in table, the key of table is user_name field
     if (func == name2Selector[DAG_TRANSFER_METHOD_ADD_STR_UINT])

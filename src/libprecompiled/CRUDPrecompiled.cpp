@@ -164,7 +164,7 @@ void CRUDPrecompiled::update(std::shared_ptr<executor::BlockContext> _context,
             {
                 PRECOMPILED_LOG(ERROR)
                     << LOG_BADGE("CRUDPrecompiled") << LOG_BADGE("UPDATE")
-                    << LOG_DESC("can't update the key") << LOG_KV("table", tableName)
+                    << LOG_DESC("can't update the key in entry") << LOG_KV("table", tableName)
                     << LOG_KV("key", table->tableInfo()->key);
                 getErrorCodeOut(
                     _callResult->mutableExecResult(), CODE_INVALID_UPDATE_TABLE_KEY, codec);

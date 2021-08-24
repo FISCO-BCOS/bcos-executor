@@ -550,9 +550,8 @@ BlockContext::Ptr Executor::createExecutiveContext(const protocol::BlockHeader::
         DEPLOY_WASM_ADDRESS, std::make_shared<DeployWasmPrecompiled>(m_hashImpl));
     context->setAddress2Precompiled(
         CRUD_ADDRESS, std::make_shared<precompiled::CRUDPrecompiled>(m_hashImpl));
-    // FIXME: add address in framework
     context->setAddress2Precompiled(
-        "0x100e", std::make_shared<precompiled::FileSystemPrecompiled>(m_hashImpl));
+        BFS_ADDRESS, std::make_shared<precompiled::FileSystemPrecompiled>(m_hashImpl));
     // context->setAddress2Precompiled(
     //     PERMISSION_ADDRESS, std::make_shared<precompiled::PermissionPrecompiled>());
     // context->setAddress2Precompiled(

@@ -139,22 +139,7 @@ void BlockContext::setPrecompiledContract(
 void BlockContext::setAddress2Precompiled(
     const string& address, std::shared_ptr<precompiled::Precompiled> precompiled)
 {
-    if (m_isWasm)
-    {
-        m_address2Precompiled.insert(std::make_pair(address, precompiled));
-    }
-    else
-    {
-        std::string addressWithoutPrefix =
-            (address.find("0x") != std::string::npos) ? address.substr(2) : address;
-        std::string addressFilled(40, '0');
-        int i = (int)addressWithoutPrefix.length() - 1;
-        for (auto it = addressFilled.rbegin(); i >= 0 && it != addressFilled.rend(); it++, i--)
-        {
-            *it = addressWithoutPrefix[i];
-        }
-        m_address2Precompiled.insert(std::make_pair(addressFilled, precompiled));
-    }
+    m_address2Precompiled.insert(std::make_pair(address, precompiled));
 }
 
 void BlockContext::commit()
