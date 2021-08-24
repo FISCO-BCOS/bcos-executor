@@ -23,6 +23,7 @@
 #include "PrecompiledResult.h"
 #include "Utilities.h"
 #include <bcos-framework/interfaces/protocol/CommonError.h>
+#include <bcos-framework/interfaces/storage/TableInterface.h>
 #include <json/json.h>
 #include <boost/lexical_cast.hpp>
 
@@ -120,18 +121,18 @@ void CRUDPrecompiled::desc(std::shared_ptr<executor::BlockContext> _context,
 
     auto entry = table->getRow(tableName);
     _gasPricer->appendOperation(InterfaceOpcode::Select, entry->capacityOfHashField());
-    std::string keyField, valueFiled;
+    std::string keyField, valueField;
     if (entry)
     {
-        keyField = entry->getField("key_field");
-        valueFiled = entry->getField("value_field");
+        keyField = entry->getField(SYS_TABLE_KEY_FIELDS);
+        valueField = entry->getField(SYS_TABLE_VALUE_FIELDS);
     }
     else
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("CRUDPrecompiled") << LOG_BADGE("DESC")
                                << LOG_DESC("table not exist") << LOG_KV("tableName", tableName);
     }
-    _callResult->setExecResult(codec->encode(keyField, valueFiled));
+    _callResult->setExecResult(codec->encode(keyField, valueField));
 }
 
 void CRUDPrecompiled::update(std::shared_ptr<executor::BlockContext> _context,
