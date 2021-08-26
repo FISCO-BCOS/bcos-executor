@@ -53,9 +53,11 @@ public:
         assert(hashImpl);
         smHashImpl = std::make_shared<Sm3Hash>();
         auto signatureImpl = std::make_shared<Secp256k1SignatureImpl>();
+        auto sm2Sign = std::make_shared<SM2SignatureImpl>();
         assert(signatureImpl);
         cryptoSuite = std::make_shared<CryptoSuite>(hashImpl, signatureImpl, nullptr);
         assert(cryptoSuite);
+        smCryptoSuite = std::make_shared<CryptoSuite>(smHashImpl, sm2Sign, nullptr);
         dispatcher = std::make_shared<MockDispatcher>();
         storage = std::make_shared<MemoryStorage>();
 
@@ -87,7 +89,7 @@ public:
         auto rootTypeEntry = rootTable->newEntry();
         rootTypeEntry->setField(SYS_VALUE, FS_TYPE_DIR);
         rootTable->setRow(FS_KEY_TYPE, rootTypeEntry);
-        FileInfo dataInfo("data", FS_TYPE_DIR, 0);
+        FileInfo dataInfo("data", FS_TYPE_DIR);
         DirInfo rootSubDir({dataInfo});
         auto rootSubEntry = rootTable->newEntry();
         rootSubEntry->setField(SYS_VALUE, rootSubDir.toString());
@@ -117,12 +119,26 @@ public:
         codec = std::make_shared<PrecompiledCodec>(hashImpl, context->isWasm());
     }
 
+    void setSM(bool _isWasm){
+        isWasm = _isWasm;
+        blockFactory = createBlockFactory(smCryptoSuite);
+        auto header = blockFactory->blockHeaderFactory()->createBlockHeader(1);
+        header->setNumber(1);
+        ledger = std::make_shared<MockLedger>(header, blockFactory);
+
+        executor = std::make_shared<Executor>(blockFactory, dispatcher, ledger, storage, isWasm);
+        auto tableFactory = std::make_shared<TableFactory>(storage, smHashImpl, 1);
+        context = executor->createExecutiveContext(header, tableFactory);
+        codec = std::make_shared<PrecompiledCodec>(smHashImpl, context->isWasm());
+    }
+
 protected:
     crypto::Hash::Ptr hashImpl;
     crypto::Hash::Ptr smHashImpl;
     BlockContext::Ptr context;
     protocol::BlockFactory::Ptr blockFactory;
     CryptoSuite::Ptr cryptoSuite = nullptr;
+    CryptoSuite::Ptr smCryptoSuite = nullptr;
     MemoryStorage::Ptr storage;
     MockLedger::Ptr ledger;
     TableFactoryInterface::Ptr memoryTableFactory;

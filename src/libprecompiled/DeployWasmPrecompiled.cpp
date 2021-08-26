@@ -135,7 +135,7 @@ bool DeployWasmPrecompiled::setContractFile(std::shared_ptr<executor::BlockConte
     if (!parentTable)
         return false;
     auto sub = parentTable->getRow(FS_KEY_SUB)->getField(SYS_VALUE);
-    FileInfo newFile(_contractName, FS_TYPE_CONTRACT, _context->currentNumber());
+    FileInfo newFile(_contractName, FS_TYPE_CONTRACT);
     DirInfo parentDif;
     if (!DirInfo::fromString(parentDif, sub))
         return false;

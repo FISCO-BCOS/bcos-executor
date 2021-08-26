@@ -261,7 +261,7 @@ void TableFactoryPrecompiled::createTable(const std::shared_ptr<executor::BlockC
             auto entry = parentTable->getRow(FS_KEY_SUB);
             DirInfo parentDir;
             DirInfo::fromString(parentDir, entry->getField(SYS_VALUE));
-            FileInfo fileInfo(tableRelativePath, FS_TYPE_DATA, _context->currentNumber());
+            FileInfo fileInfo(tableRelativePath, FS_TYPE_DATA);
             parentDir.getMutableSubDir().emplace_back(fileInfo);
 
             auto newEntry = parentTable->newEntry();

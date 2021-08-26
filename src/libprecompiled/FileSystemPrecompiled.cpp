@@ -140,14 +140,13 @@ void FileSystemPrecompiled::listDir(const std::shared_ptr<executor::BlockContext
             for (auto& fileInfo : dirInfo.getSubDir())
             {
                 Json::Value file;
-                file["type"] = fileInfo.getType();
                 file["name"] = fileInfo.getName();
-                file["enable_number"] = fileInfo.getNumber();
+                file["type"] = fileInfo.getType();
                 subdirectory.append(file);
             }
+            directory["name"] = absolutePath;
             directory[FS_KEY_TYPE] = type;
             directory[FS_KEY_SUB] = subdirectory;
-            directory[FS_KEY_NUM] = table->getRow(FS_KEY_NUM)->getField(SYS_VALUE);
 
             Json::FastWriter fastWriter;
             std::string str = fastWriter.write(directory);
@@ -159,8 +158,8 @@ void FileSystemPrecompiled::listDir(const std::shared_ptr<executor::BlockContext
         {
             // regular file
             Json::Value file;
+            file["name"] = absolutePath;
             file[FS_KEY_TYPE] = type;
-            file[FS_KEY_NUM] = table->getRow(FS_KEY_NUM)->getField(SYS_VALUE);
             Json::FastWriter fastWriter;
             std::string str = fastWriter.write(file);
             // TODO: add permission mod when permission support

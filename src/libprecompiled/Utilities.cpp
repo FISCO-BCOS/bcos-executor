@@ -480,7 +480,7 @@ bool precompiled::recursiveBuildDir(
                                    << LOG_KV("str", subdirectories);
             return false;
         }
-        FileInfo newDirectory(dir, FS_TYPE_DIR, 0);
+        FileInfo newDirectory(dir, FS_TYPE_DIR);
         auto checkExist = std::find_if(parentDir.getSubDir().begin(), parentDir.getSubDir().end(),
             [&dir](const FileInfo& _f) { return _f.getName() == dir; });
         if (root != "/")

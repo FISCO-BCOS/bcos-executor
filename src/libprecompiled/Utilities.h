@@ -82,12 +82,11 @@ class FileInfo
 {
 public:
     FileInfo() = default;
-    FileInfo(const std::string& name, const std::string& type, protocol::BlockNumber number)
-      : name(name), type(type), number(number)
+    FileInfo(const std::string& name, const std::string& type)
+      : name(name), type(type)
     {}
     const std::string& getName() const { return name; }
     const std::string& getType() const { return type; }
-    protocol::BlockNumber getNumber() const { return number; }
 
 private:
     friend class boost::serialization::access;
@@ -96,11 +95,9 @@ private:
     {
         ar& name;
         ar& type;
-        ar& number;
     }
     std::string name;
     std::string type;
-    protocol::BlockNumber number;
 };
 
 class DirInfo
