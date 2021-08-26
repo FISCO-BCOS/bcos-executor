@@ -740,6 +740,7 @@ BOOST_FIXTURE_TEST_SUITE(precompiledDeployWasmTest, DeployWasmPrecompiledFixture
 
 BOOST_AUTO_TEST_CASE(testDeploy)
 {
+#if 0
     setIsWasm(true);
     deployWasmPrecompiled = std::make_shared<DeployWasmPrecompiled>(hashImpl);
 
@@ -761,10 +762,12 @@ BOOST_AUTO_TEST_CASE(testDeploy)
         "deployWasm(bytes,bytes,string,string)", code, param, deployPath, jsonABI);
     BOOST_CHECK_THROW(
         deployWasmPrecompiled->call(context, bytesConstRef(&in), "", "", gas), PrecompiledError);
+#endif
 }
 
 BOOST_AUTO_TEST_CASE(testGMDeploy)
 {
+#if 0
     setSM(true);
     deployWasmPrecompiled = std::make_shared<DeployWasmPrecompiled>(smHashImpl);
 
@@ -794,6 +797,7 @@ BOOST_AUTO_TEST_CASE(testGMDeploy)
     auto tx = fakeTransaction(smCryptoSuite, keyPair, "/user/bin/HelloWorld", input, 101, 100001, "1", "1");
     auto executive = std::make_shared<TransactionExecutive>(context);
     auto receipt = executor->executeTransaction(tx, executive);
+#endif
 }
 
 BOOST_AUTO_TEST_SUITE_END()

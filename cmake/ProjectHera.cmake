@@ -10,12 +10,19 @@ if(NOT CARGO_COMMAND OR NOT RUSTC_COMMAND)
     message(FATAL_ERROR "rustc is not installed")
 endif()
 
-execute_process(COMMAND rustc -V OUTPUT_VARIABLE RUSTC_VERSION_INFO OUTPUT_STRIP_TRAILING_WHITESPACE)
+execute_process(COMMAND ${RUSTC_COMMAND} -V OUTPUT_VARIABLE RUSTC_VERSION_INFO OUTPUT_STRIP_TRAILING_WHITESPACE)
 STRING(REGEX MATCH "[0-9]+\\.[0-9]+\\.[0-9]+" RUSTC_VERSION ${RUSTC_VERSION_INFO})
-if (${RUSTC_VERSION} VERSION_LESS "1.47.0")
-    message(STATUS "rustc ${RUSTC_VERSION} is too old, executing `rustup update` to update it.")
-    execute_process(COMMAND rustup update)
+# if (${RUSTC_VERSION} VERSION_LESS "1.52.0")
+    # message(STATUS "rustc ${RUSTC_VERSION} is too old, executing `rustup update` to update it.")
+    # execute_process(COMMAND rustup update)
+# endif()
+
+# same as https://github.com/WeBankBlockchain/WeDPR-Lab-Crypto/blob/main/rust-toolchain
+if(NOT RUSTC_VERSION_REQUIRED)
+    set(RUSTC_VERSION_REQUIRED "nightly-2021-06-17")
 endif()
+message(STATUS "set rustc to ${RUSTC_VERSION_REQUIRED} of path ${CMAKE_SOURCE_DIR}/deps/src/")
+execute_process(COMMAND rustup override set ${RUSTC_VERSION_REQUIRED} --path ${CMAKE_SOURCE_DIR}/deps/src/ OUTPUT_QUIET ERROR_QUIET)
 
 set(USE_WASMER OFF)
 if(USE_WASMER)
@@ -31,7 +38,7 @@ ExternalProject_Add(hera_project
         DOWNLOAD_NO_PROGRESS 1
         GIT_REPOSITORY https://${URL_BASE}/FISCO-BCOS/hera.git
         GIT_SHALLOW false
-        GIT_TAG dcff8b286942f7147ff9ee5134b7d69d4f140e31
+        GIT_TAG 71c412724cf64532a3a9fe4258e4bbe7a70779d8
         CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
                    -DBUILD_SHARED_LIBS=OFF
                    -DHERA_WASMTIME=${USE_WASMTIME}
