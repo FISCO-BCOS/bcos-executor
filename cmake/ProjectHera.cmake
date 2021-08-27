@@ -22,6 +22,7 @@ if(NOT RUSTC_VERSION_REQUIRED)
     set(RUSTC_VERSION_REQUIRED "nightly-2021-06-17")
 endif()
 message(STATUS "set rustc to ${RUSTC_VERSION_REQUIRED} of path ${CMAKE_SOURCE_DIR}/deps/src/")
+file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/deps/src/)
 execute_process(COMMAND rustup override set ${RUSTC_VERSION_REQUIRED} --path ${CMAKE_SOURCE_DIR}/deps/src/ OUTPUT_QUIET ERROR_QUIET)
 
 set(USE_WASMER OFF)
