@@ -181,7 +181,6 @@ void CNSPrecompiled::insert(const std::shared_ptr<executor::BlockContext>& _cont
     }
     gasPricer->appendOperation(InterfaceOpcode::OpenTable);
     auto entry = table->getRow(contractName + "," + contractVersion);
-    gasPricer->appendOperation(InterfaceOpcode::Select, 1);
     int result;
     if (entry != nullptr)
     {
@@ -190,6 +189,7 @@ void CNSPrecompiled::insert(const std::shared_ptr<executor::BlockContext>& _cont
                                << LOG_KV("contractName", contractName)
                                << LOG_KV("address", contractAddress.hex())
                                << LOG_KV("version", contractVersion);
+        gasPricer->appendOperation(InterfaceOpcode::Select, 1);
         result = CODE_ADDRESS_AND_VERSION_EXIST;
     }
     else if (validCode < 0)

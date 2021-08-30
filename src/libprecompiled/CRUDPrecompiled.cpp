@@ -120,10 +120,10 @@ void CRUDPrecompiled::desc(std::shared_ptr<executor::BlockContext> _context,
     _gasPricer->appendOperation(InterfaceOpcode::OpenTable);
 
     auto entry = table->getRow(tableName);
-    _gasPricer->appendOperation(InterfaceOpcode::Select, entry->capacityOfHashField());
     std::string keyField, valueField;
     if (entry)
     {
+        _gasPricer->appendOperation(InterfaceOpcode::Select, entry->capacityOfHashField());
         keyField = entry->getField(SYS_TABLE_KEY_FIELDS);
         valueField = entry->getField(SYS_TABLE_VALUE_FIELDS);
     }
