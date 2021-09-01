@@ -44,8 +44,8 @@ public:
     std::string toString() override;
 
 private:
-    bool setContractFile(std::shared_ptr<executor::BlockContext> _tableFactory,
-        const std::string& _parentDir, const std::string& _contractName);
+    bool setContractFile(std::shared_ptr<executor::BlockContext> _context,
+        const std::string& _parentDir, const std::string& _contractName, const std::string& _owner);
     bool checkPathValid(std::string const& _path);
 };
 }  // namespace precompiled

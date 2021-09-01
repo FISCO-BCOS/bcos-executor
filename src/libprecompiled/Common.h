@@ -46,16 +46,20 @@ static const char* const SYS_KEY = "key";
 static const char* const SYS_CONFIG_ENABLE_BLOCK_NUMBER = "enable_number";
 
 /// FileSystem table keys
-static const std::string FS_KEY_TYPE = "type";
-static const std::string FS_KEY_SUB = "subdirectories";
-static const std::string FS_KEY_NUM = "enable_number";
+static const std::string FS_KEY_NAME = "name";
+static const std::string FS_FIELD_TYPE = "type";
+static const std::string FS_FIELD_ACCESS = "access";
+static const std::string FS_FIELD_OWNER = "uid";
+static const std::string FS_FIELD_GID = "gid";
+static const std::string FS_FIELD_EXTRA = "extra";
+static const std::string FS_FIELD_COMBINED = "type,access,uid,gid,extra";
+/// FileSystem path limit
 static const size_t FS_PATH_MAX_LENGTH = 56;
 static const size_t FS_PATH_MAX_LEVEL = 6;
 
 /// FileSystem file type
 static const std::string FS_TYPE_DIR = "directory";
 static const std::string FS_TYPE_CONTRACT = "contract";
-static const std::string FS_TYPE_DATA = "data";
 
 /// FileSystem table fields
 static const std::string FS_TABLE_KEY_ADDRESS = "address";
@@ -95,6 +99,7 @@ const unsigned SYSTEM_CONSENSUS_TIMEOUT_MAX = (UINT_MAX / 1000);
 enum PrecompiledErrorCode : int
 {
     // FileSystemPrecompiled -53099 ~ -53000
+    CODE_FILE_INVALID_PATH = -53005,
     CODE_FILE_SET_WASM_FAILED = -53004,
     CODE_FILE_BUILD_DIR_FAILED = -53003,
     CODE_FILE_ALREADY_EXIST = -53002,

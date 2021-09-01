@@ -75,46 +75,55 @@ std::shared_ptr<PrecompiledExecResult> DeployWasmPrecompiled::call(
                 BOOST_THROW_EXCEPTION(protocol::PrecompiledError());
             }
             // build dir
-            std::string parentDir = path.substr(0, path.find_last_of('/'));
-            std::string contractName = path.substr(path.find_last_of('/'));
-            recursiveBuildDir(_context->getTableFactory(), parentDir);
-            // TODO: get critical domains in jsonABI
-            auto executive = std::make_shared<TransactionExecutive>(_context);
-            if (!executive->executeCreate(
-                    _sender, _origin, path, _remainGas, ref(code), ref(param)))
+            std::string parentDir = getParentDir(path);
+            std::string contractName = getDirBaseName(path);
+            if (recursiveBuildDir(_context->getTableFactory(), parentDir))
             {
-                executive->go();
-                if (executive->status() != TransactionStatus::None)
+                // TODO: get critical domains in jsonABI
+                auto executive = std::make_shared<TransactionExecutive>(_context);
+                if (!executive->executeCreate(
+                        _sender, _origin, path, _remainGas, ref(code), ref(param)))
+                {
+                    executive->go();
+                    if (executive->status() != TransactionStatus::None)
+                    {
+                        PRECOMPILED_LOG(ERROR)
+                            << LOG_BADGE("DeployWasmPrecompiled") << LOG_DESC("executive->go error")
+                            << LOG_KV("path", path);
+                        // FIXME:  return error message in PrecompiledError
+                        BOOST_THROW_EXCEPTION(protocol::PrecompiledError());
+                    }
+                }
+                else
                 {
                     PRECOMPILED_LOG(ERROR)
-                        << LOG_BADGE("DeployWasmPrecompiled") << LOG_DESC("executive->go error")
-                        << LOG_KV("path", path);
-                    // FIXME:  return error message in PrecompiledError
+                        << LOG_BADGE("DeployWasmPrecompiled")
+                        << LOG_DESC("executive->executeCreate error") << LOG_KV("path", path);
                     BOOST_THROW_EXCEPTION(protocol::PrecompiledError());
+                }
+                // open parentDir and write subdir
+                if (!setContractFile(_context, parentDir, contractName, _origin))
+                {
+                    PRECOMPILED_LOG(WARNING)
+                        << LOG_BADGE("DeployWasmPrecompiled")
+                        << LOG_DESC("setContractFile in parentDir error") << LOG_KV("path", path);
+                    callResult->setExecResult(codec->encode(s256((int)CODE_FILE_SET_WASM_FAILED)));
+                }
+                else
+                {
+                    PRECOMPILED_LOG(INFO)
+                        << LOG_BADGE("DeployWasmPrecompiled")
+                        << LOG_DESC("setContractFile in parentDir success") << LOG_KV("path", path);
+                    callResult->setExecResult(codec->encode(s256((int)CODE_SUCCESS)));
+                    _context->getState()->setAbi(path, jsonABI);
                 }
             }
             else
             {
                 PRECOMPILED_LOG(ERROR)
-                    << LOG_BADGE("DeployWasmPrecompiled")
-                    << LOG_DESC("executive->executeCreate error") << LOG_KV("path", path);
-                BOOST_THROW_EXCEPTION(protocol::PrecompiledError());
-            }
-            // open parentDir and write subdir
-            if (!setContractFile(_context, parentDir, contractName))
-            {
-                PRECOMPILED_LOG(WARNING)
-                    << LOG_BADGE("DeployWasmPrecompiled")
-                    << LOG_DESC("setContractFile in parentDir error") << LOG_KV("path", path);
-                callResult->setExecResult(codec->encode(u256((int)CODE_FILE_SET_WASM_FAILED)));
-            }
-            else
-            {
-                PRECOMPILED_LOG(INFO)
-                    << LOG_BADGE("DeployWasmPrecompiled")
-                    << LOG_DESC("setContractFile in parentDir success") << LOG_KV("path", path);
-                callResult->setExecResult(codec->encode(u256((int)CODE_SUCCESS)));
-                _context->getState()->setAbi(path, jsonABI);
+                    << LOG_BADGE("DeployWasmPrecompiled") << LOG_DESC("recursive build dir failed")
+                    << LOG_KV("path", path);
+                callResult->setExecResult(codec->encode(s256((int)CODE_FILE_BUILD_DIR_FAILED)));
             }
         }
     }
@@ -129,21 +138,20 @@ std::shared_ptr<PrecompiledExecResult> DeployWasmPrecompiled::call(
 }
 
 bool DeployWasmPrecompiled::setContractFile(std::shared_ptr<executor::BlockContext> _context,
-    const std::string& _parentDir, const std::string& _contractName)
+    const std::string& _parentDir, const std::string& _contractName, const std::string& _owner)
 {
     auto parentTable = _context->getTableFactory()->openTable(_parentDir);
     if (!parentTable)
         return false;
-    auto sub = parentTable->getRow(FS_KEY_SUB)->getField(SYS_VALUE);
-    FileInfo newFile(_contractName, FS_TYPE_CONTRACT);
-    DirInfo parentDif;
-    if (!DirInfo::fromString(parentDif, sub))
-        return false;
-    parentDif.getMutableSubDir().emplace_back(newFile);
     auto newEntry = parentTable->newEntry();
-    newEntry->setField(SYS_VALUE, parentDif.toString());
-    parentTable->setRow(FS_KEY_SUB, newEntry);
-    return true;
+    newEntry->setField(FS_FIELD_TYPE, FS_TYPE_CONTRACT);
+    // FIXME: consider permission inheritance
+    newEntry->setField(FS_FIELD_ACCESS, "");
+    newEntry->setField(FS_FIELD_OWNER, _owner);
+    newEntry->setField(FS_FIELD_GID, "");
+    newEntry->setField(FS_FIELD_EXTRA, "");
+    return parentTable->setRow(_contractName, newEntry);
+    ;
 }
 
 bool DeployWasmPrecompiled::checkPathValid(std::string const& _path)

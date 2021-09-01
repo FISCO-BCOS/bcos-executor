@@ -87,29 +87,26 @@ void FileSystemPrecompiled::makeDir(const std::shared_ptr<executor::BlockContext
     std::string absolutePath;
     auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     codec->decode(data, absolutePath);
+    if (!checkPathValid(absolutePath))
+    {
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("FileSystemPrecompiled")
+                               << LOG_DESC("directory exists");
+        callResult->setExecResult(codec->encode(s256((int)CODE_FILE_INVALID_PATH)));
+        return;
+    }
     auto table = _context->getTableFactory()->openTable(absolutePath);
     gasPricer->appendOperation(InterfaceOpcode::OpenTable);
     if (table)
     {
-        auto type = table->getRow(FS_KEY_TYPE)->getField(SYS_VALUE);
-        if (type == "directory")
-        {
-            PRECOMPILED_LOG(TRACE)
-                << LOG_BADGE("FileSystemPrecompiled") << LOG_DESC("directory exists");
-            callResult->setExecResult(codec->encode(s256((int)CODE_FILE_ALREADY_EXIST)));
-        }
-        else
-        {
-            // regular file
-            PRECOMPILED_LOG(ERROR) << LOG_BADGE("FileSystemPrecompiled")
-                                   << LOG_DESC("file name exists, not a directory");
-            callResult->setExecResult(codec->encode(s256((int)CODE_FILE_ALREADY_EXIST)));
-        }
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("FileSystemPrecompiled")
+                               << LOG_DESC("file name exists, please check");
+        callResult->setExecResult(codec->encode(s256((int)CODE_FILE_ALREADY_EXIST)));
     }
     else
     {
         PRECOMPILED_LOG(TRACE) << LOG_BADGE("FileSystemPrecompiled")
-                               << LOG_DESC("directory not exists") << LOG_KV("path", absolutePath);
+                               << LOG_DESC("directory not exists, recursive build dir")
+                               << LOG_KV("path", absolutePath);
         auto buildResult = recursiveBuildDir(_context->getTableFactory(), absolutePath);
         auto result = buildResult ? CODE_SUCCESS : CODE_FILE_BUILD_DIR_FAILED;
         getErrorCodeOut(callResult->mutableExecResult(), result, codec);
@@ -124,45 +121,78 @@ void FileSystemPrecompiled::listDir(const std::shared_ptr<executor::BlockContext
     std::string absolutePath;
     auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     codec->decode(data, absolutePath);
+    if (!checkPathValid(absolutePath))
+    {
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("FileSystemPrecompiled")
+                               << LOG_DESC("directory exists");
+        callResult->setExecResult(codec->encode(s256((int)CODE_FILE_INVALID_PATH)));
+        return;
+    }
     auto table = _context->getTableFactory()->openTable(absolutePath);
     gasPricer->appendOperation(InterfaceOpcode::OpenTable);
 
     if (table)
     {
-        auto type = table->getRow(FS_KEY_TYPE)->getField(SYS_VALUE);
-        if (type == "directory")
+        // file exists, query parent dir
+        auto parentDir = getParentDir(absolutePath);
+        auto baseName = getDirBaseName(absolutePath);
+        auto parentTable = _context->getTableFactory()->openTable(parentDir);
+        assert(parentTable);
+        auto baseEntry = parentTable->getRow(baseName);
+        if (!baseEntry)
         {
-            Json::Value directory;
+            PRECOMPILED_LOG(ERROR)
+                << LOG_BADGE("FileSystemPrecompiled")
+                << LOG_DESC("file exists, but not found in parentDir")
+                << LOG_KV("parentDir", parentDir) << LOG_KV("fileName", baseName);
+            callResult->setExecResult(codec->encode(s256((int)CODE_FILE_NOT_EXIST)));
+            return;
+        }
+        auto type = baseEntry->getField(FS_FIELD_TYPE);
+        if (type == FS_TYPE_DIR)
+        {
+            // directory
             Json::Value subdirectory(Json::arrayValue);
-            auto subdirectories = table->getRow(FS_KEY_SUB)->getField(SYS_VALUE);
-            DirInfo dirInfo;
-            DirInfo::fromString(dirInfo, subdirectories);
-            for (auto& fileInfo : dirInfo.getSubDir())
+            auto fileNameList = table->getPrimaryKeys(nullptr);
+            auto fileInfoMap = table->getRows(fileNameList);
+            for (auto& fileName : fileNameList)
             {
+                // FIXME: check whether getRows will return nullptr entry
+                auto entry = fileInfoMap.at(fileName);
+                if (!entry)
+                {
+                    PRECOMPILED_LOG(WARNING)
+                        << LOG_BADGE("FileSystemPrecompiled")
+                        << LOG_DESC("getRows return null entry") << LOG_KV("fileName", fileName);
+                    continue;
+                }
                 Json::Value file;
-                file["name"] = fileInfo.getName();
-                file["type"] = fileInfo.getType();
+                file[FS_KEY_NAME] = fileName;
+                file[FS_FIELD_TYPE] = entry->getField(FS_FIELD_TYPE);
+                file[FS_FIELD_OWNER] = entry->getField(FS_FIELD_OWNER);
+                file[FS_FIELD_GID] = entry->getField(FS_FIELD_GID);
+                file[FS_FIELD_EXTRA] = entry->getField(FS_FIELD_EXTRA);
                 subdirectory.append(file);
             }
-            directory["name"] = absolutePath;
-            directory[FS_KEY_TYPE] = type;
-            directory[FS_KEY_SUB] = subdirectory;
-
             Json::FastWriter fastWriter;
-            std::string str = fastWriter.write(directory);
+            std::string str = fastWriter.write(subdirectory);
             PRECOMPILED_LOG(TRACE)
                 << LOG_BADGE("FileSystemPrecompiled") << LOG_DESC("ls dir, return subdirectories");
             callResult->setExecResult(codec->encode(str));
         }
         else
         {
-            // regular file
+            // contract
+            Json::Value fileList(Json::arrayValue);
             Json::Value file;
-            file["name"] = absolutePath;
-            file[FS_KEY_TYPE] = type;
+            file[FS_KEY_NAME] = baseName;
+            file[FS_FIELD_TYPE] = baseEntry->getField(FS_FIELD_TYPE);
+            file[FS_FIELD_OWNER] = baseEntry->getField(FS_FIELD_OWNER);
+            file[FS_FIELD_GID] = baseEntry->getField(FS_FIELD_GID);
+            file[FS_FIELD_EXTRA] = baseEntry->getField(FS_FIELD_EXTRA);
+            fileList.append(file);
             Json::FastWriter fastWriter;
-            std::string str = fastWriter.write(file);
-            // TODO: add permission mod when permission support
+            std::string str = fastWriter.write(fileList);
             callResult->setExecResult(codec->encode(str));
         }
     }

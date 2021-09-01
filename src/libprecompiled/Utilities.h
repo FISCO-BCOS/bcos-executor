@@ -36,7 +36,7 @@ namespace bcos
 namespace precompiled
 {
 static const std::string USER_TABLE_PREFIX = "u_";
-static const std::string USER_TABLE_PREFIX_WASM = "/data";
+static const std::string USER_TABLE_PREFIX_WASM = "/tables";
 
 enum class Comparator
 {
@@ -78,53 +78,6 @@ struct Condition : public std::enable_shared_from_this<Condition>
     std::pair<size_t, size_t> m_limit;
 };
 
-class FileInfo
-{
-public:
-    FileInfo() = default;
-    FileInfo(const std::string& name, const std::string& type)
-      : name(name), type(type)
-    {}
-    const std::string& getName() const { return name; }
-    const std::string& getType() const { return type; }
-
-private:
-    friend class boost::serialization::access;
-    template <typename Archive>
-    void serialize(Archive& ar, const unsigned int)
-    {
-        ar& name;
-        ar& type;
-    }
-    std::string name;
-    std::string type;
-};
-
-class DirInfo
-{
-public:
-    DirInfo() = default;
-    explicit DirInfo(const std::vector<FileInfo>& subDir) : subDir(subDir) {}
-    const std::vector<FileInfo>& getSubDir() const { return subDir; }
-    std::vector<FileInfo>& getMutableSubDir() { return subDir; }
-    std::string toString();
-    static bool fromString(DirInfo& _dir, std::string _str);
-    static std::string emptyDirString()
-    {
-        DirInfo emptyDir;
-        return emptyDir.toString();
-    }
-
-private:
-    friend class boost::serialization::access;
-    template <typename Archive>
-    void serialize(Archive& ar, const unsigned int)
-    {
-        ar& subDir;
-    }
-    std::vector<FileInfo> subDir;
-};
-
 void addCondition(const std::string& key, const std::string& value,
     std::vector<CompareTriple>& _cond, Comparator _cmp);
 
@@ -141,8 +94,7 @@ inline void getErrorCodeOut(bytes& out, int const& result, const PrecompiledCode
 }
 inline std::string getTableName(const std::string& _tableName, bool _isWasm)
 {
-    return _isWasm ? USER_TABLE_PREFIX + USER_TABLE_PREFIX_WASM + _tableName :
-                     USER_TABLE_PREFIX + _tableName;
+    return _isWasm ? USER_TABLE_PREFIX_WASM + _tableName : USER_TABLE_PREFIX + _tableName;
 }
 
 void checkNameValidate(const std::string& tableName, std::vector<std::string>& keyFieldList,
@@ -162,6 +114,12 @@ bytesConstRef getParamData(bytesConstRef _param);
 uint64_t getEntriesCapacity(precompiled::EntriesConstPtr _entries);
 
 void sortKeyValue(std::vector<std::string>& _v);
+
+bool checkPathValid(std::string const& _absolutePath);
+
+std::string getParentDir(const std::string& _absolutePath);
+
+std::string getDirBaseName(const std::string& _absolutePath);
 
 bool recursiveBuildDir(
     const storage::TableFactoryInterface::Ptr& _tableFactory, const std::string& _absoluteDir);

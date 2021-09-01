@@ -44,7 +44,7 @@ public:
         setIsWasm(true);
         kvTableFactoryPrecompiled->setMemoryTableFactory(context->getTableFactory());
 
-        // create table test1 test2, there are two data files in /data/
+        // create table test1 test2, there are two data files in /tables/
         bytes param = codec->encodeWithSig("createTable(string,string,string)",
             std::string("/test1"), std::string("id"), std::string("item_name,item_id"));
         kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas);
@@ -69,8 +69,8 @@ BOOST_AUTO_TEST_CASE(toString)
 BOOST_AUTO_TEST_CASE(lsTest)
 {
     // ls dir
-    bytes in = codec->encodeWithSig("list(string)", std::string("/data"));
-    auto callResult = fileSystemPrecompiled->call(context, bytesConstRef(&in), "", "", gas);
+    bytes in = codec->encodeWithSig("list(string)", std::string(USER_TABLE_PREFIX_WASM));
+    auto callResult = fileSystemPrecompiled->call(context, bytesConstRef(&in), "test", "", gas);
     bytes out = callResult->execResult();
     std::string result;
     codec->decode(&out, result);
@@ -78,18 +78,17 @@ BOOST_AUTO_TEST_CASE(lsTest)
     Json::Value retJson;
     Json::Reader reader;
     BOOST_CHECK(reader.parse(result, retJson) == true);
-    BOOST_CHECK(retJson[FS_KEY_TYPE].asString() == FS_TYPE_DIR);
-    BOOST_CHECK(retJson[FS_KEY_SUB].size() == 2);
+    BOOST_CHECK(retJson.size() == 2);
 
     // ls regular
-    bytes in2 = codec->encodeWithSig("list(string)", std::string("/data/test2"));
+    bytes in2 = codec->encodeWithSig("list(string)", std::string("/tables/test2"));
     callResult = fileSystemPrecompiled->call(context, bytesConstRef(&in2), "", "", gas);
     out = callResult->execResult();
     codec->decode(&out, result);
     std::cout << result << std::endl;
     BOOST_CHECK(reader.parse(result, retJson) == true);
-    BOOST_CHECK(retJson[FS_KEY_TYPE].asString() == FS_TYPE_DATA);
-    BOOST_CHECK(retJson[FS_KEY_SUB].empty());
+    BOOST_CHECK(retJson.size() == 1);
+    BOOST_CHECK(retJson[0][FS_FIELD_TYPE] == FS_TYPE_CONTRACT);
 
     // ls not exist
     bytes in3 = codec->encodeWithSig("list(string)", std::string("/data/test3"));
@@ -98,11 +97,21 @@ BOOST_AUTO_TEST_CASE(lsTest)
     s256 errorCode;
     codec->decode(&out, errorCode);
     BOOST_CHECK(errorCode == s256((int)CODE_FILE_NOT_EXIST));
+
+    // ls /
+    bytes in4 = codec->encodeWithSig("list(string)", std::string("/"));
+    callResult = fileSystemPrecompiled->call(context, bytesConstRef(&in4), "", "", gas);
+    out = callResult->execResult();
+    codec->decode(&out, result);
+    std::cout << result << std::endl;
+    BOOST_CHECK(reader.parse(result, retJson) == true);
+    BOOST_CHECK(retJson.size() == 2);
+    BOOST_CHECK(retJson[0][FS_FIELD_TYPE] == FS_TYPE_DIR);
 }
 
 BOOST_AUTO_TEST_CASE(mkdirTest)
 {
-    bytes in = codec->encodeWithSig("mkdir(string)", std::string("/data/temp/test"));
+    bytes in = codec->encodeWithSig("mkdir(string)", std::string("/tables/temp/test"));
     auto callResult = fileSystemPrecompiled->call(context, bytesConstRef(&in), "", "", gas);
     bytes out = callResult->execResult();
     u256 result;
@@ -110,7 +119,7 @@ BOOST_AUTO_TEST_CASE(mkdirTest)
     BOOST_TEST(result == 0u);
 
     // mkdir /data/test1/test
-    in = codec->encodeWithSig("mkdir(string)", std::string("/data/test1/test"));
+    in = codec->encodeWithSig("mkdir(string)", std::string("/tables/test1/test"));
     callResult = fileSystemPrecompiled->call(context, bytesConstRef(&in), "", "", gas);
     out = callResult->execResult();
     s256 errorCode;
@@ -118,14 +127,14 @@ BOOST_AUTO_TEST_CASE(mkdirTest)
     BOOST_TEST(errorCode == s256((int)CODE_FILE_BUILD_DIR_FAILED));
 
     // mkdir /data/test1
-    in = codec->encodeWithSig("mkdir(string)", std::string("/data/test1"));
+    in = codec->encodeWithSig("mkdir(string)", std::string("/tables/test1"));
     callResult = fileSystemPrecompiled->call(context, bytesConstRef(&in), "", "", gas);
     out = callResult->execResult();
     codec->decode(&out, errorCode);
     BOOST_TEST(errorCode == s256((int)CODE_FILE_ALREADY_EXIST));
 
     // mkdir /data
-    in = codec->encodeWithSig("mkdir(string)", std::string("/data"));
+    in = codec->encodeWithSig("mkdir(string)", std::string("/tables"));
     callResult = fileSystemPrecompiled->call(context, bytesConstRef(&in), "", "", gas);
     out = callResult->execResult();
     codec->decode(&out, errorCode);

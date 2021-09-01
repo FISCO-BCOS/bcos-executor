@@ -70,33 +70,22 @@ public:
         entry->setField(SYS_CONFIG_ENABLE_BLOCK_NUMBER, "0");
         table->setRow(SYSTEM_KEY_TX_GAS_LIMIT, entry);
 
-        // create /data table
-        memoryTableFactory->createTable("/data", SYS_KEY, SYS_VALUE);
-        auto dataTable = memoryTableFactory->openTable("/data");
-        auto dirEntry = table->newEntry();
-        dirEntry->setField(SYS_VALUE, FS_TYPE_DIR);
-        dataTable->setRow(FS_KEY_TYPE, dirEntry);
-        auto subEntry = table->newEntry();
-        subEntry->setField(SYS_VALUE, DirInfo::emptyDirString());
-        dataTable->setRow(FS_KEY_SUB, subEntry);
-        auto numEntry = table->newEntry();
-        numEntry->setField(SYS_VALUE, "0");
-        dataTable->setRow(FS_KEY_NUM, numEntry);
 
         // create / table
-        memoryTableFactory->createTable("/", SYS_KEY, SYS_VALUE);
+        memoryTableFactory->createTable("/", FS_KEY_NAME, FS_FIELD_COMBINED);
+
+        // create /tables table
+        memoryTableFactory->createTable(USER_TABLE_PREFIX_WASM, FS_KEY_NAME, FS_FIELD_COMBINED);
         auto rootTable = memoryTableFactory->openTable("/");
-        auto rootTypeEntry = rootTable->newEntry();
-        rootTypeEntry->setField(SYS_VALUE, FS_TYPE_DIR);
-        rootTable->setRow(FS_KEY_TYPE, rootTypeEntry);
-        FileInfo dataInfo("data", FS_TYPE_DIR);
-        DirInfo rootSubDir({dataInfo});
-        auto rootSubEntry = rootTable->newEntry();
-        rootSubEntry->setField(SYS_VALUE, rootSubDir.toString());
-        rootTable->setRow(FS_KEY_SUB, rootSubEntry);
-        auto rootNumEntry = table->newEntry();
-        rootNumEntry->setField(SYS_VALUE, "0");
-        rootTable->setRow(FS_KEY_NUM, rootNumEntry);
+        assert(rootTable);
+        auto dirEntry = rootTable->newEntry();
+        dirEntry->setField(FS_FIELD_TYPE, FS_TYPE_DIR);
+        dirEntry->setField(FS_FIELD_ACCESS, "");
+        dirEntry->setField(FS_FIELD_OWNER, "root");
+        dirEntry->setField(FS_FIELD_GID, "/usr");
+        dirEntry->setField(FS_FIELD_EXTRA, "");
+        rootTable->setRow(getDirBaseName(USER_TABLE_PREFIX_WASM), dirEntry);
+        rootTable->setRow("/", dirEntry);
 
         memoryTableFactory->commit();
     }
@@ -119,7 +108,8 @@ public:
         codec = std::make_shared<PrecompiledCodec>(hashImpl, context->isWasm());
     }
 
-    void setSM(bool _isWasm){
+    void setSM(bool _isWasm)
+    {
         isWasm = _isWasm;
         blockFactory = createBlockFactory(smCryptoSuite);
         auto header = blockFactory->blockHeaderFactory()->createBlockHeader(1);

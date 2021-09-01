@@ -213,60 +213,56 @@ void TableFactoryPrecompiled::createTable(const std::shared_ptr<executor::BlockC
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("TableFactoryPrecompiled")
                                << LOG_DESC("create table in wasm env: error tableName")
                                << LOG_KV("tableName", tableName);
-        BOOST_THROW_EXCEPTION(PrecompiledError() << errinfo_comment("Error table name."));
+        BOOST_THROW_EXCEPTION(PrecompiledError() << errinfo_comment("Table name error."));
     }
 
     checkCreateTableParam(tableName, keyField, valueField);
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("TableFactory") << LOG_KV("createTable", tableName)
                            << LOG_KV("keyField", keyField) << LOG_KV("valueFiled", valueField);
-
-    // wasm: /data + tableName, evm: u_ + tableName
+    // FIXME: use /group/tables
+    // wasm: /tables + tableName, evm: u_ + tableName
     auto newTableName = getTableName(tableName, _context->isWasm());
-    int result = 0;
+    int result = CODE_SUCCESS;
     auto table = m_memoryTableFactory->openTable(newTableName);
     if (table)
     {
         // table already exist
         result = CODE_TABLE_NAME_ALREADY_EXIST;
+        getErrorCodeOut(callResult->mutableExecResult(), result, codec);
+        return;
     }
     else
     {
-        m_memoryTableFactory->createTable(newTableName, keyField, valueField);
-        gasPricer->appendOperation(InterfaceOpcode::CreateTable);
         if (_context->isWasm())
         {
-            auto inodeTableName = USER_TABLE_PREFIX_WASM + tableName;
-            // create inode table
-            m_memoryTableFactory->createTable(inodeTableName, SYS_KEY, SYS_VALUE);
+            auto parentDir = getParentDir(newTableName);
+            auto tableRelativePath = getDirBaseName(newTableName);
+            if (!recursiveBuildDir(m_memoryTableFactory, newTableName))
+            {
+                result = CODE_FILE_BUILD_DIR_FAILED;
+            }
+            else
+            {
+                m_memoryTableFactory->createTable(newTableName, keyField, valueField);
+                gasPricer->appendOperation(InterfaceOpcode::CreateTable);
 
-            // set inode data of table in file system
-            auto inodeTable = m_memoryTableFactory->openTable(inodeTableName);
-            auto typeEntry = inodeTable->newEntry();
-            typeEntry->setField(SYS_VALUE, FS_TYPE_DATA);
-            inodeTable->setRow(FS_KEY_TYPE, typeEntry);
-            auto addressEntry = inodeTable->newEntry();
-            addressEntry->setField(SYS_VALUE, newTableName);
-            inodeTable->setRow(FS_TABLE_KEY_ADDRESS, addressEntry);
-            auto numEntry = inodeTable->newEntry();
-            numEntry->setField(SYS_VALUE, std::to_string(_context->currentNumber()));
-            inodeTable->setRow(FS_TABLE_KEY_NUM, numEntry);
-
-            auto parentPath = inodeTableName.substr(0, inodeTableName.find_last_of('/'));
-            auto tableRelativePath = tableName.substr(tableName.find_last_of('/'));
-            recursiveBuildDir(m_memoryTableFactory, parentPath);
-
-            // parentPath table must exist
-            // update parentPath subdirectories
-            auto parentTable = m_memoryTableFactory->openTable(parentPath);
-            auto entry = parentTable->getRow(FS_KEY_SUB);
-            DirInfo parentDir;
-            DirInfo::fromString(parentDir, entry->getField(SYS_VALUE));
-            FileInfo fileInfo(tableRelativePath, FS_TYPE_DATA);
-            parentDir.getMutableSubDir().emplace_back(fileInfo);
-
-            auto newEntry = parentTable->newEntry();
-            newEntry->setField(SYS_VALUE, parentDir.toString());
-            parentTable->setRow(FS_KEY_SUB, newEntry);
+                // parentPath table must exist
+                // update parentDir
+                auto parentTable = m_memoryTableFactory->openTable(parentDir);
+                auto newEntry = parentTable->newEntry();
+                newEntry->setField(FS_FIELD_TYPE, FS_TYPE_CONTRACT);
+                // FIXME: consider permissions inheritance
+                newEntry->setField(FS_FIELD_ACCESS, "");
+                newEntry->setField(FS_FIELD_OWNER, _origin);
+                newEntry->setField(FS_FIELD_GID, "");
+                newEntry->setField(FS_FIELD_EXTRA, "");
+                parentTable->setRow(tableRelativePath, newEntry);
+            }
+        }
+        else
+        {
+            m_memoryTableFactory->createTable(newTableName, keyField, valueField);
+            gasPricer->appendOperation(InterfaceOpcode::CreateTable);
         }
     }
     getErrorCodeOut(callResult->mutableExecResult(), result, codec);

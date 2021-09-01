@@ -32,32 +32,6 @@ using namespace bcos::crypto;
 
 static tbb::concurrent_unordered_map<std::string, uint32_t> s_name2SelectCache;
 
-std::string DirInfo::toString()
-{
-    std::stringstream ss;
-    boost::archive::text_oarchive oa(ss);
-    oa << *this;
-    return ss.str();
-}
-
-bool DirInfo::fromString(DirInfo& _dir, std::string _str)
-{
-    std::stringstream ss(_str);
-    try
-    {
-        boost::archive::text_iarchive ia(ss);
-        ia >> _dir;
-    }
-    catch (boost::archive::archive_exception const& e)
-    {
-        PRECOMPILED_LOG(ERROR) << LOG_BADGE("DirInfo::fromString")
-                               << LOG_DESC("deserialization error") << LOG_KV("e.what", e.what())
-                               << LOG_KV("str", _str);
-        return false;
-    }
-    return true;
-}
-
 void bcos::precompiled::checkNameValidate(const std::string& tableName,
     std::vector<std::string>& keyFieldList, std::vector<std::string>& valueFieldList)
 {
@@ -436,6 +410,96 @@ uint64_t precompiled::getEntriesCapacity(precompiled::EntriesConstPtr _entries)
     return totalCapacity;
 }
 
+bool precompiled::checkPathValid(std::string const& _path)
+{
+    if (_path.length() > FS_PATH_MAX_LENGTH)
+    {
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("checkPathValid") << LOG_DESC("path too long")
+                               << LOG_KV("path", _path);
+        return false;
+    }
+    if (_path == "/")
+        return true;
+    std::string absoluteDir = _path;
+    if (absoluteDir[0] == '/')
+    {
+        absoluteDir = absoluteDir.substr(1);
+    }
+    if (absoluteDir.at(absoluteDir.size() - 1) == '/')
+    {
+        absoluteDir = absoluteDir.substr(0, absoluteDir.size() - 1);
+    }
+    std::vector<std::string> pathList;
+    boost::split(pathList, absoluteDir, boost::is_any_of("/"), boost::token_compress_on);
+    if (pathList.size() > FS_PATH_MAX_LEVEL || pathList.empty())
+    {
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("checkPathValid")
+                               << LOG_DESC("resource path's level is too deep")
+                               << LOG_KV("path", _path);
+        return false;
+    }
+    std::vector<char> allowChar = {'_'};
+    auto checkFieldNameValidate = [&allowChar](const std::string& fieldName) -> bool {
+        if (fieldName.empty() || fieldName[0] == '_')
+        {
+            std::stringstream errorMessage;
+            errorMessage << "Invalid field \"" + fieldName
+                         << "\", the size of the field must be larger than 0 and "
+                            "the field can't start with \"_\"";
+            STORAGE_LOG(ERROR) << LOG_DESC(errorMessage.str()) << LOG_KV("field name", fieldName);
+            return false;
+        }
+        for (size_t i = 0; i < fieldName.size(); i++)
+        {
+            if (!isalnum(fieldName[i]) &&
+                (allowChar.end() == find(allowChar.begin(), allowChar.end(), fieldName[i])))
+            {
+                std::stringstream errorMessage;
+                errorMessage << "Invalid field \"" << fieldName
+                             << "\", the field name must be letters or numbers.";
+                STORAGE_LOG(ERROR)
+                    << LOG_DESC(errorMessage.str()) << LOG_KV("field name", fieldName);
+                return false;
+            }
+        }
+        return true;
+    };
+    return std::all_of(pathList.begin(), pathList.end(),
+        [checkFieldNameValidate](const std::string& s) { return checkFieldNameValidate(s); });
+}
+
+/// /usr/test => /usr
+std::string precompiled::getParentDir(const std::string& _absolutePath)
+{
+    if (_absolutePath == "/" || _absolutePath.empty())
+    {
+        return _absolutePath;
+    }
+    // /usr/test/ => /usr/test
+    std::string ret = (_absolutePath.at(_absolutePath.length() - 1) == '/') ?
+                          _absolutePath.substr(0, _absolutePath.find_last_of('/') - 1) :
+                          _absolutePath;
+    if (_absolutePath.find_last_of('/') == 0)
+    {
+        return "/";
+    }
+    return ret.substr(0, _absolutePath.find_last_of('/'));
+}
+
+/// /usr/test => test
+std::string precompiled::getDirBaseName(const std::string& _absolutePath)
+{
+    if (_absolutePath == "/" || _absolutePath.empty())
+    {
+        return _absolutePath;
+    }
+    // /usr/test/ => /usr/test
+    std::string ret = (_absolutePath.at(_absolutePath.length() - 1) == '/') ?
+                          _absolutePath.substr(0, _absolutePath.find_last_of('/') - 1) :
+                          _absolutePath;
+    return ret.substr(_absolutePath.find_last_of('/') + 1);
+}
+
 bool precompiled::recursiveBuildDir(
     const storage::TableFactoryInterface::Ptr& _tableFactory, const std::string& _absoluteDir)
 {
@@ -443,6 +507,7 @@ bool precompiled::recursiveBuildDir(
     {
         return false;
     }
+    // transfer /usr/local/bin => ["usr", "local", "bin"]
     auto dirList = std::make_shared<std::vector<std::string>>();
     std::string absoluteDir = _absoluteDir;
     if (absoluteDir[0] == '/')
@@ -455,65 +520,48 @@ bool precompiled::recursiveBuildDir(
     }
     boost::split(*dirList, absoluteDir, boost::is_any_of("/"), boost::token_compress_on);
     std::string root = "/";
-    DirInfo parentDir;
     for (auto& dir : *dirList)
     {
         auto table = _tableFactory->openTable(root);
         if (!table)
         {
-            PRECOMPILED_LOG(ERROR) << LOG_BADGE("recursiveBuildDir")
-                                   << LOG_DESC("can not open table root") << LOG_KV("root", root);
-            return false;
-        }
-        auto entry = table->getRow(FS_KEY_SUB);
-        if (!entry)
-        {
             PRECOMPILED_LOG(ERROR)
-                << LOG_BADGE("recursiveBuildDir") << LOG_DESC("can not get entry of FS_KEY_SUB")
-                << LOG_KV("root", root);
+                << LOG_BADGE("recursiveBuildDir") << LOG_DESC("can not open path table")
+                << LOG_KV("tableName", root);
             return false;
         }
-        auto subdirectories = entry->getField(SYS_VALUE);
-        if (!DirInfo::fromString(parentDir, subdirectories))
-        {
-            PRECOMPILED_LOG(ERROR) << LOG_BADGE("recursiveBuildDir") << LOG_DESC("parse error")
-                                   << LOG_KV("str", subdirectories);
-            return false;
-        }
-        FileInfo newDirectory(dir, FS_TYPE_DIR);
-        auto checkExist = std::find_if(parentDir.getSubDir().begin(), parentDir.getSubDir().end(),
-            [&dir](const FileInfo& _f) { return _f.getName() == dir; });
         if (root != "/")
         {
             root += "/";
         }
-        if (checkExist != parentDir.getSubDir().end())
+        auto entry = table->getRow(dir);
+        if (entry)
         {
-            if (checkExist->getType() != FS_TYPE_DIR)
+            if (entry->getField(FS_FIELD_TYPE) != FS_TYPE_DIR)
             {
+                PRECOMPILED_LOG(ERROR)
+                    << LOG_BADGE("recursiveBuildDir")
+                    << LOG_DESC("file had already existed, and not directory type")
+                    << LOG_KV("parentDir", root) << LOG_KV("dir", dir);
                 return false;
             }
+            PRECOMPILED_LOG(DEBUG) << LOG_BADGE("recursiveBuildDir")
+                                   << LOG_DESC("dir already existed in parent dir, continue")
+                                   << LOG_KV("parentDir", root) << LOG_KV("dir", dir);
             root += dir;
             continue;
         }
-        parentDir.getMutableSubDir().emplace_back(newDirectory);
-        entry->setField(SYS_VALUE, parentDir.toString());
-        table->setRow(FS_KEY_SUB, entry);
+        // not exist, then create table and write in parent dir
+        auto newFileEntry = table->newEntry();
+        newFileEntry->setField(FS_FIELD_TYPE, FS_TYPE_DIR);
+        // FIXME: consider permission inheritance
+        newFileEntry->setField(FS_FIELD_ACCESS, "");
+        newFileEntry->setField(FS_FIELD_OWNER, "");
+        newFileEntry->setField(FS_FIELD_GID, "");
+        newFileEntry->setField(FS_FIELD_EXTRA, "");
+        table->setRow(dir, newFileEntry);
 
-        std::string newDirPath = root + dir;
-        _tableFactory->createTable(newDirPath, SYS_KEY, SYS_VALUE);
-        auto newTable = _tableFactory->openTable(newDirPath);
-        auto typeEntry = newTable->newEntry();
-        typeEntry->setField(SYS_VALUE, FS_TYPE_DIR);
-        newTable->setRow(FS_KEY_TYPE, typeEntry);
-
-        auto subEntry = newTable->newEntry();
-        subEntry->setField(SYS_VALUE, DirInfo::emptyDirString());
-        newTable->setRow(FS_KEY_SUB, subEntry);
-
-        auto numberEntry = newTable->newEntry();
-        numberEntry->setField(SYS_VALUE, "0");
-        newTable->setRow(FS_KEY_NUM, numberEntry);
+        _tableFactory->createTable(root + dir, FS_KEY_NAME, FS_FIELD_COMBINED);
         root += dir;
     }
     return true;
