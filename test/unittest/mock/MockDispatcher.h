@@ -39,7 +39,7 @@ public:
     ~MockDispatcher() override {}
 
     void asyncExecuteBlock(const Block::Ptr& _block, bool,
-        std::function<void(const Error::Ptr&, const BlockHeader::Ptr&)> _callback) override
+        std::function<void(const Error::Ptr&, const BlockHeader::Ptr&)> _callback, ssize_t) override
     {
         if (m_blocks.empty())
         {
