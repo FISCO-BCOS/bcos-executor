@@ -53,7 +53,7 @@ public:
     HostContext(HostContext const&) = delete;
     HostContext& operator=(HostContext const&) = delete;
 
-    std::string get(const std::string_view& _key) { return m_s->storage(myAddress(), _key).str(); }
+    std::string get(const std::string_view& _key) { return m_s->storage(myAddress(), _key); }
     void set(const std::string_view& _key, const std::string_view& _value)
     {
         m_s->setStorage(myAddress(), _key, _value);
@@ -73,7 +73,7 @@ public:
     std::vector<uint64_t> getNotFungibleAssetIDs(
         const std::string_view& _account, const std::string& _assetName);
     /// Read storage location.
-    virtual u256 store(const u256& _n) { return m_s->storage(myAddress(), _n.str()); }
+    virtual u256 store(const u256& _n) { return u256(m_s->storage(myAddress(), _n.str())); }
 
     /// Write a value in storage.
     virtual void setStore(const u256& _n, const u256& _v);

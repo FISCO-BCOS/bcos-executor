@@ -166,7 +166,7 @@ crypto::HashType State::storageRoot(const std::string_view& _address) const
     return crypto::HashType();
 }
 
-u256 State::storage(const std::string_view& _address, const std::string_view& _key)
+std::string State::storage(const std::string_view& _address, const std::string_view& _key)
 {
     auto table = getTable(_address);
     if (table)
@@ -174,10 +174,10 @@ u256 State::storage(const std::string_view& _address, const std::string_view& _k
         auto entry = table->getRow(string(_key));
         if (entry)
         {
-            return u256(entry->getField(STORAGE_VALUE));
+            return entry->getField(STORAGE_VALUE);
         }
     }
-    return u256(0);
+    return std::string();
 }
 
 void State::setStorage(const std::string_view& _address, const std::string_view& _location,
