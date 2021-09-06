@@ -95,7 +95,7 @@ public:
 
     /// Get the value of a storage position of an account.
     /// @returns 0 if no account exists at that address.
-    u256 storage(const std::string_view& _address, const std::string_view& _memory) override;
+    std::string storage(const std::string_view& _address, const std::string_view& _memory) override;
 
     /// Set the value of a storage position of an account.
     void setStorage(const std::string_view& _address, const std::string_view& _location, const std::string_view& _value) override;

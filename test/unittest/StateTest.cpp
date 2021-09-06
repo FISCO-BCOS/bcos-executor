@@ -111,10 +111,10 @@ BOOST_AUTO_TEST_CASE(Storage)
     state->addBalance(addr1, u256(10));
     state->storageRoot(addr1);
     auto value = state->storage(addr1, "123");
-    BOOST_TEST(value == u256());
+    BOOST_TEST(value == "");
     state->setStorage(addr1, "123", "456");
     value = state->storage(addr1, "123");
-    BOOST_TEST(value == u256(456));
+    BOOST_TEST(value == "456");
     state->setStorage(addr1, "123", "567");
     state->clearStorage(addr1);
 }

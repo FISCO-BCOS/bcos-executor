@@ -78,7 +78,7 @@ public:
 
     /// Get the value of a storage position of an account.
     /// @returns 0 if no account exists at that address.
-    virtual u256 storage(const std::string_view& _address, const std::string_view& _memory) = 0;
+    virtual std::string storage(const std::string_view& _address, const std::string_view& _memory) = 0;
 
     /// Set the value of a storage position of an account.
     virtual void setStorage(const std::string_view& _address, const std::string_view& _location,
