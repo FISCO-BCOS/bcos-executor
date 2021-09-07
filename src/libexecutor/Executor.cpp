@@ -24,12 +24,12 @@
 #include "../libprecompiled/ConsensusPrecompiled.h"
 #include "../libprecompiled/CryptoPrecompiled.h"
 #include "../libprecompiled/DeployWasmPrecompiled.h"
+#include "../libprecompiled/FileSystemPrecompiled.h"
 #include "../libprecompiled/KVTableFactoryPrecompiled.h"
 #include "../libprecompiled/ParallelConfigPrecompiled.h"
 #include "../libprecompiled/PrecompiledResult.h"
 #include "../libprecompiled/SystemConfigPrecompiled.h"
 #include "../libprecompiled/TableFactoryPrecompiled.h"
-#include "../libprecompiled/FileSystemPrecompiled.h"
 #include "../libprecompiled/Utilities.h"
 #include "../libprecompiled/extension/DagTransferPrecompiled.h"
 #include "../libstate/State.h"
@@ -104,15 +104,15 @@ Executor::Executor(const protocol::BlockFactory::Ptr& _blockFactory,
         make_shared<PrecompiledContract>(600, 120, PrecompiledRegistrar::executor("ripemd160"))));
     m_precompiledContract.insert(std::make_pair(fillZero(4),
         make_shared<PrecompiledContract>(15, 3, PrecompiledRegistrar::executor("identity"))));
-    m_precompiledContract.insert({fillZero(5),
-        make_shared<PrecompiledContract>(
-            PrecompiledRegistrar::pricer("modexp"), PrecompiledRegistrar::executor("modexp"))});
+    m_precompiledContract.insert(
+        {fillZero(5), make_shared<PrecompiledContract>(PrecompiledRegistrar::pricer("modexp"),
+                          PrecompiledRegistrar::executor("modexp"))});
     m_precompiledContract.insert(
         {fillZero(6), make_shared<PrecompiledContract>(
-                                 150, 0, PrecompiledRegistrar::executor("alt_bn128_G1_add"))});
+                          150, 0, PrecompiledRegistrar::executor("alt_bn128_G1_add"))});
     m_precompiledContract.insert(
         {fillZero(7), make_shared<PrecompiledContract>(
-                                 6000, 0, PrecompiledRegistrar::executor("alt_bn128_G1_mul"))});
+                          6000, 0, PrecompiledRegistrar::executor("alt_bn128_G1_mul"))});
     m_precompiledContract.insert({fillZero(8),
         make_shared<PrecompiledContract>(PrecompiledRegistrar::pricer("alt_bn128_pairing_product"),
             PrecompiledRegistrar::executor("alt_bn128_pairing_product"))});
@@ -326,8 +326,8 @@ void Executor::asyncGetCode(const std::string_view& _address,
 void Executor::asyncExecuteTransaction(const protocol::Transaction::ConstPtr& _tx,
     std::function<void(const Error::Ptr&, const protocol::TransactionReceipt::ConstPtr&)> _callback)
 {
-    // use m_lastHeader to execute transaction
-    auto currentHeader = m_blockFactory->blockHeaderFactory()->populateBlockHeader(m_lastHeader);
+    // use storage blockHeader to execute transaction
+    auto currentHeader = getLatestHeaderFromStorage();
     auto tableFactory =
         std::make_shared<TableFactory>(m_stateStorage, m_hashImpl, currentHeader->number());
     BlockContext::Ptr executiveContext = createExecutiveContext(currentHeader, tableFactory);
