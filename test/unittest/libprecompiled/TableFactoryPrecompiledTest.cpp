@@ -51,7 +51,7 @@ BOOST_FIXTURE_TEST_SUITE(precompiledTableFactoryTest, TableFactoryPrecompiledFix
 
 BOOST_AUTO_TEST_CASE(createTableTest)
 {
-    BOOST_TEST(tableFactoryPrecompiled->toString() == "TableFactory");
+    BOOST_TEST(tableFactoryPrecompiled->toString() == "StateStorage");
     bytes param = codec->encodeWithSig("createTable(string,string,string)", std::string("/t_test"),
         std::string("id"), std::string("item_name,item_id"));
     auto callResult = tableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas);

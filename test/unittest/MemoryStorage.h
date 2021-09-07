@@ -19,7 +19,7 @@
 #pragma once
 #include "interfaces/storage/StorageInterface.h"
 #include "libtable/Table.h"
-#include "libtable/TableFactory.h"
+#include "libtable/StateStorage.h"
 #include <mutex>
 #include <string>
 
@@ -128,7 +128,7 @@ public:
         std::function<void(const Error::Ptr&, size_t)>) override
     {}
 
-    // cache TableFactory
+    // cache StateStorage
     void asyncAddStateCache(protocol::BlockNumber, const std::shared_ptr<TableFactoryInterface>&,
         std::function<void(const Error::Ptr&)>) override
     {}

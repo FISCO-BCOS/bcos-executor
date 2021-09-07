@@ -14,13 +14,17 @@ find_package(jsoncpp CONFIG REQUIRED)
 find_package(Boost CONFIG QUIET REQUIRED serialization program_options)
 find_package(bcos-crypto CONFIG QUIET REQUIRED)
 
+# FIXME: precompiled need fix
+list(FILTER SRC_LIST EXCLUDE REGEX "precompiled/*")
+list(FILTER HEADERS EXCLUDE REGEX "precompiled/*")
 add_library(executor ${SRC_LIST} ${HEADERS})
 
 target_include_directories(executor PRIVATE ../include)
-target_link_libraries(executor PUBLIC bcos-framework::codec bcos-framework::utilities bcos-crypto::bcos-crypto jsoncpp_lib_static Boost::serialization tbb::tbb bcos-framework::table bcos-framework::protocol
-Boost::program_options wedpr-crypto::crypto wedpr-crypto::extend-crypto
-evmone hera hera-buildinfo ${WASM_ENGINE_LIBRARY} evmc::loader evmc::instructions wabt)
-# target_compile_options(executor PRIVATE -Wno-error -fno-var-tracking)
+target_link_libraries(executor PUBLIC bcos-framework::codec bcos-framework::utilities bcos-crypto::bcos-crypto
+    jsoncpp_lib_static Boost::serialization Boost::program_options tbb::tbb bcos-framework::storage
+    bcos-framework::protocol wedpr-crypto::crypto wedpr-crypto::extend-crypto evmone hera hera-buildinfo
+    ${WASM_ENGINE_LIBRARY} evmc::loader evmc::instructions wabt)
+target_compile_options(executor PRIVATE -Wno-error -fno-var-tracking)
 
 install_dependencies(executor)
 

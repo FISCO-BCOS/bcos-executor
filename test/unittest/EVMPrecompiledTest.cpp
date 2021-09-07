@@ -19,7 +19,7 @@
  */
 
 #include "bcos-framework/libutilities/DataConvertUtility.h"
-#include "libvm/Precompiled.h"
+#include "vm/Precompiled.h"
 #include "wedpr-crypto/WedprCrypto.h"
 #include <boost/test/unit_test.hpp>
 #include <chrono>

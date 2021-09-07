@@ -26,8 +26,8 @@
 #include "bcos-framework/testutils/protocol/FakeBlockHeader.h"
 #include "libprecompiled/Utilities.h"
 #include "libprecompiled/extension/UserPrecompiled.h"
-#include "libvm/BlockContext.h"
-#include "libvm/TransactionExecutive.h"
+#include "vm/BlockContext.h"
+#include "vm/TransactionExecutive.h"
 #include "mock/MockDispatcher.h"
 #include "mock/MockLedger.h"
 #include <bcos-framework/interfaces/storage/TableInterface.h>
@@ -62,7 +62,7 @@ public:
         storage = std::make_shared<MemoryStorage>();
 
         // create sys table
-        memoryTableFactory = std::make_shared<TableFactory>(storage, hashImpl, 0);
+        memoryTableFactory = std::make_shared<StateStorage>(storage, hashImpl, 0);
         memoryTableFactory->createTable(ledger::SYS_CONFIG, SYS_KEY, "value,enable_number");
         auto table = memoryTableFactory->openTable(ledger::SYS_CONFIG);
         auto entry = table->newEntry();
@@ -103,7 +103,7 @@ public:
         ledger = std::make_shared<MockLedger>(header, blockFactory);
 
         executor = std::make_shared<Executor>(blockFactory, dispatcher, ledger, storage, isWasm);
-        auto tableFactory = std::make_shared<TableFactory>(storage, hashImpl, 1);
+        auto tableFactory = std::make_shared<StateStorage>(storage, hashImpl, 1);
         context = executor->createExecutiveContext(header, tableFactory);
         codec = std::make_shared<PrecompiledCodec>(hashImpl, context->isWasm());
     }
@@ -117,7 +117,7 @@ public:
         ledger = std::make_shared<MockLedger>(header, blockFactory);
 
         executor = std::make_shared<Executor>(blockFactory, dispatcher, ledger, storage, isWasm);
-        auto tableFactory = std::make_shared<TableFactory>(storage, smHashImpl, 1);
+        auto tableFactory = std::make_shared<StateStorage>(storage, smHashImpl, 1);
         context = executor->createExecutiveContext(header, tableFactory);
         codec = std::make_shared<PrecompiledCodec>(smHashImpl, context->isWasm());
     }

@@ -27,7 +27,7 @@ target_include_directories(${TEST_BINARY_NAME} PRIVATE ./ ../../src ../../includ
 
 find_package(Boost CONFIG QUIET REQUIRED unit_test_framework)
 
-target_link_libraries(${TEST_BINARY_NAME} executor bcos-framework::protocol-pb bcos-framework::protocol bcos-framework::utilities bcos-framework::table wedpr-crypto::crypto)
+target_link_libraries(${TEST_BINARY_NAME} executor bcos-framework::protocol-pb bcos-framework::protocol bcos-framework::utilities bcos-framework::storage wedpr-crypto::crypto)
 # target_link_options(${TEST_BINARY_NAME} PUBLIC "LINKER:-z,muldefs")
 # target_link_options(${TEST_BINARY_NAME} PUBLIC "LINKER:SHELL:-z muldefs")
 # target_link_options(${TEST_BINARY_NAME} PUBLIC "--allow-multiple-definition")

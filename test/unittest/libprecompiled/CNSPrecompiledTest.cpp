@@ -21,7 +21,7 @@
 #include "libprecompiled/CNSPrecompiled.h"
 #include "PreCompiledFixture.h"
 #include "libprecompiled/Common.h"
-#include "libstate/State.h"
+#include "state/State.h"
 #include <bcos-framework/interfaces/storage/TableInterface.h>
 #include <bcos-framework/testutils/TestPromptFixture.h>
 #include <json/json.h>

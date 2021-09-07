@@ -29,8 +29,8 @@
 #include "bcos-framework/testutils/protocol/FakeBlock.h"
 #include "bcos-framework/testutils/protocol/FakeBlockHeader.h"
 #include "libprecompiled/Common.h"
-#include "libvm/BlockContext.h"
-#include "libvm/TransactionExecutive.h"
+#include "vm/BlockContext.h"
+#include "vm/TransactionExecutive.h"
 #include <boost/test/unit_test.hpp>
 #include <iostream>
 #include <set>
@@ -63,7 +63,7 @@ struct ExecutorFixture
         dispatcher = make_shared<MockDispatcher>();
         executor = make_shared<Executor>(blockFactory, dispatcher, ledger, storage, false);
         // create sys table
-        auto tableFactory = std::make_shared<TableFactory>(storage, hashImpl, 0);
+        auto tableFactory = std::make_shared<StateStorage>(storage, hashImpl, 0);
         tableFactory->createTable(ledger::SYS_CONFIG, SYS_KEY, "value,enable_number");
         auto table = tableFactory->openTable(ledger::SYS_CONFIG);
         auto entry = table->newEntry();

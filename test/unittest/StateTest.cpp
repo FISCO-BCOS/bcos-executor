@@ -17,14 +17,14 @@
  * @file StateTest.cpp
  */
 
-#include "libstate/State.h"
+#include "state/State.h"
 #include "MemoryStorage.h"
 #include "bcos-framework/libprotocol/protobuf/PBBlock.h"
 #include "bcos-framework/libprotocol/protobuf/PBBlockFactory.h"
 #include "bcos-framework/libprotocol/protobuf/PBBlockHeaderFactory.h"
 #include "bcos-framework/libprotocol/protobuf/PBTransactionFactory.h"
 #include "bcos-framework/libprotocol/protobuf/PBTransactionReceiptFactory.h"
-#include "bcos-framework/libtable/TableFactory.h"
+#include "bcos-framework/libtable/StateStorage.h"
 #include "bcos-framework/testutils/crypto/HashImpl.h"
 #include "bcos-framework/testutils/crypto/SignatureImpl.h"
 #include <boost/test/unit_test.hpp>
@@ -48,14 +48,14 @@ struct StorageStateFixture
     {
         hashImpl = std::make_shared<Sm3Hash>();
         memoryStorage = make_shared<MemoryStorage>();
-        tableFactory = make_shared<TableFactory>(memoryStorage, hashImpl, m_blockNumber);
+        tableFactory = make_shared<StateStorage>(memoryStorage, hashImpl, m_blockNumber);
         state = make_shared<State>(tableFactory, hashImpl, false);
     }
 
     std::shared_ptr<crypto::Hash> hashImpl = nullptr;
     std::shared_ptr<StorageInterface> memoryStorage = nullptr;
     protocol::BlockNumber m_blockNumber = 0;
-    std::shared_ptr<TableFactory> tableFactory = nullptr;
+    std::shared_ptr<StateStorage> tableFactory = nullptr;
     std::shared_ptr<State> state = nullptr;
 };
 

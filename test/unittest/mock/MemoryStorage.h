@@ -184,7 +184,7 @@ public:
         _callback(error, retPair.first);
     }
 
-    // cache TableFactory
+    // cache StateStorage
     void asyncAddStateCache(protocol::BlockNumber _number,
         const std::shared_ptr<TableFactoryInterface>& _table,
         std::function<void(const Error::Ptr&)> _callback) override

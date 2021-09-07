@@ -13,13 +13,14 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  *
- * @brief block level context
- * @file BlockContext.h
+ * @brief Executor
+ * @file Executor.h
  * @author: xingqiangbai
  * @date: 2021-05-27
  */
 #pragma once
 
+#if 0
 #include "bcos-framework/interfaces/dispatcher/DispatcherInterface.h"
 #include "bcos-framework/interfaces/executor/ExecutorInterface.h"
 #include "bcos-framework/interfaces/ledger/LedgerInterface.h"
@@ -83,7 +84,7 @@ public:
     void start() override;
 
     std::shared_ptr<BlockContext> createExecutiveContext(
-        const protocol::BlockHeader::Ptr& _currentHeader, storage::TableFactoryInterface::Ptr _tableFactory);
+        const protocol::BlockHeader::Ptr& _currentHeader, storage::StateStorage::Ptr _tableFactory);
 
 private:
     protocol::BlockHeader::Ptr getLatestHeaderFromStorage();
@@ -100,7 +101,7 @@ private:
     protocol::BlockFactory::Ptr m_blockFactory;
     dispatcher::DispatcherInterface::Ptr m_dispatcher;
     ledger::LedgerInterface::Ptr m_ledger;
-    storage::TableFactoryInterface::Ptr m_tableFactory;
+    storage::StateStorage::Ptr m_tableFactory;
     storage::StorageInterface::Ptr m_stateStorage;
     std::shared_ptr<ThreadPool> m_threadPool = nullptr;
     CallBackFunction m_pNumberHash;
@@ -120,3 +121,4 @@ private:
 }  // namespace executor
 
 }  // namespace bcos
+#endif

@@ -13,11 +13,12 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  *
- * @brief block level context
- * @file BlockContext.h
+ * @brief Executor
+ * @file Executor.cpp
  * @author: xingqiangbai
  * @date: 2021-05-27
  */
+
 #if 0
 #include "bcos-executor/Executor.h"
 #include "../precompiled/CNSPrecompiled.h"
@@ -25,12 +26,12 @@
 #include "../precompiled/ConsensusPrecompiled.h"
 #include "../precompiled/CryptoPrecompiled.h"
 #include "../precompiled/DeployWasmPrecompiled.h"
-#include "../precompiled/FileSystemPrecompiled.h"
 #include "../precompiled/KVTableFactoryPrecompiled.h"
 #include "../precompiled/ParallelConfigPrecompiled.h"
 #include "../precompiled/PrecompiledResult.h"
 #include "../precompiled/SystemConfigPrecompiled.h"
 #include "../precompiled/TableFactoryPrecompiled.h"
+#include "../precompiled/FileSystemPrecompiled.h"
 #include "../precompiled/Utilities.h"
 #include "../precompiled/extension/DagTransferPrecompiled.h"
 #include "../state/State.h"
@@ -43,7 +44,7 @@
 #include "bcos-framework/interfaces/protocol/TransactionReceipt.h"
 #include "bcos-framework/libcodec/abi/ContractABIType.h"
 #include "bcos-framework/libstorage/Table.h"
-#include "bcos-framework/libstorage/TableFactory.h"
+#include "bcos-framework/libstorage/StateStorage.h"
 #include "bcos-framework/libutilities/ThreadPool.h"
 #include <tbb/parallel_for.h>
 #include <exception>
@@ -105,15 +106,15 @@ Executor::Executor(const protocol::BlockFactory::Ptr& _blockFactory,
         make_shared<PrecompiledContract>(600, 120, PrecompiledRegistrar::executor("ripemd160"))));
     m_precompiledContract.insert(std::make_pair(fillZero(4),
         make_shared<PrecompiledContract>(15, 3, PrecompiledRegistrar::executor("identity"))));
-    m_precompiledContract.insert(
-        {fillZero(5), make_shared<PrecompiledContract>(PrecompiledRegistrar::pricer("modexp"),
-                          PrecompiledRegistrar::executor("modexp"))});
+    m_precompiledContract.insert({fillZero(5),
+        make_shared<PrecompiledContract>(
+            PrecompiledRegistrar::pricer("modexp"), PrecompiledRegistrar::executor("modexp"))});
     m_precompiledContract.insert(
         {fillZero(6), make_shared<PrecompiledContract>(
-                          150, 0, PrecompiledRegistrar::executor("alt_bn128_G1_add"))});
+                                 150, 0, PrecompiledRegistrar::executor("alt_bn128_G1_add"))});
     m_precompiledContract.insert(
         {fillZero(7), make_shared<PrecompiledContract>(
-                          6000, 0, PrecompiledRegistrar::executor("alt_bn128_G1_mul"))});
+                                 6000, 0, PrecompiledRegistrar::executor("alt_bn128_G1_mul"))});
     m_precompiledContract.insert({fillZero(8),
         make_shared<PrecompiledContract>(PrecompiledRegistrar::pricer("alt_bn128_pairing_product"),
             PrecompiledRegistrar::executor("alt_bn128_pairing_product"))});
@@ -141,7 +142,7 @@ Executor::Executor(const protocol::BlockFactory::Ptr& _blockFactory,
     // use ledger to get lastest header
     m_lastHeader = getLatestHeaderFromStorage();
     m_tableFactory =
-        std::make_shared<TableFactory>(m_stateStorage, m_hashImpl, m_lastHeader->number() + 1);
+        std::make_shared<StateStorage>(m_stateStorage, m_hashImpl, m_lastHeader->number() + 1);
 }
 
 void Executor::start()
@@ -182,7 +183,7 @@ void Executor::start()
             if (!m_lastHeader)
             {
                 m_lastHeader = getLatestHeaderFromStorage();
-                m_tableFactory = std::make_shared<TableFactory>(
+                m_tableFactory = std::make_shared<StateStorage>(
                     m_stateStorage, m_hashImpl, m_lastHeader->number() + 1);
                 isLastHeaderFromStorage = true;
             }
@@ -217,7 +218,7 @@ void Executor::start()
                     << LOG_KV("expect", m_lastHeader->number() + 1)
                     << LOG_KV("got", currentBlock->blockHeader()->number());
                 m_lastHeader = storageHeader;
-                m_tableFactory = std::make_shared<TableFactory>(
+                m_tableFactory = std::make_shared<StateStorage>(
                     m_stateStorage, m_hashImpl, m_lastHeader->number() + 1);
             }
             // execute current block
@@ -241,7 +242,7 @@ void Executor::start()
                 continue;
             }
 
-            // copy TableFactory for next block
+            // copy StateStorage for next block
             auto latestBlockNumberOfStorage = getLatestBlockNumberFromStorage();
             EXECUTOR_LOG(DEBUG) << LOG_DESC("export state data")
                                 << LOG_KV("export", latestBlockNumberOfStorage)
@@ -272,8 +273,8 @@ void Executor::start()
             }
             // set m_lastHeader to current block header
             m_lastHeader = context->currentBlockHeader();
-            // create a new TableFactory and import data with new blocknumber
-            m_tableFactory = std::make_shared<TableFactory>(
+            // create a new StateStorage and import data with new blocknumber
+            m_tableFactory = std::make_shared<StateStorage>(
                 m_stateStorage, m_hashImpl, m_lastHeader->number() + 1);
             // the cache only have some block's state, it is not infinit
             m_tableFactory->importData(data.first, data.second, false);
@@ -327,10 +328,10 @@ void Executor::asyncGetCode(const std::string_view& _address,
 void Executor::asyncExecuteTransaction(const protocol::Transaction::ConstPtr& _tx,
     std::function<void(const Error::Ptr&, const protocol::TransactionReceipt::ConstPtr&)> _callback)
 {
-    // use storage blockHeader to execute transaction
-    auto currentHeader = getLatestHeaderFromStorage();
+    // use m_lastHeader to execute transaction
+    auto currentHeader = m_blockFactory->blockHeaderFactory()->populateBlockHeader(m_lastHeader);
     auto tableFactory =
-        std::make_shared<TableFactory>(m_stateStorage, m_hashImpl, currentHeader->number());
+        std::make_shared<StateStorage>(m_stateStorage, m_hashImpl, currentHeader->number());
     BlockContext::Ptr executiveContext = createExecutiveContext(currentHeader, tableFactory);
     auto executive = std::make_shared<TransactionExecutive>(executiveContext);
     m_threadPool->enqueue([&, executiveContext, executive, _tx, _callback]() {
