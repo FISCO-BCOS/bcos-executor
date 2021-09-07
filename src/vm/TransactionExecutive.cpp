@@ -201,7 +201,8 @@ bool TransactionExecutive::call(CallParameters const& _p, const std::string& _or
         m_excepted = TransactionStatus::AccountFrozen;
         return !m_context;
     }
-    auto precompiledAddress = *toHexString(_p.codeAddress);
+    auto precompiledAddress =
+        m_blockContext->isWasm() ? _p.codeAddress : *toHexString(_p.codeAddress);
     if (m_blockContext && m_blockContext->isEthereumPrecompiled(precompiledAddress))
     {
         auto gas = m_blockContext->costOfPrecompiled(precompiledAddress, _p.data);
