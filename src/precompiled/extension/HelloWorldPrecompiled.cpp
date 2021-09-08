@@ -75,14 +75,13 @@ PrecompiledExecResult::Ptr HelloWorldPrecompiled::call(
     gasPricer->setMemUsed(_param.size());
 
     auto table =
-        _context->getTableFactory()->openTable(
-        precompiled::getTableName(HELLO_WORLD_TABLE_NAME, _context->isWasm()));
+        _context->getTableFactory()->openTable(precompiled::getTableName(HELLO_WORLD_TABLE_NAME));
     gasPricer->appendOperation(InterfaceOpcode::OpenTable);
     if (!table)
     {
         // table is not exist, create it.
         table = createTable(_context->getTableFactory(),
-            precompiled::getTableName(HELLO_WORLD_TABLE_NAME, _context->isWasm()), HELLO_WORLD_KEY_FIELD,
+            precompiled::getTableName(HELLO_WORLD_TABLE_NAME), HELLO_WORLD_KEY_FIELD,
             HELLO_WORLD_VALUE_FIELD);
         gasPricer->appendOperation(InterfaceOpcode::CreateTable);
         if (!table)

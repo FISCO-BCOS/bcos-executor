@@ -158,7 +158,6 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
         Address entryAddress;
         codec->decode(data, key, entryAddress);
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("KVTable") << LOG_KV("set", key);
-        // TODO: check this get strategy
         EntryPrecompiled::Ptr entryPrecompiled = std::dynamic_pointer_cast<EntryPrecompiled>(
             _context->getPrecompiled(entryAddress.hex()));
         auto entry = entryPrecompiled->getEntry();

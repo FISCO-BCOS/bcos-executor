@@ -75,11 +75,13 @@ std::shared_ptr<PrecompiledExecResult> DeployWasmPrecompiled::call(
                 BOOST_THROW_EXCEPTION(protocol::PrecompiledError());
             }
             // build dir
-            std::string parentDir = getParentDir(path);
-            std::string contractName = getDirBaseName(path);
+            auto parentDirAndBaseName = getParentDirAndBaseName(path);
+            std::string parentDir = parentDirAndBaseName.first;
+            std::string contractName = parentDirAndBaseName.second;
             if (recursiveBuildDir(_context->getTableFactory(), parentDir))
             {
                 // TODO: get critical domains in jsonABI
+                // FIXME: change usage
                 auto executive = std::make_shared<TransactionExecutive>(_context);
                 if (!executive->executeCreate(
                         _sender, _origin, path, _remainGas, ref(code), ref(param)))

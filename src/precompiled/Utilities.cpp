@@ -38,9 +38,9 @@ void bcos::precompiled::checkNameValidate(const std::string& tableName,
     std::set<std::string> valueFieldSet;
     std::set<std::string> keyFieldSet;
     std::vector<char> allowChar = {'$', '_', '@'};
-    std::vector<char> tableAllowChar = {'$', '_', '@', '/'};
+    std::vector<char> tableAllowChar = {'_', '/'};
     std::string allowCharString = "{$, _, @}";
-    std::string tableAllowCharString = "{$, _, @, /}";
+    std::string tableAllowCharString = "{_, /}";
     auto checkTableNameValidate = [&tableAllowChar, &tableAllowCharString](
                                       const std::string& tableName) {
         size_t iSize = tableName.size();
@@ -392,7 +392,6 @@ void precompiled::addCondition(const std::string& key, const std::string& value,
             return item.left == key && item.right == value && item.cmp == _cmp;
         });
     // duplicate removal
-    // TODO: range narrowing
     if (it == _cond.end())
     {
         _cond.emplace_back(CompareTriple(key, value, _cmp));
@@ -438,6 +437,7 @@ bool precompiled::checkPathValid(std::string const& _path)
                                << LOG_KV("path", _path);
         return false;
     }
+    // FIXME: adapt Chinese
     std::vector<char> allowChar = {'_'};
     auto checkFieldNameValidate = [&allowChar](const std::string& fieldName) -> bool {
         if (fieldName.empty() || fieldName[0] == '_')
@@ -466,6 +466,26 @@ bool precompiled::checkPathValid(std::string const& _path)
     };
     return std::all_of(pathList.begin(), pathList.end(),
         [checkFieldNameValidate](const std::string& s) { return checkFieldNameValidate(s); });
+}
+
+std::pair<std::string, std::string> precompiled::getParentDirAndBaseName(const std::string& _absolutePath)
+{
+    // transfer /usr/local/bin => ["usr", "local", "bin"]
+    std::vector<std::string> dirList;
+    std::string absoluteDir = _absolutePath;
+    if (absoluteDir[0] == '/')
+    {
+        absoluteDir = absoluteDir.substr(1);
+    }
+    if (absoluteDir.at(absoluteDir.size() - 1) == '/')
+    {
+        absoluteDir = absoluteDir.substr(0, absoluteDir.size() - 1);
+    }
+    boost::split(dirList, absoluteDir, boost::is_any_of("/"), boost::token_compress_on);
+    std::string baseName = dirList.at(dirList.size() - 1);
+    dirList.pop_back();
+    std::string parentDir = "/" + boost::join(dirList, "/");
+    return {parentDir, baseName};
 }
 
 /// /usr/test => /usr

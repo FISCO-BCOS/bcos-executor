@@ -221,7 +221,6 @@ void ParallelConfigPrecompiled::unregisterParallelFunction(PrecompiledCodec::Ptr
     }
 }
 
-// TODO: use origin to check authority
 ParallelConfig::Ptr ParallelConfigPrecompiled::getParallelConfig(
     std::shared_ptr<executor::BlockContext> _context, const std::string_view& _contractAddress,
     uint32_t _selector, const std::string_view&)

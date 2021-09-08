@@ -75,7 +75,7 @@ public:
         memoryTableFactory->createTable("/", FS_KEY_NAME, FS_FIELD_COMBINED);
 
         // create /tables table
-        memoryTableFactory->createTable(USER_TABLE_PREFIX_WASM, FS_KEY_NAME, FS_FIELD_COMBINED);
+        memoryTableFactory->createTable("/tables", FS_KEY_NAME, FS_FIELD_COMBINED);
         auto rootTable = memoryTableFactory->openTable("/");
         assert(rootTable);
         auto dirEntry = rootTable->newEntry();
@@ -84,7 +84,7 @@ public:
         dirEntry->setField(FS_FIELD_OWNER, "root");
         dirEntry->setField(FS_FIELD_GID, "/usr");
         dirEntry->setField(FS_FIELD_EXTRA, "");
-        rootTable->setRow(getDirBaseName(USER_TABLE_PREFIX_WASM), dirEntry);
+        rootTable->setRow(getDirBaseName("/tables"), dirEntry);
         rootTable->setRow("/", dirEntry);
 
         memoryTableFactory->commit();

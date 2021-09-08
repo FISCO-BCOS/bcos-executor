@@ -69,7 +69,7 @@ BOOST_AUTO_TEST_CASE(toString)
 BOOST_AUTO_TEST_CASE(lsTest)
 {
     // ls dir
-    bytes in = codec->encodeWithSig("list(string)", std::string(USER_TABLE_PREFIX_WASM));
+    bytes in = codec->encodeWithSig("list(string)", std::string(USER_TABLE_PREFIX));
     auto callResult = fileSystemPrecompiled->call(context, bytesConstRef(&in), "test", "", gas);
     bytes out = callResult->execResult();
     std::string result;

@@ -143,7 +143,7 @@ void TableFactoryPrecompiled::checkCreateTableParam(
                                   std::to_string(SYS_TABLE_VALUE_FIELD_MAX_LENGTH)));
     }
 
-    auto tableName = precompiled::getTableName(_tableName, true);
+    auto tableName = precompiled::getTableName(_tableName);
     if (tableName.size() > (size_t)USER_TABLE_NAME_MAX_LENGTH ||
         (tableName.size() > (size_t)USER_TABLE_NAME_MAX_LENGTH_S))
     {
@@ -164,7 +164,7 @@ void TableFactoryPrecompiled::openTable(const std::shared_ptr<executor::BlockCon
     std::string tableName;
     auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     codec->decode(data, tableName);
-    tableName = getTableName(tableName, _context->isWasm());
+    tableName = getTableName(tableName);
     auto table = m_memoryTableFactory->openTable(tableName);
     gasPricer->appendOperation(InterfaceOpcode::OpenTable);
     if (!table)
@@ -219,9 +219,8 @@ void TableFactoryPrecompiled::createTable(const std::shared_ptr<executor::BlockC
     checkCreateTableParam(tableName, keyField, valueField);
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("StateStorage") << LOG_KV("createTable", tableName)
                            << LOG_KV("keyField", keyField) << LOG_KV("valueFiled", valueField);
-    // FIXME: use /group/tables
-    // wasm: /tables + tableName, evm: u_ + tableName
-    auto newTableName = getTableName(tableName, _context->isWasm());
+    // /tables + tableName
+    auto newTableName = getTableName(tableName);
     int result = CODE_SUCCESS;
     auto table = m_memoryTableFactory->openTable(newTableName);
     if (table)
@@ -233,36 +232,29 @@ void TableFactoryPrecompiled::createTable(const std::shared_ptr<executor::BlockC
     }
     else
     {
-        if (_context->isWasm())
+        auto parentDirAndBaseName = getParentDirAndBaseName(newTableName);
+        auto parentDir = parentDirAndBaseName.first;
+        auto tableBaseName = parentDirAndBaseName.second;
+        if (!recursiveBuildDir(m_memoryTableFactory, parentDir))
         {
-            auto parentDir = getParentDir(newTableName);
-            auto tableRelativePath = getDirBaseName(newTableName);
-            if (!recursiveBuildDir(m_memoryTableFactory, newTableName))
-            {
-                result = CODE_FILE_BUILD_DIR_FAILED;
-            }
-            else
-            {
-                m_memoryTableFactory->createTable(newTableName, keyField, valueField);
-                gasPricer->appendOperation(InterfaceOpcode::CreateTable);
-
-                // parentPath table must exist
-                // update parentDir
-                auto parentTable = m_memoryTableFactory->openTable(parentDir);
-                auto newEntry = parentTable->newEntry();
-                newEntry->setField(FS_FIELD_TYPE, FS_TYPE_CONTRACT);
-                // FIXME: consider permissions inheritance
-                newEntry->setField(FS_FIELD_ACCESS, "");
-                newEntry->setField(FS_FIELD_OWNER, _origin);
-                newEntry->setField(FS_FIELD_GID, "");
-                newEntry->setField(FS_FIELD_EXTRA, "");
-                parentTable->setRow(tableRelativePath, newEntry);
-            }
+            result = CODE_FILE_BUILD_DIR_FAILED;
         }
         else
         {
             m_memoryTableFactory->createTable(newTableName, keyField, valueField);
             gasPricer->appendOperation(InterfaceOpcode::CreateTable);
+
+            // parentPath table must exist
+            // update parentDir
+            auto parentTable = m_memoryTableFactory->openTable(parentDir);
+            auto newEntry = parentTable->newEntry();
+            newEntry->setField(FS_FIELD_TYPE, FS_TYPE_CONTRACT);
+            // FIXME: consider permission inheritance
+            newEntry->setField(FS_FIELD_ACCESS, "");
+            newEntry->setField(FS_FIELD_OWNER, _origin);
+            newEntry->setField(FS_FIELD_GID, "");
+            newEntry->setField(FS_FIELD_EXTRA, "");
+            parentTable->setRow(tableBaseName, newEntry);
         }
     }
     getErrorCodeOut(callResult->mutableExecResult(), result, codec);

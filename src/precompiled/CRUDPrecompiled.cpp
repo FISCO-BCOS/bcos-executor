@@ -113,7 +113,7 @@ void CRUDPrecompiled::desc(std::shared_ptr<executor::BlockContext> _context,
     auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     std::string tableName;
     codec->decode(_paramData, tableName);
-    tableName = precompiled::getTableName(tableName, _context->isWasm());
+    tableName = precompiled::getTableName(tableName);
 
     // s_tables must exist
     auto table = _context->getTableFactory()->openTable(SYS_TABLE);
@@ -142,7 +142,7 @@ void CRUDPrecompiled::update(std::shared_ptr<executor::BlockContext> _context,
     auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     std::string tableName, entryStr, conditionStr, optional;
     codec->decode(_paramData, tableName, entryStr, conditionStr, optional);
-    tableName = precompiled::getTableName(tableName, _context->isWasm());
+    tableName = precompiled::getTableName(tableName);
     auto table = _context->getTableFactory()->openTable(tableName);
     _gasPricer->appendOperation(InterfaceOpcode::OpenTable);
     if (table)
@@ -257,7 +257,7 @@ void CRUDPrecompiled::insert(std::shared_ptr<executor::BlockContext> _context,
     std::string tableName, entryStr, optional;
     codec->decode(_paramData, tableName, entryStr, optional);
 
-    tableName = precompiled::getTableName(tableName, _context->isWasm());
+    tableName = precompiled::getTableName(tableName);
     auto table = _context->getTableFactory()->openTable(tableName);
     _gasPricer->appendOperation(InterfaceOpcode::OpenTable);
     if (table)
@@ -311,7 +311,7 @@ void CRUDPrecompiled::remove(std::shared_ptr<executor::BlockContext> _context,
     auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     std::string tableName, conditionStr, optional;
     codec->decode(_paramData, tableName, conditionStr, optional);
-    tableName = precompiled::getTableName(tableName, _context->isWasm());
+    tableName = precompiled::getTableName(tableName);
     auto table = _context->getTableFactory()->openTable(tableName);
     _gasPricer->appendOperation(InterfaceOpcode::OpenTable);
     if (table)
@@ -384,7 +384,7 @@ void CRUDPrecompiled::select(std::shared_ptr<executor::BlockContext> _context,
     codec->decode(_paramData, tableName, conditionStr, optional);
     if (tableName != SYS_TABLE)
     {
-        tableName = precompiled::getTableName(tableName, _context->isWasm());
+        tableName = precompiled::getTableName(tableName);
     }
     auto table = _context->getTableFactory()->openTable(tableName);
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();

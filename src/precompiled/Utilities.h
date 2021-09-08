@@ -35,8 +35,7 @@ namespace bcos
 {
 namespace precompiled
 {
-static const std::string USER_TABLE_PREFIX = "u_";
-static const std::string USER_TABLE_PREFIX_WASM = "/tables";
+static const std::string USER_TABLE_PREFIX = "/tables/";
 
 enum class Comparator
 {
@@ -92,9 +91,9 @@ inline void getErrorCodeOut(bytes& out, int const& result, const PrecompiledCode
     }
     out = _codec->encode(s256(result));
 }
-inline std::string getTableName(const std::string& _tableName, bool _isWasm)
+inline std::string getTableName(const std::string& _tableName)
 {
-    return _isWasm ? USER_TABLE_PREFIX_WASM + _tableName : USER_TABLE_PREFIX + _tableName;
+    return USER_TABLE_PREFIX + _tableName;
 }
 
 void checkNameValidate(const std::string& tableName, std::vector<std::string>& keyFieldList,
@@ -116,6 +115,8 @@ uint64_t getEntriesCapacity(precompiled::EntriesConstPtr _entries);
 void sortKeyValue(std::vector<std::string>& _v);
 
 bool checkPathValid(std::string const& _absolutePath);
+
+std::pair<std::string, std::string> getParentDirAndBaseName(const std::string& _absolutePath);
 
 std::string getParentDir(const std::string& _absolutePath);
 

@@ -92,7 +92,6 @@ public:
         }
     }
 
-    // TODO: test check this decode
     template <typename... T>
     void decode(bytesConstRef _data, T&... _t)
     {

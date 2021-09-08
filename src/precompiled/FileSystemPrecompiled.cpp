@@ -79,6 +79,7 @@ std::shared_ptr<PrecompiledExecResult> FileSystemPrecompiled::call(
     _remainGas -= gasPricer->calTotalGas();
     return callResult;
 }
+
 void FileSystemPrecompiled::makeDir(const std::shared_ptr<executor::BlockContext>& _context,
     bytesConstRef& data, std::shared_ptr<PrecompiledExecResult> callResult,
     const PrecompiledGas::Ptr& gasPricer)
@@ -134,8 +135,9 @@ void FileSystemPrecompiled::listDir(const std::shared_ptr<executor::BlockContext
     if (table)
     {
         // file exists, query parent dir
-        auto parentDir = getParentDir(absolutePath);
-        auto baseName = getDirBaseName(absolutePath);
+        auto parentDirAndBaseName = getParentDirAndBaseName(absolutePath);
+        auto parentDir = parentDirAndBaseName.first;
+        auto baseName = parentDirAndBaseName.second;
         auto parentTable = _context->getTableFactory()->openTable(parentDir);
         assert(parentTable);
         auto baseEntry = parentTable->getRow(baseName);
