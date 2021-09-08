@@ -274,17 +274,21 @@ void ConsensusPrecompiled::showConsensusTable(std::shared_ptr<executor::BlockCon
 {
     auto table = _context->getTableFactory()->openTable(ledger::SYS_CONSENSUS);
     auto nodeIdList = table->getPrimaryKeys(nullptr);
+    auto nodeListMap = table->getRows(nodeIdList);
 
     std::stringstream s;
     s << "ConsensusPrecompiled show table:\n";
-    for (size_t i = 0; i < nodeIdList.size(); ++i)
+    for (auto& nodeEntry : nodeListMap)
     {
-        auto entry = table->getRow(nodeIdList.at(i));
-        std::string nodeID = nodeIdList.at(i);
-        std::string type = entry->getField(NODE_TYPE);
-        std::string enableNumber = entry->getField(NODE_ENABLE_NUMBER);
-        std::string weight = entry->getField(NODE_WEIGHT);
-        s << "ConsensusPrecompiled[" << i << "]:" << nodeID << "," << type << "," << enableNumber
+        if (!nodeEntry.second)
+        {
+            continue;
+        }
+        std::string nodeID = nodeEntry.first;
+        std::string type = nodeEntry.second->getField(NODE_TYPE);
+        std::string enableNumber = nodeEntry.second->getField(NODE_ENABLE_NUMBER);
+        std::string weight = nodeEntry.second->getField(NODE_WEIGHT);
+        s << "ConsensusPrecompiled: " << nodeID << "," << type << "," << enableNumber
           << "," << weight << "\n";
     }
     PRECOMPILED_LOG(TRACE) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("showConsensusTable")
@@ -296,12 +300,16 @@ std::shared_ptr<std::map<std::string, std::shared_ptr<storage::Entry>>> Consensu
 {
     auto result = std::make_shared<std::map<std::string, std::shared_ptr<storage::Entry>>>();
     auto keys = _table->getPrimaryKeys(nullptr);
-    for (auto& key : keys)
+    auto kvMap = _table->getRows(keys);
+    for (auto& kv : kvMap)
     {
-        auto entry = _table->getRow(key);
-        if (entry->getField(NODE_TYPE) == _nodeType)
+        if (!kv.second)
         {
-            result->insert(std::make_pair(key, entry));
+            continue;
+        }
+        if (kv.second->getField(NODE_TYPE) == _nodeType)
+        {
+            result->insert(kv);
         }
     }
     return result;

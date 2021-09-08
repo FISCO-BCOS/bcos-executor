@@ -357,6 +357,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
             for (auto& tableKey : tableKeySet)
             {
                 auto entry = m_table->getRow(tableKey);
+                // Note: entry maybe nullptr
                 if (entryCondition->filter(entry))
                 {
                     m_table->remove(tableKey);
