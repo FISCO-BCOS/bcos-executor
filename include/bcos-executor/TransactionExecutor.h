@@ -101,7 +101,7 @@ public:
             callback) noexcept override;
 
     void getTableHashes(bcos::protocol::BlockNumber number,
-        std::function<void(bcos::Error::Ptr&&, std::vector<TableHash::Ptr>&&)> callback) noexcept
+        std::function<void(bcos::Error::Ptr&&, std::vector<std::tuple<std::string, crypto::HashType>>&&)> callback) noexcept
         override;
 
     /* ----- XA Transaction interface Start ----- */
@@ -123,6 +123,10 @@ public:
     // drop all status
     void reset(std::function<void(bcos::Error::Ptr&&)> callback) noexcept override;
 
+    void releaseCallContext(int64_t contextID) {
+        // FIXME: need a lock?
+        m_contextsOfCall.unsafe_erase(contextID);
+    }
 private:
     protocol::BlockHeader::Ptr getLatestHeaderFromStorage();
     protocol::BlockNumber getLatestBlockNumberFromStorage();
@@ -132,7 +136,7 @@ private:
         const protocol::BlockHeader::ConstPtr& currentHeader,
         storage::StateStorage::Ptr tableFactory);
     void asyncExecute(protocol::Transaction::ConstPtr transaction,
-        std::shared_ptr<TransactionExecutive> executive);
+        std::shared_ptr<TransactionExecutive> executive, bool staticCall);
 
     protocol::BlockFactory::Ptr m_blockFactory;
     std::shared_ptr<dispatcher::SchedulerInterface> m_scheduler;
@@ -155,7 +159,7 @@ private:
     const ExecutorVersion m_version;
     std::map<std::string, std::shared_ptr<PrecompiledContract>> m_precompiledContract;
 
-    tbb::concurrent_unordered_map<int64_t, std::shared_ptr<BlockContext>> m_executivesOfCall;
+    tbb::concurrent_unordered_map<int64_t, std::shared_ptr<BlockContext>> m_contextsOfCall;
     // TODO: add a lock of m_uncommittedData
     std::mutex m_uncommittedDataMutex;
     std::queue<storage::StateStorage::Ptr> m_uncommittedData;

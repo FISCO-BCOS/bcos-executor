@@ -20,3 +20,10 @@
 
 #include "DagTransferPrecompiled.h"
 #include "HelloWorldPrecompiled.h"
+#include "PermissionPrecompiledInterface.h"
+
+namespace bcos::precompiled
+{
+const static char* DEFAULT_PERMISSION_ADDRESS = "0000000000000000000000000000000000001005";
+// FIXME: 1005 is default, use static configurable address for more powerful permission
+}

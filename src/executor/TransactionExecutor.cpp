@@ -157,60 +157,100 @@ void TransactionExecutor::call(const bcos::protocol::ExecutionParams::ConstPtr& 
     std::function<void(bcos::Error::Ptr&&, bcos::protocol::ExecutionResult::Ptr&&)>
         callback) noexcept
 {
-    // FIXME: multi thread call, find somewhere to hold blockContext
-    auto storageHeader = getLatestHeaderFromStorage();
-    auto tableStorage =
-        std::make_shared<StateStorage>(m_backendStorage, m_hashImpl, storageHeader->number());
-    auto currentHeader = m_blockFactory->blockHeaderFactory()->populateBlockHeader(storageHeader);
-    auto blockContext = createBlockContext(currentHeader, tableStorage);
-    auto executive = std::make_shared<TransactionExecutive>(blockContext, input->contextID());
-    blockContext->insertExecutive(input->contextID(), input->to(), executive);
-    // create a new tx use ExecutionParams
-    // FIXME: if (input->type() == ExecutionParams::EXTERNAL_CALL)
-    // FIXME: if (input->type() == ExecutionParams::EXTERNAL_RETURN)
-    auto tx = createTransaction(input);
-    executive->setReturnCallback(callback);
-    // TODO: modify callback to remove blockContext from map if execution finished
-    // after the thread in executive finished, the use_count of executive will decrease to zero
-    // after the executive release the blockContext will release
-    // FIXME: how let contract call contract find executive?
-    asyncExecute(tx, executive);
+    BlockContext::Ptr blockContext = nullptr;
+    if (m_contextsOfCall.count(input->contextID()))
+    {
+        blockContext = m_contextsOfCall[input->contextID()];
+    }
+    else
+    {
+        auto storageHeader = getLatestHeaderFromStorage();
+        auto tableStorage =
+            std::make_shared<StateStorage>(m_backendStorage, m_hashImpl, storageHeader->number());
+        auto currentHeader =
+            m_blockFactory->blockHeaderFactory()->populateBlockHeader(storageHeader);
+        blockContext = createBlockContext(currentHeader, tableStorage);
+        m_contextsOfCall[input->contextID()] = blockContext;
+    }
+    auto callBackWithRelease = [executor = shared_from_this()](returnCallback callback,
+                                   TransactionExecutive::Ptr executive,
+                                   int64_t contextID) -> returnCallback {
+        // modify callback to remove blockContext of contextID if execution finished
+        // after the thread in executive finished, the use_count of executive will decrease to zero
+        // after the executive release the blockContext will release
+        return [executor, callback, executive, contextID](
+                   bcos::Error::Ptr&& e, bcos::protocol::ExecutionResult::Ptr&& result) {
+            callback(std::move(e), std::move(result));
+            if (executive->isFinished())
+            {
+                EXECUTOR_LOG(DEBUG) << LOG_BADGE("executor call free blockContext")
+                                    << LOG_KV("contextID", contextID);
+                executor->releaseCallContext(contextID);
+            }
+        };
+    };
+    if (input->type() == ExecutionParams::TXHASH || input->type() == ExecutionParams::EXTERNAL_CALL)
+    {
+        auto executive = std::make_shared<TransactionExecutive>(blockContext, input->contextID());
+        blockContext->insertExecutive(input->contextID(), input->to(), executive);
+        // create a new tx use input
+        auto tx = createTransaction(input);
+        executive->setReturnCallback(callBackWithRelease(callback, executive, input->contextID()));
+        asyncExecute(tx, executive, false);
+    }
+    else if (input->type() == ExecutionParams::EXTERNAL_RETURN)
+    {  // scheduler promises that the contextID only appear once every execution
+        // use to() and contextID to find TransactionExecutive
+        auto executive = m_blockContext->getLastExecutiveOf(input->contextID(), input->to());
+        // set new return callback to executive and continue execution
+        executive->setReturnCallback(callBackWithRelease(callback, executive, input->contextID()));
+        executive->continueExecution(
+            input->input().toBytes(), input->status(), input->gasAvailable(), input->from());
+    }
+    else
+    {  // unknown type warning and callback to scheduler
+        EXECUTOR_LOG(ERROR) << LOG_BADGE("executeTransaction unknown type")
+                            << LOG_KV("contextID", input->contextID());
+        // TODO: use right errorCode
+        callback(make_shared<Error>(-1, "unknown type"), nullptr);
+    }
 }
 
 protocol::Transaction::Ptr TransactionExecutor::createTransaction(
     const bcos::protocol::ExecutionParams::ConstPtr& input)
 {
-    // FIXME: create transaction use transactionFactory
+    // create transaction use transactionFactory
     auto transactionFactory = m_blockFactory->transactionFactory();
     auto transaction = transactionFactory->createTransaction(
         0, input->to(), input->input().toBytes(), u256(0), 0, "", "", 0);
     return transaction;
 }
 
-void TransactionExecutor::executeTransaction(const bcos::protocol::ExecutionParams::ConstPtr& input,
-    std::function<void(bcos::Error::Ptr&&, bcos::protocol::ExecutionResult::Ptr&&)>
-        callback) noexcept
+void TransactionExecutor::executeTransaction(const protocol::ExecutionParams::ConstPtr& input,
+    std::function<void(Error::Ptr&&, protocol::ExecutionResult::Ptr&&)> callback) noexcept
 {
-    // TODO: set return callback to TransactionExecutive
-    // TODO: TransactionExecutive use a new thread to execute contract
-    // TODO: if finished call the return callback with finished message, exit the thread and pop
-    // TransactionExecutive id stack is empty remove the address in map
-    // TODO: if EXTERNAL_CALL, set the continue callback with promise and call the return
-    // callback, when future got return continue to run
-
-    auto createExecutive = [&]() {
-        auto executive = std::make_shared<TransactionExecutive>(m_blockContext, input->contextID());
-        auto caller = input->to();
+    auto createExecutive = [&](unsigned depth) {
+        auto executive =
+            std::make_shared<TransactionExecutive>(m_blockContext, input->contextID(), depth);
+        auto caller = string(input->to());
         if (input->to().empty())
-        {  // TODO: create state and calculate new address
-           // FIXME: if input->createSalt() is not empty use create2
+        {
+            if (input->createSalt())
+            {  // input->createSalt() is not empty use create2
+                caller = executive->newEVMAddress(
+                    input->from(), input->input(), input->createSalt().value());
+            }
+            else
+            {
+                caller = executive->newEVMAddress(input->from());
+            }
         }
         m_blockContext->insertExecutive(input->contextID(), caller, executive);
         return executive;
     };
     if (input->type() == ExecutionParams::TXHASH)
     {  // type is TXHASH, pull the transaction use txpool and create a TransactionExecutive
-        auto executive = createExecutive();
+        auto executive = createExecutive(0);
         // fetch transaction use m_txpool
         auto txHash = make_shared<std::vector<crypto::HashType>>();
         txHash->push_back(input->transactionHash());
@@ -228,16 +268,17 @@ void TransactionExecutor::executeTransaction(const bcos::protocol::ExecutionPara
                 }
             });
         auto tx = prom.get_future().get();
+        // set return callback to TransactionExecutive
         executive->setReturnCallback(callback);
-        asyncExecute(tx, executive);
+        asyncExecute(tx, executive, false);
     }
     else if (input->type() == ExecutionParams::EXTERNAL_CALL)
     {  // type is EXTERNAL_CALL create TransactionExecutive and tx to execute
-        auto executive = createExecutive();
+        auto executive = createExecutive(input->depth());
         executive->setReturnCallback(callback);
         // create a new tx use ExecutionParams
         auto tx = createTransaction(input);
-        asyncExecute(tx, executive);
+        asyncExecute(tx, executive, input->staticCall());
     }
     else if (input->type() == ExecutionParams::EXTERNAL_RETURN)
     {  // scheduler promises that the contextID only appear once every execution
@@ -249,20 +290,29 @@ void TransactionExecutor::executeTransaction(const bcos::protocol::ExecutionPara
             input->input().toBytes(), input->status(), input->gasAvailable(), input->from());
     }
     else
-    {  // TODO: unknown type warning and do nothing
+    {  // unknown type warning and callback to scheduler
+        EXECUTOR_LOG(ERROR) << LOG_BADGE("executeTransaction unknown type")
+                            << LOG_KV("contextID", input->contextID());
+        // TODO: use right errorCode
+        callback(make_shared<Error>(-1, "unknown type"), nullptr);
     }
 }
 
 void TransactionExecutor::getTableHashes(bcos::protocol::BlockNumber number,
-    std::function<void(bcos::Error::Ptr&&, std::vector<TableHash::Ptr>&&)> callback) noexcept
+    std::function<void(
+        bcos::Error::Ptr&&, std::vector<std::tuple<std::string, crypto::HashType>>&&)>
+        callback) noexcept
 {
-    (void)number;
+    if (m_tableStorage->blockNumber() != number)
+    {
+        EXECUTOR_LOG(ERROR) << LOG_BADGE("getTableHashes mismatch number")
+                            << LOG_KV("number", number);
+        // TODO: use right errorCode
+        callback(make_shared<Error>(-1, "mismatch number"),
+            std::vector<std::tuple<std::string, crypto::HashType>>());
+    }
     // TODO: calculate hash of tables, use threadpool to calculate hash
-    // auto tablesHash = m_tableStorage->tableHashes();
-
-    // FIXME: uniform callback and tableHashes return value
-    (void)callback;
-    // callback(nullptr, tablesHash);
+    callback(nullptr, m_tableStorage->tableHashes());
 }
 
 void TransactionExecutor::prepare(
@@ -298,6 +348,7 @@ void TransactionExecutor::commit(
     const TwoPCParams& params, std::function<void(bcos::Error::Ptr&&)> callback) noexcept
 {
     // add the m_tableStorage of number to m_cacheStorage
+    // FIXME: get tableStorage from m_uncommittedData or m_tableStorage
     (void)params;
     m_cacheStorage->merge(m_tableStorage);
     callback(nullptr);
@@ -305,21 +356,23 @@ void TransactionExecutor::commit(
 
 void TransactionExecutor::rollback(
     const TwoPCParams& params, std::function<void(bcos::Error::Ptr&&)> callback) noexcept
-{  // do nothing
+{  // FIXME: do nothing for now
     (void)params;
     (void)callback;
 }
 
-void TransactionExecutor::asyncExecute(
-    protocol::Transaction::ConstPtr transaction, TransactionExecutive::Ptr executive)
-{
+void TransactionExecutor::asyncExecute(protocol::Transaction::ConstPtr transaction,
+    TransactionExecutive::Ptr executive, bool staticCall = false)
+{  // TransactionExecutive use a new thread to execute contract
+    // if finished, call the return callback with finished message, exit the thread and set
+    // TransactionExecutive finished, next time it will be pop
     executive->setWorker(make_shared<thread>(
-        [transaction, executive, executionResultFactory = m_executionResultFactory]() {
+        [transaction, executive, executionResultFactory = m_executionResultFactory, staticCall]() {
             executive->reset();
             try
             {  // OK - transaction looks valid - execute.
                 executive->initialize(transaction);
-                if (!executive->execute())
+                if (!executive->execute(staticCall))
                     executive->go();
                 executive->finalize();
             }
@@ -340,9 +393,8 @@ void TransactionExecutor::asyncExecute(
             // FIXME: set error message
             // result->setMessage();
             result->setOutput(executive->takeOutput().takeBytes());
-            result->setGasUsed((int64_t)executive->gasUsed());
-            // FIXME: setLogEntries
-            // result->setLogEntries(executive->logs());
+            result->setGasAvailable((int64_t)executive->gasLeft());
+            result->setLogEntries(executive->logs());
             result->setNewEVMContractAddress(executive->newAddress());
             executive->callReturnCallback(nullptr, std::move(result));
         }));
@@ -352,8 +404,8 @@ BlockContext::Ptr TransactionExecutor::createBlockContext(
     const protocol::BlockHeader::ConstPtr& currentHeader, storage::StateStorage::Ptr tableFactory)
 {
     (void)m_version;  // TODO: accord to m_version to chose schedule
-    BlockContext::Ptr context = make_shared<BlockContext>(
-        tableFactory, m_hashImpl, currentHeader, FiscoBcosScheduleV3, m_pNumberHash, m_isWasm);
+    BlockContext::Ptr context = make_shared<BlockContext>(tableFactory, m_hashImpl, currentHeader,
+        m_executionResultFactory, FiscoBcosScheduleV3, m_pNumberHash, m_isWasm);
     auto tableFactoryPrecompiled =
         std::make_shared<precompiled::TableFactoryPrecompiled>(m_hashImpl);
     tableFactoryPrecompiled->setMemoryTableFactory(tableFactory);
@@ -390,10 +442,6 @@ BlockContext::Ptr TransactionExecutor::createBlockContext(
     // CONTRACT_LIFECYCLE_ADDRESS, std::make_shared<precompiled::ContractLifeCyclePrecompiled>());
     // context->setAddress2Precompiled(
     //     CHAINGOVERNANCE_ADDRESS, std::make_shared<precompiled::ChainGovernancePrecompiled>());
-
-    // register workingSealerManagerPrecompiled for VRF-based-rPBFT
-    // context->setAddress2Precompiled(WORKING_SEALER_MGR_ADDRESS,
-    //     std::make_shared<precompiled::WorkingSealerManagerPrecompiled>());
 
     // TODO: register User developed Precompiled contract
     // registerUserPrecompiled(context);

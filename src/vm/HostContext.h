@@ -88,7 +88,7 @@ public:
     virtual h256 codeHashAt(const std::string_view& _a);
 
     /// Create a new contract.
-    virtual evmc_result create(u256& io_gas, bytesConstRef _code, evmc_opcode _op, u256 _salt);
+    virtual evmc_result create(int64_t io_gas, bytesConstRef _code, evmc_opcode _op, u256 _salt);
 
     /// Create a new message call.
     virtual evmc_result call(executor::CallParameters& _params);

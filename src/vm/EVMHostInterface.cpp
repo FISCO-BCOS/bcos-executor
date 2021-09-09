@@ -171,7 +171,7 @@ evmc_bytes32 getBlockHash(evmc_host_context* _txContextPtr, int64_t _number)
 
 evmc_result create(HostContext& _txContext, evmc_message const* _msg) noexcept
 {
-    u256 gas = _msg->gas;
+    int64_t gas = _msg->gas;
     // u256 value = fromEvmC(_msg->value);
     bytesConstRef init = {_msg->input_data, _msg->input_size};
     u256 salt = fromEvmC(_msg->create2_salt);
