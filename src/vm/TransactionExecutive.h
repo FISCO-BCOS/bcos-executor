@@ -59,8 +59,7 @@ struct PrecompiledExecResult;
  * In the first use, after construction, begin with initialize(), then execute() and end with
  * finalize(). Call go() after execute() only if it returns false.
  *
- * In the second use, after construction, begin with call() or create() and end with
- * accrueSubState(). Call go() after call()/create() only if it returns false.
+ * In the second use, after construction, begin with call() or create(). Call go() after call()/create() only if it returns false.
  *
  * Example:
  * @code
@@ -106,23 +105,21 @@ public:
     /// @warning Only valid after initialize() and execute(), and possibly go().
     /// @returns true if the outermost execution halted normally, false if exceptionally halted.
 
-
     void setReturnCallback(returnCallback _callback) { m_returnCallback = _callback; }
-    void callReturnCallback(Error::Ptr&& e, protocol::ExecutionResult::Ptr&& result)
+    void callReturnCallback(Error::Ptr e, protocol::ExecutionResult::Ptr result)
     {
-        m_returnCallback(
-            std::forward<Error::Ptr>(e), std::forward<protocol::ExecutionResult::Ptr>(result));
+        m_returnCallback(std::move(e), std::move(result));
     }
     bool continueExecution(
         bytes&& output, int32_t status, int64_t gasLeft, std::string_view newAddress);
-    evmc_result waitReturnValue();
+    evmc_result waitReturnValue(Error::Ptr e, protocol::ExecutionResult::Ptr result);
     bool isFinished() { return m_finished; }
 
     bool finalize();
     /// Begins execution of a transaction. You must call finalize() following this.
     /// @returns true if the transaction is done, false if go() must be called.
 
-    bool execute();
+    bool execute(bool _staticCall);
     /// @returns the transaction from initialize().
     /// @warning Only valid after initialize().
     protocol::Transaction::ConstPtr tx() const { return m_t; }
@@ -135,6 +132,9 @@ public:
 
     owning_bytes_ref takeOutput() { return std::move(m_output); }
 
+    std::string newEVMAddress(const std::string_view& _sender);
+    std::string newEVMAddress(
+        const std::string_view& _sender, bytesConstRef _init, u256 const& _salt);
     /// Set up the executive for evaluating a bare CREATE (contract-creation) operation.
     /// @returns false iff go() must be called (and thus a VM execution in required).
     bool create(const std::string_view& _txSender, u256 const& _gas, bytesConstRef _code,
@@ -148,10 +148,8 @@ public:
     /// Set up the executive for evaluating a bare CALL (message call) operation.
     /// @returns false iff go() must be called (and thus a VM execution in required).
     bool call(const std::string& _receiveAddress, const std::string& _txSender,
-        bytesConstRef _txData, u256 const& _gas);
+        bytesConstRef _txData, u256 const& _gas, bool _staticCall);
     bool call(executor::CallParameters const& _cp, const std::string& _origin);
-    /// Finalise an operation through accruing the substate into the parent context.
-    void accrueSubState(SubState& _parentContext);
 
     /// Executes (or continues execution of) the VM.
     /// @returns false iff go() must be called again to finish the transaction.
@@ -241,7 +239,7 @@ private:
     std::shared_ptr<wasm::GasInjector> m_gasInjector;
     executor::returnCallback m_returnCallback = nullptr;
     std::shared_ptr<std::thread> m_worker = nullptr;
-    std::function<void(bytes&& output, int32_t status, u256 gasLeft, std::string_view newAddress)>
+    std::function<void(bytes&& output, int32_t status, int64_t gasLeft, std::string_view newAddress)>
         m_waitResult = nullptr;
 };
 

@@ -55,65 +55,6 @@ static const std::string SYS_ASSET_ISSUER = "issuer";
 static const std::string SYS_ASSET_DESCRIPTION = "description";
 static const std::string SYS_ASSET_INFO = "_sys_asset_info_";
 
-/// Standard thread stack size.
-static size_t const c_defaultStackSize =
-#if defined(__linux)
-    8 * 1024 * 1024;
-#elif defined(_WIN32)
-    16 * 1024 * 1024;
-#else
-    512 * 1024;  // OSX and other OSs
-#endif
-
-/// Stack overhead prior to allocation.
-static size_t const c_entryOverhead = 128 * 1024;
-
-/// On what depth execution should be offloaded to additional separated stack space.
-static unsigned const c_offloadPoint =
-    (c_defaultStackSize - c_entryOverhead) / c_singleExecutionStackSize;
-
-void goOnOffloadedStack(TransactionExecutive& _e)
-{
-    // Set new stack size enouth to handle the rest of the calls up to the limit.
-    boost::thread::attributes attrs;
-    attrs.set_stack_size((c_depthLimit - c_offloadPoint) * c_singleExecutionStackSize);
-
-    // Create new thread with big stack and join immediately.
-    // TODO: It is possible to switch the implementation to Boost.Context or similar when the API is
-    // stable.
-    boost::exception_ptr exception;
-    boost::thread{attrs,
-        [&] {
-            try
-            {
-                _e.go();
-            }
-            catch (...)
-            {
-                exception = boost::current_exception();  // Catch all exceptions to be rethrown in
-                                                         // parent thread.
-            }
-        }}
-        .join();
-    if (exception)
-        boost::rethrow_exception(exception);
-}
-
-void go(unsigned _depth, TransactionExecutive& _e)
-{
-    // If in the offloading point we need to switch to additional separated stack space.
-    // Current stack is too small to handle more CALL/CREATE executions.
-    // It needs to be done only once as newly allocated stack space it enough to handle
-    // the rest of the calls up to the depth limit (c_depthLimit).
-
-    if (_depth == c_offloadPoint)
-    {
-        EXECUTIVE_LOG(TRACE) << "Stack offloading (depth: " << c_offloadPoint << ")";
-        goOnOffloadedStack(_e);
-    }
-    else
-        _e.go();
-}
 
 }  // anonymous namespace
 
@@ -165,30 +106,11 @@ HostContext::HostContext(const std::shared_ptr<BlockContext>& _blockContext, int
 
 evmc_result HostContext::call(CallParameters& _p)
 {
-    (void)_p;
+    // get last executive from blockcontext
     auto executive = m_blockContext->getLastExecutiveOf(m_contextID, m_myAddress);
-    // FIXME: get last executive from blockcontext
     executive->setCallCreate(false);
-    // FIXME: call executive returnCallback
-    executive->callReturnCallback(nullptr, nullptr);
-    // create callResult use factory from blockcontext
-    return executive->waitReturnValue();
-#if 0
-    TransactionExecutive e{getBlockContext(), depth() + 1};
-    stringstream ss;
-    // Note: When create TransactionExecutive, the flags of evmc context must be passed
-    if (!e.call(_p, origin()))
-    {
-        go(depth(), e);
-        e.accrueSubState(sub());
-    }
-    _p.gas = e.gas();
-
-    evmc_result evmcResult;
-    generateCallResult(
-        &evmcResult, transactionStatusToEvmcStatus(e.status()), _p.gas, e.takeOutput());
-    return evmcResult;
-#endif
+    // create callResult use factory from blockcontext and call executive returnCallback
+    return executive->waitReturnValue(nullptr, m_blockContext->createExecutionResult(m_contextID, _p));
 }
 
 size_t HostContext::codeSizeAt(const std::string_view& _a)
@@ -232,40 +154,25 @@ void HostContext::setStore(u256 const& _n, u256 const& _v)
 }
 
 evmc_result HostContext::create(u256& io_gas, bytesConstRef _code, evmc_opcode _op, u256 _salt)
-{  // TODO: if liquid support contract create contract add a branch
-    // FIXME: call scheduler and wait return
-
-    // executive->setCallCreate(true);
-    // return executive->waitReturnValue();
-    (void)io_gas;
-    (void)_code;
-    (void)_op;
-    (void)_salt;
-    return evmc_result();
-#if 0
-    TransactionExecutive e{getBlockContext(), depth() + 1};
-    // Note: When create TransactionExecutive, the flags of evmc context must be passed
-    bool result = false;
-    if (_op == evmc_opcode::OP_CREATE)
-        result = e.createOpcode(myAddress(), io_gas, _code, origin());
-    else
+{
+    if (m_blockContext->isWasm())
+    {  // TODO: if wasm support contract create contract add a new branch
+        EXECUTIVE_LOG(ERROR) << "wasm contract new contract isn't supported";
+        return evmc_result();
+    }
+    // get last executive from blockcontext
+    auto executive = m_blockContext->getLastExecutiveOf(m_contextID, m_myAddress);
+    executive->setCallCreate(true);
+    // call executive returnCallback
+    std::optional<u256> salt;
+    if (_op != evmc_opcode::OP_CREATE)
     {
-        // TODO: when new CREATE opcode added, this logic maybe affected
         assert(_op == evmc_opcode::OP_CREATE2);
-        result = e.create2Opcode(myAddress(), io_gas, _code, origin(), _salt);
+        salt = _salt;
     }
-
-    if (!result)
-    {
-        go(depth(), e);
-        e.accrueSubState(sub());
-    }
-    io_gas = e.gas();
-    evmc_result evmcResult;
-    generateCreateResult(&evmcResult, transactionStatusToEvmcStatus(e.status()), io_gas,
-        e.takeOutput(), e.newAddress());
-    return evmcResult;
-#endif
+    // create callResult use factory from blockcontext, schedule should make depth + 1
+    return executive->waitReturnValue(
+        nullptr, m_blockContext->createExecutionResult(m_contextID, io_gas, _code, salt));
 }
 
 void HostContext::log(h256s&& _topics, bytesConstRef _data)
@@ -289,19 +196,8 @@ void HostContext::log(h256s&& _topics, bytesConstRef _data)
 
 void HostContext::suicide(const std::string_view& _a)
 {
-    // Why transfer is not used here? That caused a consensus issue before (see Quirk #2 in
-    // http://martin.swende.se/blog/Ethereum_quirks_and_vulns.html). There is one test case
-    // witnessing the current consensus
-    // 'GeneralStateTests/stSystemOperationsTest/suicideSendEtherPostDeath.json'.
-
-    // No balance here in BCOS. Balance has data racing in parallel suicide.
     m_sub.suicides.insert(m_myAddress);
-    (void)_a;
-    return;
-    // FIXME: check the logic below
-    // m_s->addBalance(_a, m_s->balance(myAddress()));
-    // m_s->setBalance(myAddress(), 0);
-    // m_sub.suicides.insert(m_myAddress);
+    m_s->kill(m_myAddress);
 }
 
 h256 HostContext::blockHash(int64_t _number)
@@ -518,7 +414,6 @@ bool HostContext::transferAsset(const std::string_view& _to, const std::string& 
         else
         {
             // TODO: check if from has asset
-
             auto tokenIDs = entry->getField("value");
             // find id in tokenIDs
             auto tokenID = to_string(_amountOrID);

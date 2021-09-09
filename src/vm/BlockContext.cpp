@@ -23,10 +23,11 @@
 #include "../state/State.h"
 #include "Precompiled.h"
 #include "TransactionExecutive.h"
+#include "bcos-framework/interfaces/executor/ExecutionResult.h"
 #include "bcos-framework/interfaces/protocol/Exceptions.h"
 #include "bcos-framework/interfaces/storage/StorageInterface.h"
-#include "bcos-framework/libcodec/abi/ContractABICodec.h"
 #include "bcos-framework/interfaces/storage/Table.h"
+#include "bcos-framework/libcodec/abi/ContractABICodec.h"
 
 using namespace bcos::executor;
 using namespace bcos::protocol;
@@ -35,12 +36,13 @@ using namespace std;
 
 namespace bcos
 {
-BlockContext::BlockContext(
-    std::shared_ptr<storage::StateStorage> _tableFactory, crypto::Hash::Ptr _hashImpl,
-    const protocol::BlockHeader::ConstPtr & _current, const EVMSchedule& _schedule,
+BlockContext::BlockContext(std::shared_ptr<storage::StateStorage> _tableFactory,
+    crypto::Hash::Ptr _hashImpl, const protocol::BlockHeader::ConstPtr& _current,
+    protocol::ExecutionResultFactory::Ptr _executionResultFactory, const EVMSchedule& _schedule,
     CallBackFunction _callback, bool _isWasm)
   : m_addressCount(0x10000),
     m_currentHeader(_current),
+    m_executionResultFactory(_executionResultFactory),
     m_numberHash(_callback),
     m_schedule(_schedule),
     m_isWasm(_isWasm),
@@ -175,6 +177,37 @@ TransactionExecutive::Ptr BlockContext::getLastExecutiveOf(
         executives.pop();
     }
     return executives.top();
+}
+
+ExecutionResult::Ptr BlockContext::createExecutionResult(int64_t _contextID, CallParameters& _p)
+{
+    auto result = m_executionResultFactory->createExecutionResult();
+    result->setType(protocol::ExecutionResult::EXTERNAL_CALL);
+    result->setContextID(_contextID);
+    result->setOutput(_p.data.toBytes());
+    result->setTo(_p.codeAddress);
+    // FIXME: uncomment after update framework
+    // result->setGasAvailable(_p.gas);
+    // result->setStaticCall(_p.staticCall);
+    return result;
+}
+
+ExecutionResult::Ptr BlockContext::createExecutionResult(
+    int64_t _contextID, u256& _gas, bytesConstRef _code, std::optional<u256> _salt)
+{
+    auto result = m_executionResultFactory->createExecutionResult();
+    result->setType(protocol::ExecutionResult::EXTERNAL_CALL);
+    result->setContextID(_contextID);
+    result->setOutput(_code.toBytes());
+    if (_salt)
+    {
+        result->setCreateSalt(_salt.value());
+    }
+    // FIXME: uncomment after update framework
+    (void)_gas;
+    // result->setGasAvailable(_gas);
+    // result->setStaticCall(false);
+    return result;
 }
 
 }  // namespace bcos

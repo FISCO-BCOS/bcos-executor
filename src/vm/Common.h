@@ -71,12 +71,13 @@ struct CallParameters
 {
     CallParameters() = default;
     CallParameters(std::string_view _senderAddress, std::string_view _codeAddress,
-        std::string_view _receiveAddress, u256 _gas, bytesConstRef _data)
+        std::string_view _receiveAddress, u256 _gas, bytesConstRef _data, bool _staticCall)
       : senderAddress(_senderAddress),
         codeAddress(_codeAddress),
         receiveAddress(_receiveAddress),
         gas(_gas),
-        data(_data)
+        data(_data),
+        staticCall(_staticCall)
     {}
     std::string senderAddress;   /// address of the transaction sender
     std::string codeAddress;     /// address of the contract
@@ -267,7 +268,7 @@ bool hasWasmPreamble(const bytes& _input);
  * @param _addr : the string address
  * @return evmc_address : the transformed evm address
  */
-inline evmc_address toEvmC(const std::string& _addr)
+inline evmc_address toEvmC(const std::string_view& _addr)
 {  // TODO: add another interfaces for wasm
     evmc_address ret;
     memcpy(ret.bytes, _addr.data(), 20);

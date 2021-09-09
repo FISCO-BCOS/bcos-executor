@@ -42,7 +42,8 @@ using namespace bcos::codec;
 /// Error info for VMInstance status code.
 using errinfo_evmcStatusCode = boost::error_info<struct tag_evmcStatusCode, evmc_status_code>;
 
-namespace {
+namespace
+{
 evmc_status_code transactionStatusToEvmcStatus(protocol::TransactionStatus ex) noexcept
 {
     switch (ex)
@@ -73,16 +74,11 @@ evmc_status_code transactionStatusToEvmcStatus(protocol::TransactionStatus ex) n
     }
 }
 
-}
+}  // namespace
+
 u256 TransactionExecutive::gasUsed() const
 {
     return m_blockContext->txGasLimit() - m_remainGas;
-}
-
-void TransactionExecutive::accrueSubState(SubState& _parentContext)
-{
-    if (m_context)
-        _parentContext += m_context->sub();
 }
 
 void TransactionExecutive::initialize(Transaction::ConstPtr _transaction)
@@ -124,7 +120,7 @@ std::string TransactionExecutive::newAddress() const
     return hexAddress;
 }
 
-bool TransactionExecutive::execute()
+bool TransactionExecutive::execute(bool _staticCall)
 {
     uint64_t txGasLimit = m_blockContext->txGasLimit();
 
@@ -148,41 +144,58 @@ bool TransactionExecutive::execute()
     else
     {
         return call(string(m_t->to()), string(m_t->sender()), m_t->input(),
-            txGasLimit - (u256)m_baseGasRequired);
+            txGasLimit - (u256)m_baseGasRequired, _staticCall);
     }
 }
 
+std::string TransactionExecutive::newEVMAddress(const std::string_view& _sender)
+{
+    u256 nonce = m_s->getNonce(_sender);
+    auto hash = m_hashImpl->hash(string(_sender) + nonce.str());
+    return string((char*)hash.data(), 20);
+}
+
+std::string TransactionExecutive::newEVMAddress(
+    const std::string_view& _sender, bytesConstRef _init, u256 const& _salt)
+{
+    auto hash = m_hashImpl->hash(
+        bytes{0xff} + toBytes(_sender) + toBigEndian(_salt) + m_hashImpl->hash(_init));
+    return string((char*)hash.data(), 20);
+}
+
+bool TransactionExecutive::create(const std::string_view& _txSender, u256 const& _gas,
+    bytesConstRef _init, const std::string_view& _origin)
+{
+    // Contract creation by an external account is the same as CREATE opcode
+    return createOpcode(_txSender, _gas, _init, _origin);
+}
+
+bool TransactionExecutive::createOpcode(const std::string_view& _sender, u256 const& _gas,
+    bytesConstRef _init, const std::string_view& _origin)
+{
+    m_newAddress = newEVMAddress(_sender);
+    return executeCreate(_sender, _origin, m_newAddress, _gas, _init);
+}
+
+bool TransactionExecutive::create2Opcode(const std::string_view& _sender, u256 const& _gas,
+    bytesConstRef _init, const std::string_view& _origin, u256 const& _salt)
+{
+    m_newAddress = newEVMAddress(_sender, _init, _salt);
+    return executeCreate(_sender, _origin, m_newAddress, _gas, _init);
+}
+
 bool TransactionExecutive::call(const std::string& _receiveAddress,
-    const std::string& _senderAddress, bytesConstRef _data, u256 const& _gas)
+    const std::string& _senderAddress, bytesConstRef _data, u256 const& _gas, bool _staticCall)
 {
     if (m_blockContext->isWasm())
     {
-        CallParameters params{_senderAddress, _receiveAddress, _receiveAddress, _gas, _data};
+        CallParameters params{_senderAddress, _receiveAddress, _receiveAddress, _gas, _data, _staticCall};
         return call(params, _senderAddress);
     }
     // FIXME: check if the address is valid hex string, if not revert
     auto receiveAddress = asString(*fromHexString(_receiveAddress));
-    CallParameters params{_senderAddress, receiveAddress, receiveAddress, _gas, _data};
+    CallParameters params{_senderAddress, receiveAddress, receiveAddress, _gas, _data, _staticCall};
     return call(params, _senderAddress);
-}
-
-void TransactionExecutive::updateGas(std::shared_ptr<precompiled::PrecompiledExecResult>)
-{
-// TODO: calculate gas
-#if 0
-    auto gasUsed = _callResult->calGasCost();
-    if (m_remainGas < gasUsed)
-    {
-        m_excepted = TransactionStatus::OutOfGas;
-        EXECUTIVE_LOG(WARNING) << LOG_DESC("OutOfGas when executing precompiled Contract")
-                               << LOG_KV("gasUsed", gasUsed) << LOG_KV("curGas", m_remainGas);
-        BOOST_THROW_EXCEPTION(
-            PrecompiledError("OutOfGas when executing precompiled Contract, gasUsed: " +
-                             boost::lexical_cast<std::string>(gasUsed) +
-                             ", leftGas:" + boost::lexical_cast<std::string>(m_remainGas)));
-    }
-    m_remainGas -= gasUsed;
-#endif
 }
 
 bool TransactionExecutive::call(CallParameters const& _p, const std::string& _origin)
@@ -235,8 +248,6 @@ bool TransactionExecutive::call(CallParameters const& _p, const std::string& _or
         {
             auto callResult = m_blockContext->call(
                 precompiledAddress, _p.data, _origin, _p.senderAddress, m_remainGas);
-            // TODO: calculate gas for the precompiled contract
-            // updateGas(callResult);
             size_t outputSize = callResult->m_execResult.size();
             m_output = owning_bytes_ref{std::move(callResult->m_execResult), 0, outputSize};
         }
@@ -271,8 +282,8 @@ bool TransactionExecutive::call(CallParameters const& _p, const std::string& _or
     {
         auto c = m_s->code(_p.codeAddress);
         h256 codeHash = m_s->codeHash(_p.codeAddress);
-        m_context = make_shared<HostContext>(m_blockContext, m_contextID, _p.receiveAddress, _p.senderAddress,
-            _origin, _p.data, c, codeHash, m_depth, false, _p.staticCall);
+        m_context = make_shared<HostContext>(m_blockContext, m_contextID, _p.receiveAddress,
+            _p.senderAddress, _origin, _p.data, c, codeHash, m_depth, false, _p.staticCall);
     }
     else
     {
@@ -285,51 +296,10 @@ bool TransactionExecutive::call(CallParameters const& _p, const std::string& _or
     return !m_context;
 }
 
-bool TransactionExecutive::create(const std::string_view& _txSender, u256 const& _gas,
-    bytesConstRef _init, const std::string_view& _origin)
-{
-    // Contract creation by an external account is the same as CREATE opcode
-    return createOpcode(_txSender, _gas, _init, _origin);
-}
-
-bool TransactionExecutive::createOpcode(const std::string_view& _sender, u256 const& _gas,
-    bytesConstRef _init, const std::string_view& _origin)
-{
-    u256 nonce = m_s->getNonce(_sender);
-    auto hash = m_hashImpl->hash(string(_sender) + nonce.str());
-    m_newAddress = string((char*)hash.data(), 20);
-    return executeCreate(_sender, _origin, m_newAddress, _gas, _init);
-}
-
-bool TransactionExecutive::create2Opcode(const std::string_view& _sender, u256 const& _gas,
-    bytesConstRef _init, const std::string_view& _origin, u256 const& _salt)
-{
-    auto hash = m_hashImpl->hash(
-        bytes{0xff} + toBytes(_sender) + toBigEndian(_salt) + m_hashImpl->hash(_init));
-    m_newAddress = string((char*)hash.data(), 20);
-    return executeCreate(_sender, _origin, m_newAddress, _gas, _init);
-}
-
 bool TransactionExecutive::executeCreate(const std::string_view& _sender,
     const std::string_view& _origin, const std::string& _newAddress, u256 const& _gasLeft,
     bytesConstRef _init, bytesConstRef constructorParams)
 {
-    // check authority for deploy contract
-    auto tableFactory = m_blockContext->getTableFactory();
-
-#if 0
-    // FIXME: add permission control
-    if (!tableFactory->checkAuthority(SYS_TABLE, string(_origin)))
-    {
-        EXECUTIVE_LOG(WARNING) << "TransactionExecutive deploy contract checkAuthority of "
-                               << _origin << " failed!";
-        m_remainGas = 0;
-        m_excepted = TransactionStatus::PermissionDenied;
-        revert();
-        m_context = {};
-        return !m_context;
-    }
-#endif
     if (m_s->frozen(_origin))
     {
         EXECUTIVE_LOG(DEBUG) << LOG_DESC("deploy contract failed for account frozen")
@@ -398,8 +368,8 @@ bool TransactionExecutive::executeCreate(const std::string_view& _sender,
                 return !m_context;
             }
         }
-        m_context = make_shared<HostContext>(m_blockContext, m_contextID, _newAddress, _sender, _origin,
-            constructorParams, code, m_hashImpl->hash(_init), m_depth, true, false);
+        m_context = make_shared<HostContext>(m_blockContext, m_contextID, _newAddress, _sender,
+            _origin, constructorParams, code, m_hashImpl->hash(_init), m_depth, true, false);
     }
     return !m_context;
 }
@@ -563,6 +533,56 @@ bool TransactionExecutive::go()
     return true;
 }
 
+evmc_result TransactionExecutive::waitReturnValue(
+    Error::Ptr e, protocol::ExecutionResult::Ptr result)
+{
+    promise<evmc_result> prom;
+    m_waitResult = [&prom, callCreate = m_callCreate](bytes&& output, int32_t status,
+                       int64_t gasLeft, std::string_view newAddress) {
+        evmc_result result;
+        result.status_code = transactionStatusToEvmcStatus((protocol::TransactionStatus)status);
+        result.gas_left = gasLeft;
+        if (callCreate && result.status_code == EVMC_SUCCESS)
+        {
+            result.release = nullptr;
+            result.create_address = toEvmC(newAddress);
+            result.output_data = nullptr;
+            result.output_size = 0;
+        }
+        else
+        {
+            // Pass the output to the EVM without a copy. The EVM will delete it
+            // when finished with it.
+
+            // First assign reference. References are not invalidated when vector
+            // of bytes is moved. See `.takeBytes()` below.
+            result.output_data = output.data();
+            result.output_size = output.size();
+
+            // Place a new vector of bytes containing output in result's reserved memory.
+            auto* data = evmc_get_optional_storage(&result);
+            static_assert(sizeof(bytes) <= sizeof(*data), "Vector is too big");
+            new (data) bytes(move(output));
+            // Set the destructor to delete the vector.
+            result.release = [](evmc_result const* _result) {
+                // check _result is not null
+                if (_result == NULL)
+                {
+                    return;
+                }
+                auto* data = evmc_get_const_optional_storage(_result);
+                auto& output = reinterpret_cast<bytes const&>(*data);
+                // Explicitly call vector's destructor to release its data.
+                // This is normal pattern when placement new operator is used.
+                output.~bytes();
+            };
+            prom.set_value(result);
+        }
+    };
+    m_returnCallback(std::move(e), move(result));
+    return prom.get_future().get();
+}
+
 bool TransactionExecutive::continueExecution(
     bytes&& output, int32_t status, int64_t gasLeft, std::string_view newAddress)
 {
@@ -580,11 +600,6 @@ bool TransactionExecutive::finalize()
     if (m_context)
         m_context->sub().refunds +=
             m_context->evmSchedule().suicideRefundGas * m_context->sub().suicides.size();
-
-    // Suicides...
-    if (m_context)
-        for (auto a : m_context->sub().suicides)
-            m_s->kill(a);
 
     // Logs..
     if (m_context)

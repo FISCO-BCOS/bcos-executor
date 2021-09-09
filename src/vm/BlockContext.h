@@ -21,15 +21,15 @@
 
 #pragma once
 
+// for concurrent_map
+#define TBB_PREVIEW_CONCURRENT_ORDERED_CONTAINERS 1
+
 #include "../state/StateInterface.h"
 #include "Common.h"
+#include "bcos-framework/interfaces/executor/ExecutionResult.h"
 #include "bcos-framework/interfaces/protocol/Block.h"
 #include "bcos-framework/interfaces/protocol/Transaction.h"
 #include "bcos-framework/interfaces/storage/Table.h"
-
-// #include "bcos-framework/libstorage/Table.h"
-// for concurrent_map
-#define TBB_PREVIEW_CONCURRENT_ORDERED_CONTAINERS 1
 #include <tbb/concurrent_map.h>
 #include <tbb/concurrent_unordered_map.h>
 #include <atomic>
@@ -63,7 +63,8 @@ public:
     using ParallelConfigCache = tbb::concurrent_map<std::pair<std::string, uint32_t>,
         std::shared_ptr<bcos::precompiled::ParallelConfig>>;
     BlockContext(std::shared_ptr<storage::StateStorage> _tableFactory, crypto::Hash::Ptr _hashImpl,
-        const protocol::BlockHeader::ConstPtr& _current, const EVMSchedule& _schedule,
+        const protocol::BlockHeader::ConstPtr& _current,
+        protocol::ExecutionResultFactory::Ptr _executionResultFactory, const EVMSchedule& _schedule,
         CallBackFunction _callback, bool _isWasm);
     using getTxCriticalsHandler = std::function<std::shared_ptr<std::vector<std::string>>(
         const protocol::Transaction::ConstPtr& _tx)>;
@@ -120,7 +121,7 @@ public:
 
     /// @return timestamp
     uint64_t timestamp() const
-    {// FIXME: update framework when timestamp() of blockheader is const
+    {  // FIXME: update framework when timestamp() of blockheader is const
         auto header = const_cast<protocol::BlockHeader*>(m_currentHeader.get());
         return header->timestamp();
     }
@@ -136,6 +137,9 @@ public:
     std::shared_ptr<TransactionExecutive> getLastExecutiveOf(
         int64_t contextID, std::string_view address);
 
+    protocol::ExecutionResult::Ptr createExecutionResult(int64_t _contextID, CallParameters& _p);
+    protocol::ExecutionResult::Ptr createExecutionResult(int64_t _contextID, u256& _gasLeft, bytesConstRef _code, std::optional<u256> _salt);
+
     void clear() { m_executives.clear(); }
 
 private:
@@ -148,6 +152,7 @@ private:
         m_executives;
     std::atomic<int> m_addressCount;
     protocol::BlockHeader::ConstPtr m_currentHeader;
+    protocol::ExecutionResultFactory::Ptr m_executionResultFactory;
     CallBackFunction m_numberHash;
     EVMSchedule m_schedule;
     u256 m_gasLimit;
