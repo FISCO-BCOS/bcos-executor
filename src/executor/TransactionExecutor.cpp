@@ -157,8 +157,6 @@ void TransactionExecutor::call(const bcos::protocol::ExecutionParams::ConstPtr& 
     std::function<void(bcos::Error::Ptr&&, bcos::protocol::ExecutionResult::Ptr&&)>
         callback) noexcept
 {
-    // FIXME: multi thread call, find somewhere to hold blockContext, add a map<int64_t,
-    // blockContext::Ptr> m_executivesOfCall
     BlockContext::Ptr blockContext = nullptr;
     if (m_contextsOfCall.count(input->contextID()))
     {
@@ -174,16 +172,30 @@ void TransactionExecutor::call(const bcos::protocol::ExecutionParams::ConstPtr& 
         blockContext = createBlockContext(currentHeader, tableStorage);
         m_contextsOfCall[input->contextID()] = blockContext;
     }
+    auto callBackWithRelease = [executor = shared_from_this()](returnCallback callback,
+                                   TransactionExecutive::Ptr executive,
+                                   int64_t contextID) -> returnCallback {
+        // modify callback to remove blockContext of contextID if execution finished
+        // after the thread in executive finished, the use_count of executive will decrease to zero
+        // after the executive release the blockContext will release
+        return [executor, callback, executive, contextID](
+                   bcos::Error::Ptr&& e, bcos::protocol::ExecutionResult::Ptr&& result) {
+            callback(std::move(e), std::move(result));
+            if (executive->isFinished())
+            {
+                EXECUTOR_LOG(DEBUG) << LOG_BADGE("executor call free blockContext")
+                                    << LOG_KV("contextID", contextID);
+                executor->releaseCallContext(contextID);
+            }
+        };
+    };
     if (input->type() == ExecutionParams::TXHASH || input->type() == ExecutionParams::EXTERNAL_CALL)
     {
         auto executive = std::make_shared<TransactionExecutive>(blockContext, input->contextID());
         blockContext->insertExecutive(input->contextID(), input->to(), executive);
         // create a new tx use input
         auto tx = createTransaction(input);
-        executive->setReturnCallback(callback);
-        // TODO: modify callback to remove blockContext from map if execution finished
-        // after the thread in executive finished, the use_count of executive will decrease to zero
-        // after the executive release the blockContext will release
+        executive->setReturnCallback(callBackWithRelease(callback, executive, input->contextID()));
         asyncExecute(tx, executive, false);
     }
     else if (input->type() == ExecutionParams::EXTERNAL_RETURN)
@@ -191,7 +203,7 @@ void TransactionExecutor::call(const bcos::protocol::ExecutionParams::ConstPtr& 
         // use to() and contextID to find TransactionExecutive
         auto executive = m_blockContext->getLastExecutiveOf(input->contextID(), input->to());
         // set new return callback to executive and continue execution
-        executive->setReturnCallback(callback);
+        executive->setReturnCallback(callBackWithRelease(callback, executive, input->contextID()));
         executive->continueExecution(
             input->input().toBytes(), input->status(), input->gasAvailable(), input->from());
     }
@@ -217,18 +229,12 @@ protocol::Transaction::Ptr TransactionExecutor::createTransaction(
 void TransactionExecutor::executeTransaction(const protocol::ExecutionParams::ConstPtr& input,
     std::function<void(Error::Ptr&&, protocol::ExecutionResult::Ptr&&)> callback) noexcept
 {
-    // TODO: if finished call the return callback with finished message, exit the thread and pop
-    // TransactionExecutive id stack is empty remove the address in map
-    // TODO: if EXTERNAL_CALL, set the continue callback with promise and call the return
-    // callback, when future got return continue to run
-
     auto createExecutive = [&](unsigned depth) {
         auto executive =
             std::make_shared<TransactionExecutive>(m_blockContext, input->contextID(), depth);
         auto caller = string(input->to());
         if (input->to().empty())
-        {  // FIXME: update framework and uncomment code below
-#if 0
+        {
             if (input->createSalt())
             {  // input->createSalt() is not empty use create2
                 caller = executive->newEVMAddress(
@@ -238,7 +244,6 @@ void TransactionExecutor::executeTransaction(const protocol::ExecutionParams::Co
             {
                 caller = executive->newEVMAddress(input->from());
             }
-#endif
         }
         m_blockContext->insertExecutive(input->contextID(), caller, executive);
         return executive;
@@ -273,8 +278,7 @@ void TransactionExecutor::executeTransaction(const protocol::ExecutionParams::Co
         executive->setReturnCallback(callback);
         // create a new tx use ExecutionParams
         auto tx = createTransaction(input);
-        // FIXME: use input->staticCall() replace false
-        asyncExecute(tx, executive, false);
+        asyncExecute(tx, executive, input->staticCall());
     }
     else if (input->type() == ExecutionParams::EXTERNAL_RETURN)
     {  // scheduler promises that the contextID only appear once every execution
@@ -360,6 +364,8 @@ void TransactionExecutor::rollback(
 void TransactionExecutor::asyncExecute(protocol::Transaction::ConstPtr transaction,
     TransactionExecutive::Ptr executive, bool staticCall = false)
 {  // TransactionExecutive use a new thread to execute contract
+    // if finished, call the return callback with finished message, exit the thread and set
+    // TransactionExecutive finished, next time it will be pop
     executive->setWorker(make_shared<thread>(
         [transaction, executive, executionResultFactory = m_executionResultFactory, staticCall]() {
             executive->reset();
@@ -387,9 +393,8 @@ void TransactionExecutor::asyncExecute(protocol::Transaction::ConstPtr transacti
             // FIXME: set error message
             // result->setMessage();
             result->setOutput(executive->takeOutput().takeBytes());
-            result->setGasUsed((int64_t)executive->gasUsed());
-            // FIXME: setLogEntries
-            // result->setLogEntries(executive->logs());
+            result->setGasAvailable((int64_t)executive->gasLeft());
+            result->setLogEntries(executive->logs());
             result->setNewEVMContractAddress(executive->newAddress());
             executive->callReturnCallback(nullptr, std::move(result));
         }));

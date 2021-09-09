@@ -153,7 +153,7 @@ void HostContext::setStore(u256 const& _n, u256 const& _v)
     m_s->setStorage(myAddress(), _n.str(), _v.str());
 }
 
-evmc_result HostContext::create(u256& io_gas, bytesConstRef _code, evmc_opcode _op, u256 _salt)
+evmc_result HostContext::create(int64_t io_gas, bytesConstRef _code, evmc_opcode _op, u256 _salt)
 {
     if (m_blockContext->isWasm())
     {  // TODO: if wasm support contract create contract add a new branch

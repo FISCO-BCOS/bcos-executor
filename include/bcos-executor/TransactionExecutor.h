@@ -123,6 +123,10 @@ public:
     // drop all status
     void reset(std::function<void(bcos::Error::Ptr&&)> callback) noexcept override;
 
+    void releaseCallContext(int64_t contextID) {
+        // FIXME: need a lock?
+        m_contextsOfCall.unsafe_erase(contextID);
+    }
 private:
     protocol::BlockHeader::Ptr getLatestHeaderFromStorage();
     protocol::BlockNumber getLatestBlockNumberFromStorage();

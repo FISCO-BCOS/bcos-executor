@@ -59,7 +59,8 @@ struct PrecompiledExecResult;
  * In the first use, after construction, begin with initialize(), then execute() and end with
  * finalize(). Call go() after execute() only if it returns false.
  *
- * In the second use, after construction, begin with call() or create(). Call go() after call()/create() only if it returns false.
+ * In the second use, after construction, begin with call() or create(). Call go() after
+ * call()/create() only if it returns false.
  *
  * Example:
  * @code
@@ -128,7 +129,7 @@ public:
     protocol::LogEntriesPtr const& logs() const { return m_logs; }
     /// @returns total gas used in the transaction/operation.
     /// @warning Only valid after finalise().
-    u256 gasUsed() const;
+    u256 gasLeft() const;
 
     owning_bytes_ref takeOutput() { return std::move(m_output); }
 
@@ -137,18 +138,18 @@ public:
         const std::string_view& _sender, bytesConstRef _init, u256 const& _salt);
     /// Set up the executive for evaluating a bare CREATE (contract-creation) operation.
     /// @returns false iff go() must be called (and thus a VM execution in required).
-    bool create(const std::string_view& _txSender, u256 const& _gas, bytesConstRef _code,
+    bool create(const std::string_view& _txSender, int64_t _gas, bytesConstRef _code,
         const std::string_view& _originAddress);
     /// @returns false iff go() must be called (and thus a VM execution in required).
-    bool createOpcode(const std::string_view& _sender, u256 const& _gas, bytesConstRef _code,
+    bool createOpcode(const std::string_view& _sender, int64_t _gas, bytesConstRef _code,
         const std::string_view& _originAddress);
     /// @returns false iff go() must be called (and thus a VM execution in required).
-    bool create2Opcode(const std::string_view& _sender, u256 const& _gas, bytesConstRef _code,
+    bool create2Opcode(const std::string_view& _sender, int64_t _gas, bytesConstRef _code,
         const std::string_view& _originAddress, u256 const& _salt);
     /// Set up the executive for evaluating a bare CALL (message call) operation.
     /// @returns false iff go() must be called (and thus a VM execution in required).
     bool call(const std::string& _receiveAddress, const std::string& _txSender,
-        bytesConstRef _txData, u256 const& _gas, bool _staticCall);
+        bytesConstRef _txData, int64_t _gas, bool _staticCall);
     bool call(executor::CallParameters const& _cp, const std::string& _origin);
 
     /// Executes (or continues execution of) the VM.
@@ -190,7 +191,7 @@ public:
     std::shared_ptr<BlockContext> getBlockContext() { return m_blockContext; }
     /// @returns false iff go() must be called (and thus a VM execution in required).
     bool executeCreate(const std::string_view& _txSender, const std::string_view& _originAddress,
-        const std::string& _newAddress, u256 const& _gas, bytesConstRef _code,
+        const std::string& _newAddress, int64_t _gas, bytesConstRef _code,
         bytesConstRef constructorParams = bytesConstRef());
 
     int64_t getContextID() { return m_contextID; }
@@ -239,7 +240,8 @@ private:
     std::shared_ptr<wasm::GasInjector> m_gasInjector;
     executor::returnCallback m_returnCallback = nullptr;
     std::shared_ptr<std::thread> m_worker = nullptr;
-    std::function<void(bytes&& output, int32_t status, int64_t gasLeft, std::string_view newAddress)>
+    std::function<void(
+        bytes&& output, int32_t status, int64_t gasLeft, std::string_view newAddress)>
         m_waitResult = nullptr;
 };
 

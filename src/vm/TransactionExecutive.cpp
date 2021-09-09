@@ -76,9 +76,9 @@ evmc_status_code transactionStatusToEvmcStatus(protocol::TransactionStatus ex) n
 
 }  // namespace
 
-u256 TransactionExecutive::gasUsed() const
+u256 TransactionExecutive::gasLeft() const
 {
-    return m_blockContext->txGasLimit() - m_remainGas;
+    return m_remainGas;
 }
 
 void TransactionExecutive::initialize(Transaction::ConstPtr _transaction)
@@ -122,9 +122,9 @@ std::string TransactionExecutive::newAddress() const
 
 bool TransactionExecutive::execute(bool _staticCall)
 {
-    uint64_t txGasLimit = m_blockContext->txGasLimit();
+    int64_t txGasLimit = m_blockContext->txGasLimit();
 
-    if (txGasLimit < (u256)m_baseGasRequired)
+    if (txGasLimit < m_baseGasRequired)
     {
         m_excepted = TransactionStatus::OutOfGasLimit;
         m_exceptionReason << LOG_KV("reason",
@@ -139,12 +139,12 @@ bool TransactionExecutive::execute(bool _staticCall)
     if (m_t->type() == TransactionType::ContractCreation)
     {
         return create(
-            m_t->sender(), txGasLimit - (u256)m_baseGasRequired, m_t->input(), m_t->sender());
+            m_t->sender(), txGasLimit - m_baseGasRequired, m_t->input(), m_t->sender());
     }
     else
     {
         return call(string(m_t->to()), string(m_t->sender()), m_t->input(),
-            txGasLimit - (u256)m_baseGasRequired, _staticCall);
+            txGasLimit - m_baseGasRequired, _staticCall);
     }
 }
 
@@ -163,21 +163,21 @@ std::string TransactionExecutive::newEVMAddress(
     return string((char*)hash.data(), 20);
 }
 
-bool TransactionExecutive::create(const std::string_view& _txSender, u256 const& _gas,
+bool TransactionExecutive::create(const std::string_view& _txSender, int64_t _gas,
     bytesConstRef _init, const std::string_view& _origin)
 {
     // Contract creation by an external account is the same as CREATE opcode
     return createOpcode(_txSender, _gas, _init, _origin);
 }
 
-bool TransactionExecutive::createOpcode(const std::string_view& _sender, u256 const& _gas,
+bool TransactionExecutive::createOpcode(const std::string_view& _sender, int64_t _gas,
     bytesConstRef _init, const std::string_view& _origin)
 {
     m_newAddress = newEVMAddress(_sender);
     return executeCreate(_sender, _origin, m_newAddress, _gas, _init);
 }
 
-bool TransactionExecutive::create2Opcode(const std::string_view& _sender, u256 const& _gas,
+bool TransactionExecutive::create2Opcode(const std::string_view& _sender, int64_t _gas,
     bytesConstRef _init, const std::string_view& _origin, u256 const& _salt)
 {
     m_newAddress = newEVMAddress(_sender, _init, _salt);
@@ -185,11 +185,12 @@ bool TransactionExecutive::create2Opcode(const std::string_view& _sender, u256 c
 }
 
 bool TransactionExecutive::call(const std::string& _receiveAddress,
-    const std::string& _senderAddress, bytesConstRef _data, u256 const& _gas, bool _staticCall)
+    const std::string& _senderAddress, bytesConstRef _data, int64_t _gas, bool _staticCall)
 {
     if (m_blockContext->isWasm())
     {
-        CallParameters params{_senderAddress, _receiveAddress, _receiveAddress, _gas, _data, _staticCall};
+        CallParameters params{
+            _senderAddress, _receiveAddress, _receiveAddress, _gas, _data, _staticCall};
         return call(params, _senderAddress);
     }
     // FIXME: check if the address is valid hex string, if not revert
@@ -297,7 +298,7 @@ bool TransactionExecutive::call(CallParameters const& _p, const std::string& _or
 }
 
 bool TransactionExecutive::executeCreate(const std::string_view& _sender,
-    const std::string_view& _origin, const std::string& _newAddress, u256 const& _gasLeft,
+    const std::string_view& _origin, const std::string& _newAddress, int64_t _gasLeft,
     bytesConstRef _init, bytesConstRef constructorParams)
 {
     if (m_s->frozen(_origin))
@@ -536,6 +537,8 @@ bool TransactionExecutive::go()
 evmc_result TransactionExecutive::waitReturnValue(
     Error::Ptr e, protocol::ExecutionResult::Ptr result)
 {
+    // EXTERNAL_CALL, set m_waitResult with promise and call the returnCallback,
+    // when future return continue to run
     promise<evmc_result> prom;
     m_waitResult = [&prom, callCreate = m_callCreate](bytes&& output, int32_t status,
                        int64_t gasLeft, std::string_view newAddress) {

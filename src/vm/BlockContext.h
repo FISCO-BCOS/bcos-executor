@@ -138,7 +138,7 @@ public:
         int64_t contextID, std::string_view address);
 
     protocol::ExecutionResult::Ptr createExecutionResult(int64_t _contextID, CallParameters& _p);
-    protocol::ExecutionResult::Ptr createExecutionResult(int64_t _contextID, u256& _gasLeft, bytesConstRef _code, std::optional<u256> _salt);
+    protocol::ExecutionResult::Ptr createExecutionResult(int64_t _contextID, int64_t _gasLeft, bytesConstRef _code, std::optional<u256> _salt);
 
     void clear() { m_executives.clear(); }
 

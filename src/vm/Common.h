@@ -71,7 +71,7 @@ struct CallParameters
 {
     CallParameters() = default;
     CallParameters(std::string_view _senderAddress, std::string_view _codeAddress,
-        std::string_view _receiveAddress, u256 _gas, bytesConstRef _data, bool _staticCall)
+        std::string_view _receiveAddress, int64_t _gas, bytesConstRef _data, bool _staticCall)
       : senderAddress(_senderAddress),
         codeAddress(_codeAddress),
         receiveAddress(_receiveAddress),
@@ -82,7 +82,7 @@ struct CallParameters
     std::string senderAddress;   /// address of the transaction sender
     std::string codeAddress;     /// address of the contract
     std::string receiveAddress;  /// address of the transaction receiver
-    u256 gas;
+    int64_t gas;
     bytesConstRef data;       /// transaction data
     bool staticCall = false;  /// only true when the transaction is a message call
 };
