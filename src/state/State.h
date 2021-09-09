@@ -58,8 +58,6 @@ public:
         m_table(*getTable(contractAddress)), m_isWasm(_isWasm){};
 
   virtual ~State() = default;
-  /// Check if the address is in use.
-  bool addressInUse(const std::string_view &_address) const;
 
   /// Check if the account exists in the state and is non empty (nonce > 0 ||
   /// balance > 0 || code nonempty and suiside != 1). These two notions are
@@ -89,9 +87,6 @@ public:
   /// Will instantiate the address if it has never been used.
   void setBalance(const std::string_view &_address,
                   u256 const &_value);
-
-  /// Get the root of the storage of an account.
-  crypto::HashType storageRoot(const std::string_view &_address) const;
 
   /// Get the value of a storage position of an account.
   /// @returns 0 if no account exists at that address.
