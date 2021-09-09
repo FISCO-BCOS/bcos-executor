@@ -23,7 +23,6 @@
  * @date: 2021-09-09
  */
 #include "State.h"
-#include "StateInterface.h"
 
 using namespace std;
 using namespace bcos::storage;
