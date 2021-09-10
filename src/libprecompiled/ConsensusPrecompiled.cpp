@@ -274,20 +274,19 @@ void ConsensusPrecompiled::showConsensusTable(std::shared_ptr<executor::BlockCon
 {
     auto table = _context->getTableFactory()->openTable(ledger::SYS_CONSENSUS);
     auto nodeIdList = table->getPrimaryKeys(nullptr);
-    auto nodeListMap = table->getRows(nodeIdList);
-
     std::stringstream s;
     s << "ConsensusPrecompiled show table:\n";
-    for (auto& nodeEntry : nodeListMap)
+    for (auto& nodeId : nodeIdList)
     {
-        if (!nodeEntry.second)
+        auto entry = table->getRow(nodeId);
+        if (!entry)
         {
             continue;
         }
-        std::string nodeID = nodeEntry.first;
-        std::string type = nodeEntry.second->getField(NODE_TYPE);
-        std::string enableNumber = nodeEntry.second->getField(NODE_ENABLE_NUMBER);
-        std::string weight = nodeEntry.second->getField(NODE_WEIGHT);
+        std::string nodeID = nodeId;
+        std::string type = entry->getField(NODE_TYPE);
+        std::string enableNumber = entry->getField(NODE_ENABLE_NUMBER);
+        std::string weight = entry->getField(NODE_WEIGHT);
         s << "ConsensusPrecompiled: " << nodeID << "," << type << "," << enableNumber
           << "," << weight << "\n";
     }
@@ -300,16 +299,16 @@ std::shared_ptr<std::map<std::string, storage::Entry::Ptr>> ConsensusPrecompiled
 {
     auto result = std::make_shared<std::map<std::string, storage::Entry::Ptr>>();
     auto keys = _table->getPrimaryKeys(nullptr);
-    auto kvMap = _table->getRows(keys);
-    for (auto& kv : kvMap)
+    for (auto& key : keys)
     {
-        if (!kv.second)
+        auto entry = _table->getRow(key);
+        if (!entry)
         {
             continue;
         }
-        if (kv.second->getField(NODE_TYPE) == _nodeType)
+        if (entry->getField(NODE_TYPE) == _nodeType)
         {
-            result->insert(kv);
+            result->insert({key, entry});
         }
     }
     return result;
