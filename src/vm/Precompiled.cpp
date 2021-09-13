@@ -20,7 +20,6 @@
  */
 
 #include "../vm/Precompiled.h"
-#include "../state/StateInterface.h"
 #include "Common.h"
 #include "wedpr-crypto/WedprBn128.h"
 #include "wedpr-crypto/WedprCrypto.h"

@@ -32,7 +32,6 @@
 #include "../precompiled/TableFactoryPrecompiled.h"
 #include "../precompiled/Utilities.h"
 #include "../precompiled/extension/DagTransferPrecompiled.h"
-#include "../state/State.h"
 #include "../vm/BlockContext.h"
 #include "../vm/Precompiled.h"
 #include "../vm/TransactionExecutive.h"
@@ -366,38 +365,38 @@ void TransactionExecutor::asyncExecute(protocol::Transaction::ConstPtr transacti
 {  // TransactionExecutive use a new thread to execute contract
     // if finished, call the return callback with finished message, exit the thread and set
     // TransactionExecutive finished, next time it will be pop
-    executive->setWorker(make_shared<thread>(
-        [transaction, executive, executionResultFactory = m_executionResultFactory, staticCall]() {
-            executive->reset();
-            try
-            {  // OK - transaction looks valid - execute.
-                executive->initialize(transaction);
-                if (!executive->execute(staticCall))
-                    executive->go();
-                executive->finalize();
-            }
-            catch (Exception const& _e)
-            {  // only OutOfGasBase ExecutorNotFound exception will throw
-                EXECUTOR_LOG(ERROR) << "executeTransaction Exception" << diagnostic_information(_e);
-            }
-            catch (std::exception const& _e)
-            {
-                EXECUTOR_LOG(ERROR)
-                    << "executeTransaction std::exception" << boost::diagnostic_information(_e);
-            }
+    // executive->setWorker(make_shared<thread>(
+    //     [transaction, executive, executionResultFactory = m_executionResultFactory, staticCall]() {
+    //         executive->reset();
+    //         try
+    //         {  // OK - transaction looks valid - execute.
+    //             executive->initialize(transaction);
+    //             if (!executive->execute(staticCall))
+    //                 executive->go();
+    //             executive->finalize();
+    //         }
+    //         catch (Exception const& _e)
+    //         {  // only OutOfGasBase ExecutorNotFound exception will throw
+    //             EXECUTOR_LOG(ERROR) << "executeTransaction Exception" << diagnostic_information(_e);
+    //         }
+    //         catch (std::exception const& _e)
+    //         {
+    //             EXECUTOR_LOG(ERROR)
+    //                 << "executeTransaction std::exception" << boost::diagnostic_information(_e);
+    //         }
 
-            executive->loggingException();
-            auto result = executionResultFactory->createExecutionResult();
-            result->setContextID(executive->getContextID());
-            result->setStatus((int32_t)executive->status());
-            // FIXME: set error message
-            // result->setMessage();
-            result->setOutput(executive->takeOutput().takeBytes());
-            result->setGasAvailable((int64_t)executive->gasLeft());
-            result->setLogEntries(executive->logs());
-            result->setNewEVMContractAddress(executive->newAddress());
-            executive->callReturnCallback(nullptr, std::move(result));
-        }));
+    //         executive->loggingException();
+    //         auto result = executionResultFactory->createExecutionResult();
+    //         result->setContextID(executive->getContextID());
+    //         result->setStatus((int32_t)executive->status());
+    //         // FIXME: set error message
+    //         // result->setMessage();
+    //         result->setOutput(executive->takeOutput().takeBytes());
+    //         result->setGasAvailable((int64_t)executive->gasLeft());
+    //         result->setLogEntries(executive->logs());
+    //         result->setNewEVMContractAddress(executive->newAddress());
+    //         executive->callReturnCallback(nullptr, std::move(result));
+    //     }));
 }
 
 BlockContext::Ptr TransactionExecutor::createBlockContext(
@@ -446,7 +445,9 @@ BlockContext::Ptr TransactionExecutor::createBlockContext(
     // TODO: register User developed Precompiled contract
     // registerUserPrecompiled(context);
 
-    context->setPrecompiledContract(m_precompiledContract);
+    // context->setPrecompiledContract(m_precompiledContract);
+
+
     // getTxGasLimitToContext from precompiled and set to context
     auto ret = sysConfig->getSysConfigByKey(ledger::SYSTEM_KEY_TX_GAS_LIMIT, tableFactory);
     context->setTxGasLimit(boost::lexical_cast<uint64_t>(ret.first));

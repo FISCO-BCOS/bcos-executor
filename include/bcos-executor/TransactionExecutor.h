@@ -135,6 +135,7 @@ private:
     std::shared_ptr<BlockContext> createBlockContext(
         const protocol::BlockHeader::ConstPtr& currentHeader,
         storage::StateStorage::Ptr tableFactory);
+        
     void asyncExecute(protocol::Transaction::ConstPtr transaction,
         std::shared_ptr<TransactionExecutive> executive, bool staticCall);
 
