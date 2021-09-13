@@ -45,6 +45,10 @@ struct PrecompiledExecResult;
 } // namespace precompiled
 
 namespace executor {
+
+class TransactionExecutive;
+class PrecompiledContract;
+
 typedef std::function<crypto::HashType(int64_t x)> CallBackFunction;
 class BlockContext : public std::enable_shared_from_this<BlockContext> {
 public:
@@ -65,7 +69,7 @@ public:
 
   virtual std::shared_ptr<precompiled::PrecompiledExecResult>
   call(const std::string &address, bytesConstRef param,
-       const std::string &origin, const std::string &sender, u256 &_remainGas);
+       const std::string &origin, const std::string &sender, int64_t &_remainGas);
 
   virtual std::string
   registerPrecompiled(std::shared_ptr<precompiled::Precompiled> p);
@@ -84,7 +88,7 @@ public:
   virtual std::pair<bool, bytes>
   executeOriginPrecompiled(const std::string &_a, bytesConstRef _in) const;
 
-  virtual bigint costOfPrecompiled(const std::string &_a,
+  virtual int64_t costOfPrecompiled(const std::string &_a,
                                    bytesConstRef _in) const;
 
   virtual std::shared_ptr<ParallelConfigCache> getParallelConfigCache() {

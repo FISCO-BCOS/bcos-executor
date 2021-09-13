@@ -51,7 +51,7 @@ shared_ptr<PrecompiledExecResult> BlockContext::call(const string &address,
                                                      bytesConstRef param,
                                                      const string &origin,
                                                      const string &sender,
-                                                     u256 &_remainGas) {
+                                                     int64_t &_remainGas) {
   try {
     auto p = getPrecompiled(address);
 
@@ -114,7 +114,7 @@ BlockContext::executeOriginPrecompiled(const string &_a,
   return m_precompiledContract.at(_a)->execute(_in);
 }
 
-bigint BlockContext::costOfPrecompiled(const string &_a,
+int64_t BlockContext::costOfPrecompiled(const string &_a,
                                        bytesConstRef _in) const {
   return m_precompiledContract.at(_a)->cost(_in);
 }

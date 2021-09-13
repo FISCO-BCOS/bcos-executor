@@ -21,7 +21,6 @@
 
 #pragma once
 
-#include "../state/State.h"
 #include "Common.h"
 #include "TransactionExecutive.h"
 #include <evmc/evmc.h>
@@ -31,124 +30,110 @@
 #include <map>
 
 namespace bcos {
-namespace storage {
-class StateStorage;
-}
 namespace executor {
-class StateInterface;
-/// Externality interface for the Virtual Machine providing access to world
-/// state.
+
 class HostContext : public evmc_host_context {
 public:
   /// Full constructor.
-  HostContext(std::shared_ptr<BlockContext> _blockContext, int64_t _contextID,
-              std::string _myAddress, std::string _caller, std::string _origin,
-              bytesConstRef _data, std::shared_ptr<bytes> _code, h256 _codeHash,
-              unsigned _depth, bool _isCreate, bool _staticCall);
-  virtual ~HostContext() = default;
+  // clang-format off
+  HostContext(
+    std::shared_ptr<BlockContext> _blockContext,
+    int64_t _contextID,
+    bcos::storage::Table table, 
+    std::string contractAddress,
+    std::string _caller,
+    std::string _origin,
+    bytesConstRef _data,
+    unsigned _depth,
+    bool _isCreate,
+    bool _staticCall);
+  //clang-format on
+  ~HostContext() = default;
 
   HostContext(HostContext const &) = delete;
   HostContext &operator=(HostContext const &) = delete;
 
-  std::string get(const std::string_view &_key) {
-    return m_s->storage(myAddress(), _key);
-  }
-  void set(const std::string_view &_key, const std::string_view &_value) {
-    m_s->setStorage(myAddress(), _key, _value);
-  }
-  virtual bool registerAsset(const std::string &_assetName,
-                             const std::string_view &_issuer, bool _fungible,
-                             uint64_t _total, const std::string &_description);
-  virtual bool issueFungibleAsset(const std::string_view &_to,
-                                  const std::string &_assetName,
-                                  uint64_t _amount);
-  virtual uint64_t issueNotFungibleAsset(const std::string_view &_to,
-                                         const std::string &_assetName,
-                                         const std::string &_uri);
-  virtual std::string getNotFungibleAssetInfo(const std::string_view &_owner,
-                                              const std::string &_assetName,
-                                              uint64_t _id);
+  std::string_view get(const std::string_view &_key);
+
+  void set(const std::string_view &_key, std::string _value);
+
+  bool registerAsset(const std::string &_assetName,
+                     const std::string_view &_issuer, bool _fungible,
+                     uint64_t _total, const std::string &_description);
+  bool issueFungibleAsset(const std::string_view &_to,
+                          const std::string &_assetName, uint64_t _amount);
+  uint64_t issueNotFungibleAsset(const std::string_view &_to,
+                                 const std::string &_assetName,
+                                 const std::string &_uri);
+  std::string getNotFungibleAssetInfo(const std::string_view &_owner,
+                                      const std::string &_assetName,
+                                      uint64_t _id);
   bool transferAsset(const std::string_view &_to, const std::string &_assetName,
                      uint64_t _amountOrID, bool _fromSelf);
+
   // if NFT return counts, else return value
   uint64_t getAssetBanlance(const std::string_view &_account,
                             const std::string &_assetName);
+
   std::vector<uint64_t> getNotFungibleAssetIDs(const std::string_view &_account,
                                                const std::string &_assetName);
   /// Read storage location.
-  virtual u256 store(const u256 &_n) {
-    return u256(m_s->storage(myAddress(), _n.str()));
-  }
+  u256 store(const u256 &_n);
 
   /// Write a value in storage.
-  virtual void setStore(const u256 &_n, const u256 &_v);
-
-  /// Read address's code.
-  virtual std::shared_ptr<bytes> codeAt(const std::string_view &_a) {
-    return m_s->code(_a);
-  }
-
-  /// @returns the size of the code in  bytes at the given address.
-  virtual size_t codeSizeAt(const std::string_view &_a);
-
-  /// @returns the hash of the code at the given address.
-  virtual h256 codeHashAt(const std::string_view &_a);
+  void setStore(const u256 &_n, const u256 &_v);
 
   /// Create a new contract.
-  virtual evmc_result create(int64_t io_gas, bytesConstRef _code,
-                             evmc_opcode _op, u256 _salt);
+  evmc_result create(int64_t io_gas, bytesConstRef _code, evmc_opcode _op,
+                     u256 _salt);
 
   /// Create a new message call.
-  virtual evmc_result call(executor::CallParameters &_params);
+  evmc_result call(executor::CallParameters &_params);
 
-  /// Read address's balance.
-  virtual u256 balance(const std::string_view &_a) { return m_s->balance(_a); }
+  void setCode(bytes code);
+
+  size_t codeSizeAt(const std::string_view &_a);
+
+  h256 codeHashAt(const std::string_view &_a);
 
   /// Does the account exist?
-  virtual bool exists(const std::string_view &_a) {
-    if (evmSchedule().emptinessIsNonexistence())
-      return m_s->accountNonemptyAndExisting(_a);
-    else
-      return m_s->addressInUse(_a);
-  }
+  bool exists(const std::string_view &) { return true; }
 
   /// Suicide the associated contract to the given address.
-  virtual void suicide(const std::string_view &_a);
+  void suicide();
 
   /// Return the EVM gas-price schedule for this execution context.
-  virtual EVMSchedule const &evmSchedule() const {
+  EVMSchedule const &evmSchedule() const {
     return m_blockContext->evmSchedule();
   }
 
-  virtual std::shared_ptr<executor::StateInterface> const &state() const {
-    return m_s;
-  }
-
   /// Hash of a block if within the last 256 blocks, or h256() otherwise.
-  virtual h256 blockHash(int64_t _number);
+  h256 blockHash(int64_t _number);
 
-  virtual bool isPermitted();
+  bool isPermitted();
 
   /// Get the execution environment information.
-  virtual std::shared_ptr<BlockContext> const &getBlockContext() const {
+  std::shared_ptr<BlockContext> const &getBlockContext() const {
     return m_blockContext;
   }
 
   /// Revert any changes made (by any of the other calls).
-  virtual void log(h256s &&_topics, bytesConstRef _data);
+  void log(h256s &&_topics, bytesConstRef _data);
+
+  void suicide(const std::string_view &_a);
 
   /// ------ get interfaces related to HostContext------
-  virtual const std::string &myAddress() { return m_myAddress; }
-  virtual const std::string &caller() { return m_caller; }
-  virtual const std::string &origin() { return m_origin; }
-  virtual bytesConstRef const &data() { return m_data; }
-  virtual std::shared_ptr<bytes> const &code() { return m_code; }
-  virtual h256 const &codeHash() { return m_codeHash; }
-  virtual u256 const &salt() { return m_salt; }
-  virtual SubState &sub() { return m_sub; }
-  virtual unsigned const &depth() { return m_depth; }
-  virtual bool const &isCreate() { return m_isCreate; }
-  virtual bool const &staticCall() { return m_staticCall; }
+  const std::string &myAddress() { return m_myAddress; }
+  const std::string &caller() { return m_caller; }
+  const std::string &origin() { return m_origin; }
+  bytesConstRef const &data() { return m_data; }
+  bytesConstRef code();
+  h256 codeHash();
+  u256 const &salt() { return m_salt; }
+  SubState &sub() { return m_sub; }
+  unsigned const &depth() { return m_depth; }
+  bool const &isCreate() { return m_isCreate; }
+  bool const &staticCall() { return m_staticCall; }
 
 private:
   void depositFungibleAsset(const std::string_view &_to,
@@ -162,22 +147,21 @@ protected:
 
 private:
   int64_t m_contextID = 0;
+  bcos::storage::Table m_table; ///< The table of contract
   std::string m_myAddress; ///< address associated with executing code (a
                            ///< contract, or contract-to-be).
   std::string m_caller;    ///< address which sent the message (either equal to
                            ///< origin or a contract).
   std::string m_origin;    ///< Original transactor.
   bytesConstRef m_data;    ///< Current input data.
-  std::shared_ptr<bytes> m_code; ///< Current code that is executing.
-  h256 m_codeHash;               ///< Keccak256 hash of the executing code
   u256 m_salt;          ///< Values used in new address construction by CREATE2
   SubState m_sub;       ///< Sub-band VM state (suicides, refund counter, logs).
   unsigned m_depth = 0; ///< Depth of the present call.
+
+  std::map<std::string, size_t, std::less<>> m_key2Version; // the version cache
+
   bool m_isCreate = false;   ///< Is this a CREATE call?
   bool m_staticCall = false; ///< Throw on state changing.
-
-  State m_s; ///< A reference to the base state.
-  std::shared_ptr<storage::StateStorage> m_tableFactory;
 };
 
 } // namespace executor
