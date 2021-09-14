@@ -19,19 +19,19 @@
  * @date: 2021-09-01
  */
 #include "bcos-executor/TransactionExecutor.h"
-#include "../precompiled/CNSPrecompiled.h"
-#include "../precompiled/CRUDPrecompiled.h"
-#include "../precompiled/ConsensusPrecompiled.h"
-#include "../precompiled/CryptoPrecompiled.h"
-#include "../precompiled/DeployWasmPrecompiled.h"
-#include "../precompiled/FileSystemPrecompiled.h"
-#include "../precompiled/KVTableFactoryPrecompiled.h"
-#include "../precompiled/ParallelConfigPrecompiled.h"
-#include "../precompiled/PrecompiledResult.h"
-#include "../precompiled/SystemConfigPrecompiled.h"
-#include "../precompiled/TableFactoryPrecompiled.h"
-#include "../precompiled/Utilities.h"
-#include "../precompiled/extension/DagTransferPrecompiled.h"
+// #include "../precompiled/CNSPrecompiled.h"
+// #include "../precompiled/CRUDPrecompiled.h"
+// #include "../precompiled/ConsensusPrecompiled.h"
+// #include "../precompiled/CryptoPrecompiled.h"
+// #include "../precompiled/DeployWasmPrecompiled.h"
+// #include "../precompiled/FileSystemPrecompiled.h"
+// #include "../precompiled/KVTableFactoryPrecompiled.h"
+// #include "../precompiled/ParallelConfigPrecompiled.h"
+// #include "../precompiled/PrecompiledResult.h"
+// #include "../precompiled/SystemConfigPrecompiled.h"
+// #include "../precompiled/TableFactoryPrecompiled.h"
+// #include "../precompiled/Utilities.h"
+// #include "../precompiled/extension/DagTransferPrecompiled.h"
 #include "../vm/BlockContext.h"
 #include "../vm/Precompiled.h"
 #include "../vm/TransactionExecutive.h"
@@ -43,6 +43,7 @@
 #include "bcos-framework/interfaces/storage/Table.h"
 #include "bcos-framework/libcodec/abi/ContractABIType.h"
 #include "bcos-framework/libstorage/StateStorage.h"
+#include "bcos-framework/libutilities/Error.h"
 #include "bcos-framework/libutilities/ThreadPool.h"
 #include "interfaces/executor/ExecutionParams.h"
 #include "interfaces/storage/StorageInterface.h"
@@ -63,12 +64,10 @@ using namespace bcos::precompiled;
 
 TransactionExecutor::TransactionExecutor(txpool::TxPoolInterface::Ptr txpool,
     storage::TransactionalStorageInterface::Ptr backendStorage,
-    storage::MergeableStorageInterface::Ptr cacheStorage,
     protocol::ExecutionResultFactory::Ptr executionResultFactory, bcos::crypto::Hash::Ptr hashImpl,
     bool isWasm, size_t poolSize)
   : m_txpool(std::move(txpool)),
     m_backendStorage(std::move(backendStorage)),
-    m_cacheStorage(std::move(cacheStorage)),
     m_executionResultFactory(std::move(executionResultFactory)),
     m_hashImpl(std::move(hashImpl)),
     m_isWasm(isWasm),
@@ -81,27 +80,31 @@ TransactionExecutor::TransactionExecutor(txpool::TxPoolInterface::Ptr txpool,
         return stream.str();
     };
 
-    m_precompiledContract.insert(std::make_pair(fillZero(1),
+    m_lastUncommitedIterator = m_stateStorages.begin();
+
+    m_precompiledContract =
+        std::make_shared<std::map<std::string, std::shared_ptr<PrecompiledContract>>>();
+    m_precompiledContract->insert(std::make_pair(fillZero(1),
         make_shared<PrecompiledContract>(3000, 0, PrecompiledRegistrar::executor("ecrecover"))));
-    m_precompiledContract.insert(std::make_pair(fillZero(2),
+    m_precompiledContract->insert(std::make_pair(fillZero(2),
         make_shared<PrecompiledContract>(60, 12, PrecompiledRegistrar::executor("sha256"))));
-    m_precompiledContract.insert(std::make_pair(fillZero(3),
+    m_precompiledContract->insert(std::make_pair(fillZero(3),
         make_shared<PrecompiledContract>(600, 120, PrecompiledRegistrar::executor("ripemd160"))));
-    m_precompiledContract.insert(std::make_pair(fillZero(4),
+    m_precompiledContract->insert(std::make_pair(fillZero(4),
         make_shared<PrecompiledContract>(15, 3, PrecompiledRegistrar::executor("identity"))));
-    m_precompiledContract.insert(
+    m_precompiledContract->insert(
         {fillZero(5), make_shared<PrecompiledContract>(PrecompiledRegistrar::pricer("modexp"),
                           PrecompiledRegistrar::executor("modexp"))});
-    m_precompiledContract.insert(
+    m_precompiledContract->insert(
         {fillZero(6), make_shared<PrecompiledContract>(
                           150, 0, PrecompiledRegistrar::executor("alt_bn128_G1_add"))});
-    m_precompiledContract.insert(
+    m_precompiledContract->insert(
         {fillZero(7), make_shared<PrecompiledContract>(
                           6000, 0, PrecompiledRegistrar::executor("alt_bn128_G1_mul"))});
-    m_precompiledContract.insert({fillZero(8),
+    m_precompiledContract->insert({fillZero(8),
         make_shared<PrecompiledContract>(PrecompiledRegistrar::pricer("alt_bn128_pairing_product"),
             PrecompiledRegistrar::executor("alt_bn128_pairing_product"))});
-    m_precompiledContract.insert({fillZero(9),
+    m_precompiledContract->insert({fillZero(9),
         make_shared<PrecompiledContract>(PrecompiledRegistrar::pricer("blake2_compression"),
             PrecompiledRegistrar::executor("blake2_compression"))});
 
@@ -117,7 +120,7 @@ void TransactionExecutor::nextBlockHeader(const protocol::BlockHeader::ConstPtr&
         if (m_stateStorages.empty())
         {
             stateStorage = std::make_shared<bcos::storage::StateStorage>(
-                m_cacheStorage, m_hashImpl, blockHeader->number());
+                m_backendStorage, m_hashImpl, blockHeader->number());
         }
         else
         {
@@ -208,10 +211,54 @@ void TransactionExecutor::prepare(
         return;
     }
 
-    auto last = m_stateStorages.front();
-    if (last->blockNumber() != params.number)
+    auto last = m_lastUncommitedIterator;
+    if ((*last)->blockNumber() != params.number)
     {
         auto errorMessage = "Prepare error: Request block number: " +
+                            boost::lexical_cast<std::string>(params.number) +
+                            " not equal to last blockNumber: " +
+                            boost::lexical_cast<std::string>((*last)->blockNumber());
+
+        EXECUTOR_LOG(ERROR) << errorMessage;
+        callback(BCOS_ERROR_PTR(-1, errorMessage));
+
+        return;
+    }
+
+    bcos::storage::TransactionalStorageInterface::TwoPCParams storageParams;
+    storageParams.number = params.number;
+    m_backendStorage->asyncPrepare(
+        storageParams, *last, [callback = std::move(callback)](auto&& error) {
+            if (error)
+            {
+                auto errorMessage = "Prepare error: " + boost::diagnostic_information(*error);
+
+                EXECUTOR_LOG(ERROR) << errorMessage;
+                callback(BCOS_ERROR_WITH_PREV_PTR(-1, errorMessage, *error));
+                return;
+            }
+
+            EXECUTOR_LOG(INFO) << "Prepare success";
+            callback(nullptr);
+        });
+}
+
+void TransactionExecutor::commit(
+    const TwoPCParams& params, std::function<void(bcos::Error::Ptr&&)> callback) noexcept
+{
+    EXECUTOR_LOG(INFO) << "Commit request: " << LOG_KV("number", params.number);
+
+    if (m_lastUncommitedIterator == m_stateStorages.end())
+    {
+        EXECUTOR_LOG(ERROR) << "Commit error: No uncommited state in executor";
+        callback(BCOS_ERROR_PTR(-1, "No uncommited state in executor"));
+        return;
+    }
+
+    auto last = *m_lastUncommitedIterator;
+    if (last->blockNumber() != params.number)
+    {
+        auto errorMessage = "Commit error: Request block number: " +
                             boost::lexical_cast<std::string>(params.number) +
                             " not equal to last blockNumber: " +
                             boost::lexical_cast<std::string>(last->blockNumber());
@@ -224,31 +271,71 @@ void TransactionExecutor::prepare(
 
     bcos::storage::TransactionalStorageInterface::TwoPCParams storageParams;
     storageParams.number = params.number;
-    m_backendStorage->asyncPrepare(storageParams, last, std::move(callback));
-}
+    m_backendStorage->asyncCommit(storageParams,
+        [this, callback = std::move(callback), it = m_stateStorages.begin()](Error::Ptr&& error) {
+            if (error)
+            {
+                auto errorMessage = "Commit error: " + boost::diagnostic_information(*error);
 
-void TransactionExecutor::commit(
-    const TwoPCParams& params, std::function<void(bcos::Error::Ptr&&)> callback) noexcept
-{}
+                EXECUTOR_LOG(ERROR) << errorMessage;
+                callback(BCOS_ERROR_WITH_PREV_PTR(-1, errorMessage, *error));
+                return;
+            }
+
+            EXECUTOR_LOG(INFO) << "Commit success";
+
+            ++m_lastUncommitedIterator;
+            callback(nullptr);
+        });
+}
 
 void TransactionExecutor::rollback(
     const TwoPCParams& params, std::function<void(bcos::Error::Ptr&&)> callback) noexcept
-{}
+{
+    EXECUTOR_LOG(INFO) << "Rollback request: " << LOG_KV("number", params.number);
+
+    if (m_lastUncommitedIterator == m_stateStorages.end())
+    {
+        EXECUTOR_LOG(ERROR) << "Rollback error: No uncommited state in executor";
+        callback(BCOS_ERROR_PTR(-1, "No uncommited state in executor"));
+        return;
+    }
+
+    auto last = *m_lastUncommitedIterator;
+    if (last->blockNumber() != params.number)
+    {
+        auto errorMessage = "Rollback error: Request block number: " +
+                            boost::lexical_cast<std::string>(params.number) +
+                            " not equal to last blockNumber: " +
+                            boost::lexical_cast<std::string>(last->blockNumber());
+
+        EXECUTOR_LOG(ERROR) << errorMessage;
+        callback(BCOS_ERROR_PTR(-1, errorMessage));
+
+        return;
+    }
+
+    bcos::storage::TransactionalStorageInterface::TwoPCParams storageParams;
+    storageParams.number = params.number;
+    m_backendStorage->asyncRollback(storageParams, [callback = std::move(callback)](auto&& error) {
+        if (error)
+        {
+            auto errorMessage = "Rollback error: " + boost::diagnostic_information(*error);
+
+            EXECUTOR_LOG(ERROR) << errorMessage;
+            callback(BCOS_ERROR_WITH_PREV_PTR(-1, errorMessage, *error));
+            return;
+        }
+
+        EXECUTOR_LOG(INFO) << "Rollback success";
+        callback(nullptr);
+    });
+}
 
 void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::ConstPtr& input,
     bool staticCall,
     std::function<void(bcos::Error::Ptr&&, bcos::protocol::ExecutionResult::Ptr&&)> callback)
 {
-    auto processExecutive =
-        [this, staticCall](TransactionExecutive::Ptr executive,
-            std::function<void(bcos::Error::Ptr&&, bcos::protocol::ExecutionResult::Ptr &&)>
-                callback) {
-            auto contextID = executive->getContextID();
-            auto contractAddress = executive->contractAddress();
-
-            auto executive = m_blockContext->getExecutive(contextID, contractAddress);
-        };
-
     switch (input->type())
     {
     case bcos::protocol::ExecutionParams::TXHASH:
@@ -256,9 +343,9 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
         // Get transaction first
         auto txhashes = std::make_shared<bcos::crypto::HashList>();
         txhashes->push_back(input->transactionHash());
+
         m_txpool->asyncFillBlock(std::move(txhashes),
-            [this, input, staticCall, hash = input->transactionHash(), callback,
-                processExecutive = std::move(processExecutive)](
+            [this, input, staticCall, hash = input->transactionHash(), callback](
                 Error::Ptr error, bcos::protocol::TransactionsPtr transactons) {
                 if (error)
                 {
@@ -278,17 +365,24 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
                 auto tx = (*transactons)[0];
                 auto executive = createExecutive(input, staticCall);
 
-                processExecutive(std::move(executive), std::move(callback));
+                auto contract = executive->contractAddress();
+                m_blockContext->insertExecutive(input->contextID(), contract, executive);
             });
 
         break;
     }
     case bcos::protocol::ExecutionParams::EXTERNAL_CALL:
-    case bcos::protocol::ExecutionParams::EXTERNAL_RETURN:
     {
         auto executive = createExecutive(input, staticCall);
 
-        processExecutive(std::move(executive), callback);
+        auto contract = executive->contractAddress();
+        m_blockContext->insertExecutive(input->contextID(), contract, executive);
+
+        break;
+    }
+    case bcos::protocol::ExecutionParams::EXTERNAL_RETURN:
+    {
+        auto executive = m_blockContext->getExecutive(input->contextID(), input->to());
         break;
     }
     default:
@@ -306,10 +400,12 @@ std::shared_ptr<TransactionExecutive> TransactionExecutor::createExecutive(
     const protocol::ExecutionParams::ConstPtr& input, bool staticCall)
 {
     std::string contract;
+    bool create = false;
     if (input->to().empty())
     {
+        create = true;
         if (input->createSalt())
-        {  // input->createSalt() is not empty use create2
+        {
             contract = newEVMAddress(input->from(), input->input(), input->createSalt().value());
         }
         else
@@ -323,10 +419,10 @@ std::shared_ptr<TransactionExecutive> TransactionExecutor::createExecutive(
     }
 
     CallParameters callParameters(std::string(input->from()), contract, contract,
-        std::string(input->origin()), input->gasAvailable(), input->input(), staticCall);
+        std::string(input->origin()), input->gasAvailable(), input->input(), staticCall, create);
 
     auto executive = std::make_shared<TransactionExecutive>(
-        m_blockContext, std::move(callParameters), input->contextID(), depth);
+        m_blockContext, std::move(callParameters), input->contextID());
 
     return executive;
 }
@@ -337,48 +433,51 @@ BlockContext::Ptr TransactionExecutor::createBlockContext(
     (void)m_version;  // TODO: accord to m_version to chose schedule
     BlockContext::Ptr context = make_shared<BlockContext>(tableFactory, m_hashImpl, currentHeader,
         m_executionResultFactory, FiscoBcosScheduleV3, m_isWasm);
-    auto tableFactoryPrecompiled =
-        std::make_shared<precompiled::TableFactoryPrecompiled>(m_hashImpl);
-    tableFactoryPrecompiled->setMemoryTableFactory(tableFactory);
-    auto sysConfig = std::make_shared<precompiled::SystemConfigPrecompiled>(m_hashImpl);
-    auto parallelConfigPrecompiled =
-        std::make_shared<precompiled::ParallelConfigPrecompiled>(m_hashImpl);
-    auto consensusPrecompiled = std::make_shared<precompiled::ConsensusPrecompiled>(m_hashImpl);
-    auto cnsPrecompiled = std::make_shared<precompiled::CNSPrecompiled>(m_hashImpl);
 
-    context->setAddress2Precompiled(SYS_CONFIG_ADDRESS, sysConfig);
-    context->setAddress2Precompiled(TABLE_FACTORY_ADDRESS, tableFactoryPrecompiled);
-    context->setAddress2Precompiled(CONSENSUS_ADDRESS, consensusPrecompiled);
-    context->setAddress2Precompiled(CNS_ADDRESS, cnsPrecompiled);
-    context->setAddress2Precompiled(PARALLEL_CONFIG_ADDRESS, parallelConfigPrecompiled);
-    auto kvTableFactoryPrecompiled =
-        std::make_shared<precompiled::KVTableFactoryPrecompiled>(m_hashImpl);
-    kvTableFactoryPrecompiled->setMemoryTableFactory(tableFactory);
-    context->setAddress2Precompiled(KV_TABLE_FACTORY_ADDRESS, kvTableFactoryPrecompiled);
-    context->setAddress2Precompiled(
-        CRYPTO_ADDRESS, std::make_shared<precompiled::CryptoPrecompiled>(m_hashImpl));
-    context->setAddress2Precompiled(
-        DAG_TRANSFER_ADDRESS, std::make_shared<precompiled::DagTransferPrecompiled>(m_hashImpl));
-    context->setAddress2Precompiled(
-        CRYPTO_ADDRESS, std::make_shared<CryptoPrecompiled>(m_hashImpl));
-    context->setAddress2Precompiled(
-        DEPLOY_WASM_ADDRESS, std::make_shared<DeployWasmPrecompiled>(m_hashImpl));
-    context->setAddress2Precompiled(
-        CRUD_ADDRESS, std::make_shared<precompiled::CRUDPrecompiled>(m_hashImpl));
-    context->setAddress2Precompiled(
-        BFS_ADDRESS, std::make_shared<precompiled::FileSystemPrecompiled>(m_hashImpl));
+    // auto tableFactoryPrecompiled =
+    //     std::make_shared<precompiled::TableFactoryPrecompiled>(m_hashImpl);
+    // tableFactoryPrecompiled->setMemoryTableFactory(tableFactory);
+    // auto sysConfig = std::make_shared<precompiled::SystemConfigPrecompiled>(m_hashImpl);
+    // auto parallelConfigPrecompiled =
+    //     std::make_shared<precompiled::ParallelConfigPrecompiled>(m_hashImpl);
+    // auto consensusPrecompiled = std::make_shared<precompiled::ConsensusPrecompiled>(m_hashImpl);
+    // auto cnsPrecompiled = std::make_shared<precompiled::CNSPrecompiled>(m_hashImpl);
+
+    // context->setAddress2Precompiled(SYS_CONFIG_ADDRESS, sysConfig);
+    // context->setAddress2Precompiled(TABLE_FACTORY_ADDRESS, tableFactoryPrecompiled);
+    // context->setAddress2Precompiled(CONSENSUS_ADDRESS, consensusPrecompiled);
+    // context->setAddress2Precompiled(CNS_ADDRESS, cnsPrecompiled);
+    // context->setAddress2Precompiled(PARALLEL_CONFIG_ADDRESS, parallelConfigPrecompiled);
+    // auto kvTableFactoryPrecompiled =
+    //     std::make_shared<precompiled::KVTableFactoryPrecompiled>(m_hashImpl);
+    // kvTableFactoryPrecompiled->setMemoryTableFactory(tableFactory);
+    // context->setAddress2Precompiled(KV_TABLE_FACTORY_ADDRESS, kvTableFactoryPrecompiled);
+    // context->setAddress2Precompiled(
+    //     CRYPTO_ADDRESS, std::make_shared<precompiled::CryptoPrecompiled>(m_hashImpl));
+    // context->setAddress2Precompiled(
+    //     DAG_TRANSFER_ADDRESS, std::make_shared<precompiled::DagTransferPrecompiled>(m_hashImpl));
+    // context->setAddress2Precompiled(
+    //     CRYPTO_ADDRESS, std::make_shared<CryptoPrecompiled>(m_hashImpl));
+    // context->setAddress2Precompiled(
+    //     DEPLOY_WASM_ADDRESS, std::make_shared<DeployWasmPrecompiled>(m_hashImpl));
+    // context->setAddress2Precompiled(
+    //     CRUD_ADDRESS, std::make_shared<precompiled::CRUDPrecompiled>(m_hashImpl));
+    // context->setAddress2Precompiled(
+    //     BFS_ADDRESS, std::make_shared<precompiled::FileSystemPrecompiled>(m_hashImpl));
 
     // context->setAddress2Precompiled(
     //     PERMISSION_ADDRESS, std::make_shared<precompiled::PermissionPrecompiled>());
     // context->setAddress2Precompiled(
-    // CONTRACT_LIFECYCLE_ADDRESS, std::make_shared<precompiled::ContractLifeCyclePrecompiled>());
+    // CONTRACT_LIFECYCLE_ADDRESS,
+    // std::make_shared<precompiled::ContractLifeCyclePrecompiled>());
     // context->setAddress2Precompiled(
-    //     CHAINGOVERNANCE_ADDRESS, std::make_shared<precompiled::ChainGovernancePrecompiled>());
+    //     CHAINGOVERNANCE_ADDRESS,
+    //     std::make_shared<precompiled::ChainGovernancePrecompiled>());
 
     // TODO: register User developed Precompiled contract
     // registerUserPrecompiled(context);
 
-    // context->setPrecompiledContract(m_precompiledContract);
+    context->setPrecompiledContract(m_precompiledContract);
 
     // getTxGasLimitToContext from precompiled and set to context
     // auto ret = sysConfig->getSysConfigByKey(ledger::SYSTEM_KEY_TX_GAS_LIMIT, tableFactory);
@@ -416,7 +515,8 @@ BlockContext::Ptr TransactionExecutor::createBlockContext(
     //         auto receiveAddress = _tx->to();
     //         std::shared_ptr<precompiled::ParallelConfig> config = nullptr;
     //         // hit the cache, fetch ParallelConfig from the cache directly
-    //         // Note: Only when initializing DAG, get ParallelConfig, will not get ParallelConfig
+    //         // Note: Only when initializing DAG, get ParallelConfig, will not get
+    //         ParallelConfig
     //         // during transaction execution
     //         auto parallelKey = std::make_pair(string(receiveAddress), selector);
     //         if (context->getParallelConfigCache()->count(parallelKey))
@@ -427,7 +527,8 @@ BlockContext::Ptr TransactionExecutor::createBlockContext(
     //         {
     //             config = parallelConfigPrecompiled->getParallelConfig(
     //                 context, receiveAddress, selector, _tx->sender());
-    //             context->getParallelConfigCache()->insert(std::make_pair(parallelKey, config));
+    //             context->getParallelConfigCache()->insert(std::make_pair(parallelKey,
+    //             config));
     //         }
 
     //         if (config == nullptr)
@@ -485,7 +586,7 @@ BlockContext::Ptr TransactionExecutor::createBlockContext(
     return context;
 }
 
-std::string TransactionExecutor::newEVMAddress(const std::string_view&)
+std::string TransactionExecutor::newEVMAddress(const std::string_view& _sender)
 {
     // TODO design a new address
     // u256 nonce = m_s->getNonce(_sender);

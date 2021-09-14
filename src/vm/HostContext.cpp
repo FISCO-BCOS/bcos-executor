@@ -28,6 +28,7 @@
 #include "bcos-framework/libstorage/StateStorage.h"
 #include "evmc/evmc.hpp"
 #include "libutilities/Common.h"
+#include <evmc/evmc.h>
 #include <boost/algorithm/string/split.hpp>
 #include <boost/thread.hpp>
 #include <algorithm>
@@ -76,13 +77,9 @@ evmc_bytes32 evm_hash_fn(const uint8_t* data, size_t size)
 }
 }  // namespace
 
-HostContext::HostContext(std::weak_ptr<TransactionExecutive> executive, bcos::storage::Table table,
-    CallParameters callParams, unsigned _depth, bool _isCreate)
-  : m_executive(std::move(executive)),
-    m_table(std::move(table)),
-    m_callParams(std::move(callParams)),
-    m_depth(_depth),
-    m_isCreate(_isCreate)
+HostContext::HostContext(
+    std::weak_ptr<TransactionExecutive> executive, bcos::storage::Table table, unsigned _depth)
+  : m_executive(std::move(executive)), m_table(std::move(table)), m_depth(_depth)
 {
     interface = getHostInterface();
     wasm_interface = getWasmHostInterface();
@@ -134,7 +131,7 @@ void HostContext::set(const std::string_view& _key, std::string _value)
     m_table.setRow(_key, std::move(entry));
 }
 
-evmc_result HostContext::call(CallParameters& _p)
+evmc_result HostContext::externalCall(CallParameters _p)
 {
     // get last executive from blockcontext
     // auto executive = m_blockContext->getLastExecutiveOf(m_contextID, myAddress());
@@ -209,30 +206,32 @@ void HostContext::setStore(u256 const& _n, u256 const& _v)
     m_table.setRow(key, std::move(entry));
 }
 
-evmc_result HostContext::create(int64_t io_gas, bytesConstRef _code, evmc_opcode _op, u256 _salt)
-{
-    if (m_executive.lock()->blockContext()->isWasm())
-    {  // TODO: if wasm support contract create
-       // contract add a new branch
-        EXECUTIVE_LOG(ERROR) << "wasm contract new contract isn't supported";
-        return evmc_result();
-    }
+evmc_result HostContext::externalCreate(CallParameters callParameters, std::optional<u256> _salt) {}
 
-    // // get last executive from blockcontext
-    // auto executive = m_blockContext->getLastExecutiveOf(m_contextID, myAddress());
-    // executive->setCallCreate(true);
-    // // call executive returnCallback
-    // std::optional<u256> salt;
-    // if (_op != evmc_opcode::OP_CREATE)
-    // {
-    //     assert(_op == evmc_opcode::OP_CREATE2);
-    //     salt = _salt;
-    // }
-    // // create callResult use factory from blockcontext, schedule should make depth
-    // // + 1
-    // return executive->waitReturnValue(
-    //     nullptr, m_blockContext->createExecutionResult(m_contextID, io_gas, _code, salt));
-}
+// evmc_result HostContext::create(int64_t io_gas, bytesConstRef _code, evmc_opcode _op, u256 _salt)
+// {
+//     if (m_executive.lock()->blockContext()->isWasm())
+//     {  // TODO: if wasm support contract create
+//        // contract add a new branch
+//         EXECUTIVE_LOG(ERROR) << "wasm contract new contract isn't supported";
+//         return evmc_result();
+//     }
+
+//     // get last executive from blockcontext
+//     auto executive = m_blockContext->getLastExecutiveOf(m_contextID, myAddress());
+//     executive->setCallCreate(true);
+//     // call executive returnCallback
+//     std::optional<u256> salt;
+//     if (_op != evmc_opcode::OP_CREATE)
+//     {
+//         assert(_op == evmc_opcode::OP_CREATE2);
+//         salt = _salt;
+//     }
+//     // create callResult use factory from blockcontext, schedule should make depth
+//     // + 1
+//     return executive->waitReturnValue(
+//         nullptr, m_blockContext->createExecutionResult(m_contextID, io_gas, _code, salt));
+// }
 
 void HostContext::log(h256s&& _topics, bytesConstRef _data)
 {

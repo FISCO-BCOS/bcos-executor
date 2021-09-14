@@ -83,38 +83,6 @@ u256 TransactionExecutive::gasLeft() const
     return m_remainGas;
 }
 
-void TransactionExecutive::initialize(Transaction::ConstPtr _transaction)
-{
-    m_transaction = _transaction;
-
-    m_baseGasRequired = (m_transaction->type() == protocol::TransactionType::ContractCreation) ?
-                            m_blockContext->evmSchedule().txCreateGas :
-                            m_blockContext->evmSchedule().txGas;
-    // Calculate the cost of input data.
-    // No risk of overflow by using int64 until txDataNonZeroGas is quite small
-    // (the value not in billions).
-    for (auto i : m_transaction->input())
-        m_baseGasRequired += i ? m_blockContext->evmSchedule().txDataNonZeroGas :
-                                 m_blockContext->evmSchedule().txDataZeroGas;
-
-    uint64_t txGasLimit = m_blockContext->txGasLimit();
-    // The gas limit is dynamic, not fixed.
-    // Pre calculate the gas needed for execution
-    if (m_baseGasRequired > (bigint)txGasLimit)
-    {
-        m_excepted = TransactionStatus::OutOfGasLimit;
-        m_exceptionReason =
-            "The gas required by deploying/accessing this contract is more than "
-            "tx_gas_limit :" +
-            boost::lexical_cast<std::string>(txGasLimit) +
-            " require: " + boost::lexical_cast<std::string>(m_baseGasRequired);
-        BOOST_THROW_EXCEPTION(
-            OutOfGasLimit() << RequirementError((bigint)(m_baseGasRequired), (bigint)txGasLimit));
-    }
-
-    // set up the call params
-}
-
 std::string TransactionExecutive::newAddress() const
 {
     if (m_blockContext->isWasm() || m_newAddress.empty())
@@ -125,7 +93,7 @@ std::string TransactionExecutive::newAddress() const
     return hexAddress;
 }
 
-bool TransactionExecutive::execute(bool _staticCall)
+bool TransactionExecutive::execute()
 {
     int64_t txGasLimit = m_blockContext->txGasLimit();
 
@@ -142,65 +110,26 @@ bool TransactionExecutive::execute(bool _staticCall)
                 "Not enough gas, base gas required:" + std::to_string(m_baseGasRequired)));
     }
 
-    if (m_transaction->type() == TransactionType::ContractCreation)
+    if (m_isCreation)
     {
-        return create(m_transaction->sender(), txGasLimit - m_baseGasRequired,
-            m_transaction->input(), m_transaction->sender());
+        return create();
     }
     else
     {
-        return call(string(m_transaction->to()), string(m_transaction->sender()),
-            m_transaction->input(), txGasLimit - m_baseGasRequired, _staticCall);
+        return call();
     }
 }
 
-bool TransactionExecutive::create(const std::string_view& _txSender, int64_t _gas,
-    bytesConstRef _init, const std::string_view& _origin)
-{
-    // Contract creation by an external account is the same as CREATE opcode
-    return createOpcode(_txSender, _gas, _init, _origin);
-}
-
-bool TransactionExecutive::createOpcode(const std::string_view& _sender, int64_t _gas,
-    bytesConstRef _init, const std::string_view& _origin)
-{
-    m_newAddress = newEVMAddress(_sender);
-    return executeCreate(_sender, _origin, m_newAddress, _gas, _init);
-}
-
-bool TransactionExecutive::create2Opcode(const std::string_view& _sender, int64_t _gas,
-    bytesConstRef _init, const std::string_view& _origin, u256 const& _salt)
-{
-    m_newAddress = newEVMAddress(_sender, _init, _salt);
-    return executeCreate(_sender, _origin, m_newAddress, _gas, _init);
-}
-
-bool TransactionExecutive::call(const std::string& _receiveAddress,
-    const std::string& _senderAddress, bytesConstRef _data, int64_t _gas, bool _staticCall)
-{
-    if (m_blockContext->isWasm())
-    {
-        CallParameters params{_senderAddress, _receiveAddress, _receiveAddress, _senderAddress,
-            _gas, _data, _staticCall};
-        return call(std::move(params));
-    }
-    // FIXME: check if the address is valid hex string, if not revert
-    auto receiveAddress = asString(*fromHexString(_receiveAddress));
-    CallParameters params{
-        _senderAddress, receiveAddress, receiveAddress, _senderAddress, _gas, _data, _staticCall};
-    return call(std::move(params));
-}
-
-bool TransactionExecutive::call(CallParameters _p)
+bool TransactionExecutive::call()
 {
     //   m_savepoint = m_s->savepoint();
-    m_remainGas = _p.gas;
+    m_remainGas = m_callParameters.gas;
 
-    auto precompiledAddress =
-        m_blockContext->isWasm() ? _p.codeAddress : *toHexString(_p.codeAddress);
+    auto precompiledAddress = m_blockContext->isWasm() ? m_callParameters.codeAddress :
+                                                         *toHexString(m_callParameters.codeAddress);
     if (m_blockContext && m_blockContext->isEthereumPrecompiled(precompiledAddress))
     {
-        auto gas = m_blockContext->costOfPrecompiled(precompiledAddress, _p.data);
+        auto gas = m_blockContext->costOfPrecompiled(precompiledAddress, m_callParameters.data);
         if (m_remainGas < gas)
         {
             m_excepted = TransactionStatus::OutOfGas;
@@ -210,11 +139,11 @@ bool TransactionExecutive::call(CallParameters _p)
         }
         else
         {
-            m_remainGas = _p.gas - gas;
+            m_remainGas = m_callParameters.gas - gas;
         }
 
         auto [success, output] =
-            m_blockContext->executeOriginPrecompiled(precompiledAddress, _p.data);
+            m_blockContext->executeOriginPrecompiled(precompiledAddress, m_callParameters.data);
         if (!success)
         {
             m_remainGas = 0;
@@ -229,8 +158,8 @@ bool TransactionExecutive::call(CallParameters _p)
     {
         try
         {
-            auto callResult = m_blockContext->call(
-                precompiledAddress, _p.data, _p.origin, _p.senderAddress, m_remainGas);
+            auto callResult = m_blockContext->call(precompiledAddress, m_callParameters.data,
+                m_callParameters.origin, m_callParameters.senderAddress, m_remainGas);
             size_t outputSize = callResult->m_execResult.size();
             m_output = owning_bytes_ref{std::move(callResult->m_execResult), 0, outputSize};
         }
@@ -255,46 +184,39 @@ bool TransactionExecutive::call(CallParameters _p)
     }
     else
     {
-        auto table = m_blockContext->storage()->openTable(getContractTableName(
-            _p.receiveAddress, m_blockContext->isWasm(), m_blockContext->hashHandler()));
-        m_hostContext = make_shared<HostContext>(
-            shared_from_this(), std::move(*table), std::move(_p), m_depth, false);
+        auto table = m_blockContext->storage()->openTable(
+            getContractTableName(m_callParameters.receiveAddress, m_blockContext->isWasm(),
+                m_blockContext->hashHandler()));
+        m_hostContext = make_shared<HostContext>(shared_from_this(), std::move(*table), m_depth);
     }
-    // else {
-    //   writeErrInfoToOutput("Error address:" + _p.codeAddress);
-    //   revert();
-    //   m_excepted = TransactionStatus::CallAddressError;
-    // }
 
     // no balance transfer
     return !m_hostContext;
 }
 
-bool TransactionExecutive::executeCreate(const std::string_view& _sender,
-    const std::string_view& _origin, const std::string& _newAddress, int64_t _gasLeft,
-    bytesConstRef _init, bytesConstRef constructorParams)
+// bool TransactionExecutive::executeCreate(const std::string_view& _sender,
+//     const std::string_view& _origin, const std::string& _newAddress, int64_t _gasLeft,
+//     bytesConstRef _init, bytesConstRef constructorParams)
+bool TransactionExecutive::executeCreate()
 {
     //   m_s->incNonce(_sender);
 
     //   m_savepoint = m_s->savepoint();
-
-    m_isCreation = true;
-
-    m_remainGas = _gasLeft;
 
     // Set nonce before deploying the code. This will also create new
     // account if it does not exist yet.
     //   m_s->setNonce(_newAddress, m_s->accountStartNonce());
 
     // Schedule _init execution if not empty.
-    if (!_init.empty())
+    auto input = m_callParameters.data;
+    if (!input.empty())
     {
-        auto code = make_shared<bytes>(_init.data(), _init.data() + _init.size());
+        auto code = bytes(input.data(), input.data() + input.size());
 
         if (m_blockContext->isWasm())
         {  // the Wasm deploy use a precompiled which
            // call this function, so inject meter here
-            if (!hasWasmPreamble(*code))
+            if (!hasWasmPreamble(code))
             {  // if isWASM and the code is not WASM, make it failed
                 revert();
                 m_hostContext = {};
@@ -302,10 +224,10 @@ bool TransactionExecutive::executeCreate(const std::string_view& _sender,
                 EXECUTIVE_LOG(ERROR) << "wasm bytecode invalid or use unsupported opcode";
                 return !m_hostContext;
             }
-            auto result = m_gasInjector->InjectMeter(*code);
+            auto result = m_gasInjector->InjectMeter(code);
             if (result.status == wasm::GasInjector::Status::Success)
             {
-                result.byteCode->swap(*code);
+                result.byteCode->swap(code);
             }
             else
             {
@@ -317,18 +239,17 @@ bool TransactionExecutive::executeCreate(const std::string_view& _sender,
             }
         }
 
+        auto newAddress = m_callParameters.receiveAddress;
+
         // Create the table first
         auto tableName = getContractTableName(
-            _newAddress, m_blockContext->isWasm(), m_blockContext->hashHandler());
+            newAddress, m_blockContext->isWasm(), m_blockContext->hashHandler());
         m_blockContext->storage()->createTable(tableName, STORAGE_VALUE);
 
         auto table = m_blockContext->storage()->openTable(tableName);
 
-        CallParameters callParams(std::string(_sender), std::string(_newAddress), _newAddress,
-            std::string(_origin), _gasLeft, constructorParams, false);
-
-        m_hostContext = std::make_shared<HostContext>(
-            shared_from_this(), std::move(*table), std::move(callParams), m_depth, true);
+        m_hostContext =
+            std::make_shared<HostContext>(shared_from_this(), std::move(*table), m_depth);
     }
     return !m_hostContext;
 }
@@ -712,9 +633,7 @@ void TransactionExecutive::loggingException()
     {
         EXECUTIVE_LOG(ERROR) << LOG_BADGE("TxExeError") << LOG_DESC("Transaction execution error")
                              << LOG_KV("TransactionExceptionID", (uint32_t)m_excepted)
-                             << LOG_KV("hash", m_transaction->signatureData().empty() ?
-                                                   "call" :
-                                                   m_transaction->hash().hexPrefixed())
+                             << LOG_KV("hash", m_callParameters.staticCall ? "call" : "execute")
                              << m_exceptionReason;
     }
 }

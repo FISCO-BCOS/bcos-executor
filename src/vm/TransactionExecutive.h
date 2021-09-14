@@ -95,12 +95,6 @@ public:
     virtual ~TransactionExecutive() {}
     void operator=(TransactionExecutive) = delete;
 
-    void initialize(protocol::Transaction::ConstPtr _transaction);
-    /// Finalise a transaction previously set up with initialize().
-    /// @warning Only valid after initialize() and execute(), and possibly go().
-    /// @returns true if the outermost execution halted normally, false if
-    /// exceptionally halted.
-
     void setReturnCallback(returnCallback _callback) { m_returnCallback = _callback; }
 
     void callReturnCallback(Error::Ptr e, protocol::ExecutionResult::Ptr result)
@@ -119,10 +113,7 @@ public:
     /// this.
     /// @returns true if the transaction is done, false if go() must be called.
 
-    bool execute(bool _staticCall);
-    /// @returns the transaction from initialize().
-    /// @warning Only valid after initialize().
-    protocol::Transaction::ConstPtr tx() const { return m_transaction; }
+    bool execute();
     /// @returns the log entries created by this operation.
     /// @warning Only valid after finalise().
     protocol::LogEntriesPtr const& logs() const { return m_logs; }
@@ -136,22 +127,11 @@ public:
     /// operation.
     /// @returns false iff go() must be called (and thus a VM execution in
     /// required).
-    bool create(const std::string_view& _txSender, int64_t _gas, bytesConstRef _code,
-        const std::string_view& _originAddress);
-    /// @returns false iff go() must be called (and thus a VM execution in
-    /// required).
-    bool createOpcode(const std::string_view& _sender, int64_t _gas, bytesConstRef _code,
-        const std::string_view& _originAddress);
-    /// @returns false iff go() must be called (and thus a VM execution in
-    /// required).
-    bool create2Opcode(const std::string_view& _sender, int64_t _gas, bytesConstRef _code,
-        const std::string_view& _originAddress, u256 const& _salt);
+    bool create();
     /// Set up the executive for evaluating a bare CALL (message call) operation.
     /// @returns false iff go() must be called (and thus a VM execution in
     /// required).
-    bool call(const std::string& _receiveAddress, const std::string& _txSender,
-        bytesConstRef _txData, int64_t _gas, bool _staticCall);
-    bool call(CallParameters _cp);
+    bool call();
 
     /// Executes (or continues execution of) the VM.
     /// @returns false iff go() must be called again to finish the transaction.
@@ -159,7 +139,7 @@ public:
 
     /// @returns gas remaining after the transaction/operation. Valid after the
     /// transaction has been executed.
-    u256 gas() const { return m_remainGas; }
+    int64_t gas() const { return m_remainGas; }
     protocol::TransactionStatus status() const { return m_excepted; }
     /// @returns the new address for the created contract in the CREATE operation.
     std::string newAddress() const;
@@ -188,17 +168,19 @@ public:
     }
 
     std::shared_ptr<BlockContext> blockContext() { return m_blockContext; }
+
     /// @returns false iff go() must be called (and thus a VM execution in
     /// required).
-    bool executeCreate(const std::string_view& _txSender, const std::string_view& _originAddress,
-        const std::string& _newAddress, int64_t _gas, bytesConstRef _code,
-        bytesConstRef constructorParams = bytesConstRef());
+    bool executeCreate();
 
     int64_t getContextID() { return m_contextID; }
 
+    bool callCreate() { return m_callCreate; }
     void setCallCreate(bool _callCreate) { m_callCreate = _callCreate; }
 
-    std::string_view contractAddress() { return m_callParameters.receiveAddress; }
+    std::string_view contractAddress() { return m_callParameters.codeAddress; }
+
+    const CallParameters& callParameters() { return m_callParameters; }
 
 private:
     void parseEVMCResult(std::shared_ptr<Result> _result);
@@ -227,7 +209,8 @@ private:
     int64_t m_remainGas = 0;    ///< The gas for EVM code execution. Initial amount before go()
                                 ///< execution, final amount after go() execution.
 
-    protocol::Transaction::ConstPtr m_transaction;  ///< The original transaction. Set by setup().
+    // protocol::Transaction::ConstPtr m_transaction;  ///< The original transaction. Set by
+    // setup().
     protocol::LogEntriesPtr m_logs =
         std::make_shared<protocol::LogEntries>();  ///< The log entries created by
                                                    ///< this transaction. Set by

@@ -82,14 +82,15 @@ struct CallParameters
 {
     CallParameters(std::string _senderAddress, std::string _codeAddress,
         std::string _receiveAddress, std::string _origin, int64_t _gas, bytesConstRef _data,
-        bool _staticCall)
+        bool _staticCall, bool _create)
       : senderAddress(std::move(_senderAddress)),
         codeAddress(std::move(_codeAddress)),
         receiveAddress(std::move(_receiveAddress)),
         origin(std::move(_origin)),
         gas(_gas),
         data(_data),
-        staticCall(_staticCall)
+        staticCall(_staticCall),
+        create(_create)
     {}
 
     CallParameters(const CallParameters&) = default;
@@ -104,6 +105,7 @@ struct CallParameters
     int64_t gas;
     bytesConstRef data;       /// transaction data
     bool staticCall = false;  /// only true when the transaction is a message call
+    bool create = false;      // is create?
 };
 
 struct EVMSchedule

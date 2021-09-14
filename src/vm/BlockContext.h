@@ -59,7 +59,7 @@ public:
         std::shared_ptr<bcos::precompiled::ParallelConfig>>;
 
     BlockContext(std::shared_ptr<storage::StateStorage> storage, crypto::Hash::Ptr _hashImpl,
-        const protocol::BlockHeader::ConstPtr& _current,
+        protocol::BlockHeader::ConstPtr _current,
         protocol::ExecutionResultFactory::Ptr _executionResultFactory, const EVMSchedule& _schedule,
         bool _isWasm);
 
@@ -87,13 +87,14 @@ public:
 
     virtual int64_t costOfPrecompiled(const std::string& _a, bytesConstRef _in) const;
 
-    virtual std::shared_ptr<ParallelConfigCache> getParallelConfigCache()
-    {
-        return m_parallelConfigCache;
-    }
+    // virtual std::shared_ptr<ParallelConfigCache> getParallelConfigCache()
+    // {
+    //     return m_parallelConfigCache;
+    // }
 
     void setPrecompiledContract(
-        std::map<std::string, std::shared_ptr<PrecompiledContract>> precompiledContract);
+        std::shared_ptr<const std::map<std::string, std::shared_ptr<PrecompiledContract>>>
+            precompiledContract);
 
     std::shared_ptr<storage::StateStorage> storage() { return m_storage; }
 
@@ -127,7 +128,8 @@ public:
     EVMSchedule const& evmSchedule() const { return m_schedule; }
     void insertExecutive(
         int64_t contextID, std::string_view contract, std::shared_ptr<TransactionExecutive>);
-    std::shared_ptr<TransactionExecutive> getExecutive(int64_t contextID, std::string_view contract);
+    std::shared_ptr<TransactionExecutive> getExecutive(
+        int64_t contextID, std::string_view contract);
     std::shared_ptr<TransactionExecutive> getLastExecutiveOf(
         int64_t contextID, std::string_view address);
 
@@ -143,9 +145,20 @@ private:
         std::hash<std::string>>
         m_address2Precompiled;
 
+    struct HashCombine
+    {
+        inline size_t operator()(const std::tuple<int64_t, std::string_view>& val) const
+        {
+            size_t seed = 0;
+            boost::hash_combine(seed, std::get<0>(val));
+            boost::hash_combine(seed, std::get<1>(val));
+            return seed;
+        }
+    };
+
     // only one request access the m_executives' value one time
     tbb::concurrent_unordered_map<std::tuple<int64_t, std::string_view>,
-        std::shared_ptr<TransactionExecutive>>
+        std::shared_ptr<TransactionExecutive>, HashCombine>
         m_executives;
 
     std::atomic<int> m_addressCount;
@@ -155,7 +168,10 @@ private:
     EVMSchedule m_schedule;
     u256 m_gasLimit;
     bool m_isWasm = false;
-    std::map<std::string, std::shared_ptr<PrecompiledContract>> m_precompiledContract;
+
+    std::shared_ptr<const std::map<std::string, std::shared_ptr<PrecompiledContract>>>
+        m_precompiledContract;
+
     uint64_t m_txGasLimit = 300000000;
     getTxCriticalsHandler m_getTxCriticals = nullptr;
     std::shared_ptr<storage::StateStorage> m_storage;
@@ -163,7 +179,7 @@ private:
     // map between {receiveAddress, selector} to {ParallelConfig}
     // avoid multiple concurrent transactions of openTable to obtain
     // ParallelConfig
-    std::shared_ptr<ParallelConfigCache> m_parallelConfigCache = nullptr;
+    // std::shared_ptr<ParallelConfigCache> m_parallelConfigCache = nullptr;
     crypto::Hash::Ptr m_hashImpl;
 };
 

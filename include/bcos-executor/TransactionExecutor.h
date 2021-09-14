@@ -74,7 +74,6 @@ public:
 
     TransactionExecutor(txpool::TxPoolInterface::Ptr txpool,
         storage::TransactionalStorageInterface::Ptr backendStorage,
-        storage::MergeableStorageInterface::Ptr cacheStorage,
         protocol::ExecutionResultFactory::Ptr executionResultFactory,
         bcos::crypto::Hash::Ptr hashImpl, bool isWasm, size_t poolSize = 2);
 
@@ -141,7 +140,6 @@ private:
 
     txpool::TxPoolInterface::Ptr m_txpool;
     std::shared_ptr<storage::TransactionalStorageInterface> m_backendStorage;
-    std::shared_ptr<storage::MergeableStorageInterface> m_cacheStorage;
     protocol::ExecutionResultFactory::Ptr m_executionResultFactory;
     std::shared_ptr<BlockContext> m_blockContext = nullptr;
     crypto::Hash::Ptr m_hashImpl;
@@ -150,8 +148,10 @@ private:
 
     std::list<bcos::storage::StateStorage::Ptr> m_stateStorages;  // TODO: need lock to deal with
                                                                   // nextBlock and prepare?
+    std::list<bcos::storage::StateStorage::Ptr>::const_iterator m_lastUncommitedIterator; // last uncommited storage
+
     std::shared_ptr<ThreadPool> m_threadPool = nullptr;
-    std::map<std::string, std::shared_ptr<PrecompiledContract>> m_precompiledContract;
+    std::shared_ptr<std::map<std::string, std::shared_ptr<PrecompiledContract>>> m_precompiledContract;
 };
 
 }  // namespace executor

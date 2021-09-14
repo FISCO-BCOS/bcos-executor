@@ -38,18 +38,18 @@ using namespace bcos::precompiled;
 using namespace std;
 
 BlockContext::BlockContext(std::shared_ptr<storage::StateStorage> storage,
-    crypto::Hash::Ptr _hashImpl, const protocol::BlockHeader::ConstPtr& _current,
+    crypto::Hash::Ptr _hashImpl, protocol::BlockHeader::ConstPtr _current,
     protocol::ExecutionResultFactory::Ptr _executionResultFactory, const EVMSchedule& _schedule,
     bool _isWasm)
   : m_addressCount(0x10000),
-    m_currentHeader(_current),
-    m_executionResultFactory(_executionResultFactory),
+    m_currentHeader(std::move(_current)),
+    m_executionResultFactory(std::move(_executionResultFactory)),
     m_schedule(_schedule),
     m_isWasm(_isWasm),
     m_storage(std::move(storage)),
     m_hashImpl(_hashImpl)
 {
-    m_parallelConfigCache = make_shared<ParallelConfigCache>();
+    // m_parallelConfigCache = make_shared<ParallelConfigCache>();
 }
 
 shared_ptr<PrecompiledExecResult> BlockContext::call(const string& address, bytesConstRef param,
@@ -114,22 +114,22 @@ std::shared_ptr<Precompiled> BlockContext::getPrecompiled(const std::string& add
 
 bool BlockContext::isEthereumPrecompiled(const string& _a) const
 {
-    return m_precompiledContract.count(_a);
+    return m_precompiledContract->find(_a) != m_precompiledContract->end();
 }
 
 std::pair<bool, bcos::bytes> BlockContext::executeOriginPrecompiled(
     const string& _a, bytesConstRef _in) const
 {
-    return m_precompiledContract.at(_a)->execute(_in);
+    return m_precompiledContract->at(_a)->execute(_in);
 }
 
 int64_t BlockContext::costOfPrecompiled(const string& _a, bytesConstRef _in) const
 {
-    return m_precompiledContract.at(_a)->cost(_in).convert_to<int64_t>();
+    return m_precompiledContract->at(_a)->cost(_in).convert_to<int64_t>();
 }
 
 void BlockContext::setPrecompiledContract(
-    std::map<std::string, PrecompiledContract::Ptr> precompiledContract)
+    std::shared_ptr<const std::map<std::string, PrecompiledContract::Ptr>> precompiledContract)
 {
     m_precompiledContract = std::move(precompiledContract);
 }
@@ -142,7 +142,7 @@ void BlockContext::setAddress2Precompiled(
 void BlockContext::insertExecutive(
     int64_t contextID, std::string_view contract, TransactionExecutive::Ptr executive)
 {
-    auto it = m_executives.find({contextID, contract});
+    auto it = m_executives.find(std::tuple{contextID, contract});
     if (it != m_executives.end())
     {
         BOOST_THROW_EXCEPTION(

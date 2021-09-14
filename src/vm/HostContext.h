@@ -37,8 +37,8 @@ class HostContext : public evmc_host_context
 {
 public:
     /// Full constructor.
-    HostContext(std::weak_ptr<TransactionExecutive> executive, bcos::storage::Table table,
-        CallParameters callParams, unsigned _depth, bool _isCreate);
+    HostContext(
+        std::weak_ptr<TransactionExecutive> executive, bcos::storage::Table table, unsigned _depth);
     ~HostContext() = default;
 
     HostContext(HostContext const&) = delete;
@@ -71,10 +71,10 @@ public:
     void setStore(const u256& _n, const u256& _v);
 
     /// Create a new contract.
-    evmc_result create(int64_t io_gas, bytesConstRef _code, evmc_opcode _op, u256 _salt);
+    evmc_result externalCreate(CallParameters callParameters, std::optional<u256> _salt);
 
     /// Create a new message call.
-    evmc_result call(executor::CallParameters& _params);
+    evmc_result externalCall(executor::CallParameters _params);
 
     void setCode(bytes code);
 
@@ -111,17 +111,18 @@ public:
     void suicide(const std::string_view& _a);
 
     /// ------ get interfaces related to HostContext------
-    std::string_view myAddress() { return m_callParams.receiveAddress; }
-    std::string_view caller() { return m_callParams.senderAddress; }
-    std::string_view origin() { return m_callParams.origin; }
-    bytesConstRef data() { return m_callParams.data; }
+    std::string_view myAddress() const { return m_executive.lock()->contractAddress(); }
+    std::string_view caller() const { return m_executive.lock()->callParameters().senderAddress; }
+    std::string_view origin() const { return m_executive.lock()->callParameters().origin; }
+    bytesConstRef data() const { return m_executive.lock()->callParameters().data; }
     bytesConstRef code();
     h256 codeHash();
-    u256 const& salt() { return m_salt; }
+    u256 salt() const { return m_salt; }
     SubState& sub() { return m_sub; }
-    unsigned const& depth() { return m_depth; }
-    bool const& isCreate() { return m_isCreate; }
-    bool const& staticCall() { return m_callParams.staticCall; }
+    unsigned depth() const { return m_depth; }
+    bool isCreate() const { return m_executive.lock()->callCreate(); }
+    bool staticCall() const { return m_executive.lock()->callParameters().staticCall; }
+    int64_t gas() const { return m_executive.lock()->gas(); }
 
 private:
     void depositFungibleAsset(
@@ -134,15 +135,12 @@ protected:
 
 private:
     bcos::storage::Table m_table;  ///< The table of contract
-    CallParameters m_callParams;
 
     u256 m_salt;           ///< Values used in new address construction by CREATE2
     SubState m_sub;        ///< Sub-band VM state (suicides, refund counter, logs).
     unsigned m_depth = 0;  ///< Depth of the present call.
 
     std::map<std::string, size_t, std::less<>> m_key2Version;  // the version cache
-
-    bool m_isCreate = false;  ///< Is this a CREATE call?
 };
 
 }  // namespace executor
