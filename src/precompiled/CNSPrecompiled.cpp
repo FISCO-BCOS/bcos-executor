@@ -116,7 +116,7 @@ int CNSPrecompiled::checkCNSParam(BlockContext::Ptr _context, Address const& _co
 }
 
 PrecompiledExecResult::Ptr CNSPrecompiled::call(std::shared_ptr<executor::BlockContext> _context,
-    bytesConstRef _param, const std::string& _origin, const std::string&, u256& _remainGas)
+    bytesConstRef _param, const std::string& _origin, const std::string&, int64_t _remainGas)
 {
     // parse function name
     uint32_t func = getParamFunc(_param);
@@ -155,7 +155,7 @@ PrecompiledExecResult::Ptr CNSPrecompiled::call(std::shared_ptr<executor::BlockC
                                << LOG_KV("func", func);
     }
     gasPricer->updateMemUsed(callResult->m_execResult.size());
-    _remainGas -= gasPricer->calTotalGas();
+    _remainGas -= gasPricer->calTotalGas().convert_to<int64_t>();
     return callResult;
 }
 
@@ -182,7 +182,7 @@ void CNSPrecompiled::insert(const std::shared_ptr<executor::BlockContext>& _cont
     gasPricer->appendOperation(InterfaceOpcode::OpenTable);
     auto entry = table->getRow(contractName + "," + contractVersion);
     int result;
-    if (entry != nullptr)
+    if (entry)
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("CNSPrecompiled")
                                << LOG_DESC("address and version exist")

@@ -74,8 +74,8 @@ public:
     VMInstance(VMInstance const&) = delete;
     VMInstance& operator=(VMInstance) = delete;
 
-    std::shared_ptr<Result> exec(const std::shared_ptr<HostContext>& _hostContext, evmc_revision _rev,
-        evmc_message* _msg, const uint8_t* _code, size_t _code_size);
+    std::shared_ptr<Result> exec(const std::shared_ptr<HostContext>& _hostContext,
+        evmc_revision _rev, evmc_message* _msg, const uint8_t* _code, size_t _code_size);
 
 private:
     /// The VM instance created with VMInstance-C <prefix>_create() function.

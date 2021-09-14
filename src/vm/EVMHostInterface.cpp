@@ -220,26 +220,27 @@ evmc_result call(evmc_host_context *_context,
   if (_msg->kind == EVMC_CREATE || _msg->kind == EVMC_CREATE2)
     return create(hostContext, _msg);
 
-  CallParameters params;
-  params.gas = _msg->gas;
-  // params.apparentValue = fromEvmC(_msg->value);
-  // params.valueTransfer = _msg->kind == EVMC_DELEGATECALL ? 0 :
-  // params.apparentValue;
-  if (hostContext.getBlockContext()->isWasm()) {
-    params.senderAddress = string((char *)_msg->sender_ptr, _msg->sender_len);
-    params.codeAddress =
-        string((char *)_msg->destination_ptr, _msg->destination_len);
-  } else {
-    params.senderAddress = fromEvmC(_msg->sender);
-    params.codeAddress = fromEvmC(_msg->destination);
-  }
-  params.receiveAddress =
-      _msg->kind == EVMC_CALL ? params.codeAddress : hostContext.myAddress();
+  //TODO: fix build call parameters here
+  // auto params = std::make_shraed<CallParameters>();
+  // params.gas = _msg->gas;
+  // // params.apparentValue = fromEvmC(_msg->value);
+  // // params.valueTransfer = _msg->kind == EVMC_DELEGATECALL ? 0 :
+  // // params.apparentValue;
+  // if (hostContext.getBlockContext()->isWasm()) {
+  //   params.senderAddress = string((char *)_msg->sender_ptr, _msg->sender_len);
+  //   params.codeAddress =
+  //       string((char *)_msg->destination_ptr, _msg->destination_len);
+  // } else {
+  //   params.senderAddress = fromEvmC(_msg->sender);
+  //   params.codeAddress = fromEvmC(_msg->destination);
+  // }
+  // params.receiveAddress =
+  //     _msg->kind == EVMC_CALL ? params.codeAddress : hostContext.myAddress();
 
-  params.data = {_msg->input_data, _msg->input_size};
-  params.staticCall = (_msg->flags & EVMC_STATIC) != 0;
+  // params.data = {_msg->input_data, _msg->input_size};
+  // params.staticCall = (_msg->flags & EVMC_STATIC) != 0;
 
-  return hostContext.call(params);
+  // return hostContext.call(params);
 }
 
 /// function table

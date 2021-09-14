@@ -139,6 +139,8 @@ private:
     void asyncExecute(protocol::Transaction::ConstPtr transaction,
         std::shared_ptr<TransactionExecutive> executive, bool staticCall);
 
+    std::shared_ptr<TransactionExecutive> createExecutive(const protocol::ExecutionParams::ConstPtr& input, unsigned depth);
+
     protocol::BlockFactory::Ptr m_blockFactory;
     std::shared_ptr<dispatcher::SchedulerInterface> m_scheduler;
     ledger::LedgerInterface::Ptr m_ledger;

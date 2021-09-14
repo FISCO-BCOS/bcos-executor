@@ -228,28 +228,9 @@ protocol::Transaction::Ptr TransactionExecutor::createTransaction(
 void TransactionExecutor::executeTransaction(const protocol::ExecutionParams::ConstPtr& input,
     std::function<void(Error::Ptr&&, protocol::ExecutionResult::Ptr&&)> callback) noexcept
 {
-    auto createExecutive = [&](unsigned depth) {
-        auto executive =
-            std::make_shared<TransactionExecutive>(m_blockContext, input->contextID(), depth);
-        auto caller = string(input->to());
-        if (input->to().empty())
-        {
-            if (input->createSalt())
-            {  // input->createSalt() is not empty use create2
-                caller = executive->newEVMAddress(
-                    input->from(), input->input(), input->createSalt().value());
-            }
-            else
-            {
-                caller = executive->newEVMAddress(input->from());
-            }
-        }
-        m_blockContext->insertExecutive(input->contextID(), caller, executive);
-        return executive;
-    };
     if (input->type() == ExecutionParams::TXHASH)
     {  // type is TXHASH, pull the transaction use txpool and create a TransactionExecutive
-        auto executive = createExecutive(0);
+        auto executive = createExecutive(input, 0);
         // fetch transaction use m_txpool
         auto txHash = make_shared<std::vector<crypto::HashType>>();
         txHash->push_back(input->transactionHash());
@@ -273,7 +254,7 @@ void TransactionExecutor::executeTransaction(const protocol::ExecutionParams::Co
     }
     else if (input->type() == ExecutionParams::EXTERNAL_CALL)
     {  // type is EXTERNAL_CALL create TransactionExecutive and tx to execute
-        auto executive = createExecutive(input->depth());
+        auto executive = createExecutive(input, input->depth());
         executive->setReturnCallback(callback);
         // create a new tx use ExecutionParams
         auto tx = createTransaction(input);
@@ -362,41 +343,60 @@ void TransactionExecutor::rollback(
 
 void TransactionExecutor::asyncExecute(protocol::Transaction::ConstPtr transaction,
     TransactionExecutive::Ptr executive, bool staticCall = false)
-{  // TransactionExecutive use a new thread to execute contract
+{  
+    // TransactionExecutive use a new thread to execute contract
     // if finished, call the return callback with finished message, exit the thread and set
     // TransactionExecutive finished, next time it will be pop
-    // executive->setWorker(make_shared<thread>(
-    //     [transaction, executive, executionResultFactory = m_executionResultFactory, staticCall]() {
-    //         executive->reset();
-    //         try
-    //         {  // OK - transaction looks valid - execute.
-    //             executive->initialize(transaction);
-    //             if (!executive->execute(staticCall))
-    //                 executive->go();
-    //             executive->finalize();
-    //         }
-    //         catch (Exception const& _e)
-    //         {  // only OutOfGasBase ExecutorNotFound exception will throw
-    //             EXECUTOR_LOG(ERROR) << "executeTransaction Exception" << diagnostic_information(_e);
-    //         }
-    //         catch (std::exception const& _e)
-    //         {
-    //             EXECUTOR_LOG(ERROR)
-    //                 << "executeTransaction std::exception" << boost::diagnostic_information(_e);
-    //         }
+    auto func = make_shared<thread>(
+        [transaction, executive, executionResultFactory = m_executionResultFactory, staticCall]() {
+            executive->reset();
+            try
+            {  // OK - transaction looks valid - execute.
+                executive->initialize(transaction);
+                if (!executive->execute(staticCall))
+                    executive->go();
+                executive->finalize();
+            }
+            catch (Exception const& _e)
+            {  // only OutOfGasBase ExecutorNotFound exception will throw
+                EXECUTOR_LOG(ERROR) << "executeTransaction Exception" << diagnostic_information(_e);
+            }
+            catch (std::exception const& _e)
+            {
+                EXECUTOR_LOG(ERROR)
+                    << "executeTransaction std::exception" << boost::diagnostic_information(_e);
+            }
 
-    //         executive->loggingException();
-    //         auto result = executionResultFactory->createExecutionResult();
-    //         result->setContextID(executive->getContextID());
-    //         result->setStatus((int32_t)executive->status());
-    //         // FIXME: set error message
-    //         // result->setMessage();
-    //         result->setOutput(executive->takeOutput().takeBytes());
-    //         result->setGasAvailable((int64_t)executive->gasLeft());
-    //         result->setLogEntries(executive->logs());
-    //         result->setNewEVMContractAddress(executive->newAddress());
-    //         executive->callReturnCallback(nullptr, std::move(result));
-    //     }));
+            executive->loggingException();
+            auto result = executionResultFactory->createExecutionResult();
+            result->setContextID(executive->getContextID());
+            result->setStatus((int32_t)executive->status());
+            // FIXME: set error message
+            // result->setMessage();
+            result->setOutput(executive->takeOutput().takeBytes());
+            result->setGasAvailable((int64_t)executive->gasLeft());
+            result->setLogEntries(executive->logs());
+            result->setNewEVMContractAddress(executive->newAddress());
+            executive->callReturnCallback(nullptr, std::move(result));
+        });
+
+    // executive->setWorker(std::move(func));
+}
+
+std::shared_ptr<TransactionExecutive> TransactionExecutor::createExecutive(const protocol::ExecutionParams::ConstPtr& input, unsigned depth) {
+  auto executive = std::make_shared<TransactionExecutive>(
+      m_blockContext, input->contextID(), depth);
+  auto caller = string(input->to());
+  if (input->to().empty()) {
+    if (input->createSalt()) { // input->createSalt() is not empty use create2
+      caller = executive->newEVMAddress(input->from(), input->input(),
+                                        input->createSalt().value());
+    } else {
+      caller = executive->newEVMAddress(input->from());
+    }
+  }
+  m_blockContext->insertExecutive(input->contextID(), caller, executive);
+  return executive;
 }
 
 BlockContext::Ptr TransactionExecutor::createBlockContext(
