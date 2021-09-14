@@ -332,6 +332,11 @@ void TransactionExecutor::rollback(
     });
 }
 
+void TransactionExecutor::reset(std::function<void(bcos::Error::Ptr&&)> callback) noexcept
+{
+    callback(nullptr);
+}
+
 void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::ConstPtr& input,
     bool staticCall,
     std::function<void(bcos::Error::Ptr&&, bcos::protocol::ExecutionResult::Ptr&&)> callback)
@@ -366,7 +371,7 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
                 auto executive = createExecutive(input, staticCall);
 
                 auto contract = executive->contractAddress();
-                m_blockContext->insertExecutive(input->contextID(), contract, executive);
+                m_blockContext->insertExecutive(input->contextID(), contract, std::move(executive));
             });
 
         break;

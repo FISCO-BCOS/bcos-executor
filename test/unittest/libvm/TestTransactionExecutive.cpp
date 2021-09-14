@@ -11,8 +11,11 @@ public:
 
 BOOST_FIXTURE_TEST_SUITE(testTransactionExecutive, TransactionExecutiveFixture)
 
-BOOST_AUTO_TEST_CASE()
+BOOST_AUTO_TEST_CASE(test)
+{
+    BOOST_CHECK(true);
+}
 
 BOOST_AUTO_TEST_SUITE_END()
 
-};  // namespace bcos::test
+}  // namespace bcos::test

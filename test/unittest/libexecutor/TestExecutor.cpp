@@ -20,6 +20,7 @@
  */
 
 #include "../mock/MockExecutionParams.h"
+#include "../mock/MockTransactionalStorage.h"
 #include "../mock/MockTxPool.h"
 #include "bcos-executor/TransactionExecutor.h"
 #include "interfaces/crypto/CommonType.h"
@@ -29,6 +30,7 @@
 #include "libstorage/StateStorage.h"
 #include <bcos-framework/testutils/crypto/HashImpl.h>
 #include <bcos-framework/testutils/crypto/SignatureImpl.h>
+#include <bcos-framework/testutils/protocol/FakeBlockHeader.h>
 #include <bcos-framework/testutils/protocol/FakeTransaction.h>
 #include <boost/test/unit_test.hpp>
 #include <iostream>
@@ -60,7 +62,7 @@ struct TransactionExecutorFixture
         cryptoSuite = std::make_shared<CryptoSuite>(hashImpl, signatureImpl, nullptr);
 
         txpool = std::make_shared<MockTxPool>();
-        backend = std::make_shared<bcos::storage::StateStorage>(nullptr, hashImpl, 0);
+        backend = std::make_shared<MockTransactionalStorage>(hashImpl);
         auto executionResultFactory = std::make_shared<MockExecutionResultFactory>();
 
         executor = std::make_shared<TransactionExecutor>(
@@ -70,7 +72,7 @@ struct TransactionExecutorFixture
     TransactionExecutor::Ptr executor;
     CryptoSuite::Ptr cryptoSuite;
     std::shared_ptr<MockTxPool> txpool;
-    bcos::storage::StateStorage::Ptr backend;
+    std::shared_ptr<MockTransactionalStorage> backend;
 
     string helloBin =
         "0x60806040526040805190810160405280600181526020017f3100000000000000000000000000000000000000"
@@ -142,6 +144,10 @@ BOOST_AUTO_TEST_CASE(executeTransaction_DeployHelloWorld)
     params->setGasAvailable(3000000);
     params->setInput(input);
     params->setType(ExecutionParams::TXHASH);
+
+
+    // executor->nextBlockHeader(const bcos::protocol::BlockHeader::ConstPtr &blockHeader,
+    // std::function<void (bcos::Error::Ptr &&)> callback)
 
     std::promise<std::tuple<bcos::Error::Ptr, bcos::protocol::ExecutionResult::Ptr>> executePromise;
     executor->executeTransaction(
