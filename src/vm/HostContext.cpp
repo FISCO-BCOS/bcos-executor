@@ -287,9 +287,9 @@ h256 HostContext::codeHash()
     return h256();
 }
 
-h256 HostContext::blockHash(int64_t _number)
+h256 HostContext::blockHash()
 {
-    return getBlockContext()->numberHash(_number);
+    return getBlockContext()->currentBlockHeader()->hash();
 }
 
 bool HostContext::registerAsset(const std::string& _assetName, const std::string_view& _addr,

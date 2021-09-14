@@ -81,14 +81,13 @@ class TransactionExecutive : public std::enable_shared_from_this<TransactionExec
 {
 public:
     using Ptr = std::shared_ptr<TransactionExecutive>;
-    /// Simple constructor; executive will operate on given state, with the given
-    /// environment info.
-    TransactionExecutive(
-        std::shared_ptr<BlockContext> _blockContext, int64_t _contextID, unsigned _level = 0)
-      : m_blockContext(std::move(_blockContext)),
-        m_contextID(_contextID),
-        m_hashImpl(_blockContext->hashHandler()),
-        m_depth(_level),
+
+    TransactionExecutive(std::shared_ptr<BlockContext> blockContext, CallParameters callParameters,
+        int64_t contextID, unsigned level = 0)
+      : m_blockContext(std::move(blockContext)),
+        m_callParameters(std::move(callParameters)),
+        m_contextID(contextID),
+        m_depth(level),
         m_gasInjector(std::make_shared<wasm::GasInjector>(wasm::GetInstructionTable()))
     {}
 
@@ -133,9 +132,6 @@ public:
 
     owning_bytes_ref takeOutput() { return std::move(m_output); }
 
-    std::string newEVMAddress(const std::string_view& _sender);
-    std::string newEVMAddress(
-        const std::string_view& _sender, bytesConstRef _init, u256 const& _salt);
     /// Set up the executive for evaluating a bare CREATE (contract-creation)
     /// operation.
     /// @returns false iff go() must be called (and thus a VM execution in
@@ -202,6 +198,8 @@ public:
 
     void setCallCreate(bool _callCreate) { m_callCreate = _callCreate; }
 
+    std::string_view contractAddress() { return m_callParameters.receiveAddress; }
+
 private:
     void parseEVMCResult(std::shared_ptr<Result> _result);
     void writeErrInfoToOutput(std::string const& errInfo);
@@ -211,6 +209,7 @@ private:
         const std::string_view& _address, bool _isWasm, crypto::Hash::Ptr _hashImpl);
 
     std::shared_ptr<BlockContext> m_blockContext;  ///< Information on the runtime environment.
+    CallParameters m_callParameters;
     int64_t m_contextID = 0;
     crypto::Hash::Ptr m_hashImpl;
     std::shared_ptr<HostContext> m_hostContext;
@@ -237,6 +236,7 @@ private:
     std::string m_newAddress;
     size_t m_savepoint = 0;
     std::shared_ptr<wasm::GasInjector> m_gasInjector;
+
     executor::returnCallback m_returnCallback = nullptr;
     std::function<void(
         bytes&& output, int32_t status, int64_t gasLeft, std::string_view newAddress)>

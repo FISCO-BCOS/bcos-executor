@@ -57,11 +57,12 @@ public:
     typedef std::shared_ptr<BlockContext> Ptr;
     using ParallelConfigCache = tbb::concurrent_map<std::pair<std::string, uint32_t>,
         std::shared_ptr<bcos::precompiled::ParallelConfig>>;
+
     BlockContext(std::shared_ptr<storage::StateStorage> storage, crypto::Hash::Ptr _hashImpl,
         const protocol::BlockHeader::ConstPtr& _current,
         protocol::ExecutionResultFactory::Ptr _executionResultFactory, const EVMSchedule& _schedule,
-        CallBackFunction _callback, bool _isWasm);
-        
+        bool _isWasm);
+
     using getTxCriticalsHandler = std::function<std::shared_ptr<std::vector<std::string>>(
         const protocol::Transaction::ConstPtr& _tx)>;
     virtual ~BlockContext(){};
@@ -94,8 +95,6 @@ public:
     void setPrecompiledContract(
         std::map<std::string, std::shared_ptr<PrecompiledContract>> precompiledContract);
 
-    void commit();
-
     std::shared_ptr<storage::StateStorage> storage() { return m_storage; }
 
     uint64_t txGasLimit() const { return m_txGasLimit; }
@@ -124,11 +123,11 @@ public:
     /// @return gasLimit of the block header
     u256 const& gasLimit() const { return m_gasLimit; }
     protocol::BlockHeader::ConstPtr currentBlockHeader() { return m_currentHeader; }
-    crypto::HashType numberHash(int64_t x) const { return m_numberHash(x); }
 
     EVMSchedule const& evmSchedule() const { return m_schedule; }
     void insertExecutive(
-        int64_t contextID, std::string_view address, std::shared_ptr<TransactionExecutive>);
+        int64_t contextID, std::string_view contract, std::shared_ptr<TransactionExecutive>);
+    std::shared_ptr<TransactionExecutive> getExecutive(int64_t contextID, std::string_view contract);
     std::shared_ptr<TransactionExecutive> getLastExecutiveOf(
         int64_t contextID, std::string_view address);
 
@@ -139,13 +138,14 @@ public:
     void clear() { m_executives.clear(); }
 
 private:
+    // TODO: make this static?
     tbb::concurrent_unordered_map<std::string, std::shared_ptr<precompiled::Precompiled>,
         std::hash<std::string>>
         m_address2Precompiled;
 
     // only one request access the m_executives' value one time
-    tbb::concurrent_unordered_map<int64_t,
-        std::map<std::string, std::stack<std::shared_ptr<TransactionExecutive>>>>
+    tbb::concurrent_unordered_map<std::tuple<int64_t, std::string_view>,
+        std::shared_ptr<TransactionExecutive>>
         m_executives;
 
     std::atomic<int> m_addressCount;
@@ -159,6 +159,7 @@ private:
     uint64_t m_txGasLimit = 300000000;
     getTxCriticalsHandler m_getTxCriticals = nullptr;
     std::shared_ptr<storage::StateStorage> m_storage;
+
     // map between {receiveAddress, selector} to {ParallelConfig}
     // avoid multiple concurrent transactions of openTable to obtain
     // ParallelConfig

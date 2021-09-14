@@ -154,23 +154,6 @@ bool TransactionExecutive::execute(bool _staticCall)
     }
 }
 
-std::string TransactionExecutive::newEVMAddress(const std::string_view&)
-{
-    // TODO design a new address
-    // u256 nonce = m_s->getNonce(_sender);
-    // auto hash = m_hashImpl->hash(string(_sender) + nonce.str());
-    // return string((char*)hash.data(), 20);
-    return "address!";
-}
-
-std::string TransactionExecutive::newEVMAddress(
-    const std::string_view& _sender, bytesConstRef _init, u256 const& _salt)
-{
-    auto hash = m_hashImpl->hash(
-        bytes{0xff} + toBytes(_sender) + toBigEndian(_salt) + m_hashImpl->hash(_init));
-    return string((char*)hash.data(), 20);
-}
-
 bool TransactionExecutive::create(const std::string_view& _txSender, int64_t _gas,
     bytesConstRef _init, const std::string_view& _origin)
 {

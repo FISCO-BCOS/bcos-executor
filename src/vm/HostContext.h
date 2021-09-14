@@ -95,7 +95,7 @@ public:
     }
 
     /// Hash of a block if within the last 256 blocks, or h256() otherwise.
-    h256 blockHash(int64_t _number);
+    h256 blockHash();
 
     bool isPermitted();
 

@@ -27,6 +27,10 @@
 #include "bcos-framework/interfaces/storage/StorageInterface.h"
 #include "bcos-framework/interfaces/storage/Table.h"
 #include "bcos-framework/libcodec/abi/ContractABICodec.h"
+#include "bcos-framework/libutilities/Error.h"
+#include <boost/lexical_cast.hpp>
+#include <boost/throw_exception.hpp>
+#include <string>
 
 using namespace bcos::executor;
 using namespace bcos::protocol;
@@ -36,11 +40,10 @@ using namespace std;
 BlockContext::BlockContext(std::shared_ptr<storage::StateStorage> storage,
     crypto::Hash::Ptr _hashImpl, const protocol::BlockHeader::ConstPtr& _current,
     protocol::ExecutionResultFactory::Ptr _executionResultFactory, const EVMSchedule& _schedule,
-    CallBackFunction _callback, bool _isWasm)
+    bool _isWasm)
   : m_addressCount(0x10000),
     m_currentHeader(_current),
     m_executionResultFactory(_executionResultFactory),
-    m_numberHash(_callback),
     m_schedule(_schedule),
     m_isWasm(_isWasm),
     m_storage(std::move(storage)),
@@ -137,30 +140,42 @@ void BlockContext::setAddress2Precompiled(
 }
 
 void BlockContext::insertExecutive(
-    int64_t contextID, std::string_view address, TransactionExecutive::Ptr executive)
+    int64_t contextID, std::string_view contract, TransactionExecutive::Ptr executive)
 {
-    if (!m_executives.count(contextID))
+    auto it = m_executives.find({contextID, contract});
+    if (it != m_executives.end())
     {
-        m_executives.insert(
-            {contextID, std::map<std::string, std::stack<TransactionExecutive::Ptr>>()});
+        BOOST_THROW_EXCEPTION(
+            BCOS_ERROR(-1, "Executive exists: " + boost::lexical_cast<std::string>(contextID)));
     }
-    auto executives = m_executives[contextID][string(address)];
-    while (!executives.empty() && executives.top()->isFinished())
-    {  // remove executive from m_executives
-        executives.pop();
+
+    m_executives.emplace(std::tuple{contextID, contract}, std::move(executive));
+}
+
+std::shared_ptr<TransactionExecutive> BlockContext::getExecutive(
+    int64_t contextID, std::string_view contract)
+{
+    auto it = m_executives.find({contextID, contract});
+    if (it == m_executives.end())
+    {
+        BOOST_THROW_EXCEPTION(
+            BCOS_ERROR(-1, "Can't find executive: " + boost::lexical_cast<std::string>(contextID)));
     }
-    executives.push(move(executive));
+
+    return it->second;
 }
 
 TransactionExecutive::Ptr BlockContext::getLastExecutiveOf(
     int64_t contextID, std::string_view address)
 {
-    auto& executives = m_executives[contextID][string(address)];
-    while (!executives.empty() && executives.top()->isFinished())
-    {  // remove executive from m_executives
-        executives.pop();
-    }
-    return executives.top();
+    // auto& executives = m_executives[contextID][string(address)];
+    // while (!executives.empty() && executives.top()->isFinished())
+    // {  // remove executive from m_executives
+    //     executives.pop();
+    // }
+    // return executives.top();
+
+    return nullptr;
 }
 
 ExecutionResult::Ptr BlockContext::createExecutionResult(int64_t _contextID, CallParameters& _p)
