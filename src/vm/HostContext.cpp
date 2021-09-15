@@ -77,13 +77,16 @@ evmc_bytes32 evm_hash_fn(const uint8_t* data, size_t size)
 }
 }  // namespace
 
-HostContext::HostContext(
-    std::weak_ptr<TransactionExecutive> executive, bcos::storage::Table table, unsigned _depth)
-  : m_executive(std::move(executive)), m_table(std::move(table)), m_depth(_depth)
+HostContext::HostContext(std::weak_ptr<TransactionExecutive> executive,
+    CallParameters::ConstPtr callParameters, bcos::storage::Table table, unsigned _depth)
+  : m_executive(std::move(executive)),
+    m_callParameters(std::move(callParameters)),
+    m_table(std::move(table)),
+    m_depth(_depth)
 {
     interface = getHostInterface();
     wasm_interface = getWasmHostInterface();
-    g_hashImpl = executive.lock()->blockContext()->hashHandler();
+    g_hashImpl = m_executive.lock()->blockContext()->hashHandler();
 
     hash_fn = evm_hash_fn;
     version = 0x03000000;
@@ -131,8 +134,10 @@ void HostContext::set(const std::string_view& _key, std::string _value)
     m_table.setRow(_key, std::move(entry));
 }
 
-evmc_result HostContext::externalCall(CallParameters _p)
+evmc_result HostContext::externalCreate(const evmc_message* _msg)
 {
+    // create a params and create
+
     // get last executive from blockcontext
     // auto executive = m_blockContext->getLastExecutiveOf(m_contextID, myAddress());
     // executive->setCallCreate(false);
@@ -141,6 +146,11 @@ evmc_result HostContext::externalCall(CallParameters _p)
     // return executive->waitReturnValue(
     //     nullptr, m_blockContext->createExecutionResult(m_contextID, _p));
     // return m_executive->w
+}
+
+evmc_result HostContext::externalCall(const evmc_message* _msg)
+{
+    // create a params and call
 }
 
 void HostContext::setCode(bytes code)
@@ -206,7 +216,8 @@ void HostContext::setStore(u256 const& _n, u256 const& _v)
     m_table.setRow(key, std::move(entry));
 }
 
-evmc_result HostContext::externalCreate(CallParameters callParameters, std::optional<u256> _salt) {}
+// evmc_result HostContext::externalCreate(CallParameters callParameters, std::optional<u256> _salt)
+// {}
 
 // evmc_result HostContext::create(int64_t io_gas, bytesConstRef _code, evmc_opcode _op, u256 _salt)
 // {
@@ -621,11 +632,13 @@ std::string HostContext::getNotFungibleAssetInfo(
     //                        << LOG_KV("asset", _assetName)
     //                        << LOG_KV("uri", entry->getField("value"));
     //   return string(entry->getField("value"));
-    // }
+}
 
-    // std::vector<uint64_t>
-    // HostContext::getNotFungibleAssetIDs(const std::string_view &_account,
-    //                                     const std::string &_assetName) {
+std::vector<uint64_t> HostContext::getNotFungibleAssetIDs(
+    const std::string_view& _account, const std::string& _assetName)
+{
+    (void)_account;
+    (void)_assetName;
     //   auto tableName =
     //       getContractTableName(_account, true, m_blockContext->hashHandler());
     //   auto table = m_tableFactory->openTable(tableName);
@@ -660,8 +673,7 @@ std::string HostContext::getNotFungibleAssetInfo(
     //                        << LOG_KV("tokenIDs", tokenIDs);
     //   for (size_t i = 0; i < tokenIDList.size(); ++i) {
     //     ret[i] = boost::lexical_cast<uint64_t>(tokenIDList[i]);
-    //   }
-    //   return ret;
+    // return ret;
 }
 }  // namespace executor
 }  // namespace bcos

@@ -130,10 +130,8 @@ public:
         int64_t contextID, std::string_view contract, std::shared_ptr<TransactionExecutive>);
     std::shared_ptr<TransactionExecutive> getExecutive(
         int64_t contextID, std::string_view contract);
-    std::shared_ptr<TransactionExecutive> getLastExecutiveOf(
-        int64_t contextID, std::string_view address);
 
-    protocol::ExecutionResult::Ptr createExecutionResult(int64_t _contextID, CallParameters& _p);
+    // protocol::ExecutionResult::Ptr createExecutionResult(int64_t _contextID, CallParameters& _p);
     protocol::ExecutionResult::Ptr createExecutionResult(
         int64_t _contextID, int64_t _gasLeft, bytesConstRef _code, std::optional<u256> _salt);
 
@@ -147,13 +145,16 @@ private:
 
     struct HashCombine
     {
-        inline size_t operator()(const std::tuple<int64_t, std::string_view>& val) const
+        size_t operator()(const std::tuple<int64_t, std::string_view>& val) const
         {
-            size_t seed = 0;
-            boost::hash_combine(seed, std::get<0>(val));
-            boost::hash_combine(seed, std::get<1>(val));
+            size_t seed = hashInt64(std::get<0>(val));
+            boost::hash_combine(seed, hashString(std::get<1>(val)));
+
             return seed;
         }
+
+        std::hash<int64_t> hashInt64;
+        std::hash<std::string_view> hashString;
     };
 
     // only one request access the m_executives' value one time

@@ -142,7 +142,7 @@ void BlockContext::setAddress2Precompiled(
 void BlockContext::insertExecutive(
     int64_t contextID, std::string_view contract, TransactionExecutive::Ptr executive)
 {
-    auto it = m_executives.find(std::tuple{contextID, contract});
+    auto it = m_executives.find(std::tuple{executive->contextID(), executive->contractAddress()});
     if (it != m_executives.end())
     {
         BOOST_THROW_EXCEPTION(
@@ -165,30 +165,17 @@ std::shared_ptr<TransactionExecutive> BlockContext::getExecutive(
     return it->second;
 }
 
-TransactionExecutive::Ptr BlockContext::getLastExecutiveOf(
-    int64_t contextID, std::string_view address)
-{
-    // auto& executives = m_executives[contextID][string(address)];
-    // while (!executives.empty() && executives.top()->isFinished())
-    // {  // remove executive from m_executives
-    //     executives.pop();
-    // }
-    // return executives.top();
-
-    return nullptr;
-}
-
-ExecutionResult::Ptr BlockContext::createExecutionResult(int64_t _contextID, CallParameters& _p)
-{
-    auto result = m_executionResultFactory->createExecutionResult();
-    result->setType(protocol::ExecutionResult::EXTERNAL_CALL);
-    result->setContextID(_contextID);
-    result->setOutput(_p.data.toBytes());
-    result->setTo(_p.codeAddress);
-    result->setGasAvailable(_p.gas);
-    result->setStaticCall(_p.staticCall);
-    return result;
-}
+// ExecutionResult::Ptr BlockContext::createExecutionResult(int64_t _contextID, CallParameters& _p)
+// {
+//     auto result = m_executionResultFactory->createExecutionResult();
+//     result->setType(protocol::ExecutionResult::EXTERNAL_CALL);
+//     result->setContextID(_contextID);
+//     result->setOutput(_p.data.toBytes());
+//     result->setTo(_p.codeAddress);
+//     result->setGasAvailable(_p.gas);
+//     result->setStaticCall(_p.staticCall);
+//     return result;
+// }
 
 ExecutionResult::Ptr BlockContext::createExecutionResult(
     int64_t _contextID, int64_t _gas, bytesConstRef _code, std::optional<u256> _salt)

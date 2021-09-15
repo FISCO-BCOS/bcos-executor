@@ -65,10 +65,10 @@ evmc_storage_status setStorage(evmc_host_context* _context, const evmc_address* 
     const evmc_bytes32* _key, const evmc_bytes32* _value)
 {
     auto& hostContext = static_cast<HostContext&>(*_context);
-    if (!hostContext.isPermitted())
-    {
-        BOOST_THROW_EXCEPTION(PermissionDenied());
-    }
+    // if (!hostContext.isPermitted())
+    // {
+    //     BOOST_THROW_EXCEPTION(PermissionDenied());
+    // }
     assert(fromEvmC(*_addr) == hostContext.myAddress());
     u256 index = fromEvmC(*_key);
     u256 value = fromEvmC(*_value);
@@ -231,22 +231,23 @@ evmc_result call(evmc_host_context* _context, const evmc_message* _msg) noexcept
     case EVMC_CREATE:
     case EVMC_CREATE2:
     {
-        CallParameters params(std::string(hostContext.myAddress()), std::string(), std::string(),
-            std::string(hostContext.origin()), _msg->gas,
-            bytesConstRef(_msg->input_data, _msg->input_size), hostContext.staticCall(), true);
+        return hostContext.externalCreate(_msg);
+        // CallParameters params(std::string(hostContext.myAddress()), std::string(), std::string(),
+        //     std::string(hostContext.origin()), _msg->gas,
+        //     bytesConstRef(_msg->input_data, _msg->input_size), hostContext.staticCall(), true);
 
-        u256 salt;
+        // u256 salt;
 
-        if (_msg->kind == EVMC_CREATE2)
-        {
-            salt = fromEvmC(_msg->create2_salt);
-            return hostContext.externalCreate(
-                std::move(params), std::make_optional(std::move(salt)));
-        }
-        else
-        {
-            return hostContext.externalCreate(std::move(params), {});
-        }
+        // if (_msg->kind == EVMC_CREATE2)
+        // {
+        //     salt = fromEvmC(_msg->create2_salt);
+        //     return hostContext.externalCreate(
+        //         std::move(params), std::make_optional(std::move(salt)));
+        // }
+        // else
+        // {
+        //     return hostContext.externalCreate(std::move(params), {});
+        // }
         break;
     }
     case EVMC_CALLCODE:
@@ -261,12 +262,13 @@ evmc_result call(evmc_host_context* _context, const evmc_message* _msg) noexcept
     }
     case EVMC_CALL:
     {
-        CallParameters params(std::string(hostContext.myAddress()),
-            std::string(fromEvmC(_msg->destination)), std::string(fromEvmC(_msg->destination)),
-            std::string(hostContext.origin()), _msg->gas,
-            bytesConstRef(_msg->input_data, _msg->input_size), hostContext.staticCall(), false);
+        return hostContext.externalCall(_msg);
+        // CallParameters params(std::string(hostContext.myAddress()),
+        //     std::string(fromEvmC(_msg->destination)), std::string(fromEvmC(_msg->destination)),
+        //     std::string(hostContext.origin()), _msg->gas,
+        //     bytesConstRef(_msg->input_data, _msg->input_size), hostContext.staticCall(), false);
 
-        return hostContext.externalCall(std::move(params));
+        // return hostContext.externalCall(std::move(params));
         break;
     }
     }
@@ -343,10 +345,11 @@ evmc_storage_status set(evmc_host_context* _context, const uint8_t* _addr, int32
     const uint8_t* _key, int32_t _keyLength, const uint8_t* _value, int32_t _valueLength)
 {
     auto& hostContext = static_cast<HostContext&>(*_context);
-    if (!hostContext.isPermitted())
-    {  // FIXME: return status instead of throw exception
-        BOOST_THROW_EXCEPTION(PermissionDenied());
-    }
+
+    // IF (!HOSTCONTEXT.ISPERMITTED())
+    // {  // FIXME: RETURN STATUS INSTEAD OF THROW EXCEPTION
+    //     BOOST_THROW_EXCEPTION(PERMISSIONDENIED());
+    // }
     assert(string_view((char*)_addr, _addressLength) == hostContext.myAddress());
     string key((char*)_key, _keyLength);
     string value((char*)_value, _valueLength);

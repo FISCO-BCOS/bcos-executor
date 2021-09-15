@@ -131,12 +131,13 @@ private:
     void asyncExecute(const bcos::protocol::ExecutionParams::ConstPtr& input, bool staticCall,
         std::function<void(bcos::Error::Ptr&&, bcos::protocol::ExecutionResult::Ptr&&)> callback);
 
-    std::shared_ptr<TransactionExecutive> createExecutive(
-        const protocol::ExecutionParams::ConstPtr& input, bool staticCall);
-
-    std::string newEVMAddress(const std::string_view& _sender);
+    std::string newEVMAddress(
+        const std::string_view& sender, int64_t blockNumber, int64_t contextID);
     std::string newEVMAddress(
         const std::string_view& _sender, bytesConstRef _init, u256 const& _salt);
+
+    protocol::ExecutionResult::Ptr createExecutionResult(
+        std::shared_ptr<TransactionExecutive> executive);
 
     txpool::TxPoolInterface::Ptr m_txpool;
     std::shared_ptr<storage::TransactionalStorageInterface> m_backendStorage;
@@ -148,10 +149,13 @@ private:
 
     std::list<bcos::storage::StateStorage::Ptr> m_stateStorages;  // TODO: need lock to deal with
                                                                   // nextBlock and prepare?
-    std::list<bcos::storage::StateStorage::Ptr>::const_iterator m_lastUncommitedIterator; // last uncommited storage
+
+    std::list<bcos::storage::StateStorage::Ptr>::const_iterator
+        m_lastUncommitedIterator;  // last uncommited storage
 
     std::shared_ptr<ThreadPool> m_threadPool = nullptr;
-    std::shared_ptr<std::map<std::string, std::shared_ptr<PrecompiledContract>>> m_precompiledContract;
+    std::shared_ptr<std::map<std::string, std::shared_ptr<PrecompiledContract>>>
+        m_precompiledContract;
 };
 
 }  // namespace executor

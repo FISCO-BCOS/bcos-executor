@@ -37,8 +37,8 @@ class HostContext : public evmc_host_context
 {
 public:
     /// Full constructor.
-    HostContext(
-        std::weak_ptr<TransactionExecutive> executive, bcos::storage::Table table, unsigned _depth);
+    HostContext(std::weak_ptr<TransactionExecutive> executive,
+        CallParameters::ConstPtr callParameters, bcos::storage::Table table, unsigned _depth);
     ~HostContext() = default;
 
     HostContext(HostContext const&) = delete;
@@ -71,10 +71,10 @@ public:
     void setStore(const u256& _n, const u256& _v);
 
     /// Create a new contract.
-    evmc_result externalCreate(CallParameters callParameters, std::optional<u256> _salt);
+    evmc_result externalCreate(const evmc_message* _msg);
 
     /// Create a new message call.
-    evmc_result externalCall(executor::CallParameters _params);
+    evmc_result externalCall(const evmc_message* _msg);
 
     void setCode(bytes code);
 
@@ -112,16 +112,16 @@ public:
 
     /// ------ get interfaces related to HostContext------
     std::string_view myAddress() const { return m_executive.lock()->contractAddress(); }
-    std::string_view caller() const { return m_executive.lock()->callParameters().senderAddress; }
-    std::string_view origin() const { return m_executive.lock()->callParameters().origin; }
-    bytesConstRef data() const { return m_executive.lock()->callParameters().data; }
+    std::string_view caller() const { return m_callParameters->senderAddress; }
+    std::string_view origin() const { return m_callParameters->origin; }
+    bytesConstRef data() const { return ref(m_callParameters->data); }
     bytesConstRef code();
     h256 codeHash();
     u256 salt() const { return m_salt; }
     SubState& sub() { return m_sub; }
     unsigned depth() const { return m_depth; }
-    bool isCreate() const { return m_executive.lock()->callCreate(); }
-    bool staticCall() const { return m_executive.lock()->callParameters().staticCall; }
+    bool isCreate() const { return m_callParameters->create; }
+    bool staticCall() const { return m_callParameters->staticCall; }
     int64_t gas() const { return m_executive.lock()->gas(); }
 
 private:
@@ -134,6 +134,7 @@ protected:
     std::weak_ptr<TransactionExecutive> m_executive;
 
 private:
+    CallParameters::ConstPtr m_callParameters;
     bcos::storage::Table m_table;  ///< The table of contract
 
     u256 m_salt;           ///< Values used in new address construction by CREATE2

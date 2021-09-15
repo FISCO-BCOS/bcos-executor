@@ -27,6 +27,7 @@
 #include "interfaces/crypto/CryptoSuite.h"
 #include "interfaces/crypto/Hash.h"
 #include "interfaces/protocol/Transaction.h"
+#include "libprotocol/protobuf/PBBlockHeader.h"
 #include "libstorage/StateStorage.h"
 #include <bcos-framework/testutils/crypto/HashImpl.h>
 #include <bcos-framework/testutils/crypto/SignatureImpl.h>
@@ -139,24 +140,31 @@ BOOST_AUTO_TEST_CASE(executeTransaction_DeployHelloWorld)
     params->setContextID(100);
     params->setDepth(0);
     params->setFrom(std::string(sender));
-    params->setTo(std::string((char*)to.data(), to.size()));
+    // params->setTo(std::string((char*)to.data(), to.size())); create transaction
     params->setStaticCall(false);
     params->setGasAvailable(3000000);
     params->setInput(input);
     params->setType(ExecutionParams::TXHASH);
+    params->setTransactionHash(hash);
 
+    auto blockHeader = std::make_shared<bcos::protocol::PBBlockHeader>(cryptoSuite);
+    blockHeader->setNumber(1);
 
-    // executor->nextBlockHeader(const bcos::protocol::BlockHeader::ConstPtr &blockHeader,
-    // std::function<void (bcos::Error::Ptr &&)> callback)
+    std::promise<void> nextPromise;
+    executor->nextBlockHeader(blockHeader, [&](bcos::Error::Ptr&& error) {
+        BOOST_CHECK(!error);
+        nextPromise.set_value();
+    });
+    nextPromise.get_future().get();
 
-    std::promise<std::tuple<bcos::Error::Ptr, bcos::protocol::ExecutionResult::Ptr>> executePromise;
+    std::promise<bcos::protocol::ExecutionResult::Ptr> executePromise;
     executor->executeTransaction(
         params, [&](bcos::Error::Ptr&& error, bcos::protocol::ExecutionResult::Ptr&& result) {
-            executePromise.set_value({std::move(error), std::move(result)});
+            BOOST_CHECK(!error);
+            executePromise.set_value(std::move(result));
         });
 
-    auto [error, result] = executePromise.get_future().get();
-    BOOST_CHECK(!error);
+    auto result = executePromise.get_future().get();
     BOOST_CHECK_EQUAL(result->status(), 0);
 
     // auto executive = std::make_shared<TransactionExecutive>(executiveContext);

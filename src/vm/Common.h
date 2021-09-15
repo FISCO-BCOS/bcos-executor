@@ -80,32 +80,50 @@ struct SubState
 /// set parameters and functions for the evm call
 struct CallParameters
 {
-    CallParameters(std::string _senderAddress, std::string _codeAddress,
-        std::string _receiveAddress, std::string _origin, int64_t _gas, bytesConstRef _data,
-        bool _staticCall, bool _create)
-      : senderAddress(std::move(_senderAddress)),
-        codeAddress(std::move(_codeAddress)),
-        receiveAddress(std::move(_receiveAddress)),
-        origin(std::move(_origin)),
-        gas(_gas),
-        data(_data),
-        staticCall(_staticCall),
-        create(_create)
-    {}
+    using Ptr = std::shared_ptr<CallParameters>;
+    using ConstPtr = std::shared_ptr<const CallParameters>;
 
-    CallParameters(const CallParameters&) = default;
-    CallParameters(CallParameters&&) = default;
-    CallParameters& operator=(const CallParameters&) = default;
-    CallParameters& operator=(CallParameters&&) = default;
+    // CallParameters(std::string _senderAddress, std::string _codeAddress,
+    //     std::string _receiveAddress, std::string _origin, int64_t _gas, bytes _data,
+    //     bool _staticCall, bool _create)
+    //   : senderAddress(std::move(_senderAddress)),
+    //     codeAddress(std::move(_codeAddress)),
+    //     receiveAddress(std::move(_receiveAddress)),
+    //     origin(std::move(_origin)),
+    //     gas(_gas),
+    //     data(std::move(_data)),
+    //     staticCall(_staticCall),
+    //     create(_create)
+    // {}
+    // CallParameters() = default;
+    // CallParameters(const CallParameters&) = default;
+    // CallParameters(CallParameters&&) = default;
+    // CallParameters& operator=(const CallParameters&) = default;
+    // CallParameters& operator=(CallParameters&&) = default;
 
-    std::string senderAddress;   /// address of the transaction sender
-    std::string codeAddress;     /// address of the contract
-    std::string receiveAddress;  /// address of the transaction receiver
+    std::string senderAddress;
+    std::string codeAddress;
+    std::string receiveAddress;
     std::string origin;
     int64_t gas;
-    bytesConstRef data;       /// transaction data
-    bool staticCall = false;  /// only true when the transaction is a message call
-    bool create = false;      // is create?
+    bytes data;       /// transaction data
+    bool staticCall;  /// only true when the transaction is a message call
+    bool create;      // is create?
+};
+
+struct CallResults
+{
+    using Ptr = std::shared_ptr<CallResults>;
+    using ConstPtr = std::shared_ptr<const CallResults>;
+
+    int32_t status;
+    int64_t gasAvailable;
+    std::string message;
+
+    bytes output;
+    std::vector<bcos::protocol::LogEntry> logEntries();
+    std::string to;
+    std::optional<u256> createSalt;
 };
 
 struct EVMSchedule
