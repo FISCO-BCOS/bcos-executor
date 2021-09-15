@@ -78,11 +78,10 @@ evmc_bytes32 evm_hash_fn(const uint8_t* data, size_t size)
 }  // namespace
 
 HostContext::HostContext(std::weak_ptr<TransactionExecutive> executive,
-    CallParameters::ConstPtr callParameters, bcos::storage::Table table, unsigned _depth)
+    CallParameters::ConstPtr callParameters, bcos::storage::Table table)
   : m_executive(std::move(executive)),
     m_callParameters(std::move(callParameters)),
-    m_table(std::move(table)),
-    m_depth(_depth)
+    m_table(std::move(table))
 {
     interface = getHostInterface();
     wasm_interface = getWasmHostInterface();

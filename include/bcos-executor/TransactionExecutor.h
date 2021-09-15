@@ -136,8 +136,8 @@ private:
     std::string newEVMAddress(
         const std::string_view& _sender, bytesConstRef _init, u256 const& _salt);
 
-    protocol::ExecutionResult::Ptr createExecutionResult(
-        std::shared_ptr<TransactionExecutive> executive);
+    // protocol::ExecutionResult::Ptr createExecutionResult(
+    //     std::shared_ptr<TransactionExecutive> executive);
 
     txpool::TxPoolInterface::Ptr m_txpool;
     std::shared_ptr<storage::TransactionalStorageInterface> m_backendStorage;

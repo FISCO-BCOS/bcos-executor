@@ -427,7 +427,7 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
 
         m_txpool->asyncFillBlock(std::move(txhashes),
             [input, hash = input->transactionHash(), blockContext = std::move(blockContext),
-                callParameters = std::move(callParameters),
+                callParameters = std::move(callParameters), contract = std::move(contract),
                 callback](Error::Ptr error, bcos::protocol::TransactionsPtr transactons) {
                 if (error)
                 {
@@ -446,9 +446,7 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
 
                 auto tx = (*transactons)[0];
                 auto executive = std::make_shared<TransactionExecutive>(
-                    std::move(blockContext), input->contextID());
-
-                auto contract = executive->contractAddress();
+                    std::move(blockContext), contract, input->contextID());
 
                 blockContext->insertExecutive(input->contextID(), contract, executive);
 
@@ -467,7 +465,8 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
     }
     case bcos::protocol::ExecutionParams::EXTERNAL_CALL:
     {
-        auto executive = std::make_shared<TransactionExecutive>(blockContext, input, staticCall);
+        auto executive =
+            std::make_shared<TransactionExecutive>(blockContext, contract, input->contextID());
 
         auto contract = executive->contractAddress();
         blockContext->insertExecutive(input->contextID(), contract, executive);
@@ -660,6 +659,7 @@ BlockContext::Ptr TransactionExecutor::createBlockContext(
     //         }
     //     }
     // });
+
     return context;
 }
 
@@ -680,15 +680,15 @@ std::string TransactionExecutor::newEVMAddress(
     return string((char*)hash.data(), 20);
 }
 
-protocol::ExecutionResult::Ptr TransactionExecutor::createExecutionResult(
-    std::shared_ptr<TransactionExecutive> executive)
-{
-    // auto executionResult = m_executionResultFactory->createExecutionResult();
-    // executionResult->setContextID(executive->contextID());
-    // executionResult->setStatus((int32_t)executive->status());
-    // executionResult->setGasAvailable(executive->gasLeft());
-    // executionResult->setLogEntries(executive->logs());
-    // executionResult->setOutput(std::move(executive->takeOutput().takeBytes()));
-    // executionResult->setStaticCall(executive->callParameters().staticCall);
-    // executionResult->setStaticCall(bool staticCall)
-}
+// protocol::ExecutionResult::Ptr TransactionExecutor::createExecutionResult(
+//     std::shared_ptr<TransactionExecutive> executive)
+// {
+// auto executionResult = m_executionResultFactory->createExecutionResult();
+// executionResult->setContextID(executive->contextID());
+// executionResult->setStatus((int32_t)executive->status());
+// executionResult->setGasAvailable(executive->gasLeft());
+// executionResult->setLogEntries(executive->logs());
+// executionResult->setOutput(std::move(executive->takeOutput().takeBytes()));
+// executionResult->setStaticCall(executive->callParameters().staticCall);
+// executionResult->setStaticCall(bool staticCall)
+// }

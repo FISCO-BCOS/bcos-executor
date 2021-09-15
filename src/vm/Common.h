@@ -105,10 +105,10 @@ struct CallParameters
     std::string codeAddress;
     std::string receiveAddress;
     std::string origin;
-    int64_t gas;
+    int64_t gas = 0;
     bytes data;       /// transaction data
-    bool staticCall;  /// only true when the transaction is a message call
-    bool create;      // is create?
+    bool staticCall = false;  /// only true when the transaction is a message call
+    bool create = false;      // is create?
 };
 
 struct CallResults
@@ -116,8 +116,8 @@ struct CallResults
     using Ptr = std::shared_ptr<CallResults>;
     using ConstPtr = std::shared_ptr<const CallResults>;
 
-    int32_t status;
-    int64_t gasAvailable;
+    int32_t status = 0;
+    int64_t gasAvailable = 0;
     std::string message;
 
     bytes output;

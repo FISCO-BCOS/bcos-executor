@@ -54,28 +54,6 @@ namespace precompiled
 struct PrecompiledExecResult;
 }
 
-/**
- * @brief Message-call/contract-creation executor; useful for executing
- * transactions.
- *
- * Two ways of using this class - either as a transaction executive or a
- * CALL/CREATE executive.
- *
- * In the first use, after construction, begin with initialize(), then execute()
- * and end with finalize(). Call go() after execute() only if it returns false.
- *
- * In the second use, after construction, begin with call() or create(). Call
- * go() after call()/create() only if it returns false.
- *
- * Example:
- * @code
- * TransactionExecutive e(state, blockchain, 0);
- * e.initialize(transaction);
- * if (!e.execute())
- *    e.go();
- * e.finalize();
- * @endcode
- */
 namespace executor
 {
 class HostContext;
@@ -100,25 +78,22 @@ public:
     virtual ~TransactionExecutive() {}
     void operator=(TransactionExecutive) = delete;
 
-    void setReturnCallback(returnCallback _callback) { m_returnCallback = _callback; }
+    // void setReturnCallback(returnCallback _callback) { m_returnCallback = _callback; }
 
-    void callReturnCallback(Error::Ptr e, protocol::ExecutionResult::Ptr result)
-    {
-        m_returnCallback(std::move(e), std::move(result));
-    }
+    // void callReturnCallback(Error::Ptr e, protocol::ExecutionResult::Ptr result)
+    // {
+    //     m_returnCallback(std::move(e), std::move(result));
+    // }
 
-    bool continueExecution(
-        bytes&& output, int32_t status, int64_t gasLeft, std::string_view newAddress);
+    // bool continueExecution(
+    //     bytes&& output, int32_t status, int64_t gasLeft, std::string_view newAddress);
 
-    evmc_result waitReturnValue(Error::Ptr e, protocol::ExecutionResult::Ptr result);
+    // evmc_result waitReturnValue(Error::Ptr e, protocol::ExecutionResult::Ptr result);
 
     CallResults::Ptr execute(CallParameters::ConstPtr callParameters);
 
     /// Revert all changes made to the state by this execution.
-    void revert();
-
-    /// print exception to log
-    // void loggingException();
+    // void revert();
 
     void reset()
     {
@@ -142,11 +117,14 @@ public:
     std::string_view contractAddress() { return m_contractAddress; }
 
 private:
-    std::shared_ptr<HostContext> call(CallParameters::ConstPtr callParameters);
-    std::shared_ptr<HostContext> create(CallParameters::ConstPtr callParameters);
-    bool go(std::shared_ptr<HostContext> hostContext);
+    std::tuple<std::shared_ptr<HostContext>, CallResults::Ptr> call(
+        CallParameters::ConstPtr callParameters);
+    std::tuple<std::shared_ptr<HostContext>, CallResults::Ptr> create(
+        CallParameters::ConstPtr callParameters);
+    CallResults::Ptr go(std::shared_ptr<HostContext> hostContext);
 
-    void parseEVMCResult(bool isCreate, std::shared_ptr<Result> _result);
+    CallResults::Ptr parseEVMCResult(bool isCreate, std::shared_ptr<Result> _result);
+
     void writeErrInfoToOutput(std::string const& errInfo);
     void updateGas(std::shared_ptr<precompiled::PrecompiledExecResult> _callResult);
 
@@ -158,7 +136,7 @@ private:
     int64_t m_contextID = 0;
     crypto::Hash::Ptr m_hashImpl;
 
-    owning_bytes_ref m_output;  ///< Execution output.
+    // owning_bytes_ref m_output;  ///< Execution output.
 
     // protocol::TransactionStatus m_excepted =
     //     protocol::TransactionStatus::None;  ///< Details if the VM's execution
@@ -167,9 +145,6 @@ private:
 
     int64_t m_baseGasRequired = 0;  ///< The base amount of gas requried for executing
                                     ///< this transaction.
-    // int64_t m_remainGas = 0;        ///< The gas for EVM code execution. Initial amount before
-    // go()
-    //                                 ///< execution, final amount after go() execution.
 
     protocol::LogEntriesPtr m_logs =
         std::make_shared<protocol::LogEntries>();  ///< The log entries created by
@@ -177,15 +152,15 @@ private:
                                                    ///< finalize().
 
     // std::string m_newAddress;
-    size_t m_savepoint = 0;
+    // size_t m_savepoint = 0;
     std::shared_ptr<wasm::GasInjector> m_gasInjector;
 
-    executor::returnCallback m_returnCallback = nullptr;
-    std::function<void(
-        bytes&& output, int32_t status, int64_t gasLeft, std::string_view newAddress)>
-        m_waitResult = nullptr;
+    // executor::returnCallback m_returnCallback = nullptr;
+    // std::function<void(
+    //     bytes&& output, int32_t status, int64_t gasLeft, std::string_view newAddress)>
+    //     m_waitResult = nullptr;
 
-    bool m_finished = false;
+    // bool m_finished = false;
 };
 
 }  // namespace executor

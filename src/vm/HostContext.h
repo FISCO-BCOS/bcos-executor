@@ -38,7 +38,7 @@ class HostContext : public evmc_host_context
 public:
     /// Full constructor.
     HostContext(std::weak_ptr<TransactionExecutive> executive,
-        CallParameters::ConstPtr callParameters, bcos::storage::Table table, unsigned _depth);
+        CallParameters::ConstPtr callParameters, bcos::storage::Table table);
     ~HostContext() = default;
 
     HostContext(HostContext const&) = delete;
@@ -122,7 +122,7 @@ public:
     unsigned depth() const { return m_depth; }
     bool isCreate() const { return m_callParameters->create; }
     bool staticCall() const { return m_callParameters->staticCall; }
-    int64_t gas() const { return m_executive.lock()->gas(); }
+    int64_t gas() const { return m_callParameters->gas; }
 
 private:
     void depositFungibleAsset(
