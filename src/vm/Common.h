@@ -25,6 +25,7 @@
 #include "bcos-framework/libprotocol/LogEntry.h"
 #include "bcos-framework/libprotocol/TransactionStatus.h"
 #include "bcos-framework/libutilities/Exceptions.h"
+#include "interfaces/executor/ExecutionResult.h"
 #include <evmc/instructions.h>
 #include <functional>
 #include <set>
@@ -83,30 +84,12 @@ struct CallParameters
     using Ptr = std::shared_ptr<CallParameters>;
     using ConstPtr = std::shared_ptr<const CallParameters>;
 
-    // CallParameters(std::string _senderAddress, std::string _codeAddress,
-    //     std::string _receiveAddress, std::string _origin, int64_t _gas, bytes _data,
-    //     bool _staticCall, bool _create)
-    //   : senderAddress(std::move(_senderAddress)),
-    //     codeAddress(std::move(_codeAddress)),
-    //     receiveAddress(std::move(_receiveAddress)),
-    //     origin(std::move(_origin)),
-    //     gas(_gas),
-    //     data(std::move(_data)),
-    //     staticCall(_staticCall),
-    //     create(_create)
-    // {}
-    // CallParameters() = default;
-    // CallParameters(const CallParameters&) = default;
-    // CallParameters(CallParameters&&) = default;
-    // CallParameters& operator=(const CallParameters&) = default;
-    // CallParameters& operator=(CallParameters&&) = default;
-
     std::string senderAddress;
     std::string codeAddress;
     std::string receiveAddress;
     std::string origin;
     int64_t gas = 0;
-    bytes data;       /// transaction data
+    bytes data;               /// transaction data
     bool staticCall = false;  /// only true when the transaction is a message call
     bool create = false;      // is create?
 };
@@ -121,10 +104,30 @@ struct CallResults
     std::string message;
 
     bytes output;
-    std::vector<bcos::protocol::LogEntry> logEntries();
+    std::vector<bcos::protocol::LogEntry> logEntries;
     std::string to;
     std::optional<u256> createSalt;
 };
+
+inline bcos::protocol::ExecutionResult::Ptr toExecutionResult(
+    bcos::protocol::ExecutionResultFactory::Ptr factory, CallResults::Ptr&& callResults)
+{
+    auto executionResult = factory->createExecutionResult();
+    executionResult->setStatus(callResults->status);
+    executionResult->setMessage(std::move(callResults->message));
+    // executionResult->setStaticCall(callResults->status)
+    if (callResults->createSalt)
+    {
+        executionResult->setCreateSalt(std::move(*callResults->createSalt));
+    }
+    executionResult->setGasAvailable(callResults->gasAvailable);
+    executionResult->setLogEntries(std::make_shared<std::vector<bcos::protocol::LogEntry>>(
+        std::move(callResults->logEntries)));
+    executionResult->setOutput(std::move(callResults->output));
+    executionResult->setTo(std::move(callResults->to));
+
+    return executionResult;
+}
 
 struct EVMSchedule
 {

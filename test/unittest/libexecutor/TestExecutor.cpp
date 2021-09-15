@@ -20,6 +20,7 @@
  */
 
 #include "../mock/MockExecutionParams.h"
+#include "../mock/MockExecutionResult.h"
 #include "../mock/MockTransactionalStorage.h"
 #include "../mock/MockTxPool.h"
 #include "bcos-executor/TransactionExecutor.h"
@@ -47,11 +48,6 @@ namespace bcos
 {
 namespace test
 {
-class MockExecutionResultFactory : public ExecutionResultFactory
-{
-    ExecutionResult::Ptr createExecutionResult() override { return nullptr; }
-};
-
 struct TransactionExecutorFixture
 {
     TransactionExecutorFixture()
@@ -166,6 +162,8 @@ BOOST_AUTO_TEST_CASE(executeTransaction_DeployHelloWorld)
 
     auto result = executePromise.get_future().get();
     BOOST_CHECK_EQUAL(result->status(), 0);
+
+    BOOST_CHECK(result->message().empty());
 
     // auto executive = std::make_shared<TransactionExecutive>(executiveContext);
     // auto receipt = executor->executeTransaction(tx, executive);

@@ -426,7 +426,7 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
         txhashes->push_back(input->transactionHash());
 
         m_txpool->asyncFillBlock(std::move(txhashes),
-            [input, hash = input->transactionHash(), blockContext = std::move(blockContext),
+            [this, input, hash = input->transactionHash(), blockContext = std::move(blockContext),
                 callParameters = std::move(callParameters), contract = std::move(contract),
                 callback](Error::Ptr error, bcos::protocol::TransactionsPtr transactons) {
                 if (error)
@@ -452,7 +452,12 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
 
                 try
                 {
-                    executive->execute(callParameters);
+                    auto callResults = executive->execute(callParameters);
+
+                    auto executionResult =
+                        toExecutionResult(m_executionResultFactory, std::move(callResults));
+                    executionResult->setType(ExecutionResult::FINISHED);
+                    callback(nullptr, std::move(executionResult));
                 }
                 catch (std::exception& e)
                 {

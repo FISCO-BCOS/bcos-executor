@@ -78,22 +78,7 @@ public:
     virtual ~TransactionExecutive() {}
     void operator=(TransactionExecutive) = delete;
 
-    // void setReturnCallback(returnCallback _callback) { m_returnCallback = _callback; }
-
-    // void callReturnCallback(Error::Ptr e, protocol::ExecutionResult::Ptr result)
-    // {
-    //     m_returnCallback(std::move(e), std::move(result));
-    // }
-
-    // bool continueExecution(
-    //     bytes&& output, int32_t status, int64_t gasLeft, std::string_view newAddress);
-
-    // evmc_result waitReturnValue(Error::Ptr e, protocol::ExecutionResult::Ptr result);
-
     CallResults::Ptr execute(CallParameters::ConstPtr callParameters);
-
-    /// Revert all changes made to the state by this execution.
-    // void revert();
 
     void reset()
     {
@@ -136,13 +121,6 @@ private:
     int64_t m_contextID = 0;
     crypto::Hash::Ptr m_hashImpl;
 
-    // owning_bytes_ref m_output;  ///< Execution output.
-
-    // protocol::TransactionStatus m_excepted =
-    //     protocol::TransactionStatus::None;  ///< Details if the VM's execution
-    //                                         ///< resulted in an exception.
-    // std::string m_exceptionReason;
-
     int64_t m_baseGasRequired = 0;  ///< The base amount of gas requried for executing
                                     ///< this transaction.
 
@@ -151,16 +129,7 @@ private:
                                                    ///< this transaction. Set by
                                                    ///< finalize().
 
-    // std::string m_newAddress;
-    // size_t m_savepoint = 0;
     std::shared_ptr<wasm::GasInjector> m_gasInjector;
-
-    // executor::returnCallback m_returnCallback = nullptr;
-    // std::function<void(
-    //     bytes&& output, int32_t status, int64_t gasLeft, std::string_view newAddress)>
-    //     m_waitResult = nullptr;
-
-    // bool m_finished = false;
 };
 
 }  // namespace executor
