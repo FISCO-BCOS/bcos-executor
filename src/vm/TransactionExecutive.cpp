@@ -237,8 +237,7 @@ std::tuple<std::shared_ptr<HostContext>, CallParameters::Ptr> TransactionExecuti
     else
     {
         auto table = m_blockContext->storage()->openTable(
-            getContractTableName(callParameters->receiveAddress, m_blockContext->isWasm(),
-                m_blockContext->hashHandler()));
+            getContractTableName(callParameters->receiveAddress, m_blockContext->isWasm()));
         auto hostContext = make_shared<HostContext>(
             shared_from_this(), std::move(callParameters), std::move(*table));
 
@@ -296,8 +295,7 @@ std::tuple<std::shared_ptr<HostContext>, CallParameters::Ptr> TransactionExecuti
     auto newAddress = callParameters->codeAddress;
 
     // Create the table first
-    auto tableName =
-        getContractTableName(newAddress, m_blockContext->isWasm(), m_blockContext->hashHandler());
+    auto tableName = getContractTableName(newAddress, m_blockContext->isWasm());
     m_blockContext->storage()->createTable(tableName, STORAGE_VALUE);
 
     auto table = m_blockContext->storage()->openTable(tableName);
@@ -705,7 +703,7 @@ CallParameters::Ptr TransactionExecutive::parseEVMCResult(
 // }
 
 std::string TransactionExecutive::getContractTableName(
-    const std::string_view& _address, bool _isWasm, crypto::Hash::Ptr _hashImpl)
+    const std::string_view& _address, bool _isWasm)
 {
     if (_isWasm)
     {
@@ -714,6 +712,5 @@ std::string TransactionExecutive::getContractTableName(
 
     std::string address(_address);
 
-    toChecksumAddress(address, _hashImpl);
     return std::string("c_").append(address);
 }

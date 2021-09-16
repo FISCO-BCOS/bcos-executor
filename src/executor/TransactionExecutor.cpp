@@ -32,6 +32,7 @@
 // #include "../precompiled/TableFactoryPrecompiled.h"
 // #include "../precompiled/Utilities.h"
 // #include "../precompiled/extension/DagTransferPrecompiled.h"
+#include "../ChecksumAddress.h"
 #include "../vm/BlockContext.h"
 #include "../vm/Common.h"
 #include "../vm/Precompiled.h"
@@ -419,13 +420,12 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
         create = true;
         if (input->createSalt())
         {
-            contract = boost::algorithm::hex(
-                newEVMAddress(input->from(), input->input(), input->createSalt().value()));
+            contract = newEVMAddress(input->from(), input->input(), input->createSalt().value());
         }
         else
         {
-            contract = boost::algorithm::hex(
-                newEVMAddress(input->from(), blockContext->currentNumber(), input->contextID()));
+            contract =
+                newEVMAddress(input->from(), blockContext->currentNumber(), input->contextID());
         }
     }
     else
@@ -481,7 +481,8 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
 
                 callParameters->data = tx->input().toBytes();
                 auto sender = tx->sender();
-                boost::algorithm::hex_lower(sender.begin(), sender.end(), std::back_inserter(callParameters->senderAddress));
+                boost::algorithm::hex_lower(sender.begin(), sender.end(),
+                    std::back_inserter(callParameters->senderAddress));
                 // callParameters->senderAddress = boost::algorithm::hex_lower(tx->sender());
                 callParameters->origin = tx->sender();
 
@@ -741,7 +742,13 @@ std::string TransactionExecutor::newEVMAddress(
     auto hash =
         m_hashImpl->hash(std::string(sender) + boost::lexical_cast<std::string>(blockNumber) +
                          boost::lexical_cast<std::string>(contextID));
-    return string((char*)hash.data(), 20);
+
+    std::string hexAddress;
+    boost::algorithm::hex(hash.data(), hash.data() + 20, std::back_inserter(hexAddress));
+
+    toChecksumAddress(hexAddress, m_hashImpl);
+
+    return hexAddress;
 }
 
 std::string TransactionExecutor::newEVMAddress(

@@ -118,8 +118,7 @@ private:
     void writeErrInfoToOutput(std::string const& errInfo);
     void updateGas(std::shared_ptr<precompiled::PrecompiledExecResult> _callResult);
 
-    std::string getContractTableName(
-        const std::string_view& _address, bool _isWasm, crypto::Hash::Ptr _hashImpl);
+    std::string getContractTableName(const std::string_view& _address, bool _isWasm);
 
     CallParameters::Ptr getPullMessage()  // call by host context
     {
