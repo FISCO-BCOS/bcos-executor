@@ -143,6 +143,7 @@ size_t copyCode(evmc_host_context* _context, const evmc_address*, size_t, uint8_
     auto& hostContext = static_cast<HostContext&>(*_context);
 
     hostContext.setCode(bytes((bcos::byte*)_bufferData, (bcos::byte*)_bufferData + _bufferSize));
+    return _bufferSize;
     // auto addr = fromEvmC(*_addr);
     //   auto code = hostContext.codeAt(addr);
 
@@ -399,6 +400,7 @@ size_t wasmCopyCode(evmc_host_context* _context, const uint8_t*, int32_t, size_t
     auto& hostContext = static_cast<HostContext&>(*_context);
 
     hostContext.setCode(bytes((bcos::byte*)_bufferData, (bcos::byte*)_bufferData + _bufferSize));
+    return _bufferSize;
 
     //   hostContext.setCode(bcos::bytes(_bufferData, _bufferSize));
 

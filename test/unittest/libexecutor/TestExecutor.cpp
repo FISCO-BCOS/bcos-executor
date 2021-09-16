@@ -123,12 +123,12 @@ BOOST_AUTO_TEST_CASE(executeTransaction_DeployHelloWorld)
             ->data(),
         64);
     cout << keyPair->secretKey()->hex() << endl << keyPair->publicKey()->hex() << endl;
-    auto to = keyPair->address(cryptoSuite->hashImpl()).asBytes();
+    auto to = *toHexString(keyPair->address(cryptoSuite->hashImpl()).asBytes());
     auto helloworld = string(helloBin);
 
     auto input = *fromHexString(helloworld);
     auto tx = fakeTransaction(cryptoSuite, keyPair, "", input, 101, 100001, "1", "1");
-    auto sender = string_view((char*)tx->sender().data(), tx->sender().size());
+    auto sender = *toHexString(string_view((char*)tx->sender().data(), tx->sender().size()));
 
     auto hash = tx->hash();
     txpool->hash2Transaction.emplace(hash, tx);
@@ -201,6 +201,7 @@ BOOST_AUTO_TEST_CASE(executeTransaction_DeployHelloWorld)
             BOOST_CHECK_GT(it.second.getField(STORAGE_VALUE).size(), 0);
         }
     }
+
     BOOST_CHECK(hasCode);
 
     // EXECUTOR_LOG(TRACE) << "Checking table: " << tableName;

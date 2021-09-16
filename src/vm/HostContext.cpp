@@ -46,11 +46,9 @@ using namespace bcos::protocol;
 
 namespace  // anonymous
 {
-static unsigned const c_depthLimit = 1024;
-
 /// Upper bound of stack space needed by single CALL/CREATE execution. Set
 /// experimentally.
-static size_t const c_singleExecutionStackSize = 100 * 1024;
+// static size_t const c_singleExecutionStackSize = 100 * 1024;
 
 static const std::string SYS_ASSET_NAME = "name";
 static const std::string SYS_ASSET_FUNGIBLE = "fungible";
@@ -698,6 +696,7 @@ std::vector<uint64_t> HostContext::getNotFungibleAssetIDs(
 {
     (void)_account;
     (void)_assetName;
+    return std::vector<uint64_t>();
     //   auto tableName =
     //       getContractTableName(_account, true, m_blockContext->hashHandler());
     //   auto table = m_tableFactory->openTable(tableName);

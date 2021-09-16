@@ -23,6 +23,7 @@
 
 #include "bcos-framework/libutilities/FixedBytes.h"
 #include "bcos-framework/libutilities/Log.h"
+#include <boost/format.hpp>
 #include <memory>
 
 #define EXECUTOR_LOG(LEVEL) BCOS_LOG(LEVEL) << LOG_BADGE("EXECUTOR")
@@ -32,5 +33,9 @@ namespace bcos
 {
 namespace executor
 {
+    // template <class T>
+    // inline std::string fromHex(const T& in) {
+    //     // return boost::format();
+    // }
 }  // namespace executor
 }  // namespace bcos

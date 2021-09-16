@@ -483,16 +483,6 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
                 try
                 {
                     executive->start(std::move(callParameters));
-
-                    // auto callResults = executive->execute(callParameters);
-                    // TransactionExecutive::Coroutine::push_type executiveSource(
-                    //     std::bind(&TransactionExecutive::executeByCoroutine(Coroutine::pull_type),
-                    //         executive, std::placeholders::_1));
-
-                    // auto executionResult =
-                    //     toExecutionResult(m_executionResultFactory, std::move(callResults));
-                    // executionResult->setType(ExecutionResult::FINISHED);
-                    // callback(nullptr, std::move(executionResult));
                 }
                 catch (std::exception& e)
                 {
@@ -516,11 +506,6 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
         try
         {
             executive->start(callParameters);
-
-            // auto executionResult =
-            //     toExecutionResult(m_executionResultFactory, std::move(callResults));
-            // executionResult->setType(ExecutionResult::FINISHED);
-            // callback(nullptr, std::move(executionResult));
         }
         catch (std::exception& e)
         {

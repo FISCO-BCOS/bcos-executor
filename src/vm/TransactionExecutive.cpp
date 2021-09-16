@@ -49,35 +49,35 @@ using errinfo_evmcStatusCode = boost::error_info<struct tag_evmcStatusCode, evmc
 
 namespace
 {
-evmc_status_code transactionStatusToEvmcStatus(protocol::TransactionStatus ex) noexcept
-{
-    switch (ex)
-    {
-    case TransactionStatus::None:
-        return EVMC_SUCCESS;
+// evmc_status_code transactionStatusToEvmcStatus(protocol::TransactionStatus ex) noexcept
+// {
+//     switch (ex)
+//     {
+//     case TransactionStatus::None:
+//         return EVMC_SUCCESS;
 
-    case TransactionStatus::RevertInstruction:
-        return EVMC_REVERT;
+//     case TransactionStatus::RevertInstruction:
+//         return EVMC_REVERT;
 
-    case TransactionStatus::OutOfGas:
-        return EVMC_OUT_OF_GAS;
+//     case TransactionStatus::OutOfGas:
+//         return EVMC_OUT_OF_GAS;
 
-    case TransactionStatus::BadInstruction:
-        return EVMC_UNDEFINED_INSTRUCTION;
+//     case TransactionStatus::BadInstruction:
+//         return EVMC_UNDEFINED_INSTRUCTION;
 
-    case TransactionStatus::OutOfStack:
-        return EVMC_STACK_OVERFLOW;
+//     case TransactionStatus::OutOfStack:
+//         return EVMC_STACK_OVERFLOW;
 
-    case TransactionStatus::StackUnderflow:
-        return EVMC_STACK_UNDERFLOW;
+//     case TransactionStatus::StackUnderflow:
+//         return EVMC_STACK_UNDERFLOW;
 
-    case TransactionStatus::BadJumpDestination:
-        return EVMC_BAD_JUMP_DESTINATION;
+//     case TransactionStatus::BadJumpDestination:
+//         return EVMC_BAD_JUMP_DESTINATION;
 
-    default:
-        return EVMC_FAILURE;
-    }
-}
+//     default:
+//         return EVMC_FAILURE;
+//     }
+// }
 
 }  // namespace
 
@@ -112,7 +112,6 @@ void TransactionExecutive::start(CallParameters::Ptr callParameters)
             EXECUTOR_LOG(TRACE) << "execution finished";
         }));
 
-    // (*m_pushMessage)({callParameters, {}});
     pushMessage(std::move(callParameters));
 }
 
