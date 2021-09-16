@@ -84,37 +84,36 @@ struct CallParameters
     using Ptr = std::shared_ptr<CallParameters>;
     using ConstPtr = std::shared_ptr<const CallParameters>;
 
-    std::string senderAddress;
-    std::string codeAddress;
-    std::string receiveAddress;
-    std::string origin;
-    int64_t gas = 0;
-    bytes data;               /// transaction data
-    bool staticCall = false;  /// only true when the transaction is a message call
-    bool create = false;      // is create?
-};
+    enum Type
+    {
+        MESSAGE = 0,
+        FINISHED = 1,
+    };
 
-struct CallResults
-{
-    using Ptr = std::shared_ptr<CallResults>;
-    using ConstPtr = std::shared_ptr<const CallResults>;
+    Type type;
+    std::string senderAddress;   // by request or response
+    std::string codeAddress;     // by request or response
+    std::string receiveAddress;  // by request or response
+    std::string origin;          // by request or response
 
-    int32_t status = 0;
-    int64_t gasAvailable = 0;
-    std::string message;
+    int64_t gas = 0;          // by request or response
+    bytes data;               // by request or response, transaction data
+    bool staticCall = false;  // by request or response
+    bool create = false;      // by request, is create?
 
-    bytes output;
-    std::vector<bcos::protocol::LogEntry> logEntries;
-    std::string to;
-    std::optional<u256> createSalt;
 
-    std::string newEVMContractAddress;
+    int status;                                        // by response
+    std::string message;                               // by response
+    std::vector<bcos::protocol::LogEntry> logEntries;  // by response
+    std::optional<u256> createSalt;                    // by response
+    std::string newEVMContractAddress;                 // by response
 };
 
 inline bcos::protocol::ExecutionResult::Ptr toExecutionResult(
-    bcos::protocol::ExecutionResultFactory::Ptr factory, CallResults::Ptr&& callResults)
+    bcos::protocol::ExecutionResultFactory::Ptr factory, CallParameters::Ptr&& callResults)
 {
     auto executionResult = factory->createExecutionResult();
+
     executionResult->setStatus(callResults->status);
     executionResult->setMessage(std::move(callResults->message));
     // executionResult->setStaticCall(callResults->status)
@@ -122,11 +121,11 @@ inline bcos::protocol::ExecutionResult::Ptr toExecutionResult(
     {
         executionResult->setCreateSalt(std::move(*callResults->createSalt));
     }
-    executionResult->setGasAvailable(callResults->gasAvailable);
+    executionResult->setGasAvailable(callResults->gas);
     executionResult->setLogEntries(std::make_shared<std::vector<bcos::protocol::LogEntry>>(
         std::move(callResults->logEntries)));
-    executionResult->setOutput(std::move(callResults->output));
-    executionResult->setTo(std::move(callResults->to));
+    executionResult->setOutput(std::move(callResults->data));
+    executionResult->setTo(std::move(callResults->receiveAddress));
     executionResult->setNewEVMContractAddress(std::move(callResults->newEVMContractAddress));
 
     return executionResult;

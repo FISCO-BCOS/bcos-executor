@@ -139,21 +139,29 @@ void BlockContext::setAddress2Precompiled(
     m_address2Precompiled.insert(std::make_pair(address, precompiled));
 }
 
-void BlockContext::insertExecutive(
-    int64_t contextID, std::string_view contract, TransactionExecutive::Ptr executive)
+std::tuple<std::shared_ptr<TransactionExecutive>,
+    std::function<void(bcos::Error::Ptr&&, bcos::protocol::ExecutionResult::Ptr&&)>>&
+BlockContext::insertExecutive(int64_t contextID, std::string_view contract,
+    std::tuple<std::shared_ptr<TransactionExecutive>,
+        std::function<void(bcos::Error::Ptr&&, bcos::protocol::ExecutionResult::Ptr&&)>>
+        item)
 {
-    auto it = m_executives.find(std::tuple{executive->contextID(), executive->contractAddress()});
+    auto it = m_executives.find(std::tuple{contextID, contract});
     if (it != m_executives.end())
     {
         BOOST_THROW_EXCEPTION(
             BCOS_ERROR(-1, "Executive exists: " + boost::lexical_cast<std::string>(contextID)));
     }
 
-    m_executives.emplace(std::tuple{contextID, contract}, std::move(executive));
+    bool success;
+    std::tie(it, success) = m_executives.emplace(std::tuple{contextID, contract}, std::move(item));
+
+    return it->second;
 }
 
-std::shared_ptr<TransactionExecutive> BlockContext::getExecutive(
-    int64_t contextID, std::string_view contract)
+std::tuple<std::shared_ptr<TransactionExecutive>,
+    std::function<void(bcos::Error::Ptr&&, bcos::protocol::ExecutionResult::Ptr&&)>>&
+BlockContext::getExecutive(int64_t contextID, std::string_view contract)
 {
     auto it = m_executives.find({contextID, contract});
     if (it == m_executives.end())
@@ -164,18 +172,6 @@ std::shared_ptr<TransactionExecutive> BlockContext::getExecutive(
 
     return it->second;
 }
-
-// ExecutionResult::Ptr BlockContext::createExecutionResult(int64_t _contextID, CallParameters& _p)
-// {
-//     auto result = m_executionResultFactory->createExecutionResult();
-//     result->setType(protocol::ExecutionResult::EXTERNAL_CALL);
-//     result->setContextID(_contextID);
-//     result->setOutput(_p.data.toBytes());
-//     result->setTo(_p.codeAddress);
-//     result->setGasAvailable(_p.gas);
-//     result->setStaticCall(_p.staticCall);
-//     return result;
-// }
 
 ExecutionResult::Ptr BlockContext::createExecutionResult(
     int64_t _contextID, int64_t _gas, bytesConstRef _code, std::optional<u256> _salt)

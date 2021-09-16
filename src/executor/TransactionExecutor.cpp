@@ -33,6 +33,7 @@
 // #include "../precompiled/Utilities.h"
 // #include "../precompiled/extension/DagTransferPrecompiled.h"
 #include "../vm/BlockContext.h"
+#include "../vm/Common.h"
 #include "../vm/Precompiled.h"
 #include "../vm/TransactionExecutive.h"
 #include "Common.h"
@@ -48,6 +49,7 @@
 #include "interfaces/executor/ExecutionParams.h"
 #include "interfaces/executor/ExecutionResult.h"
 #include "interfaces/storage/StorageInterface.h"
+#include "libprotocol/LogEntry.h"
 #include <tbb/parallel_for.h>
 #include <boost/exception/detail/exception_ptr.hpp>
 #include <boost/lexical_cast.hpp>
@@ -428,9 +430,16 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
         contract = input->to();
     }
 
-    auto callParameters = std::make_shared<CallParameters>(
-        CallParameters{std::string(input->from()), contract, contract, std::string(input->origin()),
-            input->gasAvailable(), input->input().toBytes(), staticCall, create});
+    auto callParameters = std::make_shared<CallParameters>();
+    callParameters->type = CallParameters::MESSAGE;
+    callParameters->origin = input->origin();
+    callParameters->senderAddress = input->from();
+    callParameters->receiveAddress = contract;
+    callParameters->codeAddress = contract;
+    callParameters->create = create;
+    callParameters->gas = input->gasAvailable();
+    callParameters->data = input->input().toBytes();
+    callParameters->staticCall = staticCall;
 
     switch (input->type())
     {
@@ -460,24 +469,30 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
                 }
 
                 auto tx = (*transactons)[0];
-                auto executive = std::make_shared<TransactionExecutive>(
-                    std::move(blockContext), contract, input->contextID());
+                auto executive = std::make_shared<TransactionExecutive>(std::move(blockContext),
+                    contract, input->contextID(),
+                    std::bind(&TransactionExecutor::onCallResultsCallback, this,
+                        std::placeholders::_1, std::placeholders::_2));
 
-                blockContext->insertExecutive(input->contextID(), contract, executive);
+                blockContext->insertExecutive(input->contextID(), contract, {executive, callback});
+
+                callParameters->data = tx->input().toBytes();
+                callParameters->senderAddress = tx->sender();
+                callParameters->origin = tx->sender();
 
                 try
                 {
-                    auto callResults = executive->executeByCoroutine(callParameters);
+                    executive->start(std::move(callParameters));
 
                     // auto callResults = executive->execute(callParameters);
                     // TransactionExecutive::Coroutine::push_type executiveSource(
                     //     std::bind(&TransactionExecutive::executeByCoroutine(Coroutine::pull_type),
                     //         executive, std::placeholders::_1));
 
-                    auto executionResult =
-                        toExecutionResult(m_executionResultFactory, std::move(callResults));
-                    executionResult->setType(ExecutionResult::FINISHED);
-                    callback(nullptr, std::move(executionResult));
+                    // auto executionResult =
+                    //     toExecutionResult(m_executionResultFactory, std::move(callResults));
+                    // executionResult->setType(ExecutionResult::FINISHED);
+                    // callback(nullptr, std::move(executionResult));
                 }
                 catch (std::exception& e)
                 {
@@ -491,19 +506,21 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
     case bcos::protocol::ExecutionParams::EXTERNAL_CALL:
     {
         auto executive =
-            std::make_shared<TransactionExecutive>(blockContext, contract, input->contextID());
+            std::make_shared<TransactionExecutive>(blockContext, contract, input->contextID(),
+                std::bind(&TransactionExecutor::onCallResultsCallback, this, std::placeholders::_1,
+                    std::placeholders::_2));
 
         auto contract = executive->contractAddress();
-        blockContext->insertExecutive(input->contextID(), contract, executive);
+        blockContext->insertExecutive(input->contextID(), contract, {executive, callback});
 
         try
         {
-            auto callResults = executive->executeByCoroutine(callParameters);
+            executive->start(callParameters);
 
-            auto executionResult =
-                toExecutionResult(m_executionResultFactory, std::move(callResults));
-            executionResult->setType(ExecutionResult::FINISHED);
-            callback(nullptr, std::move(executionResult));
+            // auto executionResult =
+            //     toExecutionResult(m_executionResultFactory, std::move(callResults));
+            // executionResult->setType(ExecutionResult::FINISHED);
+            // callback(nullptr, std::move(executionResult));
         }
         catch (std::exception& e)
         {
@@ -516,18 +533,14 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
     case bcos::protocol::ExecutionParams::EXTERNAL_RETURN:
     {
         auto executive = blockContext->getExecutive(input->contextID(), input->to());
+        std::get<1>(executive) = callback;
 
         // call the sink
-
-        // TODO: add logic to convert
-        auto callback = [&](std::shared_ptr<const bcos::executor::CallResults>&&) {
-            // TODO: convert callback to coroutine's callback
-        };
 
         // TODO: convert ExecutionParameters to CallParameters
         CallParameters::Ptr callParameters;
 
-        executive->getPushMessage()({callParameters, callback});
+        std::get<0>(executive)->pushMessage(std::move(callParameters));
 
         break;
     }
@@ -540,6 +553,35 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
         return;
     }
     }
+}
+
+void TransactionExecutor::onCallResultsCallback(
+    TransactionExecutive::Ptr executive, std::shared_ptr<CallParameters>&& response)
+{
+    auto it = m_blockContext->getExecutive(executive->contextID(), executive->contractAddress());
+    auto executionResult = m_executionResultFactory->createExecutionResult();
+    executionResult->setMessage(std::move(response->message));
+    if (response->type == CallParameters::MESSAGE)
+    {
+        executionResult->setType(ExecutionResult::EXTERNAL_CALL);
+    }
+    else
+    {
+        executionResult->setType(ExecutionResult::FINISHED);
+    }
+    executionResult->setTo(response->receiveAddress);
+    executionResult->setStatus(response->status);
+    executionResult->setContextID(executive->contextID());
+    if (response->createSalt)
+    {
+        executionResult->setCreateSalt(*response->createSalt);
+    }
+    executionResult->setStaticCall(response->staticCall);
+    executionResult->setNewEVMContractAddress(response->newEVMContractAddress);
+    executionResult->setOutput(std::move(response->data));
+    executionResult->setLogEntries(std::make_shared<LogEntries>(std::move(response->logEntries)));
+
+    std::get<1>(it)(nullptr, std::move(executionResult));
 }
 
 BlockContext::Ptr TransactionExecutor::createBlockContext(

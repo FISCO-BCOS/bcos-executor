@@ -199,21 +199,21 @@ evmc_bytes32 getBlockHash(evmc_host_context* _txContextPtr, int64_t _number)
     return toEvmC(hostContext.blockHash());
 }
 
-evmc_result create(HostContext& _txContext, evmc_message const* _msg) noexcept
-{
-    return _txContext.externalCreate(_msg);
-    // int64_t gas = _msg->gas;
-    // // u256 value = fromEvmC(_msg->value);
-    // bytesConstRef init = {_msg->input_data, _msg->input_size};
-    // u256 salt = fromEvmC(_msg->create2_salt);
-    // evmc_opcode opcode =
-    //     _msg->kind == EVMC_CREATE ? evmc_opcode::OP_CREATE : evmc_opcode::OP_CREATE2;
+// evmc_result create(HostContext& _txContext, evmc_message const* _msg) noexcept
+// {
+//     return _txContext.externalRequest(_msg);
+// int64_t gas = _msg->gas;
+// // u256 value = fromEvmC(_msg->value);
+// bytesConstRef init = {_msg->input_data, _msg->input_size};
+// u256 salt = fromEvmC(_msg->create2_salt);
+// evmc_opcode opcode =
+//     _msg->kind == EVMC_CREATE ? evmc_opcode::OP_CREATE : evmc_opcode::OP_CREATE2;
 
-    // // HostContext::create takes the sender address from .myAddress().
-    // assert(fromEvmC(_msg->sender) == _txContext.myAddress());
+// // HostContext::create takes the sender address from .myAddress().
+// assert(fromEvmC(_msg->sender) == _txContext.myAddress());
 
-    // return _txContext.create(gas, init, opcode, salt);
-}
+// return _txContext.create(gas, init, opcode, salt);
+// }
 
 evmc_result call(evmc_host_context* _context, const evmc_message* _msg) noexcept
 {
@@ -228,54 +228,60 @@ evmc_result call(evmc_host_context* _context, const evmc_message* _msg) noexcept
 
     auto& hostContext = static_cast<HostContext&>(*_context);
 
-    return hostContext.externalCall(_msg);
+    return hostContext.externalRequest(_msg);
 
-    switch (_msg->kind)
-    {
-    case EVMC_CREATE:
-    case EVMC_CREATE2:
-    {
-        return hostContext.externalCreate(_msg);
-        // CallParameters params(std::string(hostContext.myAddress()), std::string(), std::string(),
-        //     std::string(hostContext.origin()), _msg->gas,
-        //     bytesConstRef(_msg->input_data, _msg->input_size), hostContext.staticCall(), true);
+    // switch (_msg->kind)
+    // {
+    // case EVMC_CREATE:
+    // case EVMC_CREATE2:
+    // {
+    //     return hostContext.externalCreate(_msg);
+    //     // CallParameters params(std::string(hostContext.myAddress()), std::string(),
+    //     std::string(),
+    //     //     std::string(hostContext.origin()), _msg->gas,
+    //     //     bytesConstRef(_msg->input_data, _msg->input_size), hostContext.staticCall(),
+    //     true);
 
-        // u256 salt;
+    //     // u256 salt;
 
-        // if (_msg->kind == EVMC_CREATE2)
-        // {
-        //     salt = fromEvmC(_msg->create2_salt);
-        //     return hostContext.externalCreate(
-        //         std::move(params), std::make_optional(std::move(salt)));
-        // }
-        // else
-        // {
-        //     return hostContext.externalCreate(std::move(params), {});
-        // }
-        break;
-    }
-    case EVMC_CALLCODE:
-    case EVMC_DELEGATECALL:
-    {
-        // TODO: In the same block, the user can use CREATE2 to create a contract at the expected
-        // address, and then call it immediately. In the 3.0 architecture, using CALL is no problem,
-        // but when using DELEGATECALL or CALLCODE, the contract has not been submitted to storage,
-        // which will cause mistake
+    //     // if (_msg->kind == EVMC_CREATE2)
+    //     // {
+    //     //     salt = fromEvmC(_msg->create2_salt);
+    //     //     return hostContext.externalCreate(
+    //     //         std::move(params), std::make_optional(std::move(salt)));
+    //     // }
+    //     // else
+    //     // {
+    //     //     return hostContext.externalCreate(std::move(params), {});
+    //     // }
+    //     break;
+    // }
+    // case EVMC_CALLCODE:
+    // case EVMC_DELEGATECALL:
+    // {
+    //     // TODO: In the same block, the user can use CREATE2 to create a contract at the expected
+    //     // address, and then call it immediately. In the 3.0 architecture, using CALL is no
+    //     problem,
+    //     // but when using DELEGATECALL or CALLCODE, the contract has not been submitted to
+    //     storage,
+    //     // which will cause mistake
 
-        break;
-    }
-    case EVMC_CALL:
-    {
-        return hostContext.externalCall(_msg);
-        // CallParameters params(std::string(hostContext.myAddress()),
-        //     std::string(fromEvmC(_msg->destination)), std::string(fromEvmC(_msg->destination)),
-        //     std::string(hostContext.origin()), _msg->gas,
-        //     bytesConstRef(_msg->input_data, _msg->input_size), hostContext.staticCall(), false);
+    //     break;
+    // }
+    // case EVMC_CALL:
+    // {
+    //     return hostContext.externalCall(_msg);
+    //     // CallParameters params(std::string(hostContext.myAddress()),
+    //     //     std::string(fromEvmC(_msg->destination)),
+    //     std::string(fromEvmC(_msg->destination)),
+    //     //     std::string(hostContext.origin()), _msg->gas,
+    //     //     bytesConstRef(_msg->input_data, _msg->input_size), hostContext.staticCall(),
+    //     false);
 
-        // return hostContext.externalCall(std::move(params));
-        break;
-    }
-    }
+    //     // return hostContext.externalCall(std::move(params));
+    //     break;
+    // }
+    // }
 
     // return hostContext.externalCall(params);
 

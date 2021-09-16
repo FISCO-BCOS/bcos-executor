@@ -60,6 +60,7 @@ enum ExecutorVersion : int32_t
 class TransactionExecutive;
 class BlockContext;
 class PrecompiledContract;
+class CallParameters;
 
 using executionCallback =
     std::function<void(const Error::ConstPtr&, std::vector<protocol::ExecutionResult::Ptr>&)>;
@@ -130,6 +131,9 @@ private:
 
     void asyncExecute(const bcos::protocol::ExecutionParams::ConstPtr& input, bool staticCall,
         std::function<void(bcos::Error::Ptr&&, bcos::protocol::ExecutionResult::Ptr&&)> callback);
+
+    void onCallResultsCallback(std::shared_ptr<TransactionExecutive> executive,
+        std::shared_ptr<CallParameters>&& callResults);
 
     std::string newEVMAddress(
         const std::string_view& sender, int64_t blockNumber, int64_t contextID);

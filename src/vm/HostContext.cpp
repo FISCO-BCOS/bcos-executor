@@ -31,6 +31,7 @@
 #include <evmc/evmc.h>
 #include <boost/algorithm/string/split.hpp>
 #include <boost/thread.hpp>
+#include <boost/throw_exception.hpp>
 #include <algorithm>
 #include <exception>
 #include <limits>
@@ -133,7 +134,7 @@ void HostContext::set(const std::string_view& _key, std::string _value)
     m_table.setRow(_key, std::move(entry));
 }
 
-evmc_result HostContext::externalCreate(const evmc_message* _msg)
+evmc_result HostContext::externalRequest(const evmc_message* _msg)
 {
     // Coroutine here
 
@@ -148,29 +149,68 @@ evmc_result HostContext::externalCreate(const evmc_message* _msg)
     //     nullptr, m_blockContext->createExecutionResult(m_contextID, _p));
     // return m_executive->w
 
-    // TODO: create a params and create
-    (void)_msg;
-    auto callResults = std::make_shared<CallResults>();
+    // Convert evmc_message to CallParameters
+    auto request = std::make_shared<CallParameters>();
+    request->type = CallParameters::MESSAGE;
 
-    auto callParameters = m_executive.lock()->externalRequest(callResults);
+    if (_msg->input_size > 0)
+    {
+        request->data.assign(_msg->input_data, _msg->input_data + _msg->input_size);
+    }
 
-    // TODO: covert callParameters to evmc_result
+    request->senderAddress = myAddress();
+    request->origin = origin();
+    request->gas = _msg->gas;
+
+    switch (_msg->kind)
+    {
+    case EVMC_CREATE2:
+        request->createSalt = fromEvmC(_msg->create2_salt);
+        break;
+    case EVMC_CALL:
+        request->receiveAddress = fromEvmC(_msg->destination);
+        request->codeAddress = request->receiveAddress;
+        break;
+    case EVMC_DELEGATECALL:
+    case EVMC_CALLCODE:
+        BOOST_THROW_EXCEPTION(BCOS_ERROR(-1, "Unspoort opcode EVM_DELEGATECALL or EVM_CALLCODE"));
+        break;
+    case EVMC_CREATE:
+        // nothing to do
+        break;
+    }
+
+    auto response = m_executive.lock()->externalRequest(request);
+
+    // Convert CallParameters to evmc_result
     evmc_result result;
+    result.status_code = evmc_status_code(response->status);
+
+    result.create_address = toEvmC(response->newEVMContractAddress);  // TODO: check if ok
+
+    // TODO: check if the response data need to release
+    result.output_data = response->data.data();
+    result.output_size = response->data.size();
+    result.gas_left = response->gas;
+
+    // TODO: put in store to avoid data lost
+    m_responseStore.push_back(response);
+
     return result;
 }
 
-evmc_result HostContext::externalCall(const evmc_message* _msg)
-{
-    // TODO: create a params and call
-    (void)_msg;
-    auto callResults = std::make_shared<CallResults>();
+// evmc_result HostContext::externalCall(const evmc_message* _msg)
+// {
+//     // TODO: create a params and call
+//     (void)_msg;
+//     auto callResults = std::make_shared<CallResults>();
 
-    auto callParameters = m_executive.lock()->externalRequest(callResults);
+//     auto callParameters = m_executive.lock()->externalRequest(callResults);
 
-    // TODO: covert callParameters to evmc_result
-    evmc_result result;
-    return result;
-}
+//     // TODO: covert callParameters to evmc_result
+//     evmc_result result;
+//     return result;
+// }
 
 void HostContext::setCode(bytes code)
 {

@@ -71,10 +71,10 @@ public:
     void setStore(const u256& _n, const u256& _v);
 
     /// Create a new contract.
-    evmc_result externalCreate(const evmc_message* _msg);
+    evmc_result externalRequest(const evmc_message* _msg);
 
-    /// Create a new message call.
-    evmc_result externalCall(const evmc_message* _msg);
+    // /// Create a new message call.
+    // evmc_result externalCall(const evmc_message* _msg);
 
     void setCode(bytes code);
 
@@ -150,6 +150,8 @@ private:
     std::string m_newContractAddress;
 
     std::map<std::string, size_t, std::less<>> m_key2Version;  // the version cache
+
+    std::list<CallParameters::ConstPtr> m_responseStore;
 };
 
 }  // namespace executor

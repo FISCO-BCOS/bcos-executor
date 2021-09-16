@@ -126,12 +126,16 @@ public:
     protocol::BlockHeader::ConstPtr currentBlockHeader() { return m_currentHeader; }
 
     EVMSchedule const& evmSchedule() const { return m_schedule; }
-    void insertExecutive(
-        int64_t contextID, std::string_view contract, std::shared_ptr<TransactionExecutive>);
-    std::shared_ptr<TransactionExecutive> getExecutive(
-        int64_t contextID, std::string_view contract);
+    std::tuple<std::shared_ptr<TransactionExecutive>,
+        std::function<void(bcos::Error::Ptr&&, bcos::protocol::ExecutionResult::Ptr&&)>>&
+    insertExecutive(int64_t contextID, std::string_view contract,
+        std::tuple<std::shared_ptr<TransactionExecutive>,
+            std::function<void(bcos::Error::Ptr&&, bcos::protocol::ExecutionResult::Ptr&&)>>
+            item);
+    std::tuple<std::shared_ptr<TransactionExecutive>,
+        std::function<void(bcos::Error::Ptr&&, bcos::protocol::ExecutionResult::Ptr&&)>>&
+    getExecutive(int64_t contextID, std::string_view contract);
 
-    // protocol::ExecutionResult::Ptr createExecutionResult(int64_t _contextID, CallParameters& _p);
     protocol::ExecutionResult::Ptr createExecutionResult(
         int64_t _contextID, int64_t _gasLeft, bytesConstRef _code, std::optional<u256> _salt);
 
@@ -159,7 +163,9 @@ private:
 
     // only one request access the m_executives' value one time
     tbb::concurrent_unordered_map<std::tuple<int64_t, std::string_view>,
-        std::shared_ptr<TransactionExecutive>, HashCombine>
+        std::tuple<std::shared_ptr<TransactionExecutive>,
+            std::function<void(bcos::Error::Ptr&&, bcos::protocol::ExecutionResult::Ptr&&)>>,
+        HashCombine>
         m_executives;
 
     std::atomic<int> m_addressCount;

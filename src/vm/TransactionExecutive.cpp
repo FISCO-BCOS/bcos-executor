@@ -21,6 +21,7 @@
 
 #include "TransactionExecutive.h"
 #include "../ChecksumAddress.h"
+#include "../executor/Common.h"
 #include "BlockContext.h"
 #include "Common.h"
 #include "EVMHostInterface.h"
@@ -33,6 +34,7 @@
 #include "libutilities/Common.h"
 #include <limits.h>
 #include <boost/lexical_cast.hpp>
+#include <functional>
 #include <numeric>
 
 using namespace std;
@@ -94,38 +96,43 @@ evmc_status_code transactionStatusToEvmcStatus(protocol::TransactionStatus ex) n
 //     return hexAddress;
 // }
 
-CallResults::Ptr TransactionExecutive::executeByCoroutine(CallParameters::ConstPtr callParameters)
+void TransactionExecutive::start(CallParameters::Ptr callParameters)
 {
-    CallResults::Ptr callResult;
     m_pushMessage = std::make_unique<Coroutine::push_type>(
-        Coroutine::push_type([this, callParameters = std::move(callParameters), &callResult](
-                                 Coroutine::pull_type& sink) {
-            m_pullMessage = std::make_unique<Coroutine::pull_type>(std::move(sink));
+        Coroutine::push_type([this](Coroutine::pull_type& source) {
+            EXECUTOR_LOG(TRACE) << "start coroutine run";
 
-            callResult = execute(callParameters);
+            m_pullMessage = std::make_unique<Coroutine::pull_type>(std::move(source));
+            auto callParameters = m_pullMessage->get();
+
+            auto response = execute(callParameters);
+
+            m_callback(shared_from_this(), std::move(response));
+
+            EXECUTOR_LOG(TRACE) << "execution finished";
         }));
 
-    return callResult;
+    // (*m_pushMessage)({callParameters, {}});
+    pushMessage(std::move(callParameters));
 }
 
-CallParameters::ConstPtr TransactionExecutive::externalRequest(CallResults::ConstPtr input)
+CallParameters::Ptr TransactionExecutive::externalRequest(CallParameters::Ptr input)
 {
-    m_callback(std::move(input));
-    (*m_pullMessage)();  // move the context to the main coroutine
+    m_callback(shared_from_this(), std::move(input));
+    (*m_pullMessage)();  // move to the main coroutine
 
-    auto [callParameters, callback] = m_pullMessage->get();  // wait for main coroutine's response
-    m_callback = std::move(callback);
+    auto callParameters = m_pullMessage->get();  // wait for main coroutine's response
 
     return callParameters;
 }
 
-CallResults::Ptr TransactionExecutive::execute(CallParameters::ConstPtr callParameters)
+CallParameters::Ptr TransactionExecutive::execute(CallParameters::ConstPtr callParameters)
 {
     int64_t txGasLimit = m_blockContext->txGasLimit();
 
     if (txGasLimit < m_baseGasRequired)
     {
-        auto callResults = std::make_shared<CallResults>();
+        auto callResults = std::make_shared<CallParameters>();
         callResults->status = (int32_t)TransactionStatus::OutOfGasLimit;
         callResults->message =
             "The gas required by deploying/accessing this contract is more than "
@@ -137,7 +144,7 @@ CallResults::Ptr TransactionExecutive::execute(CallParameters::ConstPtr callPara
     }
 
     std::shared_ptr<HostContext> hostContext;
-    CallResults::Ptr callResults;
+    CallParameters::Ptr callResults;
     if (callParameters->create)
     {
         std::tie(hostContext, callResults) = create(std::move(callParameters));
@@ -161,7 +168,7 @@ CallResults::Ptr TransactionExecutive::execute(CallParameters::ConstPtr callPara
     return callResults;
 }
 
-std::tuple<std::shared_ptr<HostContext>, CallResults::Ptr> TransactionExecutive::call(
+std::tuple<std::shared_ptr<HostContext>, CallParameters::Ptr> TransactionExecutive::call(
     CallParameters::ConstPtr callParameters)
 {
     //   m_savepoint = m_s->savepoint();
@@ -171,7 +178,7 @@ std::tuple<std::shared_ptr<HostContext>, CallResults::Ptr> TransactionExecutive:
                                                          *toHexString(callParameters->codeAddress);
     if (m_blockContext && m_blockContext->isEthereumPrecompiled(precompiledAddress))
     {
-        auto callResults = std::make_shared<CallResults>();
+        auto callResults = std::make_shared<CallParameters>();
         auto gas = m_blockContext->costOfPrecompiled(precompiledAddress, ref(callParameters->data));
         if (remainGas < gas)
         {
@@ -194,7 +201,7 @@ std::tuple<std::shared_ptr<HostContext>, CallResults::Ptr> TransactionExecutive:
         // size_t outputSize = output.size();
         // m_output = owning_bytes_ref{std::move(output), 0, outputSize};
 
-        callResults->output.swap(output);
+        callResults->data.swap(output);
 
         return {nullptr, callResults};
     }
@@ -238,7 +245,7 @@ std::tuple<std::shared_ptr<HostContext>, CallResults::Ptr> TransactionExecutive:
     }
 }
 
-std::tuple<std::shared_ptr<HostContext>, CallResults::Ptr> TransactionExecutive::create(
+std::tuple<std::shared_ptr<HostContext>, CallParameters::Ptr> TransactionExecutive::create(
     CallParameters::ConstPtr callParameters)
 {
     //   m_s->incNonce(_sender);
@@ -259,7 +266,7 @@ std::tuple<std::shared_ptr<HostContext>, CallResults::Ptr> TransactionExecutive:
         // call this function, so inject meter here
         if (!hasWasmPreamble(code))
         {  // if isWASM and the code is not WASM, make it failed
-            auto callResults = std::make_shared<CallResults>();
+            auto callResults = std::make_shared<CallParameters>();
 
             // revert();
             callResults->status = (int32_t)TransactionStatus::WASMValidationFailure;
@@ -276,7 +283,7 @@ std::tuple<std::shared_ptr<HostContext>, CallResults::Ptr> TransactionExecutive:
         else
         {
             // revert();
-            auto callResults = std::make_shared<CallResults>();
+            auto callResults = std::make_shared<CallParameters>();
 
             callResults->status = (int32_t)TransactionStatus::WASMValidationFailure;
             callResults->message = "wasm bytecode invalid or use unsupported opcode";
@@ -300,10 +307,10 @@ std::tuple<std::shared_ptr<HostContext>, CallResults::Ptr> TransactionExecutive:
     return {hostContext, nullptr};
 }
 
-CallResults::Ptr TransactionExecutive::go(std::shared_ptr<HostContext> hostContext)
+CallParameters::Ptr TransactionExecutive::go(std::shared_ptr<HostContext> hostContext)
 {
-    auto callResults = std::make_shared<CallResults>();
-    callResults->gasAvailable = hostContext->gas();
+    auto callResults = std::make_shared<CallParameters>();
+    callResults->gas = hostContext->gas();
     try
     {
         auto getEVMCMessage = [this, hostContext]() -> shared_ptr<evmc_message> {
@@ -367,8 +374,7 @@ CallResults::Ptr TransactionExecutive::go(std::shared_ptr<HostContext> hostConte
                 }
             }
 
-            callResults->gasAvailable -=
-                outputRef.size() * hostContext->evmSchedule().createDataGas;
+            callResults->gas -= outputRef.size() * hostContext->evmSchedule().createDataGas;
             callResults->newEVMContractAddress = hostContext->codeAddress();
 
             hostContext->setCode(outputRef.toBytes());
@@ -536,10 +542,10 @@ CallResults::Ptr TransactionExecutive::go(std::shared_ptr<HostContext> hostConte
 //     // m_s.rollback(m_savepoint); // TODO: new revert plan
 // }
 
-CallResults::Ptr TransactionExecutive::parseEVMCResult(
+CallParameters::Ptr TransactionExecutive::parseEVMCResult(
     bool isCreate, std::shared_ptr<Result> _result)
 {
-    auto callResults = std::make_shared<CallResults>();
+    auto callResults = std::make_shared<CallParameters>();
 
     // FIXME: if EVMC_REJECTED, then use default vm to run. maybe wasm call evm
     // need this
@@ -548,10 +554,10 @@ CallResults::Ptr TransactionExecutive::parseEVMCResult(
     {
     case EVMC_SUCCESS:
     {
-        callResults->gasAvailable = _result->gasLeft();
+        callResults->gas = _result->gasLeft();
         if (!isCreate)
         {
-            callResults->output.assign(outputRef.begin(), outputRef.end());
+            callResults->data.assign(outputRef.begin(), outputRef.end());
             // m_output = owning_bytes_ref(
             //     bytes(outputRef.data(), outputRef.data() + outputRef.size()), 0,
             //     outputRef.size());
@@ -561,9 +567,9 @@ CallResults::Ptr TransactionExecutive::parseEVMCResult(
     case EVMC_REVERT:
     {
         // FIXME: Copy the output for now, but copyless version possible.
-        callResults->gasAvailable = _result->gasLeft();
+        callResults->gas = _result->gasLeft();
         // revert();
-        callResults->output.assign(outputRef.begin(), outputRef.end());
+        callResults->data.assign(outputRef.begin(), outputRef.end());
         // m_output = owning_bytes_ref(
         //     bytes(outputRef.data(), outputRef.data() + outputRef.size()), 0, outputRef.size());
         callResults->status = (int32_t)TransactionStatus::RevertInstruction;

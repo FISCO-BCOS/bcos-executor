@@ -62,14 +62,16 @@ class TransactionExecutive : public std::enable_shared_from_this<TransactionExec
 {
 public:
     using Ptr = std::shared_ptr<TransactionExecutive>;
-    using Coroutine = boost::coroutines2::coroutine<
-        std::tuple<CallParameters::ConstPtr, std::function<void(CallResults::ConstPtr&&)>>>;
+    using Coroutine = boost::coroutines2::coroutine<CallParameters::Ptr>;
 
-    TransactionExecutive(
-        std::shared_ptr<BlockContext> blockContext, std::string contractAddress, int64_t contextID)
+    TransactionExecutive(std::shared_ptr<BlockContext> blockContext, std::string contractAddress,
+        int64_t contextID,
+        std::function<void(std::shared_ptr<TransactionExecutive> executive, CallParameters::Ptr&&)>
+            callback)
       : m_blockContext(std::move(blockContext)),
         m_contractAddress(std::move(contractAddress)),
         m_contextID(contextID),
+        m_callback(std::move(callback)),
         m_gasInjector(std::make_shared<wasm::GasInjector>(wasm::GetInstructionTable()))
     {}
 
@@ -80,12 +82,14 @@ public:
 
     virtual ~TransactionExecutive() {}
 
-    // CallResults::Ptr execute(CallParameters::ConstPtr callParameters);
+    void start(CallParameters::Ptr callParameters);
 
-    CallResults::Ptr executeByCoroutine(CallParameters::ConstPtr callParameters);
+    void pushMessage(CallParameters::Ptr callParameters)  // call by executor
+    {
+        (*m_pushMessage)(std::move(callParameters));
+    }
 
-    Coroutine::push_type& getPushMessage() { return *m_pushMessage; }
-    Coroutine::pull_type& getPullMessage() { return *m_pullMessage; }
+    CallParameters::Ptr externalRequest(CallParameters::Ptr input);  // call by host context
 
     void reset()
     {
@@ -101,23 +105,26 @@ public:
 
     std::string_view contractAddress() { return m_contractAddress; }
 
-    CallParameters::ConstPtr externalRequest(CallResults::ConstPtr input);
-
 private:
-    CallResults::Ptr execute(CallParameters::ConstPtr callParameters);
-    std::tuple<std::shared_ptr<HostContext>, CallResults::Ptr> call(
+    CallParameters::Ptr execute(CallParameters::ConstPtr callParameters);
+    std::tuple<std::shared_ptr<HostContext>, CallParameters::Ptr> call(
         CallParameters::ConstPtr callParameters);
-    std::tuple<std::shared_ptr<HostContext>, CallResults::Ptr> create(
+    std::tuple<std::shared_ptr<HostContext>, CallParameters::Ptr> create(
         CallParameters::ConstPtr callParameters);
-    CallResults::Ptr go(std::shared_ptr<HostContext> hostContext);
+    CallParameters::Ptr go(std::shared_ptr<HostContext> hostContext);
 
-    CallResults::Ptr parseEVMCResult(bool isCreate, std::shared_ptr<Result> _result);
+    CallParameters::Ptr parseEVMCResult(bool isCreate, std::shared_ptr<Result> _result);
 
     void writeErrInfoToOutput(std::string const& errInfo);
     void updateGas(std::shared_ptr<precompiled::PrecompiledExecResult> _callResult);
 
     std::string getContractTableName(
         const std::string_view& _address, bool _isWasm, crypto::Hash::Ptr _hashImpl);
+
+    CallParameters::Ptr getPullMessage()  // call by host context
+    {
+        return m_pullMessage->get();
+    }
 
     std::shared_ptr<BlockContext> m_blockContext;  ///< Information on the runtime environment.
     std::string m_contractAddress;
@@ -132,12 +139,13 @@ private:
                                                    ///< this transaction. Set by
                                                    ///< finalize().
 
+    std::function<void(std::shared_ptr<TransactionExecutive> executive, CallParameters::Ptr&&)>
+        m_callback;
+
     std::shared_ptr<wasm::GasInjector> m_gasInjector;
 
     std::unique_ptr<Coroutine::push_type> m_pushMessage;
     std::unique_ptr<Coroutine::pull_type> m_pullMessage;
-
-    std::function<void(CallResults::ConstPtr&&)> m_callback;
 };
 
 }  // namespace executor
