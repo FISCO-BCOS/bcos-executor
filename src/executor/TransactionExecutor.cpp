@@ -140,6 +140,8 @@ void TransactionExecutor::nextBlockHeader(const protocol::BlockHeader::ConstPtr&
 
         m_blockContext = std::make_shared<BlockContext>(stateStorage, m_hashImpl, blockHeader,
             m_executionResultFactory, EVMSchedule(), m_isWasm);
+
+        m_blockContext->setPrecompiledContract(m_precompiledContract);
         m_stateStorages.push_back(std::move(stateStorage));
 
         if (m_lastUncommitedIterator == m_stateStorages.end())
@@ -340,6 +342,8 @@ void TransactionExecutor::commit(
             EXECUTOR_LOG(INFO) << "Commit success";
 
             ++m_lastUncommitedIterator;
+            m_blockContext = nullptr;
+
             callback(nullptr);
         });
 }
@@ -472,8 +476,8 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
                 }
 
                 auto tx = (*transactons)[0];
-                auto executive = std::make_shared<TransactionExecutive>(std::move(blockContext),
-                    contract, input->contextID(),
+                auto executive = std::make_shared<TransactionExecutive>(blockContext, contract,
+                    input->contextID(),
                     std::bind(&TransactionExecutor::onCallResultsCallback, this,
                         std::placeholders::_1, std::placeholders::_2));
 
@@ -506,12 +510,11 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
                 std::bind(&TransactionExecutor::onCallResultsCallback, this, std::placeholders::_1,
                     std::placeholders::_2));
 
-        auto contract = executive->contractAddress();
         blockContext->insertExecutive(input->contextID(), contract, {executive, callback});
 
         try
         {
-            executive->start(callParameters);
+            executive->start(std::move(callParameters));
         }
         catch (std::exception& e)
         {

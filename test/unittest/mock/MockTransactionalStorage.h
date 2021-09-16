@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../../src/executor/Common.h"
+#include "vm/Common.h"
 #include <bcos-framework/interfaces/storage/StorageInterface.h>
 #include <bcos-framework/libstorage/StateStorage.h>
 #include <boost/test/unit_test.hpp>
@@ -72,7 +73,14 @@ public:
                 EXECUTOR_LOG(TRACE) << "Merge data" << LOG_KV("table", table) << LOG_KV("key", key)
                                     << LOG_KV("fields", fields);
 
-                m_newEntries.insert({std::tuple{std::string(table), std::string(key)}, entry});
+                auto myTable = m_inner->openTable(std::string(table));
+                if (!myTable)
+                {
+                    m_inner->createTable(std::string(table), executor::STORAGE_VALUE);
+                    myTable = m_inner->openTable(std::string(table));
+                }
+                myTable->setRow(key, entry);
+
                 return true;
             });
 
@@ -93,8 +101,7 @@ public:
         callback(nullptr);
     }
 
-    bcos::storage::StorageInterface::Ptr m_inner;
-    std::map<std::tuple<std::string, std::string>, storage::Entry> m_newEntries;
+    bcos::storage::StateStorage::Ptr m_inner;
     bcos::crypto::Hash::Ptr m_hashImpl;
 };
 }  // namespace bcos::test

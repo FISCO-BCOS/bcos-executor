@@ -27,6 +27,7 @@
 #include "interfaces/crypto/CommonType.h"
 #include "interfaces/crypto/CryptoSuite.h"
 #include "interfaces/crypto/Hash.h"
+#include "interfaces/executor/ExecutionResult.h"
 #include "interfaces/protocol/Transaction.h"
 #include "libprotocol/protobuf/PBBlockHeader.h"
 #include "libstorage/StateStorage.h"
@@ -113,7 +114,7 @@ struct TransactionExecutorFixture
 };
 BOOST_FIXTURE_TEST_SUITE(TestTransactionExecutor, TransactionExecutorFixture)
 
-BOOST_AUTO_TEST_CASE(executeTransaction_DeployHelloWorld)
+BOOST_AUTO_TEST_CASE(deployAndCall)
 {
     auto keyPair = cryptoSuite->signatureImpl()->generateKeyPair();
     memcpy(keyPair->secretKey()->mutableData(),
@@ -170,6 +171,8 @@ BOOST_AUTO_TEST_CASE(executeTransaction_DeployHelloWorld)
     BOOST_CHECK(result->message().empty());
     BOOST_CHECK(!result->newEVMContractAddress().empty());
 
+    auto address = result->newEVMContractAddress();
+
     bcos::executor::TransactionExecutor::TwoPCParams commitParams;
     commitParams.number = 1;
 
@@ -191,108 +194,101 @@ BOOST_AUTO_TEST_CASE(executeTransaction_DeployHelloWorld)
                      std::string(result->newEVMContractAddress());  // TODO: ensure the contract
                                                                     // address is hex or binary
 
-    EXECUTOR_LOG(TRACE) << "Checking table: [" << tableName << "]";
-    bool hasCode = false;
-    for (auto& it : backend->m_newEntries)
-    {
-        EXECUTOR_LOG(TRACE) << "[" << std::get<0>(it.first) << "],[" << std::get<1>(it.first)
-                            << "]";
+    EXECUTOR_LOG(TRACE) << "Checking table: " << tableName;
+    std::promise<Table> tablePromise;
+    backend->asyncOpenTable(tableName, [&](Error::UniquePtr&& error, std::optional<Table>&& table) {
+        BOOST_CHECK(!error);
+        BOOST_CHECK(table);
+        tablePromise.set_value(std::move(*table));
+    });
+    auto table = tablePromise.get_future().get();
 
-        if (std::get<1>(it.first) == "code")
-        {
-            hasCode = true;
-            BOOST_CHECK_GT(it.second.getField(STORAGE_VALUE).size(), 0);
-        }
-    }
+    auto entry = table.getRow("code");
+    BOOST_CHECK(entry);
+    BOOST_CHECK_GT(entry->getField(STORAGE_VALUE).size(), 0);
 
-    BOOST_CHECK(hasCode);
+    // start new block
+    auto blockHeader2 = std::make_shared<bcos::protocol::PBBlockHeader>(cryptoSuite);
+    blockHeader2->setNumber(2);
 
-    // EXECUTOR_LOG(TRACE) << "Checking table: " << tableName;
-    // std::promise<Table> tablePromise;
-    // backend->asyncOpenTable(tableName, [&](Error::UniquePtr&& error, std::optional<Table>&&
-    // table) {
-    //     BOOST_CHECK(!error);
-    //     BOOST_CHECK(table);
-    //     tablePromise.set_value(std::move(*table));
-    // });
-    // auto table = tablePromise.get_future().get();
+    std::promise<void> nextPromise2;
+    executor->nextBlockHeader(std::move(blockHeader2), [&](bcos::Error::Ptr&& error) {
+        BOOST_CHECK(!error);
 
-    // auto entry = table.getRow("code");
-    // BOOST_CHECK(entry);
-    // BOOST_CHECK_GT(entry->getField(STORAGE_VALUE).size(), 0);
+        nextPromise2.set_value();
+    });
 
-    // auto contractAddress = result->newEVMContractAddress();
+    nextPromise2.get_future().get();
 
-    // BOOST_CHECK_EQUAL(result->newEVMContractAddress())
+    // set "fisco bcos"
+    bytes txInput;
+    char inputBytes[] =
+        "4ed3885e0000000000000000000000000000000000000000000000000000000000000020000000000000000000"
+        "0000000000000000000000000000000000000000000005666973636f0000000000000000000000000000000000"
+        "00000000000000000000";
+    boost::algorithm::unhex(
+        &inputBytes[0], inputBytes + sizeof(inputBytes) - 1, std::back_inserter(txInput));
+    auto params2 = std::make_shared<MockExecutionParams>();
+    params2->setContextID(101);
+    params2->setDepth(0);
+    params2->setFrom(std::string(sender));
+    params2->setTo(std::string(address));
+    params2->setOrigin(std::string(sender));
+    params2->setStaticCall(false);
+    params2->setGasAvailable(3000000);
+    params2->setInput(std::move(txInput));
+    params2->setType(ExecutionParams::EXTERNAL_CALL);
 
-    // auto executive = std::make_shared<TransactionExecutive>(executiveContext);
-    // auto receipt = executor->executeTransaction(tx, executive);
-    // BOOST_TEST(receipt->status() == (int32_t)TransactionStatus::None);
-    // BOOST_TEST(receipt->gasUsed() == 430575);
-    // // std::cout << "##### hash:" << receipt->hash().hexPrefixed() << std::endl;
-    // BOOST_TEST(receipt->hash().hexPrefixed() ==
-    //            "0x1ea6ad9487c4a45408908d70478ba23e7354ee8beddb7ecae1c4bcb3c02604dd");
-    // BOOST_TEST(receipt->contractAddress() == "8968B494F66b2508330B24A7d1caFA06a14f6315");
-    // BOOST_TEST(*toHexString(receipt->output()) == "");
-    // BOOST_TEST(receipt->blockNumber() == 1);
-    // auto addressbytes = asString(*fromHexString(string(receipt->contractAddress())));
-    // auto nonce = executiveContext->getState()->getNonce(addressbytes);
-    // BOOST_TEST(nonce == executiveContext->getState()->accountStartNonce());
-    // nonce = executiveContext->getState()->getNonce(sender);
-    // BOOST_TEST(nonce == executiveContext->getState()->accountStartNonce() + 1);
-    // auto newAddress = string(receipt->contractAddress());
+    std::promise<ExecutionResult::Ptr> executePromise2;
+    executor->executeTransaction(
+        std::move(params2), [&](bcos::Error::Ptr&& error, ExecutionResult::Ptr&& result) {
+            BOOST_CHECK(!error);
+            executePromise2.set_value(std::move(result));
+        });
+    auto result2 = executePromise2.get_future().get();
 
-    // // call helloworld get
-    // input = *fromHexString("0x6d4ce63c");
-    // auto getTx = fakeTransaction(cryptoSuite, keyPair, newAddress, input, 101, 100001, "1", "1");
-    // receipt = executor->executeTransaction(getTx, executive);
-    // BOOST_TEST(receipt->status() == (int32_t)TransactionStatus::None);
-    // BOOST_TEST(receipt->gasUsed() == 22742);
-    // // std::cout << "##### hash:" << receipt->hash().hexPrefixed() << std::endl;
-    // BOOST_TEST(receipt->hash().hexPrefixed() ==
-    //            "0xeeef9c8a72141a2d3184509fa21fb5496f59acae2596f0c027747a0a9ffbf38b");
-    // BOOST_TEST(receipt->contractAddress() == "");
-    // // Hello, World! == 48656c6c6f2c20576f726c6421
-    // BOOST_TEST(*toHexString(receipt->output()) ==
-    //            "00000000000000000000000000000000000000000000000000000000000000200000000000000000000"
-    //            "00000000000000000000000000000000000000000000d48656c6c6f2c20576f726c6421000000000000"
-    //            "00000000000000000000000000");
-    // BOOST_TEST(receipt->blockNumber() == 1);
-    // nonce = executiveContext->getState()->getNonce(sender);
-    // BOOST_TEST(nonce == executiveContext->getState()->accountStartNonce() + 1);
+    BOOST_CHECK(result2);
+    BOOST_CHECK_EQUAL(result2->status(), 0);
+    BOOST_CHECK_EQUAL(result2->message(), "");
+    BOOST_CHECK_EQUAL(result2->newEVMContractAddress(), "");
 
-    // // call helloworld set fisco
-    // input = *fromHexString(
-    //     "0x4ed3885e00000000000000000000000000000000000000000000000000000000000000200000000000000000"
-    //     "000000000000000000000000000000000000000000000005666973636f00000000000000000000000000000000"
-    //     "0000000000000000000000");
-    // // cout << "##### newAddress: " << newAddress << endl;
-    // auto setTx = fakeTransaction(cryptoSuite, keyPair, newAddress, input, 101, 100001, "1", "1");
-    // receipt = executor->executeTransaction(setTx, executive);
-    // BOOST_TEST(receipt->status() == (int32_t)TransactionStatus::None);
-    // BOOST_TEST(receipt->gasUsed() == 30791);
-    // // std::cout << "##### hash:" << receipt->hash().hexPrefixed() << std::endl;
-    // BOOST_TEST(receipt->hash().hexPrefixed() ==
-    //            "0x92f866a0f12010ed7b8a41b82aece81db64ee1eef4d12619fb5cf401e0b8cdff");
-    // BOOST_TEST(receipt->contractAddress() == "");
-    // BOOST_TEST(*toHexString(receipt->output()) == "");
-    // BOOST_TEST(receipt->blockNumber() == 1);
-    // // get
-    // receipt = executor->executeTransaction(getTx, executive);
-    // // Hello, World! == 666973636f
-    // BOOST_TEST(*toHexString(receipt->output()) ==
-    //            "00000000000000000000000000000000000000000000000000000000000000200000000000000000000"
-    //            "000000000000000000000000000000000000000000005666973636f0000000000000000000000000000"
-    //            "00000000000000000000000000");
-    // nonce = executiveContext->getState()->getNonce(sender);
-    // BOOST_TEST(nonce == executiveContext->getState()->accountStartNonce() + 1);
+    // read "fisco bcos"
+    bytes queryBytes;
+    char inputBytes2[] = "6d4ce63c";
+    boost::algorithm::unhex(
+        &inputBytes2[0], inputBytes2 + sizeof(inputBytes2) - 1, std::back_inserter(queryBytes));
 
-    // executor->executeTransaction(tx, executive);
-    // nonce = executiveContext->getState()->getNonce(sender);
-    // BOOST_TEST(nonce == executiveContext->getState()->accountStartNonce() + 2);
-    // executor->executeTransaction(tx, executive);
-    // nonce = executiveContext->getState()->getNonce(sender);
-    // BOOST_TEST(nonce == executiveContext->getState()->accountStartNonce() + 3);
+    auto params3 = std::make_shared<MockExecutionParams>();
+    params3->setContextID(102);
+    params3->setDepth(0);
+    params3->setFrom(std::string(sender));
+    params3->setTo(std::string(address));
+    params3->setOrigin(std::string(sender));
+    params3->setStaticCall(false);
+    params3->setGasAvailable(3000000);
+    params3->setInput(std::move(queryBytes));
+    params3->setType(ExecutionParams::EXTERNAL_CALL);
+
+    std::promise<ExecutionResult::Ptr> executePromise3;
+    executor->executeTransaction(
+        std::move(params3), [&](bcos::Error::Ptr&& error, ExecutionResult::Ptr&& result) {
+            BOOST_CHECK(!error);
+            executePromise3.set_value(std::move(result));
+        });
+    auto result3 = executePromise3.get_future().get();
+
+    BOOST_CHECK(result3);
+    BOOST_CHECK_EQUAL(result3->status(), 0);
+    BOOST_CHECK_EQUAL(result3->message(), "");
+    BOOST_CHECK_EQUAL(result3->newEVMContractAddress(), "");
+
+    std::string output;
+    boost::algorithm::hex_lower(
+        result3->output().begin(), result3->output().end(), std::back_inserter(output));
+    BOOST_CHECK_EQUAL(output,
+        "00000000000000000000000000000000000000000000000000000000000000200000000000000000000"
+        "000000000000000000000000000000000000000000005666973636f0000000000000000000000000000"
+        "00000000000000000000000000");
 }
 
 BOOST_AUTO_TEST_SUITE_END()

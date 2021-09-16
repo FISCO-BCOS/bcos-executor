@@ -24,6 +24,7 @@
  */
 
 #include "EVMHostInterface.h"
+#include "../executor/Common.h"
 #include "Common.h"
 #include "HostContext.h"
 #include "libutilities/Common.h"
@@ -60,6 +61,13 @@ evmc_bytes32 getStorage(
     // programming assert for debug
     assert(fromEvmC(*_addr) == boost::algorithm::unhex(std::string(hostContext.myAddress())));
 
+    auto value = toEvmC(hostContext.store(fromEvmC(*_key)));
+
+    EXECUTOR_LOG(TRACE) << "Reading: "
+                        << boost::algorithm::hex_lower(std::string((char*)_key->bytes, 32)) << ", "
+                        << boost::algorithm::hex_lower(std::string((char*)value.bytes, 32));
+
+
     return toEvmC(hostContext.store(fromEvmC(*_key)));
 }
 
@@ -67,15 +75,15 @@ evmc_storage_status setStorage(evmc_host_context* _context, const evmc_address* 
     const evmc_bytes32* _key, const evmc_bytes32* _value)
 {
     auto& hostContext = static_cast<HostContext&>(*_context);
-    // if (!hostContext.isPermitted())
-    // {
-    //     BOOST_THROW_EXCEPTION(PermissionDenied());
-    // }
 
     assert(fromEvmC(*_addr) == boost::algorithm::unhex(std::string(hostContext.myAddress())));
     u256 index = fromEvmC(*_key);
     u256 value = fromEvmC(*_value);
     u256 oldValue = hostContext.store(index);
+
+    EXECUTOR_LOG(TRACE) << "Writing: "
+                        << boost::algorithm::hex_lower(std::string((char*)_key->bytes, 32)) << ", "
+                        << boost::algorithm::hex_lower(std::string((char*)_value->bytes, 32));
 
     // set the same value can update the version
     // if (value == oldValue)
@@ -172,7 +180,7 @@ void log(evmc_host_context* _context, const evmc_address* _addr, uint8_t const* 
 {
     (void)_addr;
     auto& hostContext = static_cast<HostContext&>(*_context);
-    assert(fromEvmC(*_addr) == hostContext.myAddress());
+    assert(fromEvmC(*_addr) == boost::algorithm::unhex(std::string(hostContext.myAddress())));
     h256 const* pTopics = reinterpret_cast<h256 const*>(_topics);
     hostContext.log(h256s{pTopics, pTopics + _numTopics}, bytesConstRef{_data, _dataSize});
 }
@@ -232,83 +240,6 @@ evmc_result call(evmc_host_context* _context, const evmc_message* _msg) noexcept
     auto& hostContext = static_cast<HostContext&>(*_context);
 
     return hostContext.externalRequest(_msg);
-
-    // switch (_msg->kind)
-    // {
-    // case EVMC_CREATE:
-    // case EVMC_CREATE2:
-    // {
-    //     return hostContext.externalCreate(_msg);
-    //     // CallParameters params(std::string(hostContext.myAddress()), std::string(),
-    //     std::string(),
-    //     //     std::string(hostContext.origin()), _msg->gas,
-    //     //     bytesConstRef(_msg->input_data, _msg->input_size), hostContext.staticCall(),
-    //     true);
-
-    //     // u256 salt;
-
-    //     // if (_msg->kind == EVMC_CREATE2)
-    //     // {
-    //     //     salt = fromEvmC(_msg->create2_salt);
-    //     //     return hostContext.externalCreate(
-    //     //         std::move(params), std::make_optional(std::move(salt)));
-    //     // }
-    //     // else
-    //     // {
-    //     //     return hostContext.externalCreate(std::move(params), {});
-    //     // }
-    //     break;
-    // }
-    // case EVMC_CALLCODE:
-    // case EVMC_DELEGATECALL:
-    // {
-    //     // TODO: In the same block, the user can use CREATE2 to create a contract at the expected
-    //     // address, and then call it immediately. In the 3.0 architecture, using CALL is no
-    //     problem,
-    //     // but when using DELEGATECALL or CALLCODE, the contract has not been submitted to
-    //     storage,
-    //     // which will cause mistake
-
-    //     break;
-    // }
-    // case EVMC_CALL:
-    // {
-    //     return hostContext.externalCall(_msg);
-    //     // CallParameters params(std::string(hostContext.myAddress()),
-    //     //     std::string(fromEvmC(_msg->destination)),
-    //     std::string(fromEvmC(_msg->destination)),
-    //     //     std::string(hostContext.origin()), _msg->gas,
-    //     //     bytesConstRef(_msg->input_data, _msg->input_size), hostContext.staticCall(),
-    //     false);
-
-    //     // return hostContext.externalCall(std::move(params));
-    //     break;
-    // }
-    // }
-
-    // return hostContext.externalCall(params);
-
-    // TODO: fix build call parameters here
-    // auto params = std::make_shraed<CallParameters>();
-    // params.gas = _msg->gas;
-    // // params.apparentValue = fromEvmC(_msg->value);
-    // // params.valueTransfer = _msg->kind == EVMC_DELEGATECALL ? 0 :
-    // // params.apparentValue;
-    // if (hostContext.getBlockContext()->isWasm()) {
-    //   params.senderAddress = string((char *)_msg->sender_ptr, _msg->sender_len);
-    //   params.codeAddress =
-    //       string((char *)_msg->destination_ptr, _msg->destination_len);
-    // } else {
-    //   params.senderAddress = fromEvmC(_msg->sender);
-    //   params.codeAddress = fromEvmC(_msg->destination);
-    // }
-    // params.receiveAddress =
-    //     _msg->kind == EVMC_CALL ? params.codeAddress : hostContext.myAddress();
-
-    // params.data = {_msg->input_data, _msg->input_size};
-    // params.staticCall = (_msg->flags & EVMC_STATIC) != 0;
-
-    // return hostContext.call(params);
 }
 
 /// function table

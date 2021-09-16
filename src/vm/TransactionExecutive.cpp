@@ -175,8 +175,7 @@ std::tuple<std::shared_ptr<HostContext>, CallParameters::Ptr> TransactionExecuti
     //   m_savepoint = m_s->savepoint();
     auto remainGas = callParameters->gas;
 
-    auto precompiledAddress = m_blockContext->isWasm() ? callParameters->codeAddress :
-                                                         *toHexString(callParameters->codeAddress);
+    auto precompiledAddress = callParameters->codeAddress;
     if (m_blockContext && m_blockContext->isEthereumPrecompiled(precompiledAddress))
     {
         auto callResults = std::make_shared<CallParameters>();
@@ -418,7 +417,7 @@ CallParameters::Ptr TransactionExecutive::go(std::shared_ptr<HostContext> hostCo
             auto mode = toRevision(hostContext->evmSchedule());
             auto evmcMessage = getEVMCMessage();
             auto ret = vm->exec(hostContext, mode, evmcMessage.get(), code.data(), code.size());
-            parseEVMCResult(hostContext->isCreate(), ret);
+            callResults = parseEVMCResult(hostContext->isCreate(), ret);
         }
     }
     catch (RevertInstruction& _e)

@@ -222,22 +222,23 @@ h256 HostContext::codeHashAt(const std::string_view& _a)
 
 u256 HostContext::store(const u256& _n)
 {
-    auto key = _n.str();
+    auto key = toEvmC(_n);
+    auto keyView = std::string_view((char*)key.bytes, sizeof(key.bytes));
 
-    auto entry = m_table.getRow(key);
+    auto entry = m_table.getRow(keyView);
     if (entry)
     {
-        auto it = m_key2Version.find(key);
+        auto it = m_key2Version.find(keyView);
         if (it != m_key2Version.end())
         {
             it->second = entry->version();
         }
         else
         {
-            m_key2Version.emplace(key, entry->version());
+            m_key2Version.emplace(keyView, entry->version());
         }
 
-        return u256(entry->getField(STORAGE_VALUE));
+        return fromBigEndian<u256>(entry->getField(STORAGE_VALUE));
     }
 
     return u256();
@@ -245,18 +246,22 @@ u256 HostContext::store(const u256& _n)
 
 void HostContext::setStore(u256 const& _n, u256 const& _v)
 {
-    auto key = _n.str();
+    auto key = toEvmC(_n);
+    auto keyView = std::string_view((char*)key.bytes, sizeof(key.bytes));
+
+    auto value = toEvmC(_v);
+    bytes valueBytes(value.bytes, value.bytes + sizeof(value.bytes));
 
     auto entry = m_table.newEntry();
-    entry.importFields({_v.str()});
+    entry.importFields({std::move(valueBytes)});
 
-    auto it = m_key2Version.find(key);
+    auto it = m_key2Version.find(keyView);
     if (it != m_key2Version.end())
     {
         entry.setVersion(++it->second);
     }
 
-    m_table.setRow(key, std::move(entry));
+    m_table.setRow(keyView, std::move(entry));
 }
 
 void HostContext::log(h256s&& _topics, bytesConstRef _data)

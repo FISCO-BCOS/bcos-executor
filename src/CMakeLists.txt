@@ -24,7 +24,7 @@ target_link_libraries(executor PUBLIC bcos-framework::codec bcos-framework::util
     jsoncpp_lib_static Boost::serialization Boost::program_options tbb::tbb bcos-framework::storage Boost::context
     bcos-framework::protocol wedpr-crypto::crypto wedpr-crypto::extend-crypto evmone hera hera-buildinfo
     ${WASM_ENGINE_LIBRARY} evmc::loader evmc::instructions wabt)
-target_compile_options(executor PRIVATE -Wextra -Wno-error -fno-var-tracking)
+target_compile_options(executor PRIVATE -Wextra -Wall -Wno-error -fno-var-tracking)
 
 install_dependencies(executor)
 
