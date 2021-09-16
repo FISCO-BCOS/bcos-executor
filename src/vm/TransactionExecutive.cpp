@@ -33,6 +33,8 @@
 #include "bcos-framework/libcodec/abi/ContractABICodec.h"
 #include "libutilities/Common.h"
 #include <limits.h>
+#include <boost/algorithm/hex.hpp>
+#include <boost/exception/diagnostic_information.hpp>
 #include <boost/lexical_cast.hpp>
 #include <functional>
 #include <numeric>
@@ -324,13 +326,40 @@ CallParameters::Ptr TransactionExecutive::go(std::shared_ptr<HostContext> hostCo
             // this is ensured by solidity compiler
             assert(flags != EVMC_STATIC || kind == EVMC_CALL);  // STATIC implies a CALL.
             auto leftGas = static_cast<int64_t>(hostContext->gas());
-            return shared_ptr<evmc_message>(
-                new evmc_message{kind, flags, static_cast<int32_t>(hostContext->depth()), leftGas,
-                    toEvmC(hostContext->myAddress()), (uint8_t*)hostContext->myAddress().data(),
-                    (int32_t)hostContext->myAddress().size(), toEvmC(hostContext->caller()),
-                    (uint8_t*)hostContext->caller().data(), (int32_t)hostContext->caller().size(),
-                    hostContext->data().data(), hostContext->data().size(), toEvmC(h256(0)),
-                    toEvmC(0x0_cppui256)});
+
+            auto evmcMessage = std::make_shared<evmc_message>();
+            evmcMessage->kind = kind;
+            evmcMessage->flags = flags;
+            evmcMessage->depth = hostContext->depth();
+            evmcMessage->gas = leftGas;
+            evmcMessage->input_data = hostContext->data().data();
+            evmcMessage->input_size = hostContext->data().size();
+            evmcMessage->value = toEvmC(h256(0));
+            evmcMessage->create2_salt = toEvmC(0x0_cppui256);
+
+            if (m_blockContext->isWasm())
+            {
+                evmcMessage->destination_ptr = (uint8_t*)hostContext->myAddress().data();
+                evmcMessage->destination_len = hostContext->codeAddress().size();
+
+                evmcMessage->sender_ptr = (uint8_t*)hostContext->caller().data();
+                evmcMessage->sender_len = hostContext->caller().size();
+            }
+            else
+            {
+                auto myAddressBytes =
+                    boost::algorithm::unhex(std::string(hostContext->myAddress()));
+                auto callerBytes = boost::algorithm::unhex(std::string(hostContext->caller()));
+
+                evmcMessage->destination = toEvmC(myAddressBytes);
+                evmcMessage->destination_ptr = evmcMessage->destination.bytes;
+                evmcMessage->destination_len = sizeof(evmcMessage->destination.bytes);
+                evmcMessage->sender = toEvmC(callerBytes);
+                evmcMessage->sender_ptr = evmcMessage->sender.bytes;
+                evmcMessage->sender_len = sizeof(evmcMessage->sender.bytes);
+            }
+
+            return evmcMessage;
         };
 
         if (hostContext->isCreate())
@@ -455,7 +484,7 @@ CallParameters::Ptr TransactionExecutive::go(std::shared_ptr<HostContext> hostCo
         // Another solution would be to reject this transaction, but that also
         // has drawbacks. Essentially, the amount of ram has to be increased here.
     }
-    catch (std::exception const& _e)
+    catch (std::exception& _e)
     {
         // TODO: AUDIT: check that this can never reasonably happen. Consider what
         // to do if it does.
@@ -682,6 +711,9 @@ std::string TransactionExecutive::getContractTableName(
     {
         return std::string(_address);
     }
-    auto address = toChecksumAddressFromBytes(_address, _hashImpl);
+
+    std::string address(_address);
+
+    toChecksumAddress(address, _hashImpl);
     return std::string("c_").append(address);
 }

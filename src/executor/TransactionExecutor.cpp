@@ -51,10 +51,12 @@
 #include "interfaces/storage/StorageInterface.h"
 #include "libprotocol/LogEntry.h"
 #include <tbb/parallel_for.h>
+#include <boost/algorithm/hex.hpp>
 #include <boost/exception/detail/exception_ptr.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/throw_exception.hpp>
 #include <exception>
+#include <iterator>
 #include <string>
 #include <thread>
 
@@ -412,17 +414,18 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
 
     std::string contract;
     bool create = false;
-    if (input->to().empty())
+    if (input->to().empty() && !m_isWasm)
     {
         create = true;
         if (input->createSalt())
         {
-            contract = newEVMAddress(input->from(), input->input(), input->createSalt().value());
+            contract = boost::algorithm::hex(
+                newEVMAddress(input->from(), input->input(), input->createSalt().value()));
         }
         else
         {
-            contract =
-                newEVMAddress(input->from(), blockContext->currentNumber(), input->contextID());
+            contract = boost::algorithm::hex(
+                newEVMAddress(input->from(), blockContext->currentNumber(), input->contextID()));
         }
     }
     else
@@ -477,7 +480,9 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
                 blockContext->insertExecutive(input->contextID(), contract, {executive, callback});
 
                 callParameters->data = tx->input().toBytes();
-                callParameters->senderAddress = tx->sender();
+                auto sender = tx->sender();
+                boost::algorithm::hex_lower(sender.begin(), sender.end(), std::back_inserter(callParameters->senderAddress));
+                // callParameters->senderAddress = boost::algorithm::hex_lower(tx->sender());
                 callParameters->origin = tx->sender();
 
                 try

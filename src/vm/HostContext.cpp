@@ -29,11 +29,13 @@
 #include "evmc/evmc.hpp"
 #include "libutilities/Common.h"
 #include <evmc/evmc.h>
+#include <boost/algorithm/hex.hpp>
 #include <boost/algorithm/string/split.hpp>
 #include <boost/thread.hpp>
 #include <boost/throw_exception.hpp>
 #include <algorithm>
 #include <exception>
+#include <iterator>
 #include <limits>
 #include <sstream>
 #include <vector>
@@ -134,19 +136,6 @@ void HostContext::set(const std::string_view& _key, std::string _value)
 
 evmc_result HostContext::externalRequest(const evmc_message* _msg)
 {
-    // Coroutine here
-
-    // create a params and create
-
-    // get last executive from blockcontext
-    // auto executive = m_blockContext->getLastExecutiveOf(m_contextID, myAddress());
-    // executive->setCallCreate(false);
-    // create callResult use factory from blockcontext and call executive
-    // returnCallback
-    // return executive->waitReturnValue(
-    //     nullptr, m_blockContext->createExecutionResult(m_contextID, _p));
-    // return m_executive->w
-
     // Convert evmc_message to CallParameters
     auto request = std::make_shared<CallParameters>();
     request->type = CallParameters::MESSAGE;
@@ -166,7 +155,16 @@ evmc_result HostContext::externalRequest(const evmc_message* _msg)
         request->createSalt = fromEvmC(_msg->create2_salt);
         break;
     case EVMC_CALL:
-        request->receiveAddress = fromEvmC(_msg->destination);
+        if (m_executive.lock()->blockContext()->isWasm())
+        {
+            request->receiveAddress.assign((char*)_msg->destination_ptr, _msg->destination_len);
+        }
+        else
+        {
+            auto receiveAddressBytes = fromEvmC(_msg->destination);
+            boost::algorithm::hex_lower(receiveAddressBytes.begin(), receiveAddressBytes.end(),
+                std::back_inserter(request->receiveAddress));
+        }
         request->codeAddress = request->receiveAddress;
         break;
     case EVMC_DELEGATECALL:
@@ -184,7 +182,8 @@ evmc_result HostContext::externalRequest(const evmc_message* _msg)
     evmc_result result;
     result.status_code = evmc_status_code(response->status);
 
-    result.create_address = toEvmC(response->newEVMContractAddress);  // TODO: check if ok
+    result.create_address =
+        toEvmC(boost::algorithm::unhex(response->newEVMContractAddress));  // TODO: check if ok
 
     // TODO: check if the response data need to release
     result.output_data = response->data.data();
@@ -196,19 +195,6 @@ evmc_result HostContext::externalRequest(const evmc_message* _msg)
 
     return result;
 }
-
-// evmc_result HostContext::externalCall(const evmc_message* _msg)
-// {
-//     // TODO: create a params and call
-//     (void)_msg;
-//     auto callResults = std::make_shared<CallResults>();
-
-//     auto callParameters = m_executive.lock()->externalRequest(callResults);
-
-//     // TODO: covert callParameters to evmc_result
-//     evmc_result result;
-//     return result;
-// }
 
 void HostContext::setCode(bytes code)
 {
@@ -272,34 +258,6 @@ void HostContext::setStore(u256 const& _n, u256 const& _v)
 
     m_table.setRow(key, std::move(entry));
 }
-
-// evmc_result HostContext::externalCreate(CallParameters callParameters, std::optional<u256> _salt)
-// {}
-
-// evmc_result HostContext::create(int64_t io_gas, bytesConstRef _code, evmc_opcode _op, u256 _salt)
-// {
-//     if (m_executive.lock()->blockContext()->isWasm())
-//     {  // TODO: if wasm support contract create
-//        // contract add a new branch
-//         EXECUTIVE_LOG(ERROR) << "wasm contract new contract isn't supported";
-//         return evmc_result();
-//     }
-
-//     // get last executive from blockcontext
-//     auto executive = m_blockContext->getLastExecutiveOf(m_contextID, myAddress());
-//     executive->setCallCreate(true);
-//     // call executive returnCallback
-//     std::optional<u256> salt;
-//     if (_op != evmc_opcode::OP_CREATE)
-//     {
-//         assert(_op == evmc_opcode::OP_CREATE2);
-//         salt = _salt;
-//     }
-//     // create callResult use factory from blockcontext, schedule should make depth
-//     // + 1
-//     return executive->waitReturnValue(
-//         nullptr, m_blockContext->createExecutionResult(m_contextID, io_gas, _code, salt));
-// }
 
 void HostContext::log(h256s&& _topics, bytesConstRef _data)
 {

@@ -35,8 +35,10 @@
 #include <bcos-framework/testutils/crypto/SignatureImpl.h>
 #include <bcos-framework/testutils/protocol/FakeBlockHeader.h>
 #include <bcos-framework/testutils/protocol/FakeTransaction.h>
+#include <boost/algorithm/hex.hpp>
 #include <boost/test/unit_test.hpp>
 #include <iostream>
+#include <iterator>
 #include <memory>
 #include <set>
 
@@ -73,7 +75,7 @@ struct TransactionExecutorFixture
     std::shared_ptr<MockTransactionalStorage> backend;
 
     string helloBin =
-        "0x60806040526040805190810160405280600181526020017f3100000000000000000000000000000000000000"
+        "60806040526040805190810160405280600181526020017f3100000000000000000000000000000000000000"
         "0000000000000000000000008152506001908051906020019061004f9291906100ae565b5034801561005c5760"
         "0080fd5b506040805190810160405280600d81526020017f48656c6c6f2c20576f726c64210000000000000000"
         "0000000000000000000000815250600090805190602001906100a89291906100ae565b50610153565b82805460"
@@ -123,10 +125,11 @@ BOOST_AUTO_TEST_CASE(executeTransaction_DeployHelloWorld)
             ->data(),
         64);
     cout << keyPair->secretKey()->hex() << endl << keyPair->publicKey()->hex() << endl;
-    auto to = *toHexString(keyPair->address(cryptoSuite->hashImpl()).asBytes());
+    auto to = boost::algorithm::hex_lower(keyPair->address(cryptoSuite->hashImpl()).asBytes());
     auto helloworld = string(helloBin);
 
-    auto input = *fromHexString(helloworld);
+    bytes input;
+    boost::algorithm::unhex(helloworld, std::back_inserter(input));
     auto tx = fakeTransaction(cryptoSuite, keyPair, "", input, 101, 100001, "1", "1");
     auto sender = *toHexString(string_view((char*)tx->sender().data(), tx->sender().size()));
 

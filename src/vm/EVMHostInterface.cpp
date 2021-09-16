@@ -28,6 +28,7 @@
 #include "HostContext.h"
 #include "libutilities/Common.h"
 #include <evmc/evmc.h>
+#include <boost/algorithm/hex.hpp>
 #include <exception>
 #include <optional>
 
@@ -57,7 +58,7 @@ evmc_bytes32 getStorage(
     auto& hostContext = static_cast<HostContext&>(*_context);
 
     // programming assert for debug
-    assert(fromEvmC(*_addr) == hostContext.myAddress());
+    assert(fromEvmC(*_addr) == boost::algorithm::unhex(std::string(hostContext.myAddress())));
 
     return toEvmC(hostContext.store(fromEvmC(*_key)));
 }
@@ -70,7 +71,8 @@ evmc_storage_status setStorage(evmc_host_context* _context, const evmc_address* 
     // {
     //     BOOST_THROW_EXCEPTION(PermissionDenied());
     // }
-    assert(fromEvmC(*_addr) == hostContext.myAddress());
+
+    assert(fromEvmC(*_addr) == boost::algorithm::unhex(std::string(hostContext.myAddress())));
     u256 index = fromEvmC(*_key);
     u256 value = fromEvmC(*_value);
     u256 oldValue = hostContext.store(index);
