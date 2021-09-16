@@ -30,6 +30,7 @@
 #include "interfaces/protocol/Transaction.h"
 #include "libprotocol/protobuf/PBBlockHeader.h"
 #include "libstorage/StateStorage.h"
+#include "vm/Common.h"
 #include <bcos-framework/testutils/crypto/HashImpl.h>
 #include <bcos-framework/testutils/crypto/SignatureImpl.h>
 #include <bcos-framework/testutils/protocol/FakeBlockHeader.h>
@@ -164,6 +165,61 @@ BOOST_AUTO_TEST_CASE(executeTransaction_DeployHelloWorld)
     BOOST_CHECK_EQUAL(result->status(), 0);
 
     BOOST_CHECK(result->message().empty());
+    BOOST_CHECK(!result->newEVMContractAddress().empty());
+
+    bcos::executor::TransactionExecutor::TwoPCParams commitParams;
+    commitParams.number = 1;
+
+    std::promise<void> preparePromise;
+    executor->prepare(commitParams, [&](bcos::Error::Ptr&& error) {
+        BOOST_CHECK(!error);
+        preparePromise.set_value();
+    });
+    preparePromise.get_future().get();
+
+    std::promise<void> commitPromise;
+    executor->commit(commitParams, [&](bcos::Error::Ptr&& error) {
+        BOOST_CHECK(!error);
+        commitPromise.set_value();
+    });
+    commitPromise.get_future().get();
+
+    auto tableName = std::string("c_") +
+                     std::string(result->newEVMContractAddress());  // TODO: ensure the contract
+                                                                    // address is hex or binary
+
+    EXECUTOR_LOG(TRACE) << "Checking table: [" << tableName << "]";
+    bool hasCode = false;
+    for (auto& it : backend->m_newEntries)
+    {
+        EXECUTOR_LOG(TRACE) << "[" << std::get<0>(it.first) << "],[" << std::get<1>(it.first)
+                            << "]";
+
+        if (std::get<1>(it.first) == "code")
+        {
+            hasCode = true;
+            BOOST_CHECK_GT(it.second.getField(STORAGE_VALUE).size(), 0);
+        }
+    }
+    BOOST_CHECK(hasCode);
+
+    // EXECUTOR_LOG(TRACE) << "Checking table: " << tableName;
+    // std::promise<Table> tablePromise;
+    // backend->asyncOpenTable(tableName, [&](Error::UniquePtr&& error, std::optional<Table>&&
+    // table) {
+    //     BOOST_CHECK(!error);
+    //     BOOST_CHECK(table);
+    //     tablePromise.set_value(std::move(*table));
+    // });
+    // auto table = tablePromise.get_future().get();
+
+    // auto entry = table.getRow("code");
+    // BOOST_CHECK(entry);
+    // BOOST_CHECK_GT(entry->getField(STORAGE_VALUE).size(), 0);
+
+    // auto contractAddress = result->newEVMContractAddress();
+
+    // BOOST_CHECK_EQUAL(result->newEVMContractAddress())
 
     // auto executive = std::make_shared<TransactionExecutive>(executiveContext);
     // auto receipt = executor->executeTransaction(tx, executive);

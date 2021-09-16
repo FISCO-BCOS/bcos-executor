@@ -28,6 +28,7 @@
 #include "HostContext.h"
 #include "libutilities/Common.h"
 #include <evmc/evmc.h>
+#include <exception>
 #include <optional>
 
 using namespace std;
@@ -200,6 +201,7 @@ evmc_bytes32 getBlockHash(evmc_host_context* _txContextPtr, int64_t _number)
 
 evmc_result create(HostContext& _txContext, evmc_message const* _msg) noexcept
 {
+    return _txContext.externalCreate(_msg);
     // int64_t gas = _msg->gas;
     // // u256 value = fromEvmC(_msg->value);
     // bytesConstRef init = {_msg->input_data, _msg->input_size};
@@ -225,6 +227,8 @@ evmc_result call(evmc_host_context* _context, const evmc_message* _msg) noexcept
     }
 
     auto& hostContext = static_cast<HostContext&>(*_context);
+
+    return hostContext.externalCall(_msg);
 
     switch (_msg->kind)
     {

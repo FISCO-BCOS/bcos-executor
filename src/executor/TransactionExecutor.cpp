@@ -137,6 +137,12 @@ void TransactionExecutor::nextBlockHeader(const protocol::BlockHeader::ConstPtr&
             m_executionResultFactory, EVMSchedule(), m_isWasm);
         m_stateStorages.push_back(std::move(stateStorage));
 
+        if (m_lastUncommitedIterator == m_stateStorages.end())
+        {
+            m_lastUncommitedIterator = m_stateStorages.cend();
+            --m_lastUncommitedIterator;
+        }
+
         EXECUTOR_LOG(INFO) << "NextBlockHeader success";
         callback(nullptr);
     }
@@ -238,7 +244,7 @@ void TransactionExecutor::getTableHashes(bcos::protocol::BlockNumber number,
 void TransactionExecutor::prepare(
     const TwoPCParams& params, std::function<void(bcos::Error::Ptr&&)> callback) noexcept
 {
-    EXECUTOR_LOG(INFO) << "Prepare" << LOG_KV("params", params.number);
+    EXECUTOR_LOG(INFO) << "Prepare request" << LOG_KV("params", params.number);
     if (m_stateStorages.empty())
     {
         EXECUTOR_LOG(ERROR) << "Prepare error: No uncommited state in executor";
@@ -247,6 +253,15 @@ void TransactionExecutor::prepare(
     }
 
     auto last = m_lastUncommitedIterator;
+    if (last == m_stateStorages.end())
+    {
+        auto errorMessage = "Prepare error: empty stateStorages";
+        EXECUTOR_LOG(ERROR) << errorMessage;
+        callback(BCOS_ERROR_PTR(-1, errorMessage));
+
+        return;
+    }
+
     if ((*last)->blockNumber() != params.number)
     {
         auto errorMessage = "Prepare error: Request block number: " +
@@ -281,7 +296,7 @@ void TransactionExecutor::prepare(
 void TransactionExecutor::commit(
     const TwoPCParams& params, std::function<void(bcos::Error::Ptr&&)> callback) noexcept
 {
-    EXECUTOR_LOG(INFO) << "Commit request: " << LOG_KV("number", params.number);
+    EXECUTOR_LOG(INFO) << "Commit request" << LOG_KV("number", params.number);
 
     if (m_lastUncommitedIterator == m_stateStorages.end())
     {
@@ -452,7 +467,12 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
 
                 try
                 {
-                    auto callResults = executive->execute(callParameters);
+                    auto callResults = executive->executeByCoroutine(callParameters);
+
+                    // auto callResults = executive->execute(callParameters);
+                    // TransactionExecutive::Coroutine::push_type executiveSource(
+                    //     std::bind(&TransactionExecutive::executeByCoroutine(Coroutine::pull_type),
+                    //         executive, std::placeholders::_1));
 
                     auto executionResult =
                         toExecutionResult(m_executionResultFactory, std::move(callResults));
@@ -478,7 +498,12 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
 
         try
         {
-            executive->execute(callParameters);
+            auto callResults = executive->executeByCoroutine(callParameters);
+
+            auto executionResult =
+                toExecutionResult(m_executionResultFactory, std::move(callResults));
+            executionResult->setType(ExecutionResult::FINISHED);
+            callback(nullptr, std::move(executionResult));
         }
         catch (std::exception& e)
         {
@@ -493,6 +518,16 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
         auto executive = blockContext->getExecutive(input->contextID(), input->to());
 
         // call the sink
+
+        // TODO: add logic to convert
+        auto callback = [&](std::shared_ptr<const bcos::executor::CallResults>&&) {
+            // TODO: convert callback to coroutine's callback
+        };
+
+        // TODO: convert ExecutionParameters to CallParameters
+        CallParameters::Ptr callParameters;
+
+        executive->getPushMessage()({callParameters, callback});
 
         break;
     }

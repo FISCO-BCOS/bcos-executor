@@ -107,6 +107,8 @@ struct CallResults
     std::vector<bcos::protocol::LogEntry> logEntries;
     std::string to;
     std::optional<u256> createSalt;
+
+    std::string newEVMContractAddress;
 };
 
 inline bcos::protocol::ExecutionResult::Ptr toExecutionResult(
@@ -125,6 +127,7 @@ inline bcos::protocol::ExecutionResult::Ptr toExecutionResult(
         std::move(callResults->logEntries)));
     executionResult->setOutput(std::move(callResults->output));
     executionResult->setTo(std::move(callResults->to));
+    executionResult->setNewEVMContractAddress(std::move(callResults->newEVMContractAddress));
 
     return executionResult;
 }

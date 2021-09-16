@@ -11,7 +11,7 @@ hunter_add_package(evmone)
 find_package(evmone CONFIG REQUIRED)
 hunter_add_package(jsoncpp)
 find_package(jsoncpp CONFIG REQUIRED)
-find_package(Boost CONFIG QUIET REQUIRED serialization program_options)
+find_package(Boost CONFIG QUIET REQUIRED serialization program_options context)
 find_package(bcos-crypto CONFIG QUIET REQUIRED)
 
 # FIXME: precompiled need fix

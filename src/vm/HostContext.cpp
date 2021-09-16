@@ -135,6 +135,8 @@ void HostContext::set(const std::string_view& _key, std::string _value)
 
 evmc_result HostContext::externalCreate(const evmc_message* _msg)
 {
+    // Coroutine here
+
     // create a params and create
 
     // get last executive from blockcontext
@@ -145,11 +147,29 @@ evmc_result HostContext::externalCreate(const evmc_message* _msg)
     // return executive->waitReturnValue(
     //     nullptr, m_blockContext->createExecutionResult(m_contextID, _p));
     // return m_executive->w
+
+    // TODO: create a params and create
+    (void)_msg;
+    auto callResults = std::make_shared<CallResults>();
+
+    auto callParameters = m_executive.lock()->externalRequest(callResults);
+
+    // TODO: covert callParameters to evmc_result
+    evmc_result result;
+    return result;
 }
 
 evmc_result HostContext::externalCall(const evmc_message* _msg)
 {
-    // create a params and call
+    // TODO: create a params and call
+    (void)_msg;
+    auto callResults = std::make_shared<CallResults>();
+
+    auto callParameters = m_executive.lock()->externalRequest(callResults);
+
+    // TODO: covert callParameters to evmc_result
+    evmc_result result;
+    return result;
 }
 
 void HostContext::setCode(bytes code)

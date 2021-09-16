@@ -34,8 +34,9 @@ set(HUNTER_CONFIGURATION_TYPES Release CACHE STRING "Build type of Hunter packag
 
 include(HunterGate)
 HunterGate(
-    URL "https://${URL_BASE}/FISCO-BCOS/hunter/archive/f88ce89a9fcd557b7fb2aa0f7abaa3c541dc6903.tar.gz"
-    SHA1 "b7792231bf64539602e696e32bfc163c9bc1812a"
+    # URL "https://${URL_BASE}/FISCO-BCOS/hunter/archive/f88ce89a9fcd557b7fb2aa0f7abaa3c541dc6903.tar.gz"
+    URL "https://${URL_BASE}/morebtcg/hunter/archive/1d3afca892ff2111cc105fb386a640f52c556176.tar.gz"
+    SHA1 "0c3d49faaf76d3e6a93cb0530985147dea32c628"
     FILEPATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/config.cmake
 )
 

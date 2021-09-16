@@ -30,6 +30,7 @@
 #include "bcos-framework/interfaces/protocol/Exceptions.h"
 #include "bcos-framework/interfaces/storage/Table.h"
 #include "bcos-framework/libcodec/abi/ContractABICodec.h"
+#include "libutilities/Common.h"
 #include <limits.h>
 #include <boost/lexical_cast.hpp>
 #include <numeric>
@@ -92,6 +93,31 @@ evmc_status_code transactionStatusToEvmcStatus(protocol::TransactionStatus ex) n
 //     auto hexAddress = toChecksumAddressFromBytes(m_newAddress, m_hashImpl);
 //     return hexAddress;
 // }
+
+CallResults::Ptr TransactionExecutive::executeByCoroutine(CallParameters::ConstPtr callParameters)
+{
+    CallResults::Ptr callResult;
+    m_pushMessage = std::make_unique<Coroutine::push_type>(
+        Coroutine::push_type([this, callParameters = std::move(callParameters), &callResult](
+                                 Coroutine::pull_type& sink) {
+            m_pullMessage = std::make_unique<Coroutine::pull_type>(std::move(sink));
+
+            callResult = execute(callParameters);
+        }));
+
+    return callResult;
+}
+
+CallParameters::ConstPtr TransactionExecutive::externalRequest(CallResults::ConstPtr input)
+{
+    m_callback(std::move(input));
+    (*m_pullMessage)();  // move the context to the main coroutine
+
+    auto [callParameters, callback] = m_pullMessage->get();  // wait for main coroutine's response
+    m_callback = std::move(callback);
+
+    return callParameters;
+}
 
 CallResults::Ptr TransactionExecutive::execute(CallParameters::ConstPtr callParameters)
 {
@@ -259,7 +285,7 @@ std::tuple<std::shared_ptr<HostContext>, CallResults::Ptr> TransactionExecutive:
         }
     }
 
-    auto newAddress = callParameters->receiveAddress;
+    auto newAddress = callParameters->codeAddress;
 
     // Create the table first
     auto tableName =
@@ -301,22 +327,21 @@ CallResults::Ptr TransactionExecutive::go(std::shared_ptr<HostContext> hostConte
                     toEvmC(0x0_cppui256)});
         };
 
-        auto code = hostContext->code();
-
-        auto vmKind = VMKind::evmone;
-        if (hasWasmPreamble(code))
-        {
-            vmKind = VMKind::Hera;
-        }
-        auto vm = VMFactory::create(vmKind);
-
         if (hostContext->isCreate())
         {
             auto mode = toRevision(hostContext->evmSchedule());
             auto evmcMessage = getEVMCMessage();
 
+            auto code = hostContext->data();
+            auto vmKind = VMKind::evmone;
+            if (hasWasmPreamble(code))
+            {
+                vmKind = VMKind::Hera;
+            }
+            auto vm = VMFactory::create(vmKind);
+
             auto ret = vm->exec(hostContext, mode, evmcMessage.get(), code.data(), code.size());
-            parseEVMCResult(hostContext->isCreate(), ret);
+            callResults = parseEVMCResult(hostContext->isCreate(), ret);
 
             auto outputRef = ret->output();
             if (outputRef.size() > hostContext->evmSchedule().maxCodeSize)
@@ -344,11 +369,20 @@ CallResults::Ptr TransactionExecutive::go(std::shared_ptr<HostContext> hostConte
 
             callResults->gasAvailable -=
                 outputRef.size() * hostContext->evmSchedule().createDataGas;
+            callResults->newEVMContractAddress = hostContext->codeAddress();
 
             hostContext->setCode(outputRef.toBytes());
         }
         else
         {
+            auto code = hostContext->code();
+            auto vmKind = VMKind::evmone;
+            if (hasWasmPreamble(code))
+            {
+                vmKind = VMKind::Hera;
+            }
+            auto vm = VMFactory::create(vmKind);
+
             auto mode = toRevision(hostContext->evmSchedule());
             auto evmcMessage = getEVMCMessage();
             auto ret = vm->exec(hostContext, mode, evmcMessage.get(), code.data(), code.size());

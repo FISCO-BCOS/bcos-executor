@@ -110,10 +110,17 @@ public:
 
     void suicide(const std::string_view& _a);
 
+    std::string_view newContractAddress() const { return m_newContractAddress; }
+    void setNewContractAddress(std::string newContractAddress)
+    {
+        m_newContractAddress = std::move(newContractAddress);
+    }
+
     /// ------ get interfaces related to HostContext------
     std::string_view myAddress() const { return m_executive.lock()->contractAddress(); }
     std::string_view caller() const { return m_callParameters->senderAddress; }
     std::string_view origin() const { return m_callParameters->origin; }
+    std::string_view codeAddress() const { return m_callParameters->codeAddress; }
     bytesConstRef data() const { return ref(m_callParameters->data); }
     bytesConstRef code();
     h256 codeHash();
@@ -140,6 +147,7 @@ private:
     u256 m_salt;           ///< Values used in new address construction by CREATE2
     SubState m_sub;        ///< Sub-band VM state (suicides, refund counter, logs).
     unsigned m_depth = 0;  ///< Depth of the present call.
+    std::string m_newContractAddress;
 
     std::map<std::string, size_t, std::less<>> m_key2Version;  // the version cache
 };

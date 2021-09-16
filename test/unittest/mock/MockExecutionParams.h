@@ -3,7 +3,6 @@
 #include "bcos-framework/interfaces/executor/ExecutionParams.h"
 #include "interfaces/crypto/CommonType.h"
 #include "libutilities/Common.h"
-#include <pthread.h>
 
 namespace bcos::test
 {

@@ -62,9 +62,8 @@ class TransactionExecutive : public std::enable_shared_from_this<TransactionExec
 {
 public:
     using Ptr = std::shared_ptr<TransactionExecutive>;
-    using Coroutine =
-        boost::coroutines2::coroutine<std::tuple<bcos::protocol::ExecutionParams::ConstPtr,
-            std::function<void(bcos::Error::Ptr&&, bcos::protocol::ExecutionResult::Ptr&&)>>>;
+    using Coroutine = boost::coroutines2::coroutine<
+        std::tuple<CallParameters::ConstPtr, std::function<void(CallResults::ConstPtr&&)>>>;
 
     TransactionExecutive(
         std::shared_ptr<BlockContext> blockContext, std::string contractAddress, int64_t contextID)
@@ -75,20 +74,21 @@ public:
     {}
 
     TransactionExecutive(TransactionExecutive const&) = delete;
-    virtual ~TransactionExecutive() {}
-    void operator=(TransactionExecutive) = delete;
+    TransactionExecutive& operator=(TransactionExecutive) = delete;
+    TransactionExecutive(TransactionExecutive&&) = default;
+    TransactionExecutive& operator=(TransactionExecutive&&) = default;
 
-    CallResults::Ptr execute(CallParameters::ConstPtr callParameters);
+    virtual ~TransactionExecutive() {}
+
+    // CallResults::Ptr execute(CallParameters::ConstPtr callParameters);
+
+    CallResults::Ptr executeByCoroutine(CallParameters::ConstPtr callParameters);
+
+    Coroutine::push_type& getPushMessage() { return *m_pushMessage; }
+    Coroutine::pull_type& getPullMessage() { return *m_pullMessage; }
 
     void reset()
     {
-        // m_output = owning_bytes_ref();
-        // m_excepted = protocol::TransactionStatus::None;
-        // m_exceptionReason.clear();
-        // m_baseGasRequired = 0;
-        // m_remainGas = 0;
-        // m_newAddress = std::string();
-        // m_savepoint = 0;
         if (m_logs)
         {
             m_logs->clear();
@@ -101,7 +101,10 @@ public:
 
     std::string_view contractAddress() { return m_contractAddress; }
 
+    CallParameters::ConstPtr externalRequest(CallResults::ConstPtr input);
+
 private:
+    CallResults::Ptr execute(CallParameters::ConstPtr callParameters);
     std::tuple<std::shared_ptr<HostContext>, CallResults::Ptr> call(
         CallParameters::ConstPtr callParameters);
     std::tuple<std::shared_ptr<HostContext>, CallResults::Ptr> create(
@@ -130,6 +133,11 @@ private:
                                                    ///< finalize().
 
     std::shared_ptr<wasm::GasInjector> m_gasInjector;
+
+    std::unique_ptr<Coroutine::push_type> m_pushMessage;
+    std::unique_ptr<Coroutine::pull_type> m_pullMessage;
+
+    std::function<void(CallResults::ConstPtr&&)> m_callback;
 };
 
 }  // namespace executor
