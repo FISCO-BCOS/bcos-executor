@@ -9,6 +9,8 @@ namespace bcos::test
 class MockExecutionParams : public protocol::ExecutionParams
 {
 public:
+    virtual ~MockExecutionParams() {}
+
     Type type() const override { return m_type; }
     void setType(Type type) override { m_type = type; }
 

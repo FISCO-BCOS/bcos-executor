@@ -60,7 +60,7 @@ enum ExecutorVersion : int32_t
 class TransactionExecutive;
 class BlockContext;
 class PrecompiledContract;
-class CallParameters;
+struct CallParameters;
 
 using executionCallback =
     std::function<void(const Error::ConstPtr&, std::vector<protocol::ExecutionResult::Ptr>&)>;
