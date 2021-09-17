@@ -61,11 +61,11 @@ evmc_bytes32 getStorage(
     // programming assert for debug
     assert(fromEvmC(*_addr) == boost::algorithm::unhex(std::string(hostContext.myAddress())));
 
-    auto value = toEvmC(hostContext.store(fromEvmC(*_key)));
+    // auto value = toEvmC(hostContext.store(fromEvmC(*_key)));
 
-    EXECUTOR_LOG(TRACE) << "Reading: "
-                        << boost::algorithm::hex_lower(std::string((char*)_key->bytes, 32)) << ", "
-                        << boost::algorithm::hex_lower(std::string((char*)value.bytes, 32));
+    // EXECUTOR_LOG(TRACE) << "Reading: "
+    //                     << boost::algorithm::hex_lower(std::string((char*)_key->bytes, 32)) << ", "
+    //                     << boost::algorithm::hex_lower(std::string((char*)value.bytes, 32));
 
 
     return toEvmC(hostContext.store(fromEvmC(*_key)));
@@ -81,9 +81,9 @@ evmc_storage_status setStorage(evmc_host_context* _context, const evmc_address* 
     u256 value = fromEvmC(*_value);
     u256 oldValue = hostContext.store(index);
 
-    EXECUTOR_LOG(TRACE) << "Writing: "
-                        << boost::algorithm::hex_lower(std::string((char*)_key->bytes, 32)) << ", "
-                        << boost::algorithm::hex_lower(std::string((char*)_value->bytes, 32));
+    // EXECUTOR_LOG(TRACE) << "Writing: "
+    //                     << boost::algorithm::hex_lower(std::string((char*)_key->bytes, 32)) << ", "
+    //                     << boost::algorithm::hex_lower(std::string((char*)_value->bytes, 32));
 
     // set the same value can update the version
     // if (value == oldValue)

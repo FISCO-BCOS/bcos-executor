@@ -192,7 +192,7 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
 
     auto tableName = std::string("c_") +
                      std::string(result->newEVMContractAddress());  // TODO: ensure the contract
-                                                                    // address is hex or binary
+                                                                    // address is hex
 
     EXECUTOR_LOG(TRACE) << "Checking table: " << tableName;
     std::promise<Table> tablePromise;
