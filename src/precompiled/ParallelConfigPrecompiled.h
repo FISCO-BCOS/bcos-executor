@@ -19,7 +19,7 @@
  */
 
 #pragma once
-#include "../vm/BlockContext.h"
+#include "../executive/BlockContext.h"
 #include "../vm/Precompiled.h"
 #include "Common.h"
 #include <bcos-framework/interfaces/storage/Table.h>
@@ -50,8 +50,9 @@ public:
         bytesConstRef _param, const std::string& _origin, const std::string& _sender,
         int64_t _remainGas) override;
 
-    std::shared_ptr<bcos::storage::Table> openTable(std::shared_ptr<executor::BlockContext> _context,
-        std::string const& _contractAddress, std::string const& _origin, bool _needCreate = true);
+    std::shared_ptr<bcos::storage::Table> openTable(
+        std::shared_ptr<executor::BlockContext> _context, std::string const& _contractAddress,
+        std::string const& _origin, bool _needCreate = true);
 
 private:
     void registerParallelFunction(PrecompiledCodec::Ptr _codec,

@@ -23,6 +23,7 @@
 #include <bcos-framework/interfaces/protocol/CommonError.h>
 #include <bcos-framework/interfaces/protocol/Exceptions.h>
 #include <bcos-framework/interfaces/storage/Common.h>
+#include <bcos-framework/interfaces/storage/Entry.h>
 #include <bcos-framework/libutilities/Log.h>
 #include <memory>
 #include <string>
@@ -180,6 +181,9 @@ enum PrecompiledErrorCode : int
     CODE_TABLE_AND_ADDRESS_EXIST = -51000,
 
     // Common error code among all precompiled contracts -50199 ~ -50100
+    CODE_TABLE_OPEN_ERROR = -50105,
+    CODE_TABLE_CREATE_ERROR = -50104,
+    CODE_TABLE_SET_ROW_ERROR = -50103,
     CODE_ADDRESS_INVALID = -50102,
     CODE_UNKNOW_FUNCTION_CALL = -50101,
     CODE_TABLE_NOT_EXIST = -50100,

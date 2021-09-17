@@ -23,6 +23,7 @@
 #include "../vm/Precompiled.h"
 #include "Common.h"
 #include <bcos-framework/interfaces/crypto/CommonType.h>
+#include <bcos-framework/interfaces/storage/StorageInterface.h>
 #include <bcos-framework/interfaces/storage/Table.h>
 
 namespace bcos
@@ -59,15 +60,15 @@ public:
 
     std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::BlockContext> _context,
         bytesConstRef _param, const std::string& _origin, const std::string& _sender,
-        u256& _remainGas) override;
+        int64_t _remainGas) override;
 
     std::shared_ptr<bcos::storage::Table> getTable() { return m_table; }
     void setTable(std::shared_ptr<bcos::storage::Table> _table) { m_table = _table; }
-
-    crypto::HashType hash();
-
+    void setKeyField(const std::string_view& _key) { m_keyField = _key; }
+    // FIXME: table hash
 private:
     std::shared_ptr<bcos::storage::Table> m_table;
+    std::string_view m_keyField = "";
 };
 }  // namespace precompiled
 }  // namespace bcos

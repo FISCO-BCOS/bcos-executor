@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "../vm/BlockContext.h"
+#include "../executive/BlockContext.h"
 #include "../vm/Precompiled.h"
 #include "Common.h"
 
@@ -50,7 +50,7 @@ public:
 
     std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::BlockContext> _context,
         bytesConstRef _param, const std::string& _origin, const std::string& _sender,
-        u256& _remainGas) override;
+        int64_t _remainGas) override;
 
     void setEntries(const EntriesPtr& entries) { m_entriesConst = entries; }
     EntriesPtr getEntriesPtr() { return std::const_pointer_cast<Entries>(m_entriesConst); }

@@ -136,18 +136,18 @@ std::string DagTransferPrecompiled::toString()
     return "DagTransfer";
 }
 
-std::shared_ptr<storage::Table> DagTransferPrecompiled::openTable(
+std::optional<storage::Table> DagTransferPrecompiled::openTable(
     std::shared_ptr<executor::BlockContext> _context)
 {
     std::string dagTableName = precompiled::getTableName(DAG_TRANSFER);
-    auto table = _context->getTableFactory()->openTable(dagTableName);
+    auto table = _context->storage()->openTable(dagTableName);
     if (!table)
     {
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("DagTransferPrecompiled")
                                << LOG_DESC("openTable: ready to create table")
                                << LOG_KV("tableName", dagTableName);
         //__dag_transfer__ is not exist, then create it first.
-        table = createTable(_context->getTableFactory(), dagTableName, DAG_TRANSFER_FIELD_NAME,
+        table = createTable(_context->storage(), dagTableName,
             DAG_TRANSFER_FIELD_BALANCE);
         // table already exists
         if (!table)
@@ -156,7 +156,7 @@ std::shared_ptr<storage::Table> DagTransferPrecompiled::openTable(
                 << LOG_BADGE("DagTransferPrecompiled") << LOG_DESC("table already exist")
                 << LOG_KV("tableName", dagTableName);
             // try to openTable and get the table again
-            table = _context->getTableFactory()->openTable(dagTableName);
+            table = _context->storage()->openTable(dagTableName);
         }
     }
     return table;
@@ -164,7 +164,7 @@ std::shared_ptr<storage::Table> DagTransferPrecompiled::openTable(
 
 PrecompiledExecResult::Ptr DagTransferPrecompiled::call(
     std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
-    const std::string& _origin, const std::string&, u256& _remainGas)
+    const std::string& _origin, const std::string&, int64_t _remainGas)
 {
     // parse function name
     uint32_t func = getParamFunc(_param);
@@ -237,16 +237,9 @@ void DagTransferPrecompiled::userAddCall(std::shared_ptr<executor::BlockContext>
             break;
         }
 
-        if (!_context->getTableFactory()->checkAuthority(DAG_TRANSFER, _origin))
-        {
-            strErrorMsg = "permission denied";
-            ret = CODE_NO_AUTHORIZED;
-            break;
-        }
-
         // user not exist, insert user into it.
         auto newEntry = table->newEntry();
-        newEntry->setField(DAG_TRANSFER_FIELD_BALANCE, amount.str());
+        newEntry.setField(DAG_TRANSFER_FIELD_BALANCE, amount.str());
         table->setRow(user, newEntry);
         ret = 0;
     } while (false);
@@ -301,13 +294,7 @@ void DagTransferPrecompiled::userSaveCall(std::shared_ptr<executor::BlockContext
             // If user is not exist, insert it. With this strategy, we can also add user by save
             // operation.
             auto newEntry = table->newEntry();
-            newEntry->setField(DAG_TRANSFER_FIELD_BALANCE, amount.str());
-            if (!_context->getTableFactory()->checkAuthority(DAG_TRANSFER, _origin))
-            {
-                strErrorMsg = "permission denied";
-                ret = CODE_NO_AUTHORIZED;
-                break;
-            }
+            newEntry.setField(DAG_TRANSFER_FIELD_BALANCE, amount.str());
             table->setRow(user, newEntry);
         }
         else
@@ -324,13 +311,7 @@ void DagTransferPrecompiled::userSaveCall(std::shared_ptr<executor::BlockContext
             }
 
             auto updateEntry = table->newEntry();
-            updateEntry->setField(DAG_TRANSFER_FIELD_BALANCE, new_balance.str());
-            if (!_context->getTableFactory()->checkAuthority(DAG_TRANSFER, _origin))
-            {
-                strErrorMsg = "permission denied";
-                ret = CODE_NO_AUTHORIZED;
-                break;
-            }
+            updateEntry.setField(DAG_TRANSFER_FIELD_BALANCE, new_balance.str());
             table->setRow(user, updateEntry);
         }
 
@@ -396,14 +377,7 @@ void DagTransferPrecompiled::userDrawCall(std::shared_ptr<executor::BlockContext
 
         auto new_balance = balance - amount;
         auto newEntry = table->newEntry();
-        newEntry->setField(DAG_TRANSFER_FIELD_BALANCE, new_balance.str());
-
-        if (!_context->getTableFactory()->checkAuthority(DAG_TRANSFER, _origin))
-        {
-            strErrorMsg = "permission denied";
-            ret = CODE_NO_AUTHORIZED;
-            break;
-        }
+        newEntry.setField(DAG_TRANSFER_FIELD_BALANCE, new_balance.str());
         table->setRow(user, newEntry);
         ret = 0;
     } while (false);
@@ -526,13 +500,7 @@ void DagTransferPrecompiled::userTransferCall(std::shared_ptr<executor::BlockCon
         {
             // If to user not exist, add it first.
             auto newEntry = table->newEntry();
-            newEntry->setField(DAG_TRANSFER_FIELD_BALANCE, u256(0).str());
-            if (!_context->getTableFactory()->checkAuthority(DAG_TRANSFER, _origin))
-            {
-                strErrorMsg = "permission denied";
-                ret = CODE_NO_AUTHORIZED;
-                break;
-            }
+            newEntry.setField(DAG_TRANSFER_FIELD_BALANCE, u256(0).str());
             table->setRow(toUser, newEntry);
             toUserBalance = 0;
         }
@@ -551,22 +519,16 @@ void DagTransferPrecompiled::userTransferCall(std::shared_ptr<executor::BlockCon
 
         newFromUserBalance = fromUserBalance - amount;
         newToUserBalance = toUserBalance + amount;
-        if (!_context->getTableFactory()->checkAuthority(DAG_TRANSFER, _origin))
-        {
-            strErrorMsg = "permission denied";
-            ret = CODE_NO_AUTHORIZED;
-            break;
-        }
 
         // update fromUser balance info.
         entry = table->newEntry();
         entry->setField(DAG_TRANSFER_FIELD_BALANCE, newFromUserBalance.str());
-        table->setRow(fromUser, entry);
+        table->setRow(fromUser, *entry);
 
         // update toUser balance info.
         entry = table->newEntry();
         entry->setField(DAG_TRANSFER_FIELD_BALANCE, newToUserBalance.str());
-        table->setRow(toUser, entry);
+        table->setRow(toUser, *entry);
         // end with success
         ret = 0;
     } while (false);

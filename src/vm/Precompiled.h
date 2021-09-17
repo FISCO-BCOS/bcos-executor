@@ -153,7 +153,7 @@ public:
     virtual bool isParallelPrecompiled() { return false; }
     virtual std::vector<std::string> getParallelTag(bytesConstRef /*param*/)
     {
-        return std::vector<std::string>();
+        return {};
     }
 
 protected:
@@ -161,12 +161,8 @@ protected:
     crypto::Hash::Ptr m_hashImpl;
 
 protected:
-    std::shared_ptr<bcos::storage::Table> createTable(
-        storage::StateStorage::Ptr _tableFactory, const std::string& _tableName,
-        const std::string& _keyField, const std::string& _valueField);
-
-    bool checkAuthority(storage::StateStorage::Ptr _tableFactory,
-        const std::string& _origin, const std::string& _contract);
+    std::optional<bcos::storage::Table> createTable(storage::StateStorage::Ptr _tableFactory,
+        const std::string& _tableName, const std::string& _valueField);
 
     std::shared_ptr<PrecompiledGasFactory> m_precompiledGasFactory;
 };

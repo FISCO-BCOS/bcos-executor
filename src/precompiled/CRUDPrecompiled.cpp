@@ -23,6 +23,7 @@
 #include "PrecompiledResult.h"
 #include "Utilities.h"
 #include <bcos-framework/interfaces/protocol/CommonError.h>
+#include <bcos-framework/interfaces/storage/StorageInterface.h>
 #include <bcos-framework/interfaces/storage/Table.h>
 #include <json/json.h>
 #include <boost/lexical_cast.hpp>
@@ -63,7 +64,7 @@ std::string CRUDPrecompiled::toString()
 
 std::shared_ptr<PrecompiledExecResult> CRUDPrecompiled::call(
     std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param, const std::string&,
-    const std::string&, u256& _remainGas)
+    const std::string&, int64_t _remainGas)
 {
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
@@ -116,7 +117,7 @@ void CRUDPrecompiled::desc(std::shared_ptr<executor::BlockContext> _context,
     tableName = precompiled::getTableName(tableName);
 
     // s_tables must exist
-    auto table = _context->getTableFactory()->openTable(SYS_TABLE);
+    auto table = _context->storage()->openTable(StorageInterface::SYS_TABLES);
     _gasPricer->appendOperation(InterfaceOpcode::OpenTable);
 
     auto entry = table->getRow(tableName);
@@ -124,15 +125,15 @@ void CRUDPrecompiled::desc(std::shared_ptr<executor::BlockContext> _context,
     if (entry)
     {
         _gasPricer->appendOperation(InterfaceOpcode::Select, entry->capacityOfHashField());
-        keyField = entry->getField(SYS_TABLE_KEY_FIELDS);
-        valueField = entry->getField(SYS_TABLE_VALUE_FIELDS);
+        keyField = entry->getField("key_field");
+        valueField = entry->getField(StorageInterface::SYS_TABLE_VALUE_FIELDS);
     }
     else
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("CRUDPrecompiled") << LOG_BADGE("DESC")
                                << LOG_DESC("table not exist") << LOG_KV("tableName", tableName);
     }
-    _callResult->setExecResult(codec->encode(keyField, valueField));
+    _callResult->setExecResult(codec->encode(std::string("key"), valueField));
 }
 
 void CRUDPrecompiled::update(std::shared_ptr<executor::BlockContext> _context,
@@ -143,33 +144,26 @@ void CRUDPrecompiled::update(std::shared_ptr<executor::BlockContext> _context,
     std::string tableName, entryStr, conditionStr, optional;
     codec->decode(_paramData, tableName, entryStr, conditionStr, optional);
     tableName = precompiled::getTableName(tableName);
-    auto table = _context->getTableFactory()->openTable(tableName);
+    auto table = _context->storage()->openTable(tableName);
     _gasPricer->appendOperation(InterfaceOpcode::OpenTable);
-    if (table)
+    auto sysTable = _context->storage()->openTable(StorageInterface::SYS_TABLES);
+    auto sysEntry = sysTable->getRow(tableName);
+    if (table && sysEntry)
     {
-        Entry::Ptr entry = table->newEntry();
+        auto keyField = sysEntry->getField("key_filed");
+        auto entry = table->newEntry();
         int parseEntryResult = parseEntry(entryStr, entry);
         if (parseEntryResult != CODE_SUCCESS)
         {
             getErrorCodeOut(_callResult->mutableExecResult(), parseEntryResult, codec);
             return;
         }
-        // check the entry
-        auto it = entry->begin();
-        for (; it != entry->end(); ++it)
+        // check the entry value valid
+        auto it = entry.begin();
+        for (; it != entry.end(); ++it)
         {
-            checkLengthValidate(it->second, USER_TABLE_FIELD_VALUE_MAX_LENGTH,
-                CODE_TABLE_KEY_VALUE_LENGTH_OVERFLOW);
-            if (it->first == table->tableInfo()->key)
-            {
-                PRECOMPILED_LOG(ERROR)
-                    << LOG_BADGE("CRUDPrecompiled") << LOG_BADGE("UPDATE")
-                    << LOG_DESC("can't update the key in entry") << LOG_KV("table", tableName)
-                    << LOG_KV("key", table->tableInfo()->key);
-                getErrorCodeOut(
-                    _callResult->mutableExecResult(), CODE_INVALID_UPDATE_TABLE_KEY, codec);
-                return;
-            }
+            checkLengthValidate(static_cast<const std::string>(*it),
+                USER_TABLE_FIELD_VALUE_MAX_LENGTH, CODE_TABLE_KEY_VALUE_LENGTH_OVERFLOW);
         }
 
         auto condition = std::make_shared<precompiled::Condition>();
@@ -185,7 +179,7 @@ void CRUDPrecompiled::update(std::shared_ptr<executor::BlockContext> _context,
         bool findKeyFlag = false;
         for (auto& cond : condition->m_conditions)
         {
-            if (cond.left == table->tableInfo()->key)
+            if (cond.left == keyField)
             {
                 findKeyFlag = true;
                 if (cond.cmp == precompiled::Comparator::EQ)
@@ -203,7 +197,7 @@ void CRUDPrecompiled::update(std::shared_ptr<executor::BlockContext> _context,
         {
             PRECOMPILED_LOG(ERROR) << LOG_BADGE("CRUDPrecompiled") << LOG_BADGE("UPDATE")
                                    << LOG_DESC("can't get any primary key in condition")
-                                   << LOG_KV("primaryKey", table->tableInfo()->key);
+                                   << LOG_KV("primaryKey", keyField);
             getErrorCodeOut(_callResult->mutableExecResult(), CODE_KEY_NOT_EXIST_IN_COND, codec);
             return;
         }
@@ -217,7 +211,7 @@ void CRUDPrecompiled::update(std::shared_ptr<executor::BlockContext> _context,
                 PRECOMPILED_LOG(ERROR)
                     << LOG_BADGE("CRUDPrecompiled") << LOG_BADGE("UPDATE")
                     << LOG_DESC("key not exist in table, please use INSERT method")
-                    << LOG_KV("primaryKey", table->tableInfo()->key) << LOG_KV("notExistKey", key);
+                    << LOG_KV("primaryKey", keyField) << LOG_KV("notExistKey", key);
                 eqKeyExist = false;
                 getErrorCodeOut(_callResult->mutableExecResult(), CODE_UPDATE_KEY_NOT_EXIST, codec);
                 break;
@@ -225,7 +219,7 @@ void CRUDPrecompiled::update(std::shared_ptr<executor::BlockContext> _context,
         }
         if (eqKeyExist)
         {
-            auto tableKeyList = table->getPrimaryKeys(keyCondition);
+            auto tableKeyList = table->getPrimaryKeys(*keyCondition);
             std::set<std::string> tableKeySet{tableKeyList.begin(), tableKeyList.end()};
             tableKeySet.insert(eqKeyList.begin(), eqKeyList.end());
             for (auto& tableKey : tableKeySet)
@@ -236,7 +230,7 @@ void CRUDPrecompiled::update(std::shared_ptr<executor::BlockContext> _context,
                     table->setRow(tableKey, entry);
                 }
             }
-            _gasPricer->setMemUsed(entry->capacityOfHashField());
+            _gasPricer->setMemUsed(entry.capacityOfHashField());
             _gasPricer->appendOperation(InterfaceOpcode::Update, tableKeySet.size());
             getErrorCodeOut(_callResult->mutableExecResult(), tableKeySet.size(), codec);
         }
@@ -258,12 +252,15 @@ void CRUDPrecompiled::insert(std::shared_ptr<executor::BlockContext> _context,
     codec->decode(_paramData, tableName, entryStr, optional);
 
     tableName = precompiled::getTableName(tableName);
-    auto table = _context->getTableFactory()->openTable(tableName);
+    auto table = _context->storage()->openTable(tableName);
     _gasPricer->appendOperation(InterfaceOpcode::OpenTable);
-    if (table)
+    auto sysTable = _context->storage()->openTable(StorageInterface::SYS_TABLES);
+    auto sysEntry = sysTable->getRow(tableName);
+    if (table && sysEntry)
     {
+        auto keyField = sysEntry->getField("key_field");
         auto tableInfo = table->tableInfo();
-        Entry::Ptr entry = table->newEntry();
+        auto entry = table->newEntry();
         int parseEntryResult = parseEntry(entryStr, entry);
         if (parseEntryResult != CODE_SUCCESS)
         {
@@ -271,29 +268,29 @@ void CRUDPrecompiled::insert(std::shared_ptr<executor::BlockContext> _context,
             return;
         }
         // check entry
-        auto it = entry->begin();
+        auto it = entry.begin();
         std::string keyValue;
-        for (; it != entry->end(); ++it)
+        for (; it != entry.end(); ++it)
         {
-            checkLengthValidate(it->second, USER_TABLE_FIELD_VALUE_MAX_LENGTH,
-                CODE_TABLE_KEY_VALUE_LENGTH_OVERFLOW);
-            if (it->first == table->tableInfo()->key)
-            {
-                keyValue = it->second;
-            }
+            checkLengthValidate(static_cast<const std::string>(*it),
+                USER_TABLE_FIELD_VALUE_MAX_LENGTH, CODE_TABLE_KEY_VALUE_LENGTH_OVERFLOW);
+            // FIXME: entry not contains key field
+            //            if (it->first == table->tableInfo()->key)
+            //            {
+            //                keyValue = it->second;
+            //            }
         }
         if (keyValue.empty())
         {
-            PRECOMPILED_LOG(ERROR)
-                << LOG_BADGE("CRUDPrecompiled") << LOG_BADGE("INSERT")
-                << LOG_DESC("can't find specific key in entry") << LOG_KV("table", tableName)
-                << LOG_KV("key", table->tableInfo()->key);
+            PRECOMPILED_LOG(ERROR) << LOG_BADGE("CRUDPrecompiled") << LOG_BADGE("INSERT")
+                                   << LOG_DESC("can't find specific key in entry")
+                                   << LOG_KV("table", tableName) << LOG_KV("key", keyField);
             getErrorCodeOut(_callResult->mutableExecResult(), CODE_INVALID_UPDATE_TABLE_KEY, codec);
             return;
         }
         table->setRow(keyValue, entry);
         _gasPricer->appendOperation(InterfaceOpcode::Insert, 1);
-        _gasPricer->updateMemUsed(entry->capacityOfHashField());
+        _gasPricer->updateMemUsed(entry.capacityOfHashField());
         _callResult->setExecResult(codec->encode(u256(1)));
     }
     else
@@ -312,10 +309,13 @@ void CRUDPrecompiled::remove(std::shared_ptr<executor::BlockContext> _context,
     std::string tableName, conditionStr, optional;
     codec->decode(_paramData, tableName, conditionStr, optional);
     tableName = precompiled::getTableName(tableName);
-    auto table = _context->getTableFactory()->openTable(tableName);
+    auto table = _context->storage()->openTable(tableName);
     _gasPricer->appendOperation(InterfaceOpcode::OpenTable);
-    if (table)
+    auto sysTable = _context->storage()->openTable(StorageInterface::SYS_TABLES);
+    auto sysEntry = sysTable->getRow(tableName);
+    if (table && sysEntry)
     {
+        auto keyField = sysEntry->getField("key_field");
         auto condition = std::make_shared<precompiled::Condition>();
         int parseConditionResult = parseCondition(conditionStr, condition, _gasPricer);
         if (parseConditionResult != CODE_SUCCESS)
@@ -329,7 +329,7 @@ void CRUDPrecompiled::remove(std::shared_ptr<executor::BlockContext> _context,
         bool findKeyFlag = false;
         for (auto& cond : condition->m_conditions)
         {
-            if (cond.left == table->tableInfo()->key)
+            if (cond.left == keyField)
             {
                 findKeyFlag = true;
                 if (cond.cmp == precompiled::Comparator::EQ)
@@ -347,11 +347,11 @@ void CRUDPrecompiled::remove(std::shared_ptr<executor::BlockContext> _context,
         {
             PRECOMPILED_LOG(ERROR) << LOG_BADGE("CRUDPrecompiled") << LOG_BADGE("REMOVE")
                                    << LOG_DESC("can't get any primary key in condition")
-                                   << LOG_KV("primaryKey", table->tableInfo()->key);
+                                   << LOG_KV("primaryKey", keyField);
             getErrorCodeOut(_callResult->mutableExecResult(), CODE_KEY_NOT_EXIST_IN_COND, codec);
             return;
         }
-        auto tableKeyList = table->getPrimaryKeys(keyCondition);
+        auto tableKeyList = table->getPrimaryKeys(*keyCondition);
         std::set<std::string> tableKeySet{tableKeyList.begin(), tableKeyList.end()};
         tableKeySet.insert(eqKeyList.begin(), eqKeyList.end());
         for (auto& tableKey : tableKeySet)
@@ -359,7 +359,7 @@ void CRUDPrecompiled::remove(std::shared_ptr<executor::BlockContext> _context,
             auto entry = table->getRow(tableKey);
             if (condition->filter(entry))
             {
-                table->remove(tableKey);
+                table->setRow(tableKey, table->newDeletedEntry());
             }
         }
         _gasPricer->appendOperation(InterfaceOpcode::Remove, tableKeySet.size());
@@ -382,15 +382,18 @@ void CRUDPrecompiled::select(std::shared_ptr<executor::BlockContext> _context,
     auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     std::string tableName, conditionStr, optional;
     codec->decode(_paramData, tableName, conditionStr, optional);
-    if (tableName != SYS_TABLE)
+    if (tableName != StorageInterface::SYS_TABLES)
     {
         tableName = precompiled::getTableName(tableName);
     }
-    auto table = _context->getTableFactory()->openTable(tableName);
+    auto table = _context->storage()->openTable(tableName);
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->appendOperation(InterfaceOpcode::OpenTable);
-    if (table)
+    auto sysTable = _context->storage()->openTable(StorageInterface::SYS_TABLES);
+    auto sysEntry = sysTable->getRow(tableName);
+    if (table && sysEntry)
     {
+        auto keyField = sysEntry->getField("key_field");
         auto condition = std::make_shared<precompiled::Condition>();
         int parseConditionResult = parseCondition(conditionStr, condition, _gasPricer);
         if (parseConditionResult != CODE_SUCCESS)
@@ -403,7 +406,7 @@ void CRUDPrecompiled::select(std::shared_ptr<executor::BlockContext> _context,
         bool findKeyFlag = false;
         for (auto& cond : condition->m_conditions)
         {
-            if (cond.left == table->tableInfo()->key)
+            if (cond.left == keyField)
             {
                 findKeyFlag = true;
                 if (cond.cmp == precompiled::Comparator::EQ)
@@ -421,12 +424,12 @@ void CRUDPrecompiled::select(std::shared_ptr<executor::BlockContext> _context,
         {
             PRECOMPILED_LOG(ERROR) << LOG_BADGE("CRUDPrecompiled") << LOG_BADGE("SELECT")
                                    << LOG_DESC("can't get any primary key in condition")
-                                   << LOG_KV("primaryKey", table->tableInfo()->key);
+                                   << LOG_KV("primaryKey", keyField);
             getErrorCodeOut(_callResult->mutableExecResult(), CODE_KEY_NOT_EXIST_IN_COND, codec);
             return;
         }
         // merge keys from storage and eqKeys
-        auto tableKeyList = table->getPrimaryKeys(keyCondition);
+        auto tableKeyList = table->getPrimaryKeys(*keyCondition);
         std::set<std::string> tableKeySet{tableKeyList.begin(), tableKeyList.end()};
         tableKeySet.insert(eqKeyList.begin(), eqKeyList.end());
         auto entries = std::make_shared<precompiled::Entries>();
@@ -435,7 +438,8 @@ void CRUDPrecompiled::select(std::shared_ptr<executor::BlockContext> _context,
             auto entry = table->getRow(key);
             if (condition->filter(entry))
             {
-                entries->emplace_back(entry);
+                auto entryPtr = std::make_shared<storage::Entry>(entry.value());
+                entries->emplace_back(entryPtr);
             }
         }
         // update the memory gas and the computation gas
@@ -447,9 +451,10 @@ void CRUDPrecompiled::select(std::shared_ptr<executor::BlockContext> _context,
             for (auto& entry : *entries)
             {
                 Json::Value record;
-                for (auto iter = entry->begin(); iter != entry->end(); iter++)
+                for (auto iter = entry->tableInfo()->fields().begin();
+                     iter != entry->tableInfo()->fields().end(); iter++)
                 {
-                    record[iter->first] = iter->second;
+                    record[*iter] = std::string(entry->getField(*iter));
                 }
                 records.append(record);
             }
@@ -546,7 +551,7 @@ int CRUDPrecompiled::parseCondition(const std::string& conditionStr,
     return CODE_SUCCESS;
 }
 
-int CRUDPrecompiled::parseEntry(const std::string& entryStr, Entry::Ptr& entry)
+int CRUDPrecompiled::parseEntry(const std::string& entryStr, Entry& entry)
 {
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("CRUDPrecompiled") << LOG_DESC("table records")
                            << LOG_KV("entryStr", entryStr);
@@ -564,7 +569,7 @@ int CRUDPrecompiled::parseEntry(const std::string& entryStr, Entry::Ptr& entry)
         auto members = entryJson.getMemberNames();
         for (auto& member : members)
         {
-            entry->setField(member, entryJson[member].asString());
+            entry.setField(member, entryJson[member].asString());
         }
 
         return CODE_SUCCESS;

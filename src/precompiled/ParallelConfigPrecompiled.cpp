@@ -77,7 +77,7 @@ std::string ParallelConfigPrecompiled::toString()
 
 PrecompiledExecResult::Ptr ParallelConfigPrecompiled::call(
     std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
-    const std::string& _origin, const std::string&, u256& _remainGas)
+    const std::string& _origin, const std::string&, int64_t _remainGas)
 {
     // parse function name
     uint32_t func = getParamFunc(_param);
@@ -119,17 +119,17 @@ std::string ParallelConfigPrecompiled::getTableName(
 }
 
 // TODO: use origin to check authority
-Table::Ptr ParallelConfigPrecompiled::openTable(
+std::shared_ptr<Table> ParallelConfigPrecompiled::openTable(
     std::shared_ptr<executor::BlockContext> _context, std::string const& _contractName,
     std::string const&, bool _needCreate)
 {
     std::string tableName = getTableName(_contractName, _context->isWasm());
-    auto tableFactory = _context->getTableFactory();
+    auto tableFactory = _context->storage();
     auto table = tableFactory->openTable(tableName);
 
     if (!table && _needCreate)
     {  //__dat_transfer__ is not exist, then create it first.
-        auto ret = tableFactory->createTable(tableName, PARA_KEY_NAME, PARA_VALUE_NAMES);
+        auto ret = tableFactory->createTable(tableName, PARA_VALUE_NAMES);
         if (ret)
         {
             PRECOMPILED_LOG(DEBUG)
@@ -145,14 +145,14 @@ Table::Ptr ParallelConfigPrecompiled::openTable(
             return nullptr;
         }
     }
-    return table;
+    return std::make_shared<Table>(table.value());
 }
 
 void ParallelConfigPrecompiled::registerParallelFunction(PrecompiledCodec::Ptr _codec,
     std::shared_ptr<executor::BlockContext> _context, bytesConstRef _data,
     std::string const& _origin, bytes& _out)
 {
-    Table::Ptr table = nullptr;
+    std::shared_ptr<Table> table = nullptr;
     std::string functionName;
     u256 criticalSize;
     if (_context->isWasm())
@@ -170,9 +170,9 @@ void ParallelConfigPrecompiled::registerParallelFunction(PrecompiledCodec::Ptr _
     uint32_t selector = getFuncSelector(functionName, m_hashImpl);
     if (table)
     {
-        Entry::Ptr entry = table->newEntry();
-        entry->setField(PARA_FUNC_NAME, functionName);
-        entry->setField(PARA_CRITICAL_SIZE, boost::lexical_cast<std::string>(criticalSize));
+        Entry entry = table->newEntry();
+        entry.setField(PARA_FUNC_NAME, functionName);
+        entry.setField(PARA_CRITICAL_SIZE, boost::lexical_cast<std::string>(criticalSize));
 
         table->setRow(std::to_string(selector), entry);
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ParallelConfigPrecompiled")
@@ -181,12 +181,6 @@ void ParallelConfigPrecompiled::registerParallelFunction(PrecompiledCodec::Ptr _
                                << LOG_KV(PARA_FUNC_NAME, functionName)
                                << LOG_KV(PARA_CRITICAL_SIZE, criticalSize);
         _out = _codec->encode(u256(0));
-
-        PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ParallelConfigPrecompiled")
-                               << LOG_DESC("registerParallelFunction success")
-                               << LOG_KV(PARA_SELECTOR, std::to_string(selector))
-                               << LOG_KV(PARA_FUNC_NAME, functionName)
-                               << LOG_KV(PARA_CRITICAL_SIZE, criticalSize);
     }
 }
 
@@ -195,25 +189,24 @@ void ParallelConfigPrecompiled::unregisterParallelFunction(PrecompiledCodec::Ptr
     bytes& _out)
 {
     std::string functionName;
-    Table::Ptr table = nullptr;
+    std::optional<Table> table = nullopt;
     if (_context->isWasm())
     {
         std::string contractAddress;
         _codec->decode(_data, contractAddress, functionName);
-        table = _context->getTableFactory()->openTable(
-            getTableName(contractAddress, _context->isWasm()));
+        table = _context->storage()->openTable(getTableName(contractAddress, _context->isWasm()));
     }
     else
     {
         Address contractAddress;
         _codec->decode(_data, contractAddress, functionName);
-        table = _context->getTableFactory()->openTable(contractAddress.hex());
+        table = _context->storage()->openTable(contractAddress.hex());
     }
 
     uint32_t selector = getFuncSelector(functionName, m_hashImpl);
     if (table)
     {
-        table->remove(std::to_string(selector));
+        table->setRow(std::to_string(selector), table->newDeletedEntry());
         _out = _codec->encode(u256(0));
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ParallelConfigPrecompiled")
                                << LOG_DESC("unregisterParallelFunction success")
@@ -225,8 +218,7 @@ ParallelConfig::Ptr ParallelConfigPrecompiled::getParallelConfig(
     std::shared_ptr<executor::BlockContext> _context, const std::string_view& _contractAddress,
     uint32_t _selector, const std::string_view&)
 {
-    auto table =
-        _context->getTableFactory()->openTable(getTableName(_contractAddress, _context->isWasm()));
+    auto table = _context->storage()->openTable(getTableName(_contractAddress, _context->isWasm()));
     if (!table)
     {
         return nullptr;
@@ -238,7 +230,7 @@ ParallelConfig::Ptr ParallelConfigPrecompiled::getParallelConfig(
     }
     else
     {
-        std::string functionName = entry->getField(PARA_FUNC_NAME);
+        std::string functionName = std::string(entry->getField(PARA_FUNC_NAME));
         u256 criticalSize;
         criticalSize = boost::lexical_cast<u256>(entry->getField(PARA_CRITICAL_SIZE));
         return std::make_shared<ParallelConfig>(ParallelConfig{functionName, criticalSize});

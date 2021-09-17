@@ -46,7 +46,7 @@ public:
     virtual std::vector<std::string> getParallelTag(bytesConstRef param) override;
 
 protected:
-    std::shared_ptr<storage::Table> openTable(std::shared_ptr<executor::BlockContext> _context);
+    std::optional<storage::Table> openTable(std::shared_ptr<executor::BlockContext> _context);
 
 public:
     void userAddCall(std::shared_ptr<executor::BlockContext> _context,

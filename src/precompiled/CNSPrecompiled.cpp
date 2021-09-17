@@ -56,8 +56,7 @@ int CNSPrecompiled::checkCNSParam(BlockContext::Ptr _context, Address const& _co
     boost::trim(_contractName);
     boost::trim(_contractVersion);
     // check the status of the contract(only print the error message to the log)
-    std::string tableName = executor::getContractTableName(
-        _contractAddress.hex(), _context->isWasm(), _context->hashHandler());
+    std::string tableName = USER_APPS_PREFIX + _contractAddress.hex();
     ContractStatus contractStatus = getContractStatus(_context, tableName);
 
     if (contractStatus != ContractStatus::Available)
@@ -155,7 +154,7 @@ PrecompiledExecResult::Ptr CNSPrecompiled::call(std::shared_ptr<executor::BlockC
                                << LOG_KV("func", func);
     }
     gasPricer->updateMemUsed(callResult->m_execResult.size());
-    _remainGas -= gasPricer->calTotalGas().convert_to<int64_t>();
+    _remainGas -= gasPricer->calTotalGas();
     return callResult;
 }
 
@@ -172,12 +171,11 @@ void CNSPrecompiled::insert(const std::shared_ptr<executor::BlockContext>& _cont
     int validCode =
         checkCNSParam(_context, contractAddress, contractName, contractVersion, contractAbi);
 
-    auto table = _context->getTableFactory()->openTable(SYS_CNS);
+    auto table = _context->storage()->openTable(SYS_CNS);
     if (!table)
     {
-        table = createTable(_context->getTableFactory(), SYS_CNS,
-            SYS_CNS_FIELD_NAME + "," + SYS_CNS_FIELD_VERSION,
-            SYS_CNS_FIELD_ADDRESS + "," + SYS_CNS_FIELD_ABI);
+        table = createTable(
+            _context->storage(), SYS_CNS, SYS_CNS_FIELD_ADDRESS + "," + SYS_CNS_FIELD_ABI);
     }
     gasPricer->appendOperation(InterfaceOpcode::OpenTable);
     auto entry = table->getRow(contractName + "," + contractVersion);
@@ -200,23 +198,14 @@ void CNSPrecompiled::insert(const std::shared_ptr<executor::BlockContext>& _cont
     }
     else
     {
-        if (_context->getTableFactory()->checkAuthority(SYS_CNS, origin))
-        {
-            auto newEntry = table->newEntry();
-            newEntry->setField(SYS_CNS_FIELD_ADDRESS, contractAddress.hex());
-            newEntry->setField(SYS_CNS_FIELD_ABI, contractAbi);
-            table->setRow(contractName + "," + contractVersion, newEntry);
-            gasPricer->updateMemUsed(1);
-            gasPricer->appendOperation(InterfaceOpcode::Insert, 1);
-            PRECOMPILED_LOG(DEBUG)
-                << LOG_BADGE("CNSPrecompiled") << LOG_DESC("insert successfully");
-            result = CODE_SUCCESS;
-        }
-        else
-        {
-            PRECOMPILED_LOG(DEBUG) << LOG_BADGE("CNSPrecompiled") << LOG_DESC("permission denied");
-            result = CODE_NO_AUTHORIZED;
-        }
+        auto newEntry = table->newEntry();
+        newEntry.setField(SYS_CNS_FIELD_ADDRESS, contractAddress.hex());
+        newEntry.setField(SYS_CNS_FIELD_ABI, contractAbi);
+        table->setRow(contractName + "," + contractVersion, newEntry);
+        gasPricer->updateMemUsed(1);
+        gasPricer->appendOperation(InterfaceOpcode::Insert, 1);
+        PRECOMPILED_LOG(DEBUG) << LOG_BADGE("CNSPrecompiled") << LOG_DESC("insert successfully");
+        result = CODE_SUCCESS;
     }
     getErrorCodeOut(callResult->mutableExecResult(), result, codec);
 }
@@ -229,16 +218,15 @@ void CNSPrecompiled::selectByName(const std::shared_ptr<executor::BlockContext>&
     std::string contractName;
     auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     codec->decode(data, contractName);
-    auto table = _context->getTableFactory()->openTable(SYS_CNS);
+    auto table = _context->storage()->openTable(SYS_CNS);
     gasPricer->appendOperation(InterfaceOpcode::OpenTable);
     if (!table)
     {
-        table = createTable(_context->getTableFactory(), SYS_CNS,
-            SYS_CNS_FIELD_NAME + "," + SYS_CNS_FIELD_VERSION,
-            SYS_CNS_FIELD_ADDRESS + "," + SYS_CNS_FIELD_ABI);
+        table = createTable(
+            _context->storage(), SYS_CNS, SYS_CNS_FIELD_ADDRESS + "," + SYS_CNS_FIELD_ABI);
     }
     Json::Value CNSInfos(Json::arrayValue);
-    auto keys = table->getPrimaryKeys(nullptr);
+    auto keys = table->getPrimaryKeys(std::nullopt);
     // Note: Because the selected data has been returned as cnsInfo,
     // the memory is not updated here
     gasPricer->appendOperation(InterfaceOpcode::Set, keys.size());
@@ -260,8 +248,8 @@ void CNSPrecompiled::selectByName(const std::shared_ptr<executor::BlockContext>&
             Json::Value CNSInfo;
             CNSInfo[SYS_CNS_FIELD_NAME] = contractName;
             CNSInfo[SYS_CNS_FIELD_VERSION] = nameVersionPair.second;
-            CNSInfo[SYS_CNS_FIELD_ADDRESS] = entry->getField(SYS_CNS_FIELD_ADDRESS);
-            CNSInfo[SYS_CNS_FIELD_ABI] = entry->getField(SYS_CNS_FIELD_ABI);
+            CNSInfo[SYS_CNS_FIELD_ADDRESS] = std::string(entry->getField(SYS_CNS_FIELD_ADDRESS));
+            CNSInfo[SYS_CNS_FIELD_ABI] = std::string(entry->getField(SYS_CNS_FIELD_ABI));
             CNSInfos.append(CNSInfo);
         }
     }
@@ -278,13 +266,12 @@ void CNSPrecompiled::selectByNameAndVersion(const std::shared_ptr<executor::Bloc
     std::string contractName, contractVersion;
     auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     codec->decode(data, contractName, contractVersion);
-    auto table = _context->getTableFactory()->openTable(SYS_CNS);
+    auto table = _context->storage()->openTable(SYS_CNS);
     gasPricer->appendOperation(InterfaceOpcode::OpenTable);
     if (!table)
     {
-        table = createTable(_context->getTableFactory(), SYS_CNS,
-            SYS_CNS_FIELD_NAME + "," + SYS_CNS_FIELD_VERSION,
-            SYS_CNS_FIELD_ADDRESS + "," + SYS_CNS_FIELD_ABI);
+        table = createTable(
+            _context->storage(), SYS_CNS, SYS_CNS_FIELD_ADDRESS + "," + SYS_CNS_FIELD_ABI);
     }
     Json::Value CNSInfos(Json::arrayValue);
     boost::trim(contractName);
@@ -301,8 +288,8 @@ void CNSPrecompiled::selectByNameAndVersion(const std::shared_ptr<executor::Bloc
     else
     {
         gasPricer->appendOperation(InterfaceOpcode::Select, entry->capacityOfHashField());
-        Address contractAddress = toAddress(entry->getField(SYS_CNS_FIELD_ADDRESS));
-        std::string abi = entry->getField(SYS_CNS_FIELD_ABI);
+        Address contractAddress = toAddress(std::string(entry->getField(SYS_CNS_FIELD_ADDRESS)));
+        std::string abi = std::string(entry->getField(SYS_CNS_FIELD_ABI));
         callResult->setExecResult(codec->encode(contractAddress, abi));
     }
 }
@@ -315,12 +302,11 @@ void CNSPrecompiled::getContractAddress(const std::shared_ptr<executor::BlockCon
     std::string contractName, contractVersion;
     auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     codec->decode(data, contractName, contractVersion);
-    auto table = _context->getTableFactory()->openTable(SYS_CNS);
+    auto table = _context->storage()->openTable(SYS_CNS);
     if (!table)
     {
-        table = createTable(_context->getTableFactory(), SYS_CNS,
-            SYS_CNS_FIELD_NAME + "," + SYS_CNS_FIELD_VERSION,
-            SYS_CNS_FIELD_ADDRESS + "," + SYS_CNS_FIELD_ABI);
+        table = createTable(
+            _context->storage(), SYS_CNS, SYS_CNS_FIELD_ADDRESS + "," + SYS_CNS_FIELD_ABI);
     }
     gasPricer->appendOperation(InterfaceOpcode::OpenTable);
     Json::Value CNSInfos(Json::arrayValue);
@@ -338,7 +324,7 @@ void CNSPrecompiled::getContractAddress(const std::shared_ptr<executor::BlockCon
     else
     {
         gasPricer->appendOperation(InterfaceOpcode::Select, entry->capacityOfHashField());
-        Address contractAddress = toAddress(entry->getField(SYS_CNS_FIELD_ADDRESS));
+        Address contractAddress = toAddress(std::string(entry->getField(SYS_CNS_FIELD_ADDRESS)));
         callResult->setExecResult(codec->encode(contractAddress));
     }
 }

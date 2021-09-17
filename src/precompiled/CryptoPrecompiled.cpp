@@ -56,7 +56,7 @@ CryptoPrecompiled::CryptoPrecompiled(crypto::Hash::Ptr _hashImpl) : Precompiled(
 }
 
 PrecompiledExecResult::Ptr CryptoPrecompiled::call(std::shared_ptr<executor::BlockContext> _context,
-    bytesConstRef _param, const std::string&, const std::string&, u256& _remainGas)
+    bytesConstRef _param, const std::string&, const std::string&, int64_t _remainGas)
 {
     auto funcSelector = getParamFunc(_param);
     auto paramData = getParamData(_param);

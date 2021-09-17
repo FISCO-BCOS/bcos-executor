@@ -44,7 +44,7 @@ std::string EntriesPrecompiled::toString()
 }
 PrecompiledExecResult::Ptr EntriesPrecompiled::call(
     std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param, const std::string&,
-    const std::string&, u256& _remainGas)
+    const std::string&, int64_t _remainGas)
 {
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
@@ -59,7 +59,7 @@ PrecompiledExecResult::Ptr EntriesPrecompiled::call(
         u256 num;
         codec->decode(data, num);
 
-        Entry::Ptr entry = getEntriesPtr()->at(num.convert_to<size_t>());
+        std::shared_ptr<Entry> entry = getEntriesPtr()->at(num.convert_to<size_t>());
         EntryPrecompiled::Ptr entryPrecompiled = std::make_shared<EntryPrecompiled>(m_hashImpl);
         entryPrecompiled->setEntry(entry);
         if (_context->isWasm())

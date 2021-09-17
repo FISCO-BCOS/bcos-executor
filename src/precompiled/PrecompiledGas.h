@@ -123,7 +123,7 @@ public:
     virtual ~PrecompiledGas() = default;
 
     virtual void appendOperation(InterfaceOpcode const& _opType, unsigned const& _opSize = 1);
-    virtual u256 calTotalGas();
+    virtual int64_t calTotalGas();
     void setMemUsed(uint64_t const& _memUsed) { m_memUsed = _memUsed; }
     uint64_t const& memUsed() const { return m_memUsed; }
 
@@ -132,9 +132,9 @@ public:
 
 protected:
     // Traverse m_operationList to calculate total gas cost
-    virtual u256 calComputationGas();
+    virtual int64_t calComputationGas();
     // Calculating gas consumed by memory
-    virtual u256 calMemGas();
+    virtual int64_t calMemGas();
 
 private:
     std::shared_ptr<OpListType> m_operationList;

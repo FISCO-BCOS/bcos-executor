@@ -50,7 +50,7 @@ std::string PermissionPrecompiled::toString()
 
 std::shared_ptr<PrecompiledExecResult> PermissionPrecompiled::call(
     std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
-    const std::string&, const std::string&, u256& _remainGas)
+    const std::string&, const std::string&, int64_t _remainGas)
 {
     // parse function name
     uint32_t func = getParamFunc(_param);

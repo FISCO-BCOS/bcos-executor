@@ -47,7 +47,7 @@ ConsensusPrecompiled::ConsensusPrecompiled(crypto::Hash::Ptr _hashImpl) : Precom
 
 PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
     std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
-    const std::string& _origin, const std::string&, u256& _remainGas)
+    const std::string& _origin, const std::string&, int64_t _remainGas)
 {
     // parse function name
     uint32_t func = getParamFunc(_param);
@@ -92,7 +92,7 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
 }
 
 int ConsensusPrecompiled::addSealer(const std::shared_ptr<executor::BlockContext>& _context,
-    bytesConstRef& _data, const std::string& _origin)
+    bytesConstRef& _data, const std::string&)
 {
     // addSealer(string, uint256)
     std::string nodeID;
@@ -118,27 +118,17 @@ int ConsensusPrecompiled::addSealer(const std::shared_ptr<executor::BlockContext
         return CODE_INVALID_WEIGHT;
     }
 
-    auto table = _context->getTableFactory()->openTable(SYS_CONSENSUS);
+    auto table = _context->storage()->openTable(SYS_CONSENSUS);
     auto newEntry = table->newEntry();
-    newEntry->setField(NODE_TYPE, ledger::CONSENSUS_SEALER);
-    newEntry->setField(
+    newEntry.setField(NODE_TYPE, ledger::CONSENSUS_SEALER);
+    newEntry.setField(
         NODE_ENABLE_NUMBER, boost::lexical_cast<std::string>(_context->currentNumber() + 1));
-    newEntry->setField(NODE_WEIGHT, boost::lexical_cast<std::string>(weight));
-
-    if (_context->getTableFactory()->checkAuthority(ledger::SYS_CONSENSUS, _origin))
-    {
-        table->setRow(nodeID, newEntry);
-        PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
-                               << LOG_DESC("addSealer successfully insert")
-                               << LOG_KV("nodeID", nodeID) << LOG_KV("weight", weight);
-        return 0;
-    }
-    else
-    {
-        PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
-                               << LOG_DESC("permission denied");
-        return CODE_NO_AUTHORIZED;
-    }
+    newEntry.setField(NODE_WEIGHT, boost::lexical_cast<std::string>(weight));
+    table->setRow(nodeID, newEntry);
+    PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
+                           << LOG_DESC("addSealer successfully insert") << LOG_KV("nodeID", nodeID)
+                           << LOG_KV("weight", weight);
+    return 0;
 }
 
 int ConsensusPrecompiled::addObserver(const std::shared_ptr<executor::BlockContext>& _context,
@@ -159,20 +149,15 @@ int ConsensusPrecompiled::addObserver(const std::shared_ptr<executor::BlockConte
         return CODE_INVALID_NODE_ID;
     }
 
-    auto table = _context->getTableFactory()->openTable(SYS_CONSENSUS);
-    auto nodeIdList = table->getPrimaryKeys(nullptr);
+    auto table = _context->storage()->openTable(SYS_CONSENSUS);
+
+    auto nodeIdList = table->getPrimaryKeys(std::nullopt);
 
     auto newEntry = table->newEntry();
-    newEntry->setField(NODE_TYPE, ledger::CONSENSUS_OBSERVER);
-    newEntry->setField(
+    newEntry.setField(NODE_TYPE, ledger::CONSENSUS_OBSERVER);
+    newEntry.setField(
         NODE_ENABLE_NUMBER, boost::lexical_cast<std::string>(_context->currentNumber() + 1));
-    newEntry->setField(NODE_WEIGHT, "0");
-    if (!_context->getTableFactory()->checkAuthority(ledger::SYS_CONSENSUS, _origin))
-    {
-        PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
-                               << LOG_DESC("permission denied");
-        return CODE_NO_AUTHORIZED;
-    }
+    newEntry.setField(NODE_WEIGHT, "0");
     if (checkIsLastSealer(table, nodeID))
     {
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
@@ -203,26 +188,21 @@ int ConsensusPrecompiled::removeNode(const std::shared_ptr<executor::BlockContex
         return CODE_INVALID_NODE_ID;
     }
 
-    auto table = _context->getTableFactory()->openTable(ledger::SYS_CONSENSUS);
-    if (!_context->getTableFactory()->checkAuthority(ledger::SYS_CONSENSUS, _origin))
-    {
-        PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
-                               << LOG_DESC("permission denied");
-        return CODE_NO_AUTHORIZED;
-    }
+    auto table = _context->storage()->openTable(ledger::SYS_CONSENSUS);
     if (checkIsLastSealer(table, nodeID))
     {
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
                                << LOG_DESC("remove failed, because last sealer");
         return CODE_LAST_SEALER;
     }
-    table->remove(nodeID);
+    // remove nodeID
+    table->setRow(nodeID, table->newDeletedEntry());
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("remove successfully");
     return 0;
 }
 
 int ConsensusPrecompiled::setWeight(const std::shared_ptr<executor::BlockContext>& _context,
-    bytesConstRef& _data, const std::string& _origin)
+    bytesConstRef& _data, const std::string&)
 {
     // setWeight(string,uint256)
     std::string nodeID;
@@ -246,7 +226,7 @@ int ConsensusPrecompiled::setWeight(const std::shared_ptr<executor::BlockContext
                                << LOG_KV("nodeID", nodeID);
         return CODE_INVALID_WEIGHT;
     }
-    auto table = _context->getTableFactory()->openTable(ledger::SYS_CONSENSUS);
+    auto table = _context->storage()->openTable(ledger::SYS_CONSENSUS);
     auto entry = table->getRow(nodeID);
     if (!entry)
     {
@@ -254,17 +234,11 @@ int ConsensusPrecompiled::setWeight(const std::shared_ptr<executor::BlockContext
                                << LOG_KV("nodeID", nodeID);
         return CODE_NODE_NOT_EXIST;
     }
-    if (!_context->getTableFactory()->checkAuthority(ledger::SYS_CONSENSUS, _origin))
-    {
-        PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
-                               << LOG_DESC("permission denied");
-        return CODE_NO_AUTHORIZED;
-    }
     auto newEntry = table->newEntry();
     entry->setField(NODE_WEIGHT, boost::lexical_cast<std::string>(weight));
     entry->setField(
         NODE_ENABLE_NUMBER, boost::lexical_cast<std::string>(_context->currentNumber() + 1));
-    table->setRow(nodeID, entry);
+    table->setRow(nodeID, entry.value());
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
                            << LOG_DESC("setWeight successfully");
     return 0;
@@ -272,51 +246,51 @@ int ConsensusPrecompiled::setWeight(const std::shared_ptr<executor::BlockContext
 
 void ConsensusPrecompiled::showConsensusTable(std::shared_ptr<executor::BlockContext> _context)
 {
-    auto table = _context->getTableFactory()->openTable(ledger::SYS_CONSENSUS);
-    auto nodeIdList = table->getPrimaryKeys(nullptr);
-    auto nodeListMap = table->getRows(nodeIdList);
+    auto table = _context->storage()->openTable(ledger::SYS_CONSENSUS);
+    auto nodeIdList = table->getPrimaryKeys(std::nullopt);
 
     std::stringstream s;
     s << "ConsensusPrecompiled show table:\n";
-    for (auto& nodeEntry : nodeListMap)
+    for (auto& nodeId : nodeIdList)
     {
-        if (!nodeEntry.second)
+        auto entry = table->getRow(nodeId);
+        if (!entry)
         {
             continue;
         }
-        std::string nodeID = nodeEntry.first;
-        std::string type = nodeEntry.second->getField(NODE_TYPE);
-        std::string enableNumber = nodeEntry.second->getField(NODE_ENABLE_NUMBER);
-        std::string weight = nodeEntry.second->getField(NODE_WEIGHT);
-        s << "ConsensusPrecompiled: " << nodeID << "," << type << "," << enableNumber
-          << "," << weight << "\n";
+        auto type = entry->getField(NODE_TYPE);
+        auto enableNumber = entry->getField(NODE_ENABLE_NUMBER);
+        auto weight = entry->getField(NODE_WEIGHT);
+        s << "ConsensusPrecompiled: " << nodeId << "," << type << "," << enableNumber << ","
+          << weight << "\n";
     }
     PRECOMPILED_LOG(TRACE) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("showConsensusTable")
                            << LOG_KV("consensusTable", s.str());
 }
 
-std::shared_ptr<std::map<std::string, std::shared_ptr<storage::Entry>>> ConsensusPrecompiled::getRowsByNodeType(
-    std::shared_ptr<bcos::storage::Table> _table, std::string const& _nodeType)
+std::shared_ptr<std::map<std::string, std::optional<storage::Entry>>>
+ConsensusPrecompiled::getRowsByNodeType(
+    std::optional<bcos::storage::Table> _table, std::string const& _nodeType)
 {
-    auto result = std::make_shared<std::map<std::string, std::shared_ptr<storage::Entry>>>();
-    auto keys = _table->getPrimaryKeys(nullptr);
-    auto kvMap = _table->getRows(keys);
-    for (auto& kv : kvMap)
+    auto result = std::make_shared<std::map<std::string, std::optional<storage::Entry>>>();
+    auto keys = _table->getPrimaryKeys(std::nullopt);
+    for (const auto& key : keys)
     {
-        if (!kv.second)
+        auto entry = _table->getRow(key);
+        if (!entry)
         {
             continue;
         }
-        if (kv.second->getField(NODE_TYPE) == _nodeType)
+        if (entry->getField(NODE_TYPE) == _nodeType)
         {
-            result->insert(kv);
+            result->insert({key, entry});
         }
     }
     return result;
 }
 
 bool ConsensusPrecompiled::checkIsLastSealer(
-    std::shared_ptr<storage::Table> _table, std::string const& nodeID)
+    std::optional<storage::Table> _table, std::string const& nodeID)
 {
     // Check is last sealer or not.
     auto entryMap = getRowsByNodeType(_table, ledger::CONSENSUS_SEALER);

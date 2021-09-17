@@ -267,30 +267,11 @@ namespace bcos
 {
 namespace precompiled
 {
-std::shared_ptr<storage::Table> Precompiled::createTable(storage::StateStorage::Ptr _tableFactory,
-    const std::string& tableName, const std::string& keyField, const std::string& valueField)
+std::optional<storage::Table> Precompiled::createTable(storage::StateStorage::Ptr _tableFactory,
+    const std::string& tableName, const std::string& valueField)
 {
-    (void)_tableFactory;
-    (void)tableName;
-    (void)keyField;
-    (void)valueField;
-    // FIXME: adapt new StateStorage openTable
-
-    // auto ret = _tableFactory->createTable(tableName, keyField, valueField);
-    // return ret ? _tableFactory->openTable(tableName) : nullptr;
-    return nullptr;
-}
-
-bool Precompiled::checkAuthority(storage::StateStorage::Ptr _tableFactory,
-    const std::string& _origin, const std::string& _contract)
-{
-    // FIXME:
-    (void)_tableFactory;
-    (void)_origin;
-    (void)_contract;
-    return true;
-    // auto tableName = executor::getContractTableName(_contract, true, m_hashImpl);
-    // return _tableFactory->checkAuthority(tableName, _origin);
+    auto ret = _tableFactory->createTable(tableName, valueField);
+    return ret ? _tableFactory->openTable(tableName) : nullopt;
 }
 }  // namespace precompiled
 

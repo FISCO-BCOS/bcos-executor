@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "../vm/BlockContext.h"
+#include "../executive/BlockContext.h"
 #include "../vm/Precompiled.h"
 #include <bcos-framework/interfaces/storage/Common.h>
 
@@ -59,13 +59,13 @@ public:
 
     std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::BlockContext> _context,
         bytesConstRef _param, const std::string& _origin, const std::string& _sender,
-        u256& _remainGas) override;
+        int64_t _remainGas) override;
 
-    void setEntry(bcos::std::shared_ptr<storage::Entry> entry) { m_entry = entry; }
-    bcos::std::shared_ptr<storage::Entry> getEntry() const { return m_entry; };
+    void setEntry(std::shared_ptr<storage::Entry> entry) { m_entry = entry; }
+    std::shared_ptr<storage::Entry> getEntry() const { return m_entry; };
 
 private:
-    bcos::std::shared_ptr<storage::Entry> m_entry;
+    std::shared_ptr<storage::Entry> m_entry;
 };
 }  // namespace precompiled
 }  // namespace bcos

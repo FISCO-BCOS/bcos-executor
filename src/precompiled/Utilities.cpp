@@ -19,7 +19,6 @@
  */
 
 #include "Utilities.h"
-#include "../state/State.h"
 #include "Common.h"
 #include <bcos-framework/interfaces/crypto/Hash.h>
 #include <json/json.h>
@@ -183,7 +182,7 @@ uint32_t bcos::precompiled::getFuncSelectorByFunctionName(
 bcos::precompiled::ContractStatus bcos::precompiled::getContractStatus(
     std::shared_ptr<bcos::executor::BlockContext> _context, const std::string& _tableName)
 {
-    auto table = _context->getTableFactory()->openTable(_tableName);
+    auto table = _context->storage()->openTable(_tableName);
     if (!table)
     {
         return ContractStatus::AddressNonExistent;
@@ -191,13 +190,14 @@ bcos::precompiled::ContractStatus bcos::precompiled::getContractStatus(
 
     auto codeHashEntry = table->getRow(executor::ACCOUNT_CODE_HASH);
     HashType codeHash;
-    codeHash = HashType(codeHashEntry->getField(executor::STORAGE_VALUE));
+    codeHash = HashType(std::string(codeHashEntry->getField(executor::STORAGE_VALUE)));
 
     if (codeHash == HashType(""))
     {
         return ContractStatus::NotContractAddress;
     }
 
+    // FIXME: frozen in BFS
     auto frozenEntry = table->getRow(executor::ACCOUNT_FROZEN);
     if ("true" == frozenEntry->getField(executor::STORAGE_VALUE))
     {
@@ -242,13 +242,13 @@ void Condition::LE(const std::string& key, const std::string& value)
     addCondition(key, value, m_conditions, Comparator::LE);
 }
 
-bool Condition::filter(std::shared_ptr<storage::Entry> _entry)
+bool Condition::filter(std::optional<storage::Entry> _entry)
 {
-    if (_entry == nullptr)
+    if (_entry == std::nullopt)
     {
         return false;
     }
-    if (_entry->getStatus() == storage::Entry::Status::DELETED)
+    if (_entry->status() == storage::Entry::Status::DELETED)
     {
         return false;
     }
@@ -258,14 +258,15 @@ bool Condition::filter(std::shared_ptr<storage::Entry> _entry)
         {
             for (auto& condition : m_conditions)
             {
-                auto fieldIt = _entry->find(condition.left);
-                if (fieldIt != _entry->end())
+                auto fieldIt = std::find(_entry->tableInfo()->fields().begin(),
+                    _entry->tableInfo()->fields().end(), condition.left);
+                if (fieldIt != _entry->tableInfo()->fields().end())
                 {
                     switch (condition.cmp)
                     {
                     case Comparator::EQ:
                     {
-                        if (fieldIt->second != condition.right)
+                        if (_entry->getField(*fieldIt) != condition.right)
                         {
                             return false;
                         }
@@ -273,7 +274,7 @@ bool Condition::filter(std::shared_ptr<storage::Entry> _entry)
                     }
                     case Comparator::NE:
                     {
-                        if (fieldIt->second == condition.right)
+                        if (_entry->getField(*fieldIt) == condition.right)
                         {
                             return false;
                         }
@@ -283,9 +284,10 @@ bool Condition::filter(std::shared_ptr<storage::Entry> _entry)
                     {
                         int64_t lhs = INT64_MIN;
                         auto rhs = boost::lexical_cast<int64_t>(condition.right);
-                        if (!fieldIt->second.empty())
+                        auto value = _entry->getField(*fieldIt);
+                        if (!value.empty())
                         {
-                            lhs = boost::lexical_cast<int64_t>(fieldIt->second);
+                            lhs = boost::lexical_cast<int64_t>(value);
                         }
                         if (lhs <= rhs)
                         {
@@ -297,9 +299,10 @@ bool Condition::filter(std::shared_ptr<storage::Entry> _entry)
                     {
                         int64_t lhs = INT64_MIN;
                         auto rhs = boost::lexical_cast<int64_t>(condition.right);
-                        if (!fieldIt->second.empty())
+                        auto value = _entry->getField(*fieldIt);
+                        if (!value.empty())
                         {
-                            lhs = boost::lexical_cast<int64_t>(fieldIt->second);
+                            lhs = boost::lexical_cast<int64_t>(value);
                         }
                         if (lhs < rhs)
                         {
@@ -311,9 +314,10 @@ bool Condition::filter(std::shared_ptr<storage::Entry> _entry)
                     {
                         int64_t lhs = INT64_MAX;
                         auto rhs = boost::lexical_cast<int64_t>(condition.right);
-                        if (!fieldIt->second.empty())
+                        auto value = _entry->getField(*fieldIt);
+                        if (!value.empty())
                         {
-                            lhs = boost::lexical_cast<int64_t>(fieldIt->second);
+                            lhs = boost::lexical_cast<int64_t>(value);
                         }
                         if (lhs >= rhs)
                         {
@@ -325,9 +329,10 @@ bool Condition::filter(std::shared_ptr<storage::Entry> _entry)
                     {
                         int64_t lhs = INT64_MAX;
                         auto rhs = boost::lexical_cast<int64_t>(condition.right);
-                        if (!fieldIt->second.empty())
+                        auto value = _entry->getField(*fieldIt);
+                        if (!value.empty())
                         {
-                            lhs = boost::lexical_cast<int64_t>(fieldIt->second);
+                            lhs = boost::lexical_cast<int64_t>(value);
                         }
                         if (lhs > rhs)
                         {
@@ -360,7 +365,8 @@ void Condition::limit(size_t start, size_t end)
     m_limit = {start, end};
 }
 
-void precompiled::transferKeyCond(CompareTriple& _entryCond, std::shared_ptr<storage::Condition>& _keyCond)
+void precompiled::transferKeyCond(
+    CompareTriple& _entryCond, std::shared_ptr<storage::Condition>& _keyCond)
 {
     switch (_entryCond.cmp)
     {
@@ -468,7 +474,8 @@ bool precompiled::checkPathValid(std::string const& _path)
         [checkFieldNameValidate](const std::string& s) { return checkFieldNameValidate(s); });
 }
 
-std::pair<std::string, std::string> precompiled::getParentDirAndBaseName(const std::string& _absolutePath)
+std::pair<std::string, std::string> precompiled::getParentDirAndBaseName(
+    const std::string& _absolutePath)
 {
     // transfer /usr/local/bin => ["usr", "local", "bin"]
     std::vector<std::string> dirList;
@@ -573,15 +580,15 @@ bool precompiled::recursiveBuildDir(
         }
         // not exist, then create table and write in parent dir
         auto newFileEntry = table->newEntry();
-        newFileEntry->setField(FS_FIELD_TYPE, FS_TYPE_DIR);
+        newFileEntry.setField(FS_FIELD_TYPE, FS_TYPE_DIR);
         // FIXME: consider permission inheritance
-        newFileEntry->setField(FS_FIELD_ACCESS, "");
-        newFileEntry->setField(FS_FIELD_OWNER, "");
-        newFileEntry->setField(FS_FIELD_GID, "");
-        newFileEntry->setField(FS_FIELD_EXTRA, "");
+        newFileEntry.setField(FS_FIELD_ACCESS, "");
+        newFileEntry.setField(FS_FIELD_OWNER, "");
+        newFileEntry.setField(FS_FIELD_GID, "");
+        newFileEntry.setField(FS_FIELD_EXTRA, "");
         table->setRow(dir, newFileEntry);
 
-        _tableFactory->createTable(root + dir, FS_KEY_NAME, FS_FIELD_COMBINED);
+        _tableFactory->createTable(root + dir, FS_FIELD_COMBINED);
         root += dir;
     }
     return true;

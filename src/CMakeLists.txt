@@ -14,9 +14,6 @@ find_package(jsoncpp CONFIG REQUIRED)
 find_package(Boost CONFIG QUIET REQUIRED serialization program_options context)
 find_package(bcos-crypto CONFIG QUIET REQUIRED)
 
-# FIXME: precompiled need fix
-list(FILTER SRC_LIST EXCLUDE REGEX "precompiled/*")
-list(FILTER HEADERS EXCLUDE REGEX "precompiled/*")
 add_library(executor ${SRC_LIST} ${HEADERS})
 
 target_include_directories(executor PRIVATE ../include)

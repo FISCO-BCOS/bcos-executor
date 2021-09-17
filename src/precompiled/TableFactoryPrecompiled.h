@@ -58,13 +58,8 @@ public:
         m_memoryTableFactory = memoryTableFactory;
     }
 
-    bcos::storage::StateStorage::Ptr getMemoryTableFactory()
-    {
-        return m_memoryTableFactory;
-    }
-
-    crypto::HashType hash();
-
+    bcos::storage::StateStorage::Ptr getMemoryTableFactory() { return m_memoryTableFactory; }
+    // FIXME: table hash
 private:
     void openTable(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& data,
         const std::shared_ptr<PrecompiledExecResult>& callResult,
