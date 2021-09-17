@@ -125,6 +125,8 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
                       "03f56e250af52b25682014554f7b3297d6152401e85d426a06ae")
             ->data(),
         64);
+
+    int64_t gas = 3000000;
     cout << keyPair->secretKey()->hex() << endl << keyPair->publicKey()->hex() << endl;
     auto to = boost::algorithm::hex_lower(keyPair->address(cryptoSuite->hashImpl()).asBytes());
     auto helloworld = string(helloBin);
@@ -143,7 +145,7 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
     params->setFrom(std::string(sender));
     // params->setTo(std::string((char*)to.data(), to.size())); create transaction
     params->setStaticCall(false);
-    params->setGasAvailable(3000000);
+    params->setGasAvailable(gas);
     params->setInput(input);
     params->setType(ExecutionParams::TXHASH);
     params->setTransactionHash(hash);
@@ -170,6 +172,7 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
 
     BOOST_CHECK(result->message().empty());
     BOOST_CHECK(!result->newEVMContractAddress().empty());
+    BOOST_CHECK_LT(result->gasAvailable(), gas);
 
     auto address = result->newEVMContractAddress();
 
@@ -235,7 +238,7 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
     params2->setTo(std::string(address));
     params2->setOrigin(std::string(sender));
     params2->setStaticCall(false);
-    params2->setGasAvailable(3000000);
+    params2->setGasAvailable(gas);
     params2->setInput(std::move(txInput));
     params2->setType(ExecutionParams::EXTERNAL_CALL);
 
@@ -251,6 +254,7 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
     BOOST_CHECK_EQUAL(result2->status(), 0);
     BOOST_CHECK_EQUAL(result2->message(), "");
     BOOST_CHECK_EQUAL(result2->newEVMContractAddress(), "");
+    BOOST_CHECK_LT(result2->gasAvailable(), gas);
 
     // read "fisco bcos"
     bytes queryBytes;
@@ -265,7 +269,7 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
     params3->setTo(std::string(address));
     params3->setOrigin(std::string(sender));
     params3->setStaticCall(false);
-    params3->setGasAvailable(3000000);
+    params3->setGasAvailable(gas);
     params3->setInput(std::move(queryBytes));
     params3->setType(ExecutionParams::EXTERNAL_CALL);
 
@@ -281,6 +285,7 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
     BOOST_CHECK_EQUAL(result3->status(), 0);
     BOOST_CHECK_EQUAL(result3->message(), "");
     BOOST_CHECK_EQUAL(result3->newEVMContractAddress(), "");
+    BOOST_CHECK_LT(result3->gasAvailable(), gas);
 
     std::string output;
     boost::algorithm::hex_lower(
@@ -289,6 +294,10 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
         "00000000000000000000000000000000000000000000000000000000000000200000000000000000000"
         "000000000000000000000000000000000000000000005666973636f0000000000000000000000000000"
         "00000000000000000000000000");
+}
+
+BOOST_AUTO_TEST_CASE(corountine) {
+    
 }
 
 BOOST_AUTO_TEST_SUITE_END()
