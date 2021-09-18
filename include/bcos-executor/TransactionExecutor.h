@@ -154,7 +154,6 @@ private:
     std::list<bcos::storage::StateStorage::Ptr>::const_iterator
         m_lastUncommitedIterator;  // last uncommited storage
 
-    std::shared_ptr<ThreadPool> m_threadPool = nullptr;
     std::shared_ptr<std::map<std::string, std::shared_ptr<PrecompiledContract>>>
         m_precompiledContract;
 };

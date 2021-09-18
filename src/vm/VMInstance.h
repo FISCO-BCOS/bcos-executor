@@ -20,7 +20,7 @@
  */
 
 #pragma once
-#include "Common.h"
+#include "../Common.h"
 #include "bcos-framework/libutilities/Common.h"
 #include <evmc/evmc.h>
 

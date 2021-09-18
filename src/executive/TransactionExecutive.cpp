@@ -21,13 +21,12 @@
 
 #include "TransactionExecutive.h"
 #include "../ChecksumAddress.h"
-#include "../executor/Common.h"
+#include "../Common.h"
+#include "../vm/EVMHostInterface.h"
+#include "../vm/HostContext.h"
+#include "../vm/VMFactory.h"
+#include "../vm/VMInstance.h"
 #include "BlockContext.h"
-#include "Common.h"
-#include "EVMHostInterface.h"
-#include "HostContext.h"
-#include "VMFactory.h"
-#include "VMInstance.h"
 #include "bcos-framework/interfaces/protocol/Exceptions.h"
 #include "bcos-framework/interfaces/storage/Table.h"
 #include "bcos-framework/libcodec/abi/ContractABICodec.h"
@@ -122,9 +121,9 @@ CallParameters::Ptr TransactionExecutive::externalRequest(CallParameters::Ptr in
     m_callback(shared_from_this(), std::move(input));
     (*m_pullMessage)();  // move to the main coroutine
 
-    auto callParameters = m_pullMessage->get();  // wait for main coroutine's response
+    auto output = m_pullMessage->get();  // wait for main coroutine's response
 
-    return callParameters;
+    return output;
 }
 
 CallParameters::Ptr TransactionExecutive::execute(CallParameters::ConstPtr callParameters)

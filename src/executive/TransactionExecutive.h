@@ -21,15 +21,15 @@
 
 #pragma once
 
+#include "../Common.h"
 #include "../precompiled/PrecompiledResult.h"
+#include "../vm/gas_meter/GasInjector.h"
 #include "BlockContext.h"
-#include "Common.h"
 #include "bcos-framework/interfaces/executor/ExecutionParams.h"
 #include "bcos-framework/interfaces/executor/ExecutionResult.h"
 #include "bcos-framework/interfaces/protocol/BlockHeader.h"
 #include "bcos-framework/interfaces/protocol/Transaction.h"
 #include "bcos-framework/libprotocol/TransactionStatus.h"
-#include "gas_meter/GasInjector.h"
 #include <boost/coroutine2/all.hpp>
 #include <boost/coroutine2/coroutine.hpp>
 #include <functional>

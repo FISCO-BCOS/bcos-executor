@@ -20,7 +20,7 @@
  */
 
 #include "BlockContext.h"
-#include "Precompiled.h"
+#include "../vm/Precompiled.h"
 #include "TransactionExecutive.h"
 #include "bcos-framework/interfaces/executor/ExecutionResult.h"
 #include "bcos-framework/interfaces/protocol/Exceptions.h"

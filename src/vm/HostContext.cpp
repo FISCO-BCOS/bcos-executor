@@ -21,8 +21,7 @@
 
 #include "HostContext.h"
 #include "../ChecksumAddress.h"
-#include "BlockContext.h"
-#include "Common.h"
+#include "../Common.h"
 #include "EVMHostInterface.h"
 #include "bcos-framework/interfaces/storage/Table.h"
 #include "bcos-framework/libstorage/StateStorage.h"
@@ -70,29 +69,26 @@ namespace
 {
 evmc_gas_metrics ethMetrics{32000, 20000, 5000, 200, 9000, 2300, 25000};
 
-crypto::Hash::Ptr g_hashImpl = nullptr;
-
 evmc_bytes32 evm_hash_fn(const uint8_t* data, size_t size)
 {
-    return toEvmC(g_hashImpl->hash(bytesConstRef(data, size)));
+    return toEvmC(HostContext::hashImpl()->hash(bytesConstRef(data, size)));
 }
 }  // namespace
 
-HostContext::HostContext(std::weak_ptr<TransactionExecutive> executive,
-    CallParameters::ConstPtr callParameters, bcos::storage::Table table)
-  : m_executive(std::move(executive)),
-    m_callParameters(std::move(callParameters)),
-    m_table(std::move(table))
+EVMSchedule HostContext::m_evmSchedule;
+crypto::Hash::Ptr HostContext::m_hashImpl = nullptr;
+
+HostContext::HostContext(CallParameters::ConstPtr callParameters, bcos::storage::Table table)
+  : m_callParameters(std::move(callParameters)), m_table(std::move(table))
 {
     interface = getHostInterface();
     wasm_interface = getWasmHostInterface();
-    g_hashImpl = m_executive.lock()->blockContext()->hashHandler();
 
     hash_fn = evm_hash_fn;
     version = 0x03000000;
     isSMCrypto = false;
 
-    if (g_hashImpl->getHashImplType() == crypto::HashImplType::Sm3Hash)
+    if (hashImpl() && hashImpl()->getHashImplType() == crypto::HashImplType::Sm3Hash)
     {
         isSMCrypto = true;
     }
@@ -199,7 +195,7 @@ evmc_result HostContext::externalRequest(const evmc_message* _msg)
 void HostContext::setCode(bytes code)
 {
     auto codeHashEntry = m_table.newEntry();
-    auto codeHash = m_executive.lock()->blockContext()->hashHandler()->hash(code);
+    auto codeHash = hashImpl()->hash(code);
     codeHashEntry.importFields({codeHash.asBytes()});
     m_table.setRow(ACCOUNT_CODE_HASH, std::move(codeHashEntry));
 
@@ -319,7 +315,7 @@ h256 HostContext::codeHash()
 
 h256 HostContext::blockHash()
 {
-    return getBlockContext()->currentBlockHeader()->hash();
+    return m_blockHash;
 }
 
 bool HostContext::registerAsset(const std::string& _assetName, const std::string_view& _addr,

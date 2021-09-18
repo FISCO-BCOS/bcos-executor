@@ -21,7 +21,7 @@
 
 
 #pragma once
-#include "Common.h"
+#include "../Common.h"
 #include "bcos-framework/libutilities/Common.h"
 #include <tbb/concurrent_queue.h>
 #include <condition_variable>

@@ -21,7 +21,7 @@
 
 #pragma once
 
-#include "Common.h"
+#include "../Common.h"
 #include "bcos-framework/interfaces/protocol/BlockHeader.h"
 #include "bcos-framework/libprotocol/LogEntry.h"
 #include "evmc/evmc.h"

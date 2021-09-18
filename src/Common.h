@@ -21,6 +21,7 @@
 
 #pragma once
 
+#include "CallParameters.h"
 #include "bcos-framework/interfaces/protocol/BlockHeader.h"
 #include "bcos-framework/libprotocol/LogEntry.h"
 #include "bcos-framework/libprotocol/TransactionStatus.h"
@@ -39,9 +40,13 @@ DERIVE_BCOS_EXCEPTION(InvalidEncoding);
 
 namespace executor
 {
+#define EXECUTOR_LOG(LEVEL) BCOS_LOG(LEVEL) << LOG_BADGE("EXECUTOR")
+#define PARA_LOG(LEVEL) BCOS_LOG(LEVEL) << LOG_BADGE("PARA") << LOG_BADGE(utcTime())
+
 const char STORAGE_VALUE[] = "value";
 const char ACCOUNT_CODE_HASH[] = "codeHash";
 const char ACCOUNT_CODE[] = "code";
+
 // const char ACCOUNT_BALANCE[] = "balance";
 // const char ACCOUNT_ABI[] = "abi";
 // const char ACCOUNT_NONCE[] = "nonce";
@@ -77,37 +82,6 @@ struct SubState
  * @brief : execute the opcode of evm
  *
  */
-
-/// set parameters and functions for the evm call
-struct CallParameters
-{
-    using Ptr = std::shared_ptr<CallParameters>;
-    using ConstPtr = std::shared_ptr<const CallParameters>;
-
-    enum Type
-    {
-        MESSAGE = 0,
-        FINISHED = 1,
-    };
-
-    Type type;
-    std::string senderAddress;   // by request or response
-    std::string codeAddress;     // by request or response
-    std::string receiveAddress;  // by request or response
-    std::string origin;          // by request or response
-
-    int64_t gas = 0;          // by request or response
-    bytes data;               // by request or response, transaction data
-    bool staticCall = false;  // by request or response
-    bool create = false;      // by request, is create?
-
-
-    int status;                                        // by response
-    std::string message;                               // by response
-    std::vector<bcos::protocol::LogEntry> logEntries;  // by response
-    std::optional<u256> createSalt;                    // by response
-    std::string newEVMContractAddress;                 // by response
-};
 
 inline bcos::protocol::ExecutionResult::Ptr toExecutionResult(
     bcos::protocol::ExecutionResultFactory::Ptr factory, CallParameters::Ptr&& callResults)

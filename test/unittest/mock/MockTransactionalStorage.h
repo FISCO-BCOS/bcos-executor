@@ -4,6 +4,7 @@
 #include "vm/Common.h"
 #include <bcos-framework/interfaces/storage/StorageInterface.h>
 #include <bcos-framework/libstorage/StateStorage.h>
+#include <boost/algorithm/hex.hpp>
 #include <boost/test/unit_test.hpp>
 #include <memory>
 
@@ -68,8 +69,10 @@ public:
                 std::string fields;
                 for (auto it : entry)
                 {
-                    fields.append(it).append(",");
+                    fields.append(boost::algorithm::hex_lower(std::string(it))).append(",");
                 }
+
+                auto keyHex = boost::algorithm::hex_lower(std::string(key));
                 EXECUTOR_LOG(TRACE) << "Merge data" << LOG_KV("table", table) << LOG_KV("key", key)
                                     << LOG_KV("fields", fields);
 

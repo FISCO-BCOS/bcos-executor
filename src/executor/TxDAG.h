@@ -20,7 +20,7 @@
  */
 
 #pragma once
-#include "../vm/BlockContext.h"
+#include "../executive/BlockContext.h"
 #include "DAG.h"
 #include "bcos-framework/interfaces/protocol/Block.h"
 #include "bcos-framework/interfaces/protocol/Transaction.h"

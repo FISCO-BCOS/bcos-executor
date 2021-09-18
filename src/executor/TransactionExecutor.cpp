@@ -18,7 +18,6 @@
  * @author: xingqiangbai
  * @date: 2021-09-01
  */
-#include "bcos-executor/TransactionExecutor.h"
 // #include "../precompiled/CNSPrecompiled.h"
 // #include "../precompiled/CRUDPrecompiled.h"
 // #include "../precompiled/ConsensusPrecompiled.h"
@@ -32,12 +31,13 @@
 // #include "../precompiled/TableFactoryPrecompiled.h"
 // #include "../precompiled/Utilities.h"
 // #include "../precompiled/extension/DagTransferPrecompiled.h"
+
+#include "bcos-executor/TransactionExecutor.h"
 #include "../ChecksumAddress.h"
-#include "../vm/BlockContext.h"
-#include "../vm/Common.h"
+#include "../executive/BlockContext.h"
 #include "../vm/Precompiled.h"
-#include "../vm/TransactionExecutive.h"
-#include "Common.h"
+#include "../executive/TransactionExecutive.h"
+#include "../Common.h"
 #include "TxDAG.h"
 #include "bcos-framework/interfaces/dispatcher/SchedulerInterface.h"
 #include "bcos-framework/interfaces/executor/PrecompiledTypeDef.h"
@@ -113,8 +113,6 @@ TransactionExecutor::TransactionExecutor(txpool::TxPoolInterface::Ptr txpool,
     m_precompiledContract->insert({fillZero(9),
         make_shared<PrecompiledContract>(PrecompiledRegistrar::pricer("blake2_compression"),
             PrecompiledRegistrar::executor("blake2_compression"))});
-
-    m_threadPool = std::make_shared<ThreadPool>("asyncTasks", poolSize);
 }
 
 void TransactionExecutor::nextBlockHeader(const protocol::BlockHeader::ConstPtr& blockHeader,
@@ -128,14 +126,14 @@ void TransactionExecutor::nextBlockHeader(const protocol::BlockHeader::ConstPtr&
         bcos::storage::StateStorage::Ptr stateStorage;
         if (m_stateStorages.empty())
         {
-            stateStorage = std::make_shared<bcos::storage::StateStorage>(
-                m_backendStorage, m_hashImpl, blockHeader->number());
+            stateStorage =
+                std::make_shared<bcos::storage::StateStorage>(m_backendStorage, m_hashImpl);
         }
         else
         {
             auto prev = m_stateStorages.back();
-            stateStorage = std::make_shared<bcos::storage::StateStorage>(
-                std::move(prev), m_hashImpl, blockHeader->number());
+            stateStorage =
+                std::make_shared<bcos::storage::StateStorage>(std::move(prev), m_hashImpl);
         }
 
         m_blockContext = std::make_shared<BlockContext>(stateStorage, m_hashImpl, blockHeader,
@@ -219,33 +217,33 @@ void TransactionExecutor::getTableHashes(bcos::protocol::BlockNumber number,
         callback) noexcept
 {
     EXECUTOR_LOG(INFO) << "GetTableHashes" << LOG_KV("number", number);
-    if (m_stateStorages.empty())
-    {
-        EXECUTOR_LOG(ERROR) << "GetTableHashes error: No uncommited state in executor";
-        callback(BCOS_ERROR_PTR(-1, "No uncommited state in executor"),
-            std::vector<std::tuple<std::string, crypto::HashType>>());
-        return;
-    }
+    // if (m_stateStorages.empty())
+    // {
+    //     EXECUTOR_LOG(ERROR) << "GetTableHashes error: No uncommited state in executor";
+    //     callback(BCOS_ERROR_PTR(-1, "No uncommited state in executor"),
+    //         std::vector<std::tuple<std::string, crypto::HashType>>());
+    //     return;
+    // }
 
-    auto last = m_stateStorages.front();
-    if (last->blockNumber() != number)
-    {
-        auto errorMessage = "GetTableHashes error: Request block number: " +
-                            boost::lexical_cast<std::string>(number) +
-                            " not equal to last blockNumber: " +
-                            boost::lexical_cast<std::string>(last->blockNumber());
+    // auto last = m_stateStorages.front();
+    // if (last->blockNumber() != number)
+    // {
+    //     auto errorMessage = "GetTableHashes error: Request block number: " +
+    //                         boost::lexical_cast<std::string>(number) +
+    //                         " not equal to last blockNumber: " +
+    //                         boost::lexical_cast<std::string>(last->blockNumber());
 
-        EXECUTOR_LOG(ERROR) << errorMessage;
-        callback(BCOS_ERROR_PTR(-1, errorMessage),
-            std::vector<std::tuple<std::string, crypto::HashType>>());
+    //     EXECUTOR_LOG(ERROR) << errorMessage;
+    //     callback(BCOS_ERROR_PTR(-1, errorMessage),
+    //         std::vector<std::tuple<std::string, crypto::HashType>>());
 
-        return;
-    }
+    //     return;
+    // }
 
-    auto tableHashes = last->tableHashes();
-    EXECUTOR_LOG(INFO) << "GetTableHashes success" << LOG_KV("size", tableHashes.size());
+    // auto tableHashes = last->tableHashes();
+    // EXECUTOR_LOG(INFO) << "GetTableHashes success" << LOG_KV("size", tableHashes.size());
 
-    callback(nullptr, std::move(tableHashes));
+    // callback(nullptr, std::move(tableHashes));
 }
 
 void TransactionExecutor::prepare(
@@ -761,16 +759,3 @@ std::string TransactionExecutor::newEVMAddress(
         bytes{0xff} + toBytes(_sender) + toBigEndian(_salt) + m_hashImpl->hash(_init));
     return string((char*)hash.data(), 20);
 }
-
-// protocol::ExecutionResult::Ptr TransactionExecutor::createExecutionResult(
-//     std::shared_ptr<TransactionExecutive> executive)
-// {
-// auto executionResult = m_executionResultFactory->createExecutionResult();
-// executionResult->setContextID(executive->contextID());
-// executionResult->setStatus((int32_t)executive->status());
-// executionResult->setGasAvailable(executive->gasLeft());
-// executionResult->setLogEntries(executive->logs());
-// executionResult->setOutput(std::move(executive->takeOutput().takeBytes()));
-// executionResult->setStaticCall(executive->callParameters().staticCall);
-// executionResult->setStaticCall(bool staticCall)
-// }

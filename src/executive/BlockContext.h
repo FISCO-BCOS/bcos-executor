@@ -21,7 +21,7 @@
 
 #pragma once
 
-#include "Common.h"
+#include "../Common.h"
 #include "bcos-framework/interfaces/executor/ExecutionResult.h"
 #include "bcos-framework/interfaces/protocol/Block.h"
 #include "bcos-framework/interfaces/protocol/Transaction.h"
@@ -31,9 +31,6 @@
 #include <functional>
 #include <memory>
 #include <stack>
-
-#define TBB_PREVIEW_CONCURRENT_ORDERED_CONTAINERS 1
-#include <tbb/concurrent_map.h>
 #include <tbb/concurrent_unordered_map.h>
 
 namespace bcos
@@ -55,8 +52,8 @@ class BlockContext : public std::enable_shared_from_this<BlockContext>
 {
 public:
     typedef std::shared_ptr<BlockContext> Ptr;
-    using ParallelConfigCache = tbb::concurrent_map<std::pair<std::string, uint32_t>,
-        std::shared_ptr<bcos::precompiled::ParallelConfig>>;
+    // using ParallelConfigCache = tbb::concurrent_map<std::pair<std::string, uint32_t>,
+    //     std::shared_ptr<bcos::precompiled::ParallelConfig>>;
 
     BlockContext(std::shared_ptr<storage::StateStorage> storage, crypto::Hash::Ptr _hashImpl,
         protocol::BlockHeader::ConstPtr _current,
