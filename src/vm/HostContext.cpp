@@ -76,10 +76,17 @@ evmc_bytes32 evm_hash_fn(const uint8_t* data, size_t size)
 }  // namespace
 
 EVMSchedule HostContext::m_evmSchedule;
-crypto::Hash::Ptr HostContext::m_hashImpl = nullptr;
+// crypto::Hash::Ptr g_hashImpl = nullptr;
 
-HostContext::HostContext(CallParameters::ConstPtr callParameters, bcos::storage::Table table)
-  : m_callParameters(std::move(callParameters)), m_table(std::move(table))
+HostContext::HostContext(CallParameters::UniquePtr callParameters, bcos::storage::Table table,
+    std::string contractAddress,
+    std::function<CallParameters::UniquePtr(CallParameters::UniquePtr)> externalRequest,
+    bool isWasm)
+  : m_callParameters(std::move(callParameters)),
+    m_table(std::move(table)),
+    m_contractAddress(std::move(contractAddress)),
+    m_externalRequest(std::move(externalRequest)),
+    m_isWasm(isWasm)
 {
     interface = getHostInterface();
     wasm_interface = getWasmHostInterface();
@@ -133,7 +140,7 @@ void HostContext::set(const std::string_view& _key, std::string _value)
 evmc_result HostContext::externalRequest(const evmc_message* _msg)
 {
     // Convert evmc_message to CallParameters
-    auto request = std::make_shared<CallParameters>();
+    auto request = std::make_unique<CallParameters>();
     request->type = CallParameters::MESSAGE;
 
     if (_msg->input_size > 0)
@@ -151,7 +158,7 @@ evmc_result HostContext::externalRequest(const evmc_message* _msg)
         request->createSalt = fromEvmC(_msg->create2_salt);
         break;
     case EVMC_CALL:
-        if (m_executive.lock()->blockContext()->isWasm())
+        if (m_isWasm)
         {
             request->receiveAddress.assign((char*)_msg->destination_ptr, _msg->destination_len);
         }
@@ -172,7 +179,7 @@ evmc_result HostContext::externalRequest(const evmc_message* _msg)
         break;
     }
 
-    auto response = m_executive.lock()->externalRequest(request);
+    auto response = m_externalRequest(std::move(request));
 
     // Convert CallParameters to evmc_result
     evmc_result result;
@@ -262,7 +269,7 @@ void HostContext::setStore(u256 const& _n, u256 const& _v)
 
 void HostContext::log(h256s&& _topics, bytesConstRef _data)
 {
-    if (m_executive.lock()->blockContext()->isWasm() || myAddress().empty())
+    if (m_isWasm || myAddress().empty())
     {
         m_sub.logs->push_back(
             protocol::LogEntry(bytes(myAddress().data(), myAddress().data() + myAddress().size()),
@@ -273,8 +280,7 @@ void HostContext::log(h256s&& _topics, bytesConstRef _data)
         // convert solidity address to hex string
         auto hexAddress = *toHexString(myAddress());
         boost::algorithm::to_lower(hexAddress);  // this is in case of toHexString be modified
-        toChecksumAddress(
-            hexAddress, m_executive.lock()->blockContext()->hashHandler()->hash(hexAddress).hex());
+        toChecksumAddress(hexAddress, hashImpl()->hash(hexAddress).hex());
         m_sub.logs->push_back(
             protocol::LogEntry(asBytes(hexAddress), std::move(_topics), _data.toBytes()));
     }

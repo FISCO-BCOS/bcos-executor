@@ -43,6 +43,7 @@ namespace executor
 #define EXECUTOR_LOG(LEVEL) BCOS_LOG(LEVEL) << LOG_BADGE("EXECUTOR")
 #define PARA_LOG(LEVEL) BCOS_LOG(LEVEL) << LOG_BADGE("PARA") << LOG_BADGE(utcTime())
 
+
 const char STORAGE_VALUE[] = "value";
 const char ACCOUNT_CODE_HASH[] = "codeHash";
 const char ACCOUNT_CODE[] = "code";
@@ -84,7 +85,7 @@ struct SubState
  */
 
 inline bcos::protocol::ExecutionResult::Ptr toExecutionResult(
-    bcos::protocol::ExecutionResultFactory::Ptr factory, CallParameters::Ptr&& callResults)
+    bcos::protocol::ExecutionResultFactory::Ptr factory, CallParameters::UniquePtr callResults)
 {
     auto executionResult = factory->createExecutionResult();
 
@@ -178,6 +179,8 @@ struct EVMSchedule
     bool emptinessIsNonexistence() const { return eip158Mode; }
     bool zeroValueTransferChargesNewAccountGas() const { return !eip158Mode; }
 };
+
+extern crypto::Hash::Ptr g_hashImpl;
 
 /// exceptionalFailedCodeDeposit: false
 /// haveDelegateCall: false

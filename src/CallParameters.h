@@ -10,8 +10,19 @@ namespace bcos::executor
 /// set parameters and functions for the evm call
 struct CallParameters
 {
-    using Ptr = std::shared_ptr<CallParameters>;
-    using ConstPtr = std::shared_ptr<const CallParameters>;
+    // using Ptr = std::shared_ptr<CallParameters>;
+    // using ConstPtr = std::shared_ptr<const CallParameters>;
+
+    using UniquePtr = std::unique_ptr<CallParameters>;
+    using UniqueConstPtr = std::unique_ptr<const CallParameters>;
+
+    CallParameters(){};
+
+    CallParameters(const CallParameters&) = delete;
+    CallParameters& operator=(const CallParameters&) = delete;
+
+    CallParameters(CallParameters&&) = delete;
+    CallParameters(const CallParameters&&) = delete;
 
     enum Type : int8_t
     {

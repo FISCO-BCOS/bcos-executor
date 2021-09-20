@@ -37,7 +37,10 @@ class HostContext : public evmc_host_context
 {
 public:
     /// Full constructor.
-    HostContext(CallParameters::ConstPtr callParameters, bcos::storage::Table table);
+    HostContext(CallParameters::UniquePtr callParameters, bcos::storage::Table table,
+        std::string contractAddress,
+        std::function<CallParameters::UniquePtr(CallParameters::UniquePtr)> externalRequest,
+        bool isWasm);
     ~HostContext() = default;
 
     HostContext(HostContext const&) = delete;
@@ -100,12 +103,6 @@ public:
 
     void suicide(const std::string_view& _a);
 
-    std::string_view newContractAddress() const { return m_newContractAddress; }
-    void setNewContractAddress(std::string newContractAddress)
-    {
-        m_newContractAddress = std::move(newContractAddress);
-    }
-
     /// ------ get interfaces related to HostContext------
     std::string_view myAddress() const { return m_contractAddress; }
     std::string_view caller() const { return m_callParameters->senderAddress; }
@@ -120,8 +117,7 @@ public:
     bool staticCall() const { return m_callParameters->staticCall; }
     int64_t gas() const { return m_callParameters->gas; }
 
-    static crypto::Hash::Ptr hashImpl() { return m_hashImpl; }
-    static void setHashImpl(crypto::Hash::Ptr hashImpl) { m_hashImpl = std::move(hashImpl); };
+    static crypto::Hash::Ptr hashImpl() { return g_hashImpl; }
 
 private:
     void depositFungibleAsset(
@@ -129,21 +125,21 @@ private:
     void depositNotFungibleAsset(const std::string_view& _to, const std::string& _assetName,
         uint64_t _assetID, const std::string& _uri);
 
-    CallParameters::ConstPtr m_callParameters;
+    CallParameters::UniquePtr m_callParameters;
     bcos::storage::Table m_table;  ///< The table of contract
 
     u256 m_salt;     ///< Values used in new address construction by CREATE2
     SubState m_sub;  ///< Sub-band VM state (suicides, refund counter, logs).
 
     std::string m_contractAddress;
-    std::string m_newContractAddress;
     h256 m_blockHash;
 
     std::map<std::string, size_t, std::less<>> m_key2Version;  // the version cache
-    std::list<CallParameters::ConstPtr> m_responseStore;
+    std::list<CallParameters::UniquePtr> m_responseStore;
+    std::function<CallParameters::UniquePtr(CallParameters::UniquePtr)> m_externalRequest;
+    bool m_isWasm;
 
     static EVMSchedule m_evmSchedule;
-    static crypto::Hash::Ptr m_hashImpl;
 };
 
 }  // namespace executor

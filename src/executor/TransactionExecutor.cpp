@@ -34,10 +34,10 @@
 
 #include "bcos-executor/TransactionExecutor.h"
 #include "../ChecksumAddress.h"
-#include "../executive/BlockContext.h"
-#include "../vm/Precompiled.h"
-#include "../executive/TransactionExecutive.h"
 #include "../Common.h"
+#include "../executive/BlockContext.h"
+#include "../executive/TransactionExecutive.h"
+#include "../vm/Precompiled.h"
 #include "TxDAG.h"
 #include "bcos-framework/interfaces/dispatcher/SchedulerInterface.h"
 #include "bcos-framework/interfaces/executor/PrecompiledTypeDef.h"
@@ -57,6 +57,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/throw_exception.hpp>
 #include <exception>
+#include <functional>
 #include <iterator>
 #include <string>
 #include <thread>
@@ -71,7 +72,7 @@ using namespace bcos::precompiled;
 TransactionExecutor::TransactionExecutor(txpool::TxPoolInterface::Ptr txpool,
     storage::TransactionalStorageInterface::Ptr backendStorage,
     protocol::ExecutionResultFactory::Ptr executionResultFactory, bcos::crypto::Hash::Ptr hashImpl,
-    bool isWasm, size_t poolSize)
+    bool isWasm)
   : m_txpool(std::move(txpool)),
     m_backendStorage(std::move(backendStorage)),
     m_executionResultFactory(std::move(executionResultFactory)),
@@ -113,6 +114,8 @@ TransactionExecutor::TransactionExecutor(txpool::TxPoolInterface::Ptr txpool,
     m_precompiledContract->insert({fillZero(9),
         make_shared<PrecompiledContract>(PrecompiledRegistrar::pricer("blake2_compression"),
             PrecompiledRegistrar::executor("blake2_compression"))});
+
+    g_hashImpl = m_hashImpl;
 }
 
 void TransactionExecutor::nextBlockHeader(const protocol::BlockHeader::ConstPtr& blockHeader,
@@ -132,15 +135,14 @@ void TransactionExecutor::nextBlockHeader(const protocol::BlockHeader::ConstPtr&
         else
         {
             auto prev = m_stateStorages.back();
-            stateStorage =
-                std::make_shared<bcos::storage::StateStorage>(std::move(prev), m_hashImpl);
+            stateStorage = std::make_shared<bcos::storage::StateStorage>(prev.storage, m_hashImpl);
         }
 
         m_blockContext = std::make_shared<BlockContext>(stateStorage, m_hashImpl, blockHeader,
             m_executionResultFactory, EVMSchedule(), m_isWasm);
 
         m_blockContext->setPrecompiledContract(m_precompiledContract);
-        m_stateStorages.push_back(std::move(stateStorage));
+        m_stateStorages.push_back({blockHeader->number(), std::move(stateStorage)});
 
         if (m_lastUncommitedIterator == m_stateStorages.end())
         {
@@ -267,12 +269,12 @@ void TransactionExecutor::prepare(
         return;
     }
 
-    if ((*last)->blockNumber() != params.number)
+    if (last->number != params.number)
     {
-        auto errorMessage = "Prepare error: Request block number: " +
-                            boost::lexical_cast<std::string>(params.number) +
-                            " not equal to last blockNumber: " +
-                            boost::lexical_cast<std::string>((*last)->blockNumber());
+        auto errorMessage =
+            "Prepare error: Request block number: " +
+            boost::lexical_cast<std::string>(params.number) +
+            " not equal to last blockNumber: " + boost::lexical_cast<std::string>(last->number);
 
         EXECUTOR_LOG(ERROR) << errorMessage;
         callback(BCOS_ERROR_PTR(-1, errorMessage));
@@ -283,7 +285,7 @@ void TransactionExecutor::prepare(
     bcos::storage::TransactionalStorageInterface::TwoPCParams storageParams;
     storageParams.number = params.number;
     m_backendStorage->asyncPrepare(
-        storageParams, *last, [callback = std::move(callback)](auto&& error) {
+        storageParams, last->storage, [callback = std::move(callback)](auto&& error) {
             if (error)
             {
                 auto errorMessage = "Prepare error: " + boost::diagnostic_information(*error);
@@ -311,12 +313,12 @@ void TransactionExecutor::commit(
     }
 
     auto last = *m_lastUncommitedIterator;
-    if (last->blockNumber() != params.number)
+    if (last.number != params.number)
     {
-        auto errorMessage = "Commit error: Request block number: " +
-                            boost::lexical_cast<std::string>(params.number) +
-                            " not equal to last blockNumber: " +
-                            boost::lexical_cast<std::string>(last->blockNumber());
+        auto errorMessage =
+            "Commit error: Request block number: " +
+            boost::lexical_cast<std::string>(params.number) +
+            " not equal to last blockNumber: " + boost::lexical_cast<std::string>(last.number);
 
         EXECUTOR_LOG(ERROR) << errorMessage;
         callback(BCOS_ERROR_PTR(-1, errorMessage));
@@ -359,12 +361,12 @@ void TransactionExecutor::rollback(
     }
 
     auto last = *m_lastUncommitedIterator;
-    if (last->blockNumber() != params.number)
+    if (last.number != params.number)
     {
-        auto errorMessage = "Rollback error: Request block number: " +
-                            boost::lexical_cast<std::string>(params.number) +
-                            " not equal to last blockNumber: " +
-                            boost::lexical_cast<std::string>(last->blockNumber());
+        auto errorMessage =
+            "Rollback error: Request block number: " +
+            boost::lexical_cast<std::string>(params.number) +
+            " not equal to last blockNumber: " + boost::lexical_cast<std::string>(last.number);
 
         EXECUTOR_LOG(ERROR) << errorMessage;
         callback(BCOS_ERROR_PTR(-1, errorMessage));
@@ -435,7 +437,7 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
         contract = input->to();
     }
 
-    auto callParameters = std::make_shared<CallParameters>();
+    auto callParameters = std::make_unique<CallParameters>();
     callParameters->type = CallParameters::MESSAGE;
     callParameters->origin = input->origin();
     callParameters->senderAddress = input->from();
@@ -456,7 +458,8 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
 
         m_txpool->asyncFillBlock(std::move(txhashes),
             [this, input, hash = input->transactionHash(), blockContext = std::move(blockContext),
-                callParameters = std::move(callParameters), contract = std::move(contract),
+                callParameters = std::make_shared<CallParameters>(std::move(callParameters)),
+                contract = std::move(contract),
                 callback](Error::Ptr error, bcos::protocol::TransactionsPtr transactons) {
                 if (error)
                 {
@@ -530,7 +533,7 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
         // call the sink
 
         // TODO: convert ExecutionParameters to CallParameters
-        CallParameters::Ptr callParameters;
+        CallParameters::UniquePtr callParameters;
 
         std::get<0>(executive)->pushMessage(std::move(callParameters));
 
@@ -548,7 +551,7 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
 }
 
 void TransactionExecutor::onCallResultsCallback(
-    TransactionExecutive::Ptr executive, std::shared_ptr<CallParameters>&& response)
+    TransactionExecutive::Ptr executive, std::unique_ptr<CallParameters> response)
 {
     auto it = m_blockContext->getExecutive(executive->contextID(), executive->contractAddress());
     auto executionResult = m_executionResultFactory->createExecutionResult();

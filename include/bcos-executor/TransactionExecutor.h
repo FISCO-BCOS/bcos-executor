@@ -31,6 +31,7 @@
 #include "bcos-framework/interfaces/txpool/TxPoolInterface.h"
 #include "bcos-framework/libstorage/StateStorage.h"
 #include "interfaces/crypto/Hash.h"
+#include "interfaces/protocol/ProtocolTypeDef.h"
 #include "tbb/concurrent_unordered_map.h"
 #include <boost/function.hpp>
 #include <algorithm>
@@ -76,7 +77,7 @@ public:
     TransactionExecutor(txpool::TxPoolInterface::Ptr txpool,
         storage::TransactionalStorageInterface::Ptr backendStorage,
         protocol::ExecutionResultFactory::Ptr executionResultFactory,
-        bcos::crypto::Hash::Ptr hashImpl, bool isWasm, size_t poolSize = 2);
+        bcos::crypto::Hash::Ptr hashImpl, bool isWasm);
 
     virtual ~TransactionExecutor() { stop(); }
 
@@ -133,7 +134,7 @@ private:
         std::function<void(bcos::Error::Ptr&&, bcos::protocol::ExecutionResult::Ptr&&)> callback);
 
     void onCallResultsCallback(std::shared_ptr<TransactionExecutive> executive,
-        std::shared_ptr<CallParameters>&& callResults);
+        std::unique_ptr<CallParameters> callResults);
 
     std::string newEVMAddress(
         const std::string_view& sender, int64_t blockNumber, int64_t contextID);
@@ -148,11 +149,16 @@ private:
     bool m_isWasm = false;
     const ExecutorVersion m_version;
 
-    std::list<bcos::storage::StateStorage::Ptr> m_stateStorages;  // TODO: need lock to deal with
-                                                                  // nextBlock and prepare?
+    struct State
+    {
+        bcos::protocol::BlockNumber number;
+        bcos::storage::StateStorage::Ptr storage;
+    };
 
-    std::list<bcos::storage::StateStorage::Ptr>::const_iterator
-        m_lastUncommitedIterator;  // last uncommited storage
+    std::list<State> m_stateStorages;  // TODO: need lock to deal with
+                                       // nextBlock and prepare?
+
+    std::list<State>::const_iterator m_lastUncommitedIterator;  // last uncommited storage
 
     std::shared_ptr<std::map<std::string, std::shared_ptr<PrecompiledContract>>>
         m_precompiledContract;

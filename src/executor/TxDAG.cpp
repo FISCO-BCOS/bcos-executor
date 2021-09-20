@@ -20,8 +20,8 @@
  */
 
 #include "TxDAG.h"
-#include "../vm/TransactionExecutive.h"
-#include "Common.h"
+#include "../Common.h"
+#include "../executive/TransactionExecutive.h"
 #include <tbb/parallel_for.h>
 #include <map>
 
