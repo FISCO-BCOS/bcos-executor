@@ -417,37 +417,6 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
         blockContext = m_blockContext;
     }
 
-    std::string contract;
-    bool create = false;
-    if (input->to().empty() && !m_isWasm)
-    {
-        create = true;
-        if (input->createSalt())
-        {
-            contract = newEVMAddress(input->from(), input->input(), input->createSalt().value());
-        }
-        else
-        {
-            contract =
-                newEVMAddress(input->from(), blockContext->currentNumber(), input->contextID());
-        }
-    }
-    else
-    {
-        contract = input->to();
-    }
-
-    auto callParameters = std::make_unique<CallParameters>();
-    callParameters->type = CallParameters::MESSAGE;
-    callParameters->origin = input->origin();
-    callParameters->senderAddress = input->from();
-    callParameters->receiveAddress = contract;
-    callParameters->codeAddress = contract;
-    callParameters->create = create;
-    callParameters->gas = input->gasAvailable();
-    callParameters->data = input->input().toBytes();
-    callParameters->staticCall = staticCall;
-
     switch (input->type())
     {
     case bcos::protocol::ExecutionParams::TXHASH:
@@ -458,8 +427,6 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
 
         m_txpool->asyncFillBlock(std::move(txhashes),
             [this, input, hash = input->transactionHash(), blockContext = std::move(blockContext),
-                callParameters = std::make_shared<CallParameters>(std::move(callParameters)),
-                contract = std::move(contract),
                 callback](Error::Ptr error, bcos::protocol::TransactionsPtr transactons) {
                 if (error)
                 {
@@ -477,19 +444,23 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
                 }
 
                 auto tx = (*transactons)[0];
-                auto executive = std::make_shared<TransactionExecutive>(blockContext, contract,
-                    input->contextID(),
-                    std::bind(&TransactionExecutor::onCallResultsCallback, this,
-                        std::placeholders::_1, std::placeholders::_2));
 
-                blockContext->insertExecutive(input->contextID(), contract, {executive, callback});
+                auto callParameters = std::make_unique<CallParameters>();
 
                 callParameters->data = tx->input().toBytes();
                 auto sender = tx->sender();
+                callParameters->senderAddress.clear();
                 boost::algorithm::hex_lower(sender.begin(), sender.end(),
                     std::back_inserter(callParameters->senderAddress));
-                // callParameters->senderAddress = boost::algorithm::hex_lower(tx->sender());
                 callParameters->origin = tx->sender();
+
+                auto executive = std::make_shared<TransactionExecutive>(blockContext,
+                    callParameters->codeAddress, input->contextID(),
+                    std::bind(&TransactionExecutor::onCallResultsCallback, this,
+                        std::placeholders::_1, std::placeholders::_2));
+
+                blockContext->insertExecutive(
+                    input->contextID(), callParameters->codeAddress, {executive, callback});
 
                 try
                 {
@@ -506,12 +477,15 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
     }
     case bcos::protocol::ExecutionParams::EXTERNAL_CALL:
     {
-        auto executive =
-            std::make_shared<TransactionExecutive>(blockContext, contract, input->contextID(),
-                std::bind(&TransactionExecutor::onCallResultsCallback, this, std::placeholders::_1,
-                    std::placeholders::_2));
+        auto callParameters = createCallParameters(*input, *blockContext, staticCall);
 
-        blockContext->insertExecutive(input->contextID(), contract, {executive, callback});
+        auto executive = std::make_shared<TransactionExecutive>(blockContext,
+            callParameters->codeAddress, input->contextID(),
+            std::bind(&TransactionExecutor::onCallResultsCallback, this, std::placeholders::_1,
+                std::placeholders::_2));
+
+        blockContext->insertExecutive(
+            input->contextID(), callParameters->codeAddress, {executive, callback});
 
         try
         {
@@ -527,13 +501,10 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
     }
     case bcos::protocol::ExecutionParams::EXTERNAL_RETURN:
     {
+        auto callParameters = createCallParameters(*input, *blockContext, staticCall);
+
         auto executive = blockContext->getExecutive(input->contextID(), input->to());
         std::get<1>(executive) = callback;
-
-        // call the sink
-
-        // TODO: convert ExecutionParameters to CallParameters
-        CallParameters::UniquePtr callParameters;
 
         std::get<0>(executive)->pushMessage(std::move(callParameters));
 
@@ -761,4 +732,83 @@ std::string TransactionExecutor::newEVMAddress(
     auto hash = m_hashImpl->hash(
         bytes{0xff} + toBytes(_sender) + toBigEndian(_salt) + m_hashImpl->hash(_init));
     return string((char*)hash.data(), 20);
+}
+
+std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
+    const bcos::protocol::ExecutionParams& input, const BlockContext& blockContext, bool staticCall)
+{
+    std::string contract;
+    bool create = false;
+    if (input.to().empty() && !m_isWasm)
+    {
+        create = true;
+        if (input.createSalt())
+        {
+            contract = newEVMAddress(input.from(), input.input(), input.createSalt().value());
+        }
+        else
+        {
+            contract = newEVMAddress(input.from(), blockContext.currentNumber(), input.contextID());
+        }
+    }
+    else
+    {
+        contract = input.to();
+    }
+
+    auto callParameters = std::make_unique<CallParameters>();
+    callParameters->type = CallParameters::MESSAGE;
+    callParameters->origin = input.origin();
+    callParameters->senderAddress = input.from();
+    callParameters->receiveAddress = contract;
+    callParameters->codeAddress = contract;
+    callParameters->create = create;
+    callParameters->gas = input.gasAvailable();
+    callParameters->data = input.input().toBytes();
+    callParameters->staticCall = staticCall;
+
+    return callParameters;
+}
+
+std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
+    const bcos::protocol::ExecutionParams& input, bcos::protocol::Transaction::Ptr&& tx,
+    const BlockContext& blockContext)
+{
+    auto callParameters = std::make_unique<CallParameters>();
+    callParameters->type = CallParameters::MESSAGE;
+
+    bool create = false;
+    if (m_isWasm)
+    {
+        callParameters->origin = tx->sender();
+        callParameters->senderAddress = tx->sender();
+        callParameters->receiveAddress = tx->to();
+        callParameters->codeAddress = callParameters->receiveAddress;
+    }
+    else
+    {
+        boost::algorithm::hex_lower(tx->sender(), std::back_inserter(callParameters->origin));
+        callParameters->senderAddress = callParameters->origin;
+
+        if (tx->to().empty())
+        {
+            create = true;
+            callParameters->receiveAddress = newEVMAddress(
+                callParameters->senderAddress, blockContext.currentNumber(), input.contextID());
+        }
+        else
+        {
+            boost::algorithm::hex_lower(
+                tx->to(), std::back_inserter(callParameters->receiveAddress));
+        }
+
+        callParameters->codeAddress = callParameters->receiveAddress;
+    }
+
+    callParameters->create = create;
+    callParameters->gas = input.gasAvailable();
+    callParameters->data = tx->input().toBytes();
+    callParameters->staticCall = false;
+
+    return callParameters;
 }

@@ -7,7 +7,7 @@
 
 namespace bcos::executor
 {
-/// set parameters and functions for the evm call
+    
 struct CallParameters
 {
     // using Ptr = std::shared_ptr<CallParameters>;

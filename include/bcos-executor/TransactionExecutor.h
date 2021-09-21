@@ -141,6 +141,14 @@ private:
     std::string newEVMAddress(
         const std::string_view& _sender, bytesConstRef _init, u256 const& _salt);
 
+    std::unique_ptr<CallParameters> createCallParameters(
+        const bcos::protocol::ExecutionParams& inputs, const BlockContext& blockContext,
+        bool staticCall);
+
+    std::unique_ptr<CallParameters> createCallParameters(
+        std::shared_ptr<bcos::protocol::Transaction>&& tx, const BlockContext& blockContext,
+        int64_t contextID);
+
     txpool::TxPoolInterface::Ptr m_txpool;
     std::shared_ptr<storage::TransactionalStorageInterface> m_backendStorage;
     protocol::ExecutionResultFactory::Ptr m_executionResultFactory;

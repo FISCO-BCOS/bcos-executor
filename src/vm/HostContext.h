@@ -36,6 +36,9 @@ namespace executor
 class HostContext : public evmc_host_context
 {
 public:
+    using UniquePtr = std::unique_ptr<HostContext>;
+    using UniqueConstPtr = std::unique_ptr<const HostContext>;
+
     /// Full constructor.
     HostContext(CallParameters::UniquePtr callParameters, bcos::storage::Table table,
         std::string contractAddress,

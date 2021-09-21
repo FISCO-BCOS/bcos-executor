@@ -104,11 +104,11 @@ private:
     CallParameters::UniquePtr execute(
         CallParameters::UniquePtr callParameters);  // execute parameters in
                                                     // current corounitine
-    std::tuple<std::shared_ptr<HostContext>, CallParameters::UniquePtr> call(
+    std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> call(
         CallParameters::UniquePtr callParameters);
-    std::tuple<std::shared_ptr<HostContext>, CallParameters::UniquePtr> create(
+    std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> create(
         CallParameters::UniquePtr callParameters);
-    CallParameters::UniquePtr go(std::shared_ptr<HostContext> hostContext);
+    CallParameters::UniquePtr go(HostContext& hostContext);
 
     CallParameters::UniquePtr parseEVMCResult(bool isCreate, std::shared_ptr<Result> _result);
 
