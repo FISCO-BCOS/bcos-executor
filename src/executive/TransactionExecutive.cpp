@@ -585,6 +585,7 @@ CallParameters::UniquePtr TransactionExecutive::parseEVMCResult(
     bool isCreate, std::shared_ptr<Result> _result)
 {
     auto callResults = std::make_unique<CallParameters>();
+    callResults->type = CallParameters::FINISHED;
 
     // FIXME: if EVMC_REJECTED, then use default vm to run. maybe wasm call evm
     // need this
