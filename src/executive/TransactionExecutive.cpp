@@ -598,9 +598,6 @@ CallParameters::UniquePtr TransactionExecutive::parseEVMCResult(
         if (!isCreate)
         {
             callResults->data.assign(outputRef.begin(), outputRef.end());
-            // m_output = owning_bytes_ref(
-            //     bytes(outputRef.data(), outputRef.data() + outputRef.size()), 0,
-            //     outputRef.size());
         }
         break;
     }
