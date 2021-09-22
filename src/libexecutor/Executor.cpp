@@ -306,8 +306,11 @@ void Executor::stop()
 
 void Executor::asyncGetCode(const std::string_view& _address,
     std::function<void(const Error::Ptr&, const std::shared_ptr<bytes>&)> _callback)
-{  // TODO: make state a member of Executor
-    auto state = make_shared<State>(m_tableFactory, m_hashImpl, m_isWasm);
+{
+    // TODO: make state a member of Executor
+    auto tableFactory =
+        std::make_shared<TableFactory>(m_stateStorage, m_hashImpl, 0);
+    auto state = make_shared<State>(tableFactory, m_hashImpl, m_isWasm);
     m_threadPool->enqueue([state, address = string(_address), isWasm = m_isWasm, _callback]() {
         shared_ptr<bytes> code = nullptr;
         if (!isWasm)
