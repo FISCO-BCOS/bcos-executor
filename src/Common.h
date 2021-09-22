@@ -57,6 +57,11 @@ const char ACCOUNT_CODE[] = "code";
 
 #define EXECUTIVE_LOG(LEVEL) BCOS_LOG(LEVEL) << "[EXECUTOR]"
 
+struct GlobalHashImpl
+{
+    static crypto::Hash::Ptr g_hashImpl;
+};
+
 struct SubState
 {
     std::set<std::string> suicides;  ///< Any accounts that have suicided.
@@ -179,8 +184,6 @@ struct EVMSchedule
     bool emptinessIsNonexistence() const { return eip158Mode; }
     bool zeroValueTransferChargesNewAccountGas() const { return !eip158Mode; }
 };
-
-extern crypto::Hash::Ptr g_hashImpl;
 
 /// exceptionalFailedCodeDeposit: false
 /// haveDelegateCall: false

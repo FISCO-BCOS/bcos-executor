@@ -149,6 +149,10 @@ private:
         std::shared_ptr<bcos::protocol::Transaction>&& tx, const BlockContext& blockContext,
         int64_t contextID);
 
+    std::unique_ptr<CallParameters> createCallParameters(
+        const bcos::protocol::ExecutionParams& input, bcos::protocol::Transaction::Ptr&& tx,
+        const BlockContext& blockContext);
+
     txpool::TxPoolInterface::Ptr m_txpool;
     std::shared_ptr<storage::TransactionalStorageInterface> m_backendStorage;
     protocol::ExecutionResultFactory::Ptr m_executionResultFactory;

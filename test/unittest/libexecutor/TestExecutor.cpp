@@ -23,6 +23,7 @@
 #include "../mock/MockExecutionResult.h"
 #include "../mock/MockTransactionalStorage.h"
 #include "../mock/MockTxPool.h"
+#include "Common.h"
 #include "bcos-executor/TransactionExecutor.h"
 #include "interfaces/crypto/CommonType.h"
 #include "interfaces/crypto/CryptoSuite.h"
@@ -31,7 +32,6 @@
 #include "interfaces/protocol/Transaction.h"
 #include "libprotocol/protobuf/PBBlockHeader.h"
 #include "libstorage/StateStorage.h"
-#include "vm/Common.h"
 #include <bcos-framework/testutils/crypto/HashImpl.h>
 #include <bcos-framework/testutils/crypto/SignatureImpl.h>
 #include <bcos-framework/testutils/protocol/FakeBlockHeader.h>
@@ -296,9 +296,7 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
         "00000000000000000000000000");
 }
 
-BOOST_AUTO_TEST_CASE(corountine) {
-    
-}
+BOOST_AUTO_TEST_CASE(corountine) {}
 
 BOOST_AUTO_TEST_SUITE_END()
 }  // namespace test

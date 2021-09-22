@@ -1,4 +1,4 @@
-#include "../../src/vm/TransactionExecutive.h"
+#include "../../src/executive/TransactionExecutive.h"
 #include <boost/test/unit_test.hpp>
 
 namespace bcos::test

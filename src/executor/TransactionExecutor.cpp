@@ -69,6 +69,8 @@ using namespace bcos::protocol;
 using namespace bcos::storage;
 using namespace bcos::precompiled;
 
+crypto::Hash::Ptr GlobalHashImpl::g_hashImpl;
+
 TransactionExecutor::TransactionExecutor(txpool::TxPoolInterface::Ptr txpool,
     storage::TransactionalStorageInterface::Ptr backendStorage,
     protocol::ExecutionResultFactory::Ptr executionResultFactory, bcos::crypto::Hash::Ptr hashImpl,
@@ -115,7 +117,7 @@ TransactionExecutor::TransactionExecutor(txpool::TxPoolInterface::Ptr txpool,
         make_shared<PrecompiledContract>(PrecompiledRegistrar::pricer("blake2_compression"),
             PrecompiledRegistrar::executor("blake2_compression"))});
 
-    g_hashImpl = m_hashImpl;
+    GlobalHashImpl::g_hashImpl = m_hashImpl;
 }
 
 void TransactionExecutor::nextBlockHeader(const protocol::BlockHeader::ConstPtr& blockHeader,
@@ -218,6 +220,8 @@ void TransactionExecutor::getTableHashes(bcos::protocol::BlockNumber number,
         bcos::Error::Ptr&&, std::vector<std::tuple<std::string, crypto::HashType>>&&)>
         callback) noexcept
 {
+    (void)callback;
+
     EXECUTOR_LOG(INFO) << "GetTableHashes" << LOG_KV("number", number);
     // if (m_stateStorages.empty())
     // {
@@ -422,10 +426,10 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
     case bcos::protocol::ExecutionParams::TXHASH:
     {
         // Get transaction first
-        auto txhashes = std::make_shared<bcos::crypto::HashList>();
-        txhashes->push_back(input->transactionHash());
+        auto txHashes = std::make_shared<bcos::crypto::HashList>();
+        txHashes->push_back(input->transactionHash());
 
-        m_txpool->asyncFillBlock(std::move(txhashes),
+        m_txpool->asyncFillBlock(std::move(txHashes),
             [this, input, hash = input->transactionHash(), blockContext = std::move(blockContext),
                 callback](Error::Ptr error, bcos::protocol::TransactionsPtr transactons) {
                 if (error)
@@ -445,14 +449,7 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
 
                 auto tx = (*transactons)[0];
 
-                auto callParameters = std::make_unique<CallParameters>();
-
-                callParameters->data = tx->input().toBytes();
-                auto sender = tx->sender();
-                callParameters->senderAddress.clear();
-                boost::algorithm::hex_lower(sender.begin(), sender.end(),
-                    std::back_inserter(callParameters->senderAddress));
-                callParameters->origin = tx->sender();
+                auto callParameters = createCallParameters(*input, std::move(tx), *blockContext);
 
                 auto executive = std::make_shared<TransactionExecutive>(blockContext,
                     callParameters->codeAddress, input->contextID(),
@@ -460,7 +457,7 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
                         std::placeholders::_1, std::placeholders::_2));
 
                 blockContext->insertExecutive(
-                    input->contextID(), callParameters->codeAddress, {executive, callback});
+                    input->contextID(), executive->contractAddress(), {executive, callback});
 
                 try
                 {
@@ -485,7 +482,7 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
                 std::placeholders::_2));
 
         blockContext->insertExecutive(
-            input->contextID(), callParameters->codeAddress, {executive, callback});
+            input->contextID(), executive->contractAddress(), {executive, callback});
 
         try
         {

@@ -81,11 +81,12 @@ EVMSchedule HostContext::m_evmSchedule;
 HostContext::HostContext(CallParameters::UniquePtr callParameters, bcos::storage::Table table,
     std::string contractAddress,
     std::function<CallParameters::UniquePtr(CallParameters::UniquePtr)> externalRequest,
-    bool isWasm)
+    protocol::BlockHeader::ConstPtr blockHeader, bool isWasm)
   : m_callParameters(std::move(callParameters)),
     m_table(std::move(table)),
     m_contractAddress(std::move(contractAddress)),
     m_externalRequest(std::move(externalRequest)),
+    m_blockHeader(std::move(blockHeader)),
     m_isWasm(isWasm)
 {
     interface = getHostInterface();
@@ -194,7 +195,7 @@ evmc_result HostContext::externalRequest(const evmc_message* _msg)
     result.gas_left = response->gas;
 
     // TODO: put in store to avoid data lost
-    m_responseStore.push_back(response);
+    m_responseStore.emplace_back(std::move(response));
 
     return result;
 }
@@ -317,11 +318,6 @@ h256 HostContext::codeHash()
     }
 
     return h256();
-}
-
-h256 HostContext::blockHash()
-{
-    return m_blockHash;
 }
 
 bool HostContext::registerAsset(const std::string& _assetName, const std::string_view& _addr,

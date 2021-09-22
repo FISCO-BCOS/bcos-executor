@@ -241,7 +241,7 @@ std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionE
         auto hostContext = make_unique<HostContext>(std::move(callParameters), std::move(*table),
             callParameters->codeAddress,
             std::bind(&TransactionExecutive::externalRequest, this, std::placeholders::_1),
-            blockContext->isWasm());
+            blockContext->currentBlockHeader(), blockContext->isWasm());
 
         return {std::move(hostContext), nullptr};
     }
@@ -265,7 +265,7 @@ std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionE
     }
 
     // Schedule _init execution if not empty.
-    auto code = std::move(callParameters->data);
+    auto& code = callParameters->data;
 
     if (blockContext->isWasm())
     {
@@ -299,7 +299,7 @@ std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionE
         }
     }
 
-    auto newAddress = callParameters->codeAddress;
+    auto& newAddress = callParameters->codeAddress;
 
     // Create the table first
     auto tableName = getContractTableName(newAddress, blockContext->isWasm());
@@ -308,9 +308,8 @@ std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionE
     auto table = blockContext->storage()->openTable(tableName);
 
     auto hostContext = std::make_unique<HostContext>(std::move(callParameters), std::move(*table),
-        std::move(newAddress),
-        std::bind(&TransactionExecutive::externalRequest, this, std::placeholders::_1),
-        blockContext->isWasm());
+        newAddress, std::bind(&TransactionExecutive::externalRequest, this, std::placeholders::_1),
+        blockContext->currentBlockHeader(), blockContext->isWasm());
 
     return {std::move(hostContext), nullptr};
 }
@@ -594,6 +593,7 @@ CallParameters::UniquePtr TransactionExecutive::parseEVMCResult(
     {
     case EVMC_SUCCESS:
     {
+        callResults->status = _result->status();
         callResults->gas = _result->gasLeft();
         if (!isCreate)
         {

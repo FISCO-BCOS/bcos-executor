@@ -23,11 +23,13 @@
 
 #include "../Common.h"
 #include "bcos-framework/interfaces/storage/Table.h"
+#include "interfaces/protocol/BlockHeader.h"
 #include <evmc/evmc.h>
 #include <evmc/helpers.h>
 #include <evmc/instructions.h>
 #include <functional>
 #include <map>
+#include <memory>
 
 namespace bcos
 {
@@ -43,7 +45,7 @@ public:
     HostContext(CallParameters::UniquePtr callParameters, bcos::storage::Table table,
         std::string contractAddress,
         std::function<CallParameters::UniquePtr(CallParameters::UniquePtr)> externalRequest,
-        bool isWasm);
+        protocol::BlockHeader::ConstPtr blockHeader, bool isWasm);
     ~HostContext() = default;
 
     HostContext(HostContext const&) = delete;
@@ -97,7 +99,17 @@ public:
     EVMSchedule const& evmSchedule() const { return m_evmSchedule; }
 
     /// Hash of a block if within the last 256 blocks, or h256() otherwise.
-    h256 blockHash();
+    h256 blockHash() const { return m_blockHeader->hash(); }
+    int64_t blockNumber() const { return m_blockHeader->number(); }
+    int64_t timestamp() const
+    {
+        return std::const_pointer_cast<protocol::BlockHeader>(m_blockHeader)
+            ->timestamp();  // TODO: set blockHeader timestamp() to const
+    }
+    int64_t blockGasLimit() const
+    {
+        return 30000000;  // TODO: add config
+    }
 
     bool isPermitted();
 
@@ -120,7 +132,7 @@ public:
     bool staticCall() const { return m_callParameters->staticCall; }
     int64_t gas() const { return m_callParameters->gas; }
 
-    static crypto::Hash::Ptr hashImpl() { return g_hashImpl; }
+    static crypto::Hash::Ptr hashImpl() { return GlobalHashImpl::g_hashImpl; }
 
 private:
     void depositFungibleAsset(
@@ -135,11 +147,11 @@ private:
     SubState m_sub;  ///< Sub-band VM state (suicides, refund counter, logs).
 
     std::string m_contractAddress;
-    h256 m_blockHash;
+    std::function<CallParameters::UniquePtr(CallParameters::UniquePtr)> m_externalRequest;
+    protocol::BlockHeader::ConstPtr m_blockHeader;
 
     std::map<std::string, size_t, std::less<>> m_key2Version;  // the version cache
     std::list<CallParameters::UniquePtr> m_responseStore;
-    std::function<CallParameters::UniquePtr(CallParameters::UniquePtr)> m_externalRequest;
     bool m_isWasm;
 
     static EVMSchedule m_evmSchedule;

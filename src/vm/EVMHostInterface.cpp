@@ -24,8 +24,7 @@
  */
 
 #include "EVMHostInterface.h"
-#include "../executor/Common.h"
-#include "Common.h"
+#include "../Common.h"
 #include "HostContext.h"
 #include "libutilities/Common.h"
 #include <evmc/evmc.h>
@@ -64,7 +63,8 @@ evmc_bytes32 getStorage(
     // auto value = toEvmC(hostContext.store(fromEvmC(*_key)));
 
     // EXECUTOR_LOG(TRACE) << "Reading: "
-    //                     << boost::algorithm::hex_lower(std::string((char*)_key->bytes, 32)) << ", "
+    //                     << boost::algorithm::hex_lower(std::string((char*)_key->bytes, 32)) << ",
+    //                     "
     //                     << boost::algorithm::hex_lower(std::string((char*)value.bytes, 32));
 
 
@@ -82,7 +82,8 @@ evmc_storage_status setStorage(evmc_host_context* _context, const evmc_address* 
     u256 oldValue = hostContext.store(index);
 
     // EXECUTOR_LOG(TRACE) << "Writing: "
-    //                     << boost::algorithm::hex_lower(std::string((char*)_key->bytes, 32)) << ", "
+    //                     << boost::algorithm::hex_lower(std::string((char*)_key->bytes, 32)) << ",
+    //                     "
     //                     << boost::algorithm::hex_lower(std::string((char*)_value->bytes, 32));
 
     // set the same value can update the version
@@ -190,9 +191,9 @@ evmc_tx_context getTxContext(evmc_host_context* _context) noexcept
     auto& hostContext = static_cast<HostContext&>(*_context);
     evmc_tx_context result;
     result.tx_origin = toEvmC(hostContext.origin());
-    result.block_number = hostContext.getBlockContext()->currentNumber();
-    result.block_timestamp = hostContext.getBlockContext()->timestamp();
-    result.block_gas_limit = static_cast<int64_t>(hostContext.getBlockContext()->gasLimit());
+    result.block_number = hostContext.blockNumber();
+    result.block_timestamp = hostContext.timestamp();
+    result.block_gas_limit = hostContext.blockGasLimit();
 
     memset(result.tx_gas_price.bytes, 0, 32);
     memset(result.block_coinbase.bytes, 0, 20);
