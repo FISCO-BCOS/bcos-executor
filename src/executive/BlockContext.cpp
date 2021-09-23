@@ -156,15 +156,14 @@ void BlockContext::insertExecutive(int64_t contextID, int64_t seq,
 }
 
 std::tuple<std::shared_ptr<TransactionExecutive>,
-    std::function<void(bcos::Error::UniquePtr&&, bcos::protocol::ExecutionMessage::UniquePtr&&)>>&
+    std::function<void(bcos::Error::UniquePtr&&, bcos::protocol::ExecutionMessage::UniquePtr&&)>>*
 BlockContext::getExecutive(int64_t contextID, int64_t seq)
 {
     auto it = m_executives.find({contextID, seq});
     if (it == m_executives.end())
     {
-        BOOST_THROW_EXCEPTION(
-            BCOS_ERROR(-1, "Can't find executive: " + boost::lexical_cast<std::string>(contextID)));
+        return nullptr;
     }
 
-    return it->second;
+    return &(it->second);
 }

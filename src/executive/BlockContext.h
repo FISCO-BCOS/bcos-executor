@@ -132,7 +132,7 @@ public:
 
     std::tuple<std::shared_ptr<TransactionExecutive>,
         std::function<void(
-            bcos::Error::UniquePtr&&, bcos::protocol::ExecutionMessage::UniquePtr&&)>>&
+            bcos::Error::UniquePtr&&, bcos::protocol::ExecutionMessage::UniquePtr&&)>>*
     getExecutive(int64_t contextID, int64_t seq);
 
     void clear() { m_executives.clear(); }

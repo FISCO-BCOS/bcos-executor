@@ -19,8 +19,7 @@
  * @date: 2021-09-14
  */
 
-#include "../mock/MockExecutionParams.h"
-#include "../mock/MockExecutionResult.h"
+#include "../mock/MockExecutionMessage.h"
 #include "../mock/MockTransactionalStorage.h"
 #include "../mock/MockTxPool.h"
 #include "Common.h"
@@ -28,7 +27,6 @@
 #include "interfaces/crypto/CommonType.h"
 #include "interfaces/crypto/CryptoSuite.h"
 #include "interfaces/crypto/Hash.h"
-#include "interfaces/executor/ExecutionResult.h"
 #include "interfaces/protocol/Transaction.h"
 #include "libprotocol/protobuf/PBBlockHeader.h"
 #include "libstorage/StateStorage.h"
@@ -64,7 +62,7 @@ struct TransactionExecutorFixture
 
         txpool = std::make_shared<MockTxPool>();
         backend = std::make_shared<MockTransactionalStorage>(hashImpl);
-        auto executionResultFactory = std::make_shared<MockExecutionResultFactory>();
+        auto executionResultFactory = std::make_shared<MockExecutionMessageFactory>();
 
         executor = std::make_shared<TransactionExecutor>(
             txpool, backend, executionResultFactory, hashImpl, false);
@@ -139,15 +137,16 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
     auto hash = tx->hash();
     txpool->hash2Transaction.emplace(hash, tx);
 
-    auto params = std::make_shared<MockExecutionParams>();
+    auto params = std::make_unique<MockExecutionMessage>();
     params->setContextID(100);
+    params->setSeq(1000);
     params->setDepth(0);
     params->setFrom(std::string(sender));
     // params->setTo(std::string((char*)to.data(), to.size())); create transaction
     params->setStaticCall(false);
     params->setGasAvailable(gas);
-    params->setInput(input);
-    params->setType(ExecutionParams::TXHASH);
+    params->setData(input);
+    params->setType(MockExecutionMessage::TXHASH);
     params->setTransactionHash(hash);
 
     auto blockHeader = std::make_shared<bcos::protocol::PBBlockHeader>(cryptoSuite);
@@ -160,9 +159,9 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
     });
     nextPromise.get_future().get();
 
-    std::promise<bcos::protocol::ExecutionResult::Ptr> executePromise;
-    executor->executeTransaction(
-        params, [&](bcos::Error::Ptr&& error, bcos::protocol::ExecutionResult::Ptr&& result) {
+    std::promise<bcos::protocol::ExecutionMessage::UniquePtr> executePromise;
+    executor->executeTransaction(std::move(params),
+        [&](bcos::Error::UniquePtr&& error, bcos::protocol::ExecutionMessage::UniquePtr&& result) {
             BOOST_CHECK(!error);
             executePromise.set_value(std::move(result));
         });
@@ -231,20 +230,21 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
         "00000000000000000000";
     boost::algorithm::unhex(
         &inputBytes[0], inputBytes + sizeof(inputBytes) - 1, std::back_inserter(txInput));
-    auto params2 = std::make_shared<MockExecutionParams>();
+    auto params2 = std::make_unique<MockExecutionMessage>();
     params2->setContextID(101);
+    params2->setSeq(1000);
     params2->setDepth(0);
     params2->setFrom(std::string(sender));
     params2->setTo(std::string(address));
     params2->setOrigin(std::string(sender));
     params2->setStaticCall(false);
     params2->setGasAvailable(gas);
-    params2->setInput(std::move(txInput));
-    params2->setType(ExecutionParams::EXTERNAL_CALL);
+    params2->setData(std::move(txInput));
+    params2->setType(MockExecutionMessage::MESSAGE);
 
-    std::promise<ExecutionResult::Ptr> executePromise2;
-    executor->executeTransaction(
-        std::move(params2), [&](bcos::Error::Ptr&& error, ExecutionResult::Ptr&& result) {
+    std::promise<ExecutionMessage::UniquePtr> executePromise2;
+    executor->executeTransaction(std::move(params2),
+        [&](bcos::Error::UniquePtr&& error, MockExecutionMessage::UniquePtr&& result) {
             BOOST_CHECK(!error);
             executePromise2.set_value(std::move(result));
         });
@@ -262,20 +262,21 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
     boost::algorithm::unhex(
         &inputBytes2[0], inputBytes2 + sizeof(inputBytes2) - 1, std::back_inserter(queryBytes));
 
-    auto params3 = std::make_shared<MockExecutionParams>();
+    auto params3 = std::make_unique<MockExecutionMessage>();
     params3->setContextID(102);
+    params3->setSeq(1000);
     params3->setDepth(0);
     params3->setFrom(std::string(sender));
     params3->setTo(std::string(address));
     params3->setOrigin(std::string(sender));
     params3->setStaticCall(false);
     params3->setGasAvailable(gas);
-    params3->setInput(std::move(queryBytes));
-    params3->setType(ExecutionParams::EXTERNAL_CALL);
+    params3->setData(std::move(queryBytes));
+    params3->setType(ExecutionMessage::MESSAGE);
 
-    std::promise<ExecutionResult::Ptr> executePromise3;
-    executor->executeTransaction(
-        std::move(params3), [&](bcos::Error::Ptr&& error, ExecutionResult::Ptr&& result) {
+    std::promise<ExecutionMessage::UniquePtr> executePromise3;
+    executor->executeTransaction(std::move(params3),
+        [&](bcos::Error::UniquePtr&& error, ExecutionMessage::UniquePtr&& result) {
             BOOST_CHECK(!error);
             executePromise3.set_value(std::move(result));
         });
@@ -289,7 +290,7 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
 
     std::string output;
     boost::algorithm::hex_lower(
-        result3->output().begin(), result3->output().end(), std::back_inserter(output));
+        result3->data().begin(), result3->data().end(), std::back_inserter(output));
     BOOST_CHECK_EQUAL(output,
         "00000000000000000000000000000000000000000000000000000000000000200000000000000000000"
         "000000000000000000000000000000000000000000005666973636f0000000000000000000000000000"

@@ -410,7 +410,7 @@ void TransactionExecutor::asyncExecute(bcos::protocol::ExecutionMessage::UniqueP
 
     if (staticCall)
     {
-        // create a temp blockContext
+        // TODO: const call impl
     }
     else
     {
@@ -485,10 +485,10 @@ void TransactionExecutor::asyncExecute(bcos::protocol::ExecutionMessage::UniqueP
     {
         auto callParameters = createCallParameters(*input, *blockContext, staticCall);
 
-        auto& [executive, executiveCallback] =
-            blockContext->getExecutive(input->contextID(), input->seq());
-        if (executive)
+        auto it = blockContext->getExecutive(input->contextID(), input->seq());
+        if (it)
         {
+            auto [executive, executiveCallback] = *it;
             executiveCallback = callback;
             executive->pushMessage(std::move(callParameters));
         }
@@ -514,20 +514,9 @@ void TransactionExecutor::asyncExecute(bcos::protocol::ExecutionMessage::UniqueP
 
         break;
     }
-    // case bcos::protocol::ExecutionMessage::EXTERNAL_RETURN:
-    // {
-    //     auto callParameters = createCallParameters(*input, *blockContext, staticCall);
-
-    //     auto executive = blockContext->getExecutive(input->contextID(), input->to());
-    //     std::get<1>(executive) = callback;
-
-    //     std::get<0>(executive)->pushMessage(std::move(callParameters));
-
-    //     break;
-    // }
     default:
     {
-        EXECUTOR_LOG(ERROR) << "Unknown type: " << input->type();
+        EXECUTOR_LOG(ERROR) << "Unknown message type: " << input->type();
         callback(BCOS_ERROR_UNIQUE_PTR(
                      -1, "Unknown type" + boost::lexical_cast<std::string>(input->type())),
             nullptr);
@@ -540,6 +529,13 @@ void TransactionExecutor::onCallResultsCallback(
     TransactionExecutive::Ptr executive, std::unique_ptr<CallParameters> response)
 {
     auto it = m_blockContext->getExecutive(executive->contextID(), executive->seq());
+    if (!it)
+    {
+        BOOST_THROW_EXCEPTION(BCOS_ERROR(-1,
+            "Can't find executive: " + boost::lexical_cast<std::string>(executive->contextID()) +
+                "," + boost::lexical_cast<std::string>(executive->seq())));
+    }
+
     auto executionResult = m_executionMessageFactory->createExecutionMessage();
     executionResult->setMessage(std::move(response->message));
     if (response->type == CallParameters::MESSAGE)
@@ -562,7 +558,7 @@ void TransactionExecutor::onCallResultsCallback(
     executionResult->setData(std::move(response->data));
     executionResult->setLogEntries(std::move(response->logEntries));
 
-    std::get<1>(it)(nullptr, std::move(executionResult));
+    std::get<1> (*it)(nullptr, std::move(executionResult));
 }
 
 BlockContext::Ptr TransactionExecutor::createBlockContext(
