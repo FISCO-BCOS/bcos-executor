@@ -108,16 +108,6 @@ std::string_view HostContext::get(const std::string_view& _key)
     auto entry = m_table.getRow(_key);
     if (entry)
     {
-        auto it = m_key2Version.find(_key);
-        if (it != m_key2Version.end())
-        {
-            it->second = entry->version();
-        }
-        else
-        {
-            m_key2Version.emplace(_key, entry->version());
-        }
-
         return entry->getField(STORAGE_VALUE);
     }
 
@@ -128,12 +118,6 @@ void HostContext::set(const std::string_view& _key, std::string _value)
 {
     auto entry = m_table.newEntry();
     entry.importFields({std::move(_value)});
-
-    auto it = m_key2Version.find(_key);
-    if (it != m_key2Version.end())
-    {
-        entry.setVersion(++it->second);
-    }
 
     m_table.setRow(_key, std::move(entry));
 }
@@ -232,16 +216,6 @@ u256 HostContext::store(const u256& _n)
     auto entry = m_table.getRow(keyView);
     if (entry)
     {
-        auto it = m_key2Version.find(keyView);
-        if (it != m_key2Version.end())
-        {
-            it->second = entry->version();
-        }
-        else
-        {
-            m_key2Version.emplace(keyView, entry->version());
-        }
-
         return fromBigEndian<u256>(entry->getField(STORAGE_VALUE));
     }
 
@@ -258,12 +232,6 @@ void HostContext::setStore(u256 const& _n, u256 const& _v)
 
     auto entry = m_table.newEntry();
     entry.importFields({std::move(valueBytes)});
-
-    auto it = m_key2Version.find(keyView);
-    if (it != m_key2Version.end())
-    {
-        entry.setVersion(++it->second);
-    }
 
     m_table.setRow(keyView, std::move(entry));
 }

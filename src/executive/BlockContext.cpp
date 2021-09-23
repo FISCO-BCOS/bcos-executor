@@ -22,7 +22,6 @@
 #include "BlockContext.h"
 #include "../vm/Precompiled.h"
 #include "TransactionExecutive.h"
-#include "bcos-framework/interfaces/executor/ExecutionResult.h"
 #include "bcos-framework/interfaces/protocol/Exceptions.h"
 #include "bcos-framework/interfaces/storage/StorageInterface.h"
 #include "bcos-framework/interfaces/storage/Table.h"
@@ -39,11 +38,11 @@ using namespace std;
 
 BlockContext::BlockContext(std::shared_ptr<storage::StateStorage> storage,
     crypto::Hash::Ptr _hashImpl, protocol::BlockHeader::ConstPtr _current,
-    protocol::ExecutionResultFactory::Ptr _executionResultFactory, const EVMSchedule& _schedule,
+    protocol::ExecutionMessageFactory::Ptr _executionMessageFactory, const EVMSchedule& _schedule,
     bool _isWasm)
   : m_addressCount(0x10000),
     m_currentHeader(std::move(_current)),
-    m_executionResultFactory(std::move(_executionResultFactory)),
+    m_executionMessageFactory(std::move(_executionMessageFactory)),
     m_schedule(_schedule),
     m_isWasm(_isWasm),
     m_storage(std::move(storage)),
@@ -139,14 +138,13 @@ void BlockContext::setAddress2Precompiled(
     m_address2Precompiled.insert(std::make_pair(address, precompiled));
 }
 
-std::tuple<std::shared_ptr<TransactionExecutive>,
-    std::function<void(bcos::Error::Ptr&&, bcos::protocol::ExecutionResult::Ptr&&)>>&
-BlockContext::insertExecutive(int64_t contextID, std::string_view contract,
+void BlockContext::insertExecutive(int64_t contextID, int64_t seq,
     std::tuple<std::shared_ptr<TransactionExecutive>,
-        std::function<void(bcos::Error::Ptr&&, bcos::protocol::ExecutionResult::Ptr&&)>>
+        std::function<void(
+            bcos::Error::UniquePtr&&, bcos::protocol::ExecutionMessage::UniquePtr&&)>>
         item)
 {
-    auto it = m_executives.find(std::tuple{contextID, contract});
+    auto it = m_executives.find(std::tuple{contextID, seq});
     if (it != m_executives.end())
     {
         BOOST_THROW_EXCEPTION(
@@ -154,16 +152,14 @@ BlockContext::insertExecutive(int64_t contextID, std::string_view contract,
     }
 
     bool success;
-    std::tie(it, success) = m_executives.emplace(std::tuple{contextID, contract}, std::move(item));
-
-    return it->second;
+    std::tie(it, success) = m_executives.emplace(std::tuple{contextID, seq}, std::move(item));
 }
 
 std::tuple<std::shared_ptr<TransactionExecutive>,
-    std::function<void(bcos::Error::Ptr&&, bcos::protocol::ExecutionResult::Ptr&&)>>&
-BlockContext::getExecutive(int64_t contextID, std::string_view contract)
+    std::function<void(bcos::Error::UniquePtr&&, bcos::protocol::ExecutionMessage::UniquePtr&&)>>&
+BlockContext::getExecutive(int64_t contextID, int64_t seq)
 {
-    auto it = m_executives.find({contextID, contract});
+    auto it = m_executives.find({contextID, seq});
     if (it == m_executives.end())
     {
         BOOST_THROW_EXCEPTION(
@@ -171,20 +167,4 @@ BlockContext::getExecutive(int64_t contextID, std::string_view contract)
     }
 
     return it->second;
-}
-
-ExecutionResult::Ptr BlockContext::createExecutionResult(
-    int64_t _contextID, int64_t _gas, bytesConstRef _code, std::optional<u256> _salt)
-{
-    auto result = m_executionResultFactory->createExecutionResult();
-    result->setType(protocol::ExecutionResult::EXTERNAL_CALL);
-    result->setContextID(_contextID);
-    result->setOutput(_code.toBytes());
-    if (_salt)
-    {
-        result->setCreateSalt(_salt.value());
-    }
-    result->setGasAvailable(_gas);
-    result->setStaticCall(false);
-    return result;
 }

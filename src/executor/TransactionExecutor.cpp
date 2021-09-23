@@ -47,8 +47,7 @@
 #include "bcos-framework/libstorage/StateStorage.h"
 #include "bcos-framework/libutilities/Error.h"
 #include "bcos-framework/libutilities/ThreadPool.h"
-#include "interfaces/executor/ExecutionParams.h"
-#include "interfaces/executor/ExecutionResult.h"
+#include "interfaces/executor/ExecutionMessage.h"
 #include "interfaces/storage/StorageInterface.h"
 #include "libprotocol/LogEntry.h"
 #include <tbb/parallel_for.h>
@@ -73,11 +72,11 @@ crypto::Hash::Ptr GlobalHashImpl::g_hashImpl;
 
 TransactionExecutor::TransactionExecutor(txpool::TxPoolInterface::Ptr txpool,
     storage::TransactionalStorageInterface::Ptr backendStorage,
-    protocol::ExecutionResultFactory::Ptr executionResultFactory, bcos::crypto::Hash::Ptr hashImpl,
-    bool isWasm)
+    protocol::ExecutionMessageFactory::Ptr executionMessageFactory,
+    bcos::crypto::Hash::Ptr hashImpl, bool isWasm)
   : m_txpool(std::move(txpool)),
     m_backendStorage(std::move(backendStorage)),
-    m_executionResultFactory(std::move(executionResultFactory)),
+    m_executionMessageFactory(std::move(executionMessageFactory)),
     m_hashImpl(std::move(hashImpl)),
     m_isWasm(isWasm),
     m_version(Version_3_0_0)  // current executor version, will set as new block's version
@@ -120,8 +119,8 @@ TransactionExecutor::TransactionExecutor(txpool::TxPoolInterface::Ptr txpool,
     GlobalHashImpl::g_hashImpl = m_hashImpl;
 }
 
-void TransactionExecutor::nextBlockHeader(const protocol::BlockHeader::ConstPtr& blockHeader,
-    std::function<void(bcos::Error::Ptr&&)> callback) noexcept
+void TransactionExecutor::nextBlockHeader(const bcos::protocol::BlockHeader::ConstPtr& blockHeader,
+    std::function<void(bcos::Error::UniquePtr&&)> callback) noexcept
 {
     try
     {
@@ -141,7 +140,7 @@ void TransactionExecutor::nextBlockHeader(const protocol::BlockHeader::ConstPtr&
         }
 
         m_blockContext = std::make_shared<BlockContext>(stateStorage, m_hashImpl, blockHeader,
-            m_executionResultFactory, EVMSchedule(), m_isWasm);
+            m_executionMessageFactory, EVMSchedule(), m_isWasm);
 
         m_blockContext->setPrecompiledContract(m_precompiledContract);
         m_stateStorages.push_back({blockHeader->number(), std::move(stateStorage)});
@@ -159,13 +158,14 @@ void TransactionExecutor::nextBlockHeader(const protocol::BlockHeader::ConstPtr&
     {
         EXECUTOR_LOG(ERROR) << "NextBlockHeader error: " << boost::diagnostic_information(e);
 
-        callback(BCOS_ERROR_WITH_PREV_PTR(-1, "nextBlockHeader unknown error", e));
+        callback(BCOS_ERROR_WITH_PREV_UNIQUE_PTR(-1, "nextBlockHeader unknown error", e));
     }
 }
 
 void TransactionExecutor::dagExecuteTransactions(
-    const gsl::span<bcos::protocol::ExecutionParams::ConstPtr>& inputs,
-    std::function<void(bcos::Error::Ptr&&, std::vector<bcos::protocol::ExecutionResult::Ptr>&&)>
+    const gsl::span<bcos::protocol::ExecutionMessage::UniquePtr>& inputs,
+    std::function<void(
+        bcos::Error::UniquePtr&&, std::vector<bcos::protocol::ExecutionMessage::UniquePtr>&&)>
         callback) noexcept
 {
     // TODO: try to execute use DAG
@@ -173,19 +173,19 @@ void TransactionExecutor::dagExecuteTransactions(
     (void)callback;
 }
 
-void TransactionExecutor::call(const bcos::protocol::ExecutionParams::ConstPtr& input,
-    std::function<void(bcos::Error::Ptr&&, bcos::protocol::ExecutionResult::Ptr&&)>
+void TransactionExecutor::call(bcos::protocol::ExecutionMessage::UniquePtr input,
+    std::function<void(bcos::Error::UniquePtr&&, bcos::protocol::ExecutionMessage::UniquePtr&&)>
         callback) noexcept
 {
     EXECUTOR_LOG(INFO) << "Call request";
-    asyncExecute(input, true,
+    asyncExecute(std::move(input), true,
         [callback = std::move(callback)](
-            Error::Ptr&& error, bcos::protocol::ExecutionResult::Ptr&& result) {
+            Error::UniquePtr&& error, bcos::protocol::ExecutionMessage::UniquePtr&& result) {
             if (error)
             {
                 std::string errorMessage = "Call failed: " + boost::diagnostic_information(*error);
                 EXECUTOR_LOG(ERROR) << errorMessage;
-                callback(BCOS_ERROR_WITH_PREV_PTR(-1, errorMessage, *error), nullptr);
+                callback(BCOS_ERROR_WITH_PREV_UNIQUE_PTR(-1, errorMessage, *error), nullptr);
                 return;
             }
 
@@ -194,19 +194,20 @@ void TransactionExecutor::call(const bcos::protocol::ExecutionParams::ConstPtr& 
         });
 }
 
-void TransactionExecutor::executeTransaction(const protocol::ExecutionParams::ConstPtr& input,
-    std::function<void(Error::Ptr&&, protocol::ExecutionResult::Ptr&&)> callback) noexcept
+void TransactionExecutor::executeTransaction(bcos::protocol::ExecutionMessage::UniquePtr input,
+    std::function<void(bcos::Error::UniquePtr&&, bcos::protocol::ExecutionMessage::UniquePtr&&)>
+        callback) noexcept
 {
     EXECUTOR_LOG(INFO) << "ExecuteTransaction request";
-    asyncExecute(input, false,
+    asyncExecute(std::move(input), false,
         [callback = std::move(callback)](
-            Error::Ptr&& error, bcos::protocol::ExecutionResult::Ptr&& result) {
+            Error::UniquePtr&& error, bcos::protocol::ExecutionMessage::UniquePtr&& result) {
             if (error)
             {
                 std::string errorMessage =
                     "ExecuteTransaction failed: " + boost::diagnostic_information(*error);
                 EXECUTOR_LOG(ERROR) << errorMessage;
-                callback(BCOS_ERROR_WITH_PREV_PTR(-1, errorMessage, *error), nullptr);
+                callback(BCOS_ERROR_WITH_PREV_UNIQUE_PTR(-1, errorMessage, *error), nullptr);
                 return;
             }
 
@@ -217,7 +218,7 @@ void TransactionExecutor::executeTransaction(const protocol::ExecutionParams::Co
 
 void TransactionExecutor::getTableHashes(bcos::protocol::BlockNumber number,
     std::function<void(
-        bcos::Error::Ptr&&, std::vector<std::tuple<std::string, crypto::HashType>>&&)>
+        bcos::Error::UniquePtr&&, std::vector<std::tuple<std::string, crypto::HashType>>&&)>
         callback) noexcept
 {
     (void)callback;
@@ -400,9 +401,10 @@ void TransactionExecutor::reset(std::function<void(bcos::Error::Ptr&&)> callback
     callback(nullptr);
 }
 
-void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::ConstPtr& input,
+void TransactionExecutor::asyncExecute(bcos::protocol::ExecutionMessage::UniquePtr input,
     bool staticCall,
-    std::function<void(bcos::Error::Ptr&&, bcos::protocol::ExecutionResult::Ptr&&)> callback)
+    std::function<void(bcos::Error::UniquePtr&&, bcos::protocol::ExecutionMessage::UniquePtr&&)>
+        callback)
 {
     std::shared_ptr<BlockContext> blockContext;
 
@@ -414,7 +416,7 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
     {
         if (!m_blockContext)
         {
-            callback(BCOS_ERROR_PTR(-1, "Execute failed with empty blockContext!"), nullptr);
+            callback(BCOS_ERROR_UNIQUE_PTR(-1, "Execute failed with empty blockContext!"), nullptr);
             return;
         }
 
@@ -423,95 +425,111 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
 
     switch (input->type())
     {
-    case bcos::protocol::ExecutionParams::TXHASH:
+    case bcos::protocol::ExecutionMessage::TXHASH:
     {
         // Get transaction first
         auto txHashes = std::make_shared<bcos::crypto::HashList>();
         txHashes->push_back(input->transactionHash());
 
-        m_txpool->asyncFillBlock(std::move(txHashes),
-            [this, input, hash = input->transactionHash(), blockContext = std::move(blockContext),
-                callback](Error::Ptr error, bcos::protocol::TransactionsPtr transactons) {
-                if (error)
-                {
-                    callback(BCOS_ERROR_WITH_PREV_PTR(
-                                 -1, "Transaction does not exists: " + hash.hex(), *error),
-                        nullptr);
-                    return;
-                }
+        std::shared_ptr<bcos::protocol::ExecutionMessage> sharedInput = std::move(input);
 
-                if (transactons->empty())
-                {
-                    callback(
-                        BCOS_ERROR_PTR(-1, "Transaction does not exists: " + hash.hex()), nullptr);
-                    return;
-                }
+        m_txpool->asyncFillBlock(std::move(txHashes), [this, input = std::move(sharedInput),
+                                                          blockContext = std::move(blockContext),
+                                                          callback](Error::Ptr error,
+                                                          bcos::protocol::TransactionsPtr
+                                                              transactons) {
+            if (error)
+            {
+                callback(
+                    BCOS_ERROR_WITH_PREV_UNIQUE_PTR(-1,
+                        "Transaction does not exists: " + input->transactionHash().hex(), *error),
+                    nullptr);
+                return;
+            }
 
-                auto tx = (*transactons)[0];
+            if (transactons->empty())
+            {
+                callback(BCOS_ERROR_UNIQUE_PTR(
+                             -1, "Transaction does not exists: " + input->transactionHash().hex()),
+                    nullptr);
+                return;
+            }
 
-                auto callParameters = createCallParameters(*input, std::move(tx), *blockContext);
+            auto tx = (*transactons)[0];
 
-                auto executive = std::make_shared<TransactionExecutive>(blockContext,
-                    callParameters->codeAddress, input->contextID(),
-                    std::bind(&TransactionExecutor::onCallResultsCallback, this,
-                        std::placeholders::_1, std::placeholders::_2));
+            auto callParameters = createCallParameters(*input, std::move(tx), *blockContext);
 
-                blockContext->insertExecutive(
-                    input->contextID(), executive->contractAddress(), {executive, callback});
+            auto executive = std::make_shared<TransactionExecutive>(blockContext,
+                callParameters->codeAddress, input->contextID(), input->seq(),
+                std::bind(&TransactionExecutor::onCallResultsCallback, this, std::placeholders::_1,
+                    std::placeholders::_2));
 
-                try
-                {
-                    executive->start(std::move(callParameters));
-                }
-                catch (std::exception& e)
-                {
-                    EXECUTOR_LOG(ERROR) << "Execute error: " << boost::diagnostic_information(e);
-                    callback(BCOS_ERROR_WITH_PREV_PTR(-1, "Execute error", e), nullptr);
-                }
-            });
+            blockContext->insertExecutive(input->contextID(), input->seq(), {executive, callback});
+
+            try
+            {
+                executive->start(std::move(callParameters));
+            }
+            catch (std::exception& e)
+            {
+                EXECUTOR_LOG(ERROR) << "Execute error: " << boost::diagnostic_information(e);
+                callback(BCOS_ERROR_WITH_PREV_UNIQUE_PTR(-1, "Execute error", e), nullptr);
+            }
+        });
 
         break;
     }
-    case bcos::protocol::ExecutionParams::EXTERNAL_CALL:
+    case bcos::protocol::ExecutionMessage::MESSAGE:
+    case bcos::protocol::ExecutionMessage::REVERT:
+    case bcos::protocol::ExecutionMessage::FINISHED:
     {
         auto callParameters = createCallParameters(*input, *blockContext, staticCall);
 
-        auto executive = std::make_shared<TransactionExecutive>(blockContext,
-            callParameters->codeAddress, input->contextID(),
-            std::bind(&TransactionExecutor::onCallResultsCallback, this, std::placeholders::_1,
-                std::placeholders::_2));
-
-        blockContext->insertExecutive(
-            input->contextID(), executive->contractAddress(), {executive, callback});
-
-        try
+        auto& [executive, executiveCallback] =
+            blockContext->getExecutive(input->contextID(), input->seq());
+        if (executive)
         {
-            executive->start(std::move(callParameters));
+            executiveCallback = callback;
+            executive->pushMessage(std::move(callParameters));
         }
-        catch (std::exception& e)
+        else
         {
-            EXECUTOR_LOG(ERROR) << "Execute error: " << boost::diagnostic_information(e);
-            callback(BCOS_ERROR_WITH_PREV_PTR(-1, "Execute error", e), nullptr);
+            auto executive = std::make_shared<TransactionExecutive>(blockContext,
+                callParameters->codeAddress, input->contextID(), input->seq(),
+                std::bind(&TransactionExecutor::onCallResultsCallback, this, std::placeholders::_1,
+                    std::placeholders::_2));
+
+            blockContext->insertExecutive(input->contextID(), input->seq(), {executive, callback});
+
+            try
+            {
+                executive->start(std::move(callParameters));
+            }
+            catch (std::exception& e)
+            {
+                EXECUTOR_LOG(ERROR) << "Execute error: " << boost::diagnostic_information(e);
+                callback(BCOS_ERROR_WITH_PREV_UNIQUE_PTR(-1, "Execute error", e), nullptr);
+            }
         }
 
         break;
     }
-    case bcos::protocol::ExecutionParams::EXTERNAL_RETURN:
-    {
-        auto callParameters = createCallParameters(*input, *blockContext, staticCall);
+    // case bcos::protocol::ExecutionMessage::EXTERNAL_RETURN:
+    // {
+    //     auto callParameters = createCallParameters(*input, *blockContext, staticCall);
 
-        auto executive = blockContext->getExecutive(input->contextID(), input->to());
-        std::get<1>(executive) = callback;
+    //     auto executive = blockContext->getExecutive(input->contextID(), input->to());
+    //     std::get<1>(executive) = callback;
 
-        std::get<0>(executive)->pushMessage(std::move(callParameters));
+    //     std::get<0>(executive)->pushMessage(std::move(callParameters));
 
-        break;
-    }
+    //     break;
+    // }
     default:
     {
         EXECUTOR_LOG(ERROR) << "Unknown type: " << input->type();
-        callback(
-            BCOS_ERROR_PTR(-1, "Unknown type" + boost::lexical_cast<std::string>(input->type())),
+        callback(BCOS_ERROR_UNIQUE_PTR(
+                     -1, "Unknown type" + boost::lexical_cast<std::string>(input->type())),
             nullptr);
         return;
     }
@@ -521,16 +539,16 @@ void TransactionExecutor::asyncExecute(const bcos::protocol::ExecutionParams::Co
 void TransactionExecutor::onCallResultsCallback(
     TransactionExecutive::Ptr executive, std::unique_ptr<CallParameters> response)
 {
-    auto it = m_blockContext->getExecutive(executive->contextID(), executive->contractAddress());
-    auto executionResult = m_executionResultFactory->createExecutionResult();
+    auto it = m_blockContext->getExecutive(executive->contextID(), executive->seq());
+    auto executionResult = m_executionMessageFactory->createExecutionMessage();
     executionResult->setMessage(std::move(response->message));
     if (response->type == CallParameters::MESSAGE)
     {
-        executionResult->setType(ExecutionResult::EXTERNAL_CALL);
+        executionResult->setType(ExecutionMessage::MESSAGE);
     }
     else
     {
-        executionResult->setType(ExecutionResult::FINISHED);
+        executionResult->setType(ExecutionMessage::FINISHED);
     }
     executionResult->setTo(response->receiveAddress);
     executionResult->setStatus(response->status);
@@ -541,8 +559,8 @@ void TransactionExecutor::onCallResultsCallback(
     }
     executionResult->setStaticCall(response->staticCall);
     executionResult->setNewEVMContractAddress(response->newEVMContractAddress);
-    executionResult->setOutput(std::move(response->data));
-    executionResult->setLogEntries(std::make_shared<LogEntries>(std::move(response->logEntries)));
+    executionResult->setData(std::move(response->data));
+    executionResult->setLogEntries(std::move(response->logEntries));
 
     std::get<1>(it)(nullptr, std::move(executionResult));
 }
@@ -552,7 +570,7 @@ BlockContext::Ptr TransactionExecutor::createBlockContext(
 {
     (void)m_version;  // TODO: accord to m_version to chose schedule
     BlockContext::Ptr context = make_shared<BlockContext>(tableFactory, m_hashImpl, currentHeader,
-        m_executionResultFactory, FiscoBcosScheduleV3, m_isWasm);
+        m_executionMessageFactory, FiscoBcosScheduleV3, m_isWasm);
 
     // TODO: System contract need to redesign
     // auto tableFactoryPrecompiled =
@@ -732,7 +750,8 @@ std::string TransactionExecutor::newEVMAddress(
 }
 
 std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
-    const bcos::protocol::ExecutionParams& input, const BlockContext& blockContext, bool staticCall)
+    const bcos::protocol::ExecutionMessage& input, const BlockContext& blockContext,
+    bool staticCall)
 {
     std::string contract;
     bool create = false;
@@ -741,7 +760,7 @@ std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
         create = true;
         if (input.createSalt())
         {
-            contract = newEVMAddress(input.from(), input.input(), input.createSalt().value());
+            contract = newEVMAddress(input.from(), input.data(), input.createSalt().value());
         }
         else
         {
@@ -761,14 +780,14 @@ std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
     callParameters->codeAddress = contract;
     callParameters->create = create;
     callParameters->gas = input.gasAvailable();
-    callParameters->data = input.input().toBytes();
+    callParameters->data = input.data().toBytes();
     callParameters->staticCall = staticCall;
 
     return callParameters;
 }
 
 std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
-    const bcos::protocol::ExecutionParams& input, bcos::protocol::Transaction::Ptr&& tx,
+    const bcos::protocol::ExecutionMessage& input, bcos::protocol::Transaction::Ptr&& tx,
     const BlockContext& blockContext)
 {
     auto callParameters = std::make_unique<CallParameters>();

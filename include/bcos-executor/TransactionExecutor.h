@@ -20,8 +20,6 @@
  */
 #pragma once
 
-#include "bcos-framework/interfaces/executor/ExecutionParams.h"
-#include "bcos-framework/interfaces/executor/ExecutionResult.h"
 #include "bcos-framework/interfaces/executor/ParallelTransactionExecutorInterface.h"
 #include "bcos-framework/interfaces/protocol/Block.h"
 #include "bcos-framework/interfaces/protocol/BlockFactory.h"
@@ -63,8 +61,8 @@ class BlockContext;
 class PrecompiledContract;
 struct CallParameters;
 
-using executionCallback =
-    std::function<void(const Error::ConstPtr&, std::vector<protocol::ExecutionResult::Ptr>&)>;
+using executionCallback = std::function<void(
+    const Error::ConstPtr&, std::vector<protocol::ExecutionMessage::UniquePtr>&)>;
 
 class TransactionExecutor : public ParallelTransactionExecutorInterface,
                             public std::enable_shared_from_this<TransactionExecutor>
@@ -76,7 +74,7 @@ public:
 
     TransactionExecutor(txpool::TxPoolInterface::Ptr txpool,
         storage::TransactionalStorageInterface::Ptr backendStorage,
-        protocol::ExecutionResultFactory::Ptr executionResultFactory,
+        protocol::ExecutionMessageFactory::Ptr executionMessageFactory,
         bcos::crypto::Hash::Ptr hashImpl, bool isWasm);
 
     virtual ~TransactionExecutor() { stop(); }
@@ -85,23 +83,25 @@ public:
     void start() {}
 
     void nextBlockHeader(const bcos::protocol::BlockHeader::ConstPtr& blockHeader,
-        std::function<void(bcos::Error::Ptr&&)> callback) noexcept override;
+        std::function<void(bcos::Error::UniquePtr&&)> callback) noexcept override;
 
-    void executeTransaction(const bcos::protocol::ExecutionParams::ConstPtr& inputs,
-        std::function<void(bcos::Error::Ptr&&, bcos::protocol::ExecutionResult::Ptr&&)>
+    void executeTransaction(bcos::protocol::ExecutionMessage::UniquePtr input,
+        std::function<void(bcos::Error::UniquePtr&&, bcos::protocol::ExecutionMessage::UniquePtr&&)>
             callback) noexcept override;
 
-    void dagExecuteTransactions(const gsl::span<bcos::protocol::ExecutionParams::ConstPtr>& inputs,
-        std::function<void(bcos::Error::Ptr&&, std::vector<bcos::protocol::ExecutionResult::Ptr>&&)>
+    void dagExecuteTransactions(
+        const gsl::span<bcos::protocol::ExecutionMessage::UniquePtr>& inputs,
+        std::function<void(
+            bcos::Error::UniquePtr&&, std::vector<bcos::protocol::ExecutionMessage::UniquePtr>&&)>
             callback) noexcept override;
 
-    void call(const bcos::protocol::ExecutionParams::ConstPtr& input,
-        std::function<void(bcos::Error::Ptr&&, bcos::protocol::ExecutionResult::Ptr&&)>
+    void call(bcos::protocol::ExecutionMessage::UniquePtr input,
+        std::function<void(bcos::Error::UniquePtr&&, bcos::protocol::ExecutionMessage::UniquePtr&&)>
             callback) noexcept override;
 
     void getTableHashes(bcos::protocol::BlockNumber number,
         std::function<void(
-            bcos::Error::Ptr&&, std::vector<std::tuple<std::string, crypto::HashType>>&&)>
+            bcos::Error::UniquePtr&&, std::vector<std::tuple<std::string, crypto::HashType>>&&)>
             callback) noexcept override;
 
     /* ----- XA Transaction interface Start ----- */
@@ -125,13 +125,14 @@ public:
 
 private:
     protocol::Transaction::Ptr createTransaction(
-        const bcos::protocol::ExecutionParams::ConstPtr& input);
+        const bcos::protocol::ExecutionMessage::UniquePtr& input);
     std::shared_ptr<BlockContext> createBlockContext(
         const protocol::BlockHeader::ConstPtr& currentHeader,
         storage::StateStorage::Ptr tableFactory);
 
-    void asyncExecute(const bcos::protocol::ExecutionParams::ConstPtr& input, bool staticCall,
-        std::function<void(bcos::Error::Ptr&&, bcos::protocol::ExecutionResult::Ptr&&)> callback);
+    void asyncExecute(bcos::protocol::ExecutionMessage::UniquePtr input, bool staticCall,
+        std::function<void(bcos::Error::UniquePtr&&, bcos::protocol::ExecutionMessage::UniquePtr&&)>
+            callback);
 
     void onCallResultsCallback(std::shared_ptr<TransactionExecutive> executive,
         std::unique_ptr<CallParameters> callResults);
@@ -142,7 +143,7 @@ private:
         const std::string_view& _sender, bytesConstRef _init, u256 const& _salt);
 
     std::unique_ptr<CallParameters> createCallParameters(
-        const bcos::protocol::ExecutionParams& inputs, const BlockContext& blockContext,
+        const bcos::protocol::ExecutionMessage& inputs, const BlockContext& blockContext,
         bool staticCall);
 
     std::unique_ptr<CallParameters> createCallParameters(
@@ -150,12 +151,12 @@ private:
         int64_t contextID);
 
     std::unique_ptr<CallParameters> createCallParameters(
-        const bcos::protocol::ExecutionParams& input, bcos::protocol::Transaction::Ptr&& tx,
+        const bcos::protocol::ExecutionMessage& input, bcos::protocol::Transaction::Ptr&& tx,
         const BlockContext& blockContext);
 
     txpool::TxPoolInterface::Ptr m_txpool;
     std::shared_ptr<storage::TransactionalStorageInterface> m_backendStorage;
-    protocol::ExecutionResultFactory::Ptr m_executionResultFactory;
+    protocol::ExecutionMessageFactory::Ptr m_executionMessageFactory;
     std::shared_ptr<BlockContext> m_blockContext = nullptr;
     crypto::Hash::Ptr m_hashImpl;
     bool m_isWasm = false;

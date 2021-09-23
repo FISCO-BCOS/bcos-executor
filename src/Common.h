@@ -22,11 +22,11 @@
 #pragma once
 
 #include "CallParameters.h"
+#include "bcos-framework/interfaces/executor/ExecutionMessage.h"
 #include "bcos-framework/interfaces/protocol/BlockHeader.h"
 #include "bcos-framework/libprotocol/LogEntry.h"
 #include "bcos-framework/libprotocol/TransactionStatus.h"
 #include "bcos-framework/libutilities/Exceptions.h"
-#include "interfaces/executor/ExecutionResult.h"
 #include <evmc/instructions.h>
 #include <functional>
 #include <set>
@@ -89,10 +89,10 @@ struct SubState
  *
  */
 
-inline bcos::protocol::ExecutionResult::Ptr toExecutionResult(
-    bcos::protocol::ExecutionResultFactory::Ptr factory, CallParameters::UniquePtr callResults)
+inline bcos::protocol::ExecutionMessage::UniquePtr toExecutionResult(
+    bcos::protocol::ExecutionMessageFactory& factory, CallParameters::UniquePtr callResults)
 {
-    auto executionResult = factory->createExecutionResult();
+    auto executionResult = factory.createExecutionMessage();
 
     executionResult->setStatus(callResults->status);
     executionResult->setMessage(std::move(callResults->message));
@@ -102,9 +102,8 @@ inline bcos::protocol::ExecutionResult::Ptr toExecutionResult(
         executionResult->setCreateSalt(std::move(*callResults->createSalt));
     }
     executionResult->setGasAvailable(callResults->gas);
-    executionResult->setLogEntries(std::make_shared<std::vector<bcos::protocol::LogEntry>>(
-        std::move(callResults->logEntries)));
-    executionResult->setOutput(std::move(callResults->data));
+    executionResult->setLogEntries(std::move(callResults->logEntries));
+    executionResult->setData(std::move(callResults->data));
     executionResult->setTo(std::move(callResults->receiveAddress));
     executionResult->setNewEVMContractAddress(std::move(callResults->newEVMContractAddress));
 

@@ -150,7 +150,6 @@ private:
     std::function<CallParameters::UniquePtr(CallParameters::UniquePtr)> m_externalRequest;
     protocol::BlockHeader::ConstPtr m_blockHeader;
 
-    std::map<std::string, size_t, std::less<>> m_key2Version;  // the version cache
     std::list<CallParameters::UniquePtr> m_responseStore;
     bool m_isWasm;
 

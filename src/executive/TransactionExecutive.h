@@ -25,8 +25,7 @@
 #include "../precompiled/PrecompiledResult.h"
 #include "../vm/gas_meter/GasInjector.h"
 #include "BlockContext.h"
-#include "bcos-framework/interfaces/executor/ExecutionParams.h"
-#include "bcos-framework/interfaces/executor/ExecutionResult.h"
+#include "bcos-framework/interfaces/executor/ExecutionMessage.h"
 #include "bcos-framework/interfaces/protocol/BlockHeader.h"
 #include "bcos-framework/interfaces/protocol/Transaction.h"
 #include "bcos-framework/libprotocol/TransactionStatus.h"
@@ -46,8 +45,6 @@ namespace executor
 class Block;
 class Result;
 
-using returnCallback =
-    std::function<void(bcos::Error::Ptr&&, bcos::protocol::ExecutionResult::Ptr&&)>;
 }  // namespace executor
 namespace precompiled
 {
@@ -65,13 +62,14 @@ public:
     using Coroutine = boost::coroutines2::coroutine<CallParameters::UniquePtr>;
 
     TransactionExecutive(std::shared_ptr<BlockContext> blockContext, std::string contractAddress,
-        int64_t contextID,
+        int64_t contextID, int64_t seq,
         std::function<void(
             std::shared_ptr<TransactionExecutive> executive, CallParameters::UniquePtr&&)>
             callback)
       : m_blockContext(std::move(blockContext)),
         m_contractAddress(std::move(contractAddress)),
         m_contextID(contextID),
+        m_seq(seq),
         m_callback(std::move(callback)),
         m_gasInjector(std::make_shared<wasm::GasInjector>(wasm::GetInstructionTable()))
     {}
@@ -97,6 +95,7 @@ public:
     std::weak_ptr<BlockContext> blockContext() { return m_blockContext; }
 
     int64_t contextID() { return m_contextID; }
+    int64_t seq() { return m_seq; }
 
     std::string_view contractAddress() { return m_contractAddress; }
 
@@ -124,7 +123,8 @@ private:
 
     std::weak_ptr<BlockContext> m_blockContext;  ///< Information on the runtime environment.
     std::string m_contractAddress;
-    int64_t m_contextID = 0;
+    int64_t m_contextID;
+    int64_t m_seq;
     crypto::Hash::Ptr m_hashImpl;
 
     int64_t m_baseGasRequired = 0;  ///< The base amount of gas requried for executing
