@@ -37,7 +37,11 @@
 #include "../Common.h"
 #include "../executive/BlockContext.h"
 #include "../executive/TransactionExecutive.h"
+#include "../precompiled/Common.h"
 #include "../vm/Precompiled.h"
+#include "Abi.h"
+#include "ClockCache.h"
+#include "ScaleUtils.h"
 #include "TxDAG.h"
 #include "bcos-framework/interfaces/dispatcher/SchedulerInterface.h"
 #include "bcos-framework/interfaces/executor/PrecompiledTypeDef.h"
@@ -50,16 +54,19 @@
 #include "interfaces/executor/ExecutionMessage.h"
 #include "interfaces/storage/StorageInterface.h"
 #include "libprotocol/LogEntry.h"
+#include "tbb/flow_graph.h"
 #include <tbb/parallel_for.h>
 #include <boost/algorithm/hex.hpp>
 #include <boost/exception/detail/exception_ptr.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/throw_exception.hpp>
+#include <cassert>
 #include <exception>
 #include <functional>
 #include <iterator>
 #include <string>
 #include <thread>
+#include <vector>
 
 using namespace bcos;
 using namespace std;
@@ -67,6 +74,7 @@ using namespace bcos::executor;
 using namespace bcos::protocol;
 using namespace bcos::storage;
 using namespace bcos::precompiled;
+using namespace tbb::flow;
 
 crypto::Hash::Ptr GlobalHashImpl::g_hashImpl;
 
@@ -117,6 +125,7 @@ TransactionExecutor::TransactionExecutor(txpool::TxPoolInterface::Ptr txpool,
             PrecompiledRegistrar::executor("blake2_compression"))});
 
     GlobalHashImpl::g_hashImpl = m_hashImpl;
+    m_abiCache = make_shared<ClockCache<bcos::bytes, FunctionAbi>>(32);
 }
 
 void TransactionExecutor::nextBlockHeader(const bcos::protocol::BlockHeader::ConstPtr& blockHeader,
@@ -162,15 +171,308 @@ void TransactionExecutor::nextBlockHeader(const bcos::protocol::BlockHeader::Con
     }
 }
 
+using ConflictFields = vector<bytes>;
+
+optional<ConflictFields> TransactionExecutor::decodeConflictFields(
+    const FunctionAbi& functionAbi, Transaction* transaction)
+{
+    if (functionAbi.conflictFields.empty())
+    {
+        return nullopt;
+    }
+
+    auto conflictFields = ConflictFields();
+    auto to = transaction->to();
+    auto hasher = boost::hash<string_view>();
+    auto toHash = hasher(to);
+
+    for (auto& conflictField : functionAbi.conflictFields)
+    {
+        auto key = bytes();
+        size_t slot = toHash + conflictField.slot;
+        auto slotBegin = (uint8_t*)static_cast<void*>(&slot);
+        key.insert(key.end(), slotBegin, slotBegin + sizeof(slot));
+
+        switch (conflictField.kind)
+        {
+        case All:
+        case Len:
+        {
+            break;
+        }
+        case Env:
+        {
+            assert(conflictField.accessPath.size() == 1);
+            auto envKind = conflictField.accessPath[0];
+            switch (envKind)
+            {
+            case Caller:
+            case Origin:
+            {
+                auto sender = transaction->sender();
+                key.insert(key.end(), sender.begin(), sender.end());
+                break;
+            }
+            case Now:
+            {
+                auto now = m_blockContext->timestamp();
+                auto bytes = static_cast<byte*>(static_cast<void*>(&now));
+                key.insert(key.end(), bytes, bytes + sizeof(now));
+                break;
+            }
+            case BlockNumber:
+            {
+                auto blockNumber = m_blockContext->currentNumber();
+                auto bytes = static_cast<byte*>(static_cast<void*>(&blockNumber));
+                key.insert(key.end(), bytes, bytes + sizeof(blockNumber));
+                break;
+            }
+            case Addr:
+            {
+                key.insert(key.end(), to.begin(), to.end());
+                break;
+            }
+            default:
+            {
+                EXECUTOR_LOG(ERROR) << LOG_BADGE("unknown env kind in conflict field")
+                                    << LOG_KV("envKind", envKind);
+                return nullopt;
+            }
+            }
+            break;
+        }
+        case Var:
+        {
+            assert(!conflictField.accessPath.empty());
+            const ParameterAbi* paramAbi = nullptr;
+            auto components = &functionAbi.inputs;
+            auto inputData = transaction->input().getCroppedData(4).toBytes();
+
+            auto startPos = 0u;
+            for (auto segment : conflictField.accessPath)
+            {
+                if (segment >= components->size())
+                {
+                    return nullopt;
+                }
+
+                for (auto i = 0u; i < segment; ++i)
+                {
+                    auto length = scaleEncodingLength(components->at(i), inputData, startPos);
+                    if (!length.has_value())
+                    {
+                        return nullopt;
+                    }
+                    startPos += length.value();
+                }
+                paramAbi = &components->at(segment);
+                components = &paramAbi->components;
+            }
+            auto length = scaleEncodingLength(*paramAbi, inputData, startPos);
+            if (!length.has_value())
+            {
+                return nullopt;
+            }
+            assert(startPos + length.value() <= inputData.size());
+            key.insert(key.end(), inputData.begin() + startPos,
+                inputData.begin() + startPos + length.value());
+            break;
+        }
+        default:
+        {
+            EXECUTOR_LOG(ERROR) << LOG_BADGE("unknown conflict field kind")
+                                << LOG_KV("conflictFieldKind", conflictField.kind);
+            return nullopt;
+        }
+        }
+        conflictFields.emplace_back(std::move(key));
+    }
+    return {conflictFields};
+}
+
 void TransactionExecutor::dagExecuteTransactions(
     const gsl::span<bcos::protocol::ExecutionMessage::UniquePtr>& inputs,
     std::function<void(
         bcos::Error::UniquePtr&&, std::vector<bcos::protocol::ExecutionMessage::UniquePtr>&&)>
         callback) noexcept
 {
-    // TODO: try to execute use DAG
-    (void)inputs;
-    (void)callback;
+    auto txHashes = make_shared<HashList>(inputs.size());
+    for (auto& execution_params : inputs)
+    {
+        assert(execution_params->type() == ExecutionMessage::TXHASH);
+        txHashes->emplace_back(execution_params->transactionHash());
+    }
+
+    std::promise<protocol::TransactionsPtr> promise;
+    m_txpool->asyncFillBlock(txHashes, [&promise](Error::Ptr error, protocol::TransactionsPtr txs) {
+        if (error)
+        {
+            EXECUTOR_LOG(ERROR) << LOG_BADGE("executor") << LOG_DESC("asyncFillBlock failed")
+                                << LOG_KV("message", error->errorMessage());
+            promise.set_exception(std::make_exception_ptr(error));
+        }
+        else
+        {
+            promise.set_value(txs);
+        }
+    });
+
+    auto future = promise.get_future();
+    TransactionsPtr transactions;
+    try
+    {
+        transactions = future.get();
+    }
+    catch (exception_ptr error)
+    {
+        try
+        {
+            rethrow_exception(error);
+        }
+        catch (Error::UniquePtr& error)
+        {
+            callback(std::move(error), vector<ExecutionMessage::UniquePtr>());
+            return;
+        }
+    }
+
+    auto transactionsNum = transactions->size();
+    auto executionResults = vector<ExecutionMessage::UniquePtr>(transactionsNum);
+    auto allConflictFields = vector<optional<ConflictFields>>(transactionsNum, nullopt);
+
+    tbb::parallel_for(tbb::blocked_range<uint64_t>(0, transactionsNum),
+        [&](const tbb::blocked_range<uint64_t>& range) {
+            for (auto i = range.begin(); i != range.end(); ++i)
+            {
+                auto defaultExecutionResult = m_executionMessageFactory->createExecutionMessage();
+                executionResults[i].swap(defaultExecutionResult);
+
+                auto transaction = transactions->at(i).get();
+                auto to = transaction->to();
+                auto input = transaction->input();
+                auto selector = input.getCroppedData(0, 4);
+                auto abiKey = bytes(to.cbegin(), to.cend());
+                abiKey.insert(abiKey.end(), selector.begin(), selector.end());
+
+                auto cacheHandle = m_abiCache->lookup(abiKey);
+                optional<ConflictFields> conflictFields = nullopt;
+                if (!cacheHandle.isValid())
+                {
+                    auto storage = m_blockContext->storage();
+                    auto table = storage->openTable(to);
+                    auto abiStr = table->getRow(ACCOUNT_ABI)->getField(SYS_VALUE);
+
+                    auto functionAbi =
+                        FunctionAbi::deserialize(abiStr, selector.toBytes(), m_hashImpl);
+                    if (!functionAbi)
+                    {
+                        executionResults[i]->setType(ExecutionMessage::SEND_BACK);
+                        continue;
+                    }
+
+                    auto abiPtr = functionAbi.get();
+                    if (m_abiCache->insert(abiKey, abiPtr, &cacheHandle))
+                    {
+                        functionAbi.release();
+                    }
+                    conflictFields = decodeConflictFields(*abiPtr, transaction);
+                }
+                else
+                {
+                    auto& functionAbi = cacheHandle.value();
+                    conflictFields = decodeConflictFields(functionAbi, transaction);
+                }
+
+                if (!conflictFields.has_value())
+                {
+                    executionResults[i]->setType(ExecutionMessage::SEND_BACK);
+                    continue;
+                }
+                allConflictFields[i] = std::move(conflictFields);
+            }
+        });
+
+    using Task = continue_node<continue_msg>;
+    using Msg = const continue_msg&;
+
+    auto tasks = vector<Task>();
+    tasks.reserve(transactionsNum);
+    auto flowGraph = graph();
+    broadcast_node<continue_msg> start(flowGraph);
+
+    auto dependencies = unordered_map<bytes, size_t, boost::hash<bytes>>();
+    auto slotUsage = unordered_map<size_t, size_t>();
+
+    for (auto i = 0u; i < allConflictFields.size(); ++i)
+    {
+        auto& conflictFields = allConflictFields[i];
+        if (!conflictFields.has_value())
+        {
+            continue;
+        }
+
+        auto index = tasks.size();
+        tasks.emplace_back(
+            Task(flowGraph, [this, i, &inputs, &transactions, &executionResults](Msg) {
+                auto& input = inputs[i];
+                auto callParameters =
+                    createCallParameters(*input, std::move(transactions->at(i)), *m_blockContext);
+
+                auto executive = make_shared<TransactionExecutive>(m_blockContext,
+                    callParameters->codeAddress, input->contextID(), input->seq(),
+                    std::bind(&TransactionExecutor::onCallResultsCallback, this,
+                        std::placeholders::_1, std::placeholders::_2));
+
+                try
+                {
+                    auto response = executive->execute(std::move(callParameters));
+                    executionResults[i]->setNewEVMContractAddress(response->newEVMContractAddress);
+                    executionResults[i]->setLogEntries(response->logEntries);
+                    executionResults[i]->setStatus(response->status);
+                    executionResults[i]->setMessage(response->message);
+                    executionResults[i]->setType(ExecutionMessage::FINISHED);
+                }
+                catch (std::exception& e)
+                {
+                    EXECUTOR_LOG(ERROR) << "Execute error: " << boost::diagnostic_information(e);
+                }
+            }));
+
+        auto noDeps = true;
+        for (auto& conflictField : conflictFields.value())
+        {
+            assert(conflictField.size() >= sizeof(size_t));
+
+            auto slot = *(size_t*)conflictField.data();
+            if (conflictField.size() != sizeof(size_t))
+            {
+                auto iter = dependencies.find(conflictField);
+                if (iter != dependencies.end())
+                {
+                    noDeps = false;
+                    make_edge(tasks[iter->second], tasks[index]);
+                }
+                dependencies[conflictField] = index;
+            }
+
+            auto iter = slotUsage.find(slot);
+            if (iter != slotUsage.end())
+            {
+                noDeps = false;
+                make_edge(tasks[iter->second], tasks[index]);
+            }
+            slotUsage[slot] = index;
+        }
+
+        if (noDeps)
+        {
+            make_edge(start, tasks[index]);
+        }
+    }
+
+    start.try_put(continue_msg());
+    flowGraph.wait_for_all();
+    callback(nullptr, std::move(executionResults));
 }
 
 void TransactionExecutor::call(bcos::protocol::ExecutionMessage::UniquePtr input,
