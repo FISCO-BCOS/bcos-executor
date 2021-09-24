@@ -233,8 +233,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
         else
         {
             PRECOMPILED_LOG(DEBUG) << LOG_DESC("Table insert") << LOG_KV("key", findKeyValue);
-            auto checkExistEntry = m_table->getRow(findKeyValue);
-            if (checkExistEntry)
+            if (m_table->getRow(findKeyValue))
             {
                 PRECOMPILED_LOG(ERROR)
                     << LOG_BADGE("TablePrecompiled") << LOG_BADGE("INSERT")
@@ -459,7 +458,12 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
                     auto tableEntry = m_table->getRow(tableKey);
                     if (entryCondition->filter(tableEntry))
                     {
-                        m_table->setRow(tableKey, entry);
+                        auto entryIt = entry->begin();
+                        for (; entryIt != entry->end(); entryIt++)
+                        {
+                            tableEntry->setField(entryIt->first, entryIt->second);
+                        }
+                        m_table->setRow(tableKey, tableEntry);
                     }
                 }
                 gasPricer->setMemUsed(entry->capacityOfHashField());

@@ -50,12 +50,17 @@ public:
 
     virtual ~CRUDPrecompiledTest() {}
 
+    std::string selectFunc = "select(string,string,string)";
+    std::string insertFunc = "insert(string,string,string)";
+    std::string updateFunc = "update(string,string,string,string)";
+    std::string removeFunc = "remove(string,string,string)";
+
     TableFactoryPrecompiled::Ptr tableFactoryPrecompiled;
     CRUDPrecompiled::Ptr crudPrecompiled;
 };
 BOOST_FIXTURE_TEST_SUITE(precompiledCRUDTest, CRUDPrecompiledTest)
 
-BOOST_AUTO_TEST_CASE(CRUD_evm)
+BOOST_AUTO_TEST_CASE(CRUD_simple_evm)
 {
     // createTable
     std::string tableName = "t_test", tableName2 = "t_demo", key = "name",
@@ -89,7 +94,6 @@ BOOST_AUTO_TEST_CASE(CRUD_evm)
     BOOST_TEST(valueField == "");
 
     // insert
-    std::string insertFunc = "insert(string,string,string)";
     std::string entryStr = "{\"item_id\":\"1\",\"name\":\"fruit\",\"item_name\":\"apple\"}";
     param.clear();
     out.clear();
@@ -123,7 +127,6 @@ BOOST_AUTO_TEST_CASE(CRUD_evm)
     BOOST_TEST(insertResult == s256((int)CODE_PARSE_ENTRY_ERROR));
 
     // select
-    std::string selectFunc = "select(string,string,string)";
     std::string conditionStr = "{\"name\":{\"eq\":\"fruit\"},\"item_id\":{\"eq\":\"1\"},\"limit\":{\"limit\":\"0,1\"}}";
     param.clear();
     out.clear();
@@ -159,7 +162,6 @@ BOOST_AUTO_TEST_CASE(CRUD_evm)
     BOOST_TEST(selectResult2 == s256((int)CODE_PARSE_CONDITION_ERROR));
 
     // update
-    std::string updateFunc = "update(string,string,string,string)";
     entryStr = "{\"item_id\":\"1\",\"item_name\":\"orange\"}";
     conditionStr = "{\"name\":{\"eq\":\"fruit\"}}";
     param.clear();
@@ -208,7 +210,6 @@ BOOST_AUTO_TEST_CASE(CRUD_evm)
     BOOST_TEST(updateResult == s256((int)CODE_PARSE_CONDITION_ERROR));
 
     // remove
-    std::string removeFunc = "remove(string,string,string)";
     conditionStr = "{\"name\":{\"eq\":\"fruit\"}}";
     param.clear();
     out.clear();
@@ -260,6 +261,225 @@ BOOST_AUTO_TEST_CASE(CRUD_evm)
     s256 funcResult = 0;
     codec->decode(&out, funcResult);
     BOOST_TEST(funcResult == s256((int)CODE_UNKNOW_FUNCTION_CALL));
+}
+
+BOOST_AUTO_TEST_CASE(CRUD_boundary_evm)
+{
+  auto createTable = [&](std::string tableName) {
+    std::string key = "name", valueField = "item_id,item_name";
+    bytes param = codec->encodeWithSig("createTable(string,string,string)",
+                                       tableName, key, valueField);
+    auto callResult = tableFactoryPrecompiled->call(
+        context, bytesConstRef(&param), "", "", gas);
+    bytes out = callResult->execResult();
+    s256 createResult = 0;
+    codec->decode(&out, createResult);
+    BOOST_TEST(createResult == 0u);
+  };
+  // test insert part entry
+  {
+    // createTable
+    std::string tableName = "t_test1";
+    createTable(tableName);
+    bytes param, out;
+
+    // insert
+    std::string entryStr = "{\"item_id\":\"1\",\"name\":\"fruit\",\"item_name\":\"apple\"}";
+    param = codec->encodeWithSig(insertFunc, tableName, entryStr, std::string(""));
+    auto callResult = crudPrecompiled->call(context, bytesConstRef(&param), "","",gas);
+    out = callResult->execResult();
+    s256 insertResult = 0;
+    codec->decode(&out, insertResult);
+    BOOST_TEST(insertResult == 1u);
+
+    // insert exist entry
+    entryStr = "{\"item_id\":\"1\",\"name\":\"fruit\",\"item_name\":\"apple\"}";
+    param = codec->encodeWithSig(insertFunc, tableName, entryStr, std::string(""));
+    callResult = crudPrecompiled->call(context, bytesConstRef(&param), "","",gas);
+    out = callResult->execResult();
+    insertResult = 0;
+    codec->decode(&out, insertResult);
+    BOOST_TEST(insertResult == s256((int)CODE_INSERT_KEY_EXIST));
+
+    // insert part entry
+    entryStr = "{\"name\":\"fruit2\",\"item_name\":\"apple\"}";
+    param = codec->encodeWithSig(insertFunc, tableName, entryStr, std::string(""));
+    callResult = crudPrecompiled->call(context, bytesConstRef(&param), "","",gas);
+    out = callResult->execResult();
+    insertResult = 0;
+    codec->decode(&out, insertResult);
+    BOOST_TEST(insertResult == 1u);
+
+    // select fruit
+    std::string conditionStr = "{\"name\":{\"eq\":\"fruit\"},\"item_id\":{\"eq\":\"1\"}}";
+    param.clear();
+    out.clear();
+    param = codec->encodeWithSig(selectFunc, tableName, conditionStr, std::string(""));
+    callResult = crudPrecompiled->call(context, bytesConstRef(&param), "","",gas);
+    out = callResult->execResult();
+    std::string selectResult;
+    codec->decode(&out, selectResult);
+    Json::Value entryJson;
+    Json::Reader reader;
+    reader.parse(selectResult, entryJson);
+    BOOST_TEST(entryJson.size() == 1);
+
+    // select part insert fruit2
+    conditionStr = "{\"name\":{\"eq\":\"fruit2\"},\"item_name\":{\"eq\":\"apple\"}}";
+    param.clear();
+    out.clear();
+    param = codec->encodeWithSig(selectFunc, tableName, conditionStr, std::string(""));
+    callResult = crudPrecompiled->call(context, bytesConstRef(&param), "","",gas);
+    out = callResult->execResult();
+    codec->decode(&out, selectResult);
+    reader.parse(selectResult, entryJson);
+    BOOST_TEST(entryJson.size() == 1u);
+    BOOST_TEST(entryJson[0]["item_id"].asString()=="");
+  }
+
+  // test update part entry
+  {
+    // createTable
+    std::string tableName = "t_test2";
+    createTable(tableName);
+    bytes param, out;
+
+    // insert
+    std::string entryStr = "{\"item_id\":\"1\",\"name\":\"fruit\",\"item_name\":\"apple\"}";
+    param = codec->encodeWithSig(insertFunc, tableName, entryStr, std::string(""));
+    auto callResult = crudPrecompiled->call(context, bytesConstRef(&param), "","",gas);
+    out = callResult->execResult();
+    s256 insertResult = 0;
+    codec->decode(&out, insertResult);
+    BOOST_TEST(insertResult == 1u);
+
+    // select
+    std::string conditionStr = "{\"name\":{\"eq\":\"fruit\"},\"item_id\":{\"eq\":\"1\"}}";
+    param.clear();
+    out.clear();
+    param = codec->encodeWithSig(selectFunc, tableName, conditionStr, std::string(""));
+    callResult = crudPrecompiled->call(context, bytesConstRef(&param), "","",gas);
+    out = callResult->execResult();
+    std::string selectResult;
+    codec->decode(&out, selectResult);
+    Json::Value entryJson;
+    Json::Reader reader;
+    reader.parse(selectResult, entryJson);
+    BOOST_TEST(entryJson.size() == 1);
+
+    // update error entry
+    entryStr = "{\"error_name\":\"orange\"}";
+    conditionStr = "{\"name\":{\"eq\":\"fruit\"}}";
+    param.clear();
+    out.clear();
+    param = codec->encodeWithSig(updateFunc, tableName, entryStr, conditionStr, std::string(""));
+    callResult = crudPrecompiled->call(context, bytesConstRef(&param), "","",gas);
+    out = callResult->execResult();
+    s256 updateResult = 0;
+    codec->decode(&out, updateResult);
+    BOOST_TEST(updateResult == 0u);
+
+    // update not found condition
+    entryStr = "{\"item_name\":\"orange\"}";
+    conditionStr = "{\"name\":{\"eq\":\"fruit\"},\"item_id\":{\"eq\":\"123\"}}";
+    param.clear();
+    out.clear();
+    param = codec->encodeWithSig(updateFunc, tableName, entryStr, conditionStr, std::string(""));
+    callResult = crudPrecompiled->call(context, bytesConstRef(&param), "","",gas);
+    out = callResult->execResult();
+    updateResult = 0;
+    codec->decode(&out, updateResult);
+    BOOST_TEST(updateResult == 0u);
+
+    // update part entry
+    entryStr = "{\"item_name\":\"orange\"}";
+    conditionStr = "{\"name\":{\"eq\":\"fruit\"}}";
+    param.clear();
+    out.clear();
+    param = codec->encodeWithSig(updateFunc, tableName, entryStr, conditionStr, std::string(""));
+    callResult = crudPrecompiled->call(context, bytesConstRef(&param), "","",gas);
+    out = callResult->execResult();
+    updateResult = 0;
+    codec->decode(&out, updateResult);
+    BOOST_TEST(updateResult == 1u);
+
+    conditionStr = "{\"name\":{\"eq\":\"fruit\"},\"item_id\":{\"eq\":\"1\"}}";
+    param.clear();
+    out.clear();
+    param = codec->encodeWithSig(selectFunc, tableName, conditionStr, std::string(""));
+    callResult = crudPrecompiled->call(context, bytesConstRef(&param), "","",gas);
+    out = callResult->execResult();
+    codec->decode(&out, selectResult);
+    reader.parse(selectResult, entryJson);
+    BOOST_TEST(entryJson.size() == 1);
+  }
+
+  // test remove condition
+  {
+    // createTable
+    std::string tableName = "t_test3";
+    createTable(tableName);
+    bytes param, out;
+
+    // insert
+    std::string entryStr = "{\"item_id\":\"1\",\"name\":\"fruit\",\"item_name\":\"apple\"}";
+    param.clear();
+    out.clear();
+    param = codec->encodeWithSig(insertFunc, tableName, entryStr, std::string(""));
+    auto callResult = crudPrecompiled->call(context, bytesConstRef(&param), "","",gas);
+    out = callResult->execResult();
+    s256 insertResult = 0;
+    codec->decode(&out, insertResult);
+    BOOST_TEST(insertResult == 1u);
+
+    // select
+    std::string conditionStr = "{\"name\":{\"eq\":\"fruit\"},\"item_id\":{\"eq\":\"1\"}}";
+    param.clear();
+    out.clear();
+    param = codec->encodeWithSig(selectFunc, tableName, conditionStr, std::string(""));
+    callResult = crudPrecompiled->call(context, bytesConstRef(&param), "","",gas);
+    out = callResult->execResult();
+    std::string selectResult;
+    codec->decode(&out, selectResult);
+    Json::Value entryJson;
+    Json::Reader reader;
+    reader.parse(selectResult, entryJson);
+    BOOST_TEST(entryJson.size() == 1);
+
+    // update part entry
+    entryStr = "{\"item_name\":\"orange\"}";
+    conditionStr = "{\"name\":{\"eq\":\"fruit\"}}";
+    param.clear();
+    out.clear();
+    param = codec->encodeWithSig(updateFunc, tableName, entryStr, conditionStr, std::string(""));
+    callResult = crudPrecompiled->call(context, bytesConstRef(&param), "","",gas);
+    out = callResult->execResult();
+    s256 updateResult = 0;
+    codec->decode(&out, updateResult);
+    BOOST_TEST(updateResult == 1u);
+
+    // remove condition not found
+    conditionStr = "{\"name\":{\"eq\":\"fruit\"}, \"item_id\":{\"eq\":\"123\"}}";
+    param.clear();
+    out.clear();
+    param = codec->encodeWithSig(removeFunc, tableName, conditionStr, std::string(""));
+    callResult = crudPrecompiled->call(context, bytesConstRef(&param), "","",gas);
+    out = callResult->execResult();
+    s256 removeResult = 0;
+    codec->decode(&out, removeResult);
+    BOOST_TEST(removeResult == 0u);
+
+    // remove
+    conditionStr = "{\"name\":{\"eq\":\"fruit\"}, \"item_id\":{\"eq\":\"1\"}}";
+    param.clear();
+    out.clear();
+    param = codec->encodeWithSig(removeFunc, tableName, conditionStr, std::string(""));
+    callResult = crudPrecompiled->call(context, bytesConstRef(&param), "","",gas);
+    out = callResult->execResult();
+    removeResult = 0;
+    codec->decode(&out, removeResult);
+    BOOST_TEST(removeResult == 1u);
+  }
 }
 
 BOOST_AUTO_TEST_SUITE_END()

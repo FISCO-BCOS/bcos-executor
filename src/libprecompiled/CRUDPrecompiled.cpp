@@ -211,8 +211,7 @@ void CRUDPrecompiled::update(std::shared_ptr<executor::BlockContext> _context,
         // check eq key exist in table
         for (auto& key : eqKeyList)
         {
-            auto checkExistEntry = table->getRow(key);
-            if (!checkExistEntry)
+            if (!table->getRow(key))
             {
                 PRECOMPILED_LOG(ERROR)
                     << LOG_BADGE("CRUDPrecompiled") << LOG_BADGE("UPDATE")
@@ -228,17 +227,24 @@ void CRUDPrecompiled::update(std::shared_ptr<executor::BlockContext> _context,
             auto tableKeyList = table->getPrimaryKeys(keyCondition);
             std::set<std::string> tableKeySet{tableKeyList.begin(), tableKeyList.end()};
             tableKeySet.insert(eqKeyList.begin(), eqKeyList.end());
+            auto updateCount = 0;
             for (auto& tableKey : tableKeySet)
             {
                 auto tableEntry = table->getRow(tableKey);
                 if (condition->filter(tableEntry))
                 {
-                    table->setRow(tableKey, entry);
+                    // merge entry
+                    auto entryIt = entry->begin();
+                    for (; entryIt != entry->end(); entryIt++)
+                    {
+                        tableEntry->setField(entryIt->first, entryIt->second);
+                    }
+                    updateCount += table->setRow(tableKey, tableEntry) ? 1 : 0;
                 }
             }
             _gasPricer->setMemUsed(entry->capacityOfHashField());
-            _gasPricer->appendOperation(InterfaceOpcode::Update, tableKeySet.size());
-            getErrorCodeOut(_callResult->mutableExecResult(), tableKeySet.size(), codec);
+            _gasPricer->appendOperation(InterfaceOpcode::Update, updateCount);
+            getErrorCodeOut(_callResult->mutableExecResult(), updateCount, codec);
         }
     }
     else
@@ -289,6 +295,15 @@ void CRUDPrecompiled::insert(std::shared_ptr<executor::BlockContext> _context,
                 << LOG_DESC("can't find specific key in entry") << LOG_KV("table", tableName)
                 << LOG_KV("key", table->tableInfo()->key);
             getErrorCodeOut(_callResult->mutableExecResult(), CODE_INVALID_UPDATE_TABLE_KEY, codec);
+            return;
+        }
+        if (table->getRow(keyValue))
+        {
+            PRECOMPILED_LOG(ERROR)
+                << LOG_BADGE("CRUDPrecompiled") << LOG_BADGE("INSERT")
+                << LOG_DESC("key already exist in table, please use UPDATE method")
+                << LOG_KV("primaryKey", table->tableInfo()->key) << LOG_KV("existKey", keyValue);
+            getErrorCodeOut(_callResult->mutableExecResult(), CODE_INSERT_KEY_EXIST, codec);
             return;
         }
         table->setRow(keyValue, entry);
@@ -354,17 +369,19 @@ void CRUDPrecompiled::remove(std::shared_ptr<executor::BlockContext> _context,
         auto tableKeyList = table->getPrimaryKeys(keyCondition);
         std::set<std::string> tableKeySet{tableKeyList.begin(), tableKeyList.end()};
         tableKeySet.insert(eqKeyList.begin(), eqKeyList.end());
+        auto rmCount = 0;
         for (auto& tableKey : tableKeySet)
         {
             auto entry = table->getRow(tableKey);
             if (condition->filter(entry))
             {
                 table->remove(tableKey);
+                rmCount++;
             }
         }
-        _gasPricer->appendOperation(InterfaceOpcode::Remove, tableKeySet.size());
-        _gasPricer->updateMemUsed(tableKeySet.size());
-        getErrorCodeOut(_callResult->mutableExecResult(), tableKeySet.size(), codec);
+        _gasPricer->appendOperation(InterfaceOpcode::Remove, rmCount);
+        _gasPricer->updateMemUsed(rmCount);
+        getErrorCodeOut(_callResult->mutableExecResult(), rmCount, codec);
     }
     else
     {

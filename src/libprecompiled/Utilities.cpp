@@ -111,10 +111,10 @@ void bcos::precompiled::checkNameValidate(const std::string& tableName,
                 (allowChar.end() == find(allowChar.begin(), allowChar.end(), fieldName[i])))
             {
                 std::stringstream errorMessage;
-                errorMessage
-                    << "Invalid field \"" << fieldName
-                    << "\", the field name must be letters or numbers, and only supports \""
-                    << allowCharString << "\" as special character set";
+                errorMessage << "Invalid field \"" << fieldName
+                             << "\", the field name must be letters or numbers, and "
+                                "only supports \""
+                             << allowCharString << "\" as special character set";
 
                 STORAGE_LOG(ERROR)
                     << LOG_DESC(errorMessage.str()) << LOG_KV("field name", fieldName)
@@ -365,6 +365,10 @@ bool Condition::filter(storage::Entry::Ptr _entry)
                     {
                     }
                     }
+                }
+                else
+                {
+                    return false;
                 }
             }
         }
