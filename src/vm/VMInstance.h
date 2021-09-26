@@ -29,32 +29,27 @@ namespace bcos
 namespace executor
 {
 class HostContext;
-class Result
+
+class Result : public evmc_result
 {
 public:
-    explicit Result(evmc_result const& _result) : m_result(_result) {}
+    explicit Result(evmc_result const& _result) : evmc_result(_result) {}
 
     ~Result()
     {
-        if (m_result.release)
-            m_result.release(&m_result);
+        if (release)
+            release(this);
     }
 
-    Result(Result&& _other) noexcept : m_result(_other.m_result)
-    {
-        // Disable releaser of the rvalue object.
-        _other.m_result.release = nullptr;
-    }
+    Result(Result&& _other) noexcept : evmc_result(_other) { _other.release = nullptr; }
 
+    Result& operator=(Result&&) = delete;
     Result(Result const&) = delete;
     Result& operator=(Result const&) = delete;
 
-    evmc_status_code status() const { return m_result.status_code; }
-    int64_t gasLeft() const { return m_result.gas_left; }
-    bytesConstRef output() const { return {m_result.output_data, m_result.output_size}; }
-
-private:
-    evmc_result m_result;
+    evmc_status_code status() const { return status_code; }
+    int64_t gasLeft() const { return gas_left; }
+    bytesConstRef output() const { return {output_data, output_size}; }
 };
 
 
@@ -74,7 +69,7 @@ public:
     VMInstance(VMInstance const&) = delete;
     VMInstance& operator=(VMInstance) = delete;
 
-    std::shared_ptr<Result> exec(HostContext& _hostContext, evmc_revision _rev, evmc_message* _msg,
+    Result exec(HostContext& _hostContext, evmc_revision _rev, evmc_message* _msg,
         const uint8_t* _code, size_t _code_size);
 
 private:

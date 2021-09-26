@@ -125,8 +125,7 @@ void HostContext::set(const std::string_view& _key, std::string _value)
 evmc_result HostContext::externalRequest(const evmc_message* _msg)
 {
     // Convert evmc_message to CallParameters
-    auto request = std::make_unique<CallParameters>();
-    request->type = CallParameters::MESSAGE;
+    auto request = std::make_unique<CallParameters>(CallParameters::MESSAGE);
 
     if (_msg->input_size > 0)
     {
@@ -176,9 +175,10 @@ evmc_result HostContext::externalRequest(const evmc_message* _msg)
     // TODO: check if the response data need to release
     result.output_data = response->data.data();
     result.output_size = response->data.size();
+    result.release = nullptr;  // Response own by HostContext
     result.gas_left = response->gas;
 
-    // TODO: put in store to avoid data lost
+    // Put response to store in order to avoid data lost
     m_responseStore.emplace_back(std::move(response));
 
     return result;

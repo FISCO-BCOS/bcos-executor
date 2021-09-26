@@ -72,7 +72,9 @@ public:
         m_seq(seq),
         m_callback(std::move(callback)),
         m_gasInjector(std::make_shared<wasm::GasInjector>(wasm::GetInstructionTable()))
-    {}
+    {
+        m_recoder = m_blockContext.lock()->storage()->newRecoder();
+    }
 
     TransactionExecutive(TransactionExecutive const&) = delete;
     TransactionExecutive& operator=(TransactionExecutive) = delete;
@@ -109,7 +111,7 @@ private:
         CallParameters::UniquePtr callParameters);
     CallParameters::UniquePtr go(HostContext& hostContext);
 
-    CallParameters::UniquePtr parseEVMCResult(bool isCreate, std::shared_ptr<Result> _result);
+    CallParameters::UniquePtr parseEVMCResult(bool isCreate, const Result& _result);
 
     void writeErrInfoToOutput(std::string const& errInfo);
     void updateGas(std::shared_ptr<precompiled::PrecompiledExecResult> _callResult);
@@ -138,6 +140,7 @@ private:
 
     std::unique_ptr<Coroutine::push_type> m_pushMessage;
     std::unique_ptr<Coroutine::pull_type> m_pullMessage;
+    bcos::storage::StateStorage::Recoder::Ptr m_recoder;
 };
 
 }  // namespace executor
