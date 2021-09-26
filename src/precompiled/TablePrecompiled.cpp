@@ -67,13 +67,9 @@ std::string TablePrecompiled::toString()
     return "Table";
 }
 
-crypto::HashType TablePrecompiled::hash()
-{
-    return m_table->hash();
-}
-
 PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::BlockContext> _context,
-    bytesConstRef _param, const std::string& _origin, const std::string& _sender, u256& _remainGas)
+    bytesConstRef _param, const std::string& _origin, const std::string& _sender,
+    int64_t _remainGas)
 {
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
@@ -112,7 +108,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
         bool findKeyFlag = false;
         for (auto& cond : entryCondition->m_conditions)
         {
-            if (cond.left == m_table->tableInfo()->key)
+            if (cond.left == m_keyField)
             {
                 findKeyFlag = true;
                 if (cond.cmp == precompiled::Comparator::EQ)
@@ -129,8 +125,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
         if (!findKeyFlag)
         {
             PRECOMPILED_LOG(ERROR) << LOG_BADGE("TablePrecompiled") << LOG_BADGE("SELECT")
-                                   << LOG_DESC("can't get any primary key in condition")
-                                   << LOG_KV("primaryKey", m_table->tableInfo()->key);
+                                   << LOG_DESC("can't get any primary key in condition");
             auto entriesPrecompiled = std::make_shared<EntriesPrecompiled>(m_hashImpl);
             auto entries = std::make_shared<precompiled::Entries>();
             entriesPrecompiled->setEntries(entries);
@@ -150,16 +145,19 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
         else
         {
             // merge keys from storage and eqKeys
-            auto tableKeyList = m_table->getPrimaryKeys(keyCondition);
+            auto tableKeyList = m_table->getPrimaryKeys(*keyCondition);
             std::set<std::string> tableKeySet{tableKeyList.begin(), tableKeyList.end()};
             tableKeySet.insert(eqKeyList.begin(), eqKeyList.end());
             auto entries = std::make_shared<precompiled::Entries>();
             for (auto& key : tableKeySet)
             {
                 auto entry = m_table->getRow(key);
+                if (!entry)
+                    continue;
+                auto entryPtr = std::make_shared<storage::Entry>(entry.value());
                 if (entryCondition->filter(entry))
                 {
-                    entries->emplace_back(entry);
+                    entries->emplace_back(entryPtr);
                 }
             }
             // update the memory gas and the computation gas
@@ -186,14 +184,6 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
              func == name2Selector[TABLE_METHOD_INS_STR_WASM])
     {
         // insert(address) || insert(string)
-        if (!checkAuthority(_context->getTableFactory(), _origin, _sender))
-        {
-            PRECOMPILED_LOG(ERROR) << LOG_BADGE("TablePrecompiled") << LOG_DESC("permission denied")
-                                   << LOG_KV("origin", _origin) << LOG_KV("contract", _sender);
-            BOOST_THROW_EXCEPTION(
-                PrecompiledError() << errinfo_comment(
-                    "Permission denied. " + _origin + " can't call contract " + _sender));
-        }
         EntryPrecompiled::Ptr entryPrecompiled = nullptr;
         if (_context->isWasm())
         {
@@ -214,20 +204,26 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
 
         auto entry = entryPrecompiled->getEntry();
         std::string findKeyValue;
+        // check entry value validate
         for (auto it = entry->begin(); it != entry->end(); ++it)
         {
-            checkLengthValidate(it->second, USER_TABLE_FIELD_VALUE_MAX_LENGTH,
-                CODE_TABLE_KEY_VALUE_LENGTH_OVERFLOW);
-            if (it->first == m_table->tableInfo()->key)
-            {
-                findKeyValue = it->second;
-            }
+            checkLengthValidate(static_cast<const std::string>(*it),
+                USER_TABLE_FIELD_VALUE_MAX_LENGTH, CODE_TABLE_KEY_VALUE_LENGTH_OVERFLOW);
         }
+        // FIXME: entry not contains key field
+        //        for (auto it = entry->tableInfo()->fields().cbegin();
+        //             it != entry->tableInfo()->fields().cend(); it++)
+        //        {
+        //            if (*it == m_keyField)
+        //            {
+        //                findKeyValue = it->second;
+        //            }
+        //        }
         if (findKeyValue.empty())
         {
             PRECOMPILED_LOG(ERROR) << LOG_BADGE("TablePrecompiled") << LOG_BADGE("INSERT")
                                    << LOG_DESC("can't get any primary key in entry string")
-                                   << LOG_KV("primaryKey", m_table->tableInfo()->key);
+                                   << LOG_KV("primaryKey", m_keyField);
             getErrorCodeOut(callResult->mutableExecResult(), CODE_KEY_NOT_EXIST_IN_ENTRY, codec);
         }
         else
@@ -239,13 +235,12 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
                 PRECOMPILED_LOG(ERROR)
                     << LOG_BADGE("TablePrecompiled") << LOG_BADGE("INSERT")
                     << LOG_DESC("key already exist in table, please use UPDATE method")
-                    << LOG_KV("primaryKey", m_table->tableInfo()->key)
-                    << LOG_KV("existKey", findKeyValue);
+                    << LOG_KV("primaryKey", m_keyField) << LOG_KV("existKey", findKeyValue);
                 getErrorCodeOut(callResult->mutableExecResult(), CODE_INSERT_KEY_EXIST, codec);
             }
             else
             {
-                m_table->setRow(findKeyValue, entry);
+                m_table->setRow(findKeyValue, *entry);
                 gasPricer->appendOperation(InterfaceOpcode::Insert, 1);
                 gasPricer->updateMemUsed(entry->capacityOfHashField());
                 callResult->setExecResult(codec->encode(u256(1)));
@@ -277,7 +272,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
         // newEntry()
         auto entry = m_table->newEntry();
         auto entryPrecompiled = std::make_shared<EntryPrecompiled>(m_hashImpl);
-        entryPrecompiled->setEntry(entry);
+        entryPrecompiled->setEntry(std::make_shared<storage::Entry>(entry));
 
         if (_context->isWasm())
         {
@@ -296,14 +291,6 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
              func == name2Selector[TABLE_METHOD_RE_STR_WASM])
     {
         // remove(address) || remove(string)
-        if (!checkAuthority(_context->getTableFactory(), _origin, _sender))
-        {
-            PRECOMPILED_LOG(ERROR) << LOG_BADGE("TablePrecompiled") << LOG_DESC("permission denied")
-                                   << LOG_KV("origin", _origin) << LOG_KV("contract", _sender);
-            BOOST_THROW_EXCEPTION(
-                protocol::PrecompiledError() << errinfo_comment(
-                    "Permission denied. " + _origin + " can't call contract " + _sender));
-        }
         ConditionPrecompiled::Ptr conditionPrecompiled = nullptr;
         if (_context->isWasm())
         {
@@ -328,7 +315,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
         bool findKeyFlag = false;
         for (auto& cond : entryCondition->m_conditions)
         {
-            if (cond.left == m_table->tableInfo()->key)
+            if (cond.left == m_keyField)
             {
                 findKeyFlag = true;
                 if (cond.cmp == precompiled::Comparator::EQ)
@@ -346,12 +333,12 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
         {
             PRECOMPILED_LOG(ERROR) << LOG_BADGE("TablePrecompiled") << LOG_BADGE("REMOVE")
                                    << LOG_DESC("can't get any primary key in condition")
-                                   << LOG_KV("primaryKey", m_table->tableInfo()->key);
+                                   << LOG_KV("primaryKey", m_keyField);
             getErrorCodeOut(callResult->mutableExecResult(), CODE_KEY_NOT_EXIST_IN_ENTRY, codec);
         }
         else
         {
-            auto tableKeyList = m_table->getPrimaryKeys(keyCondition);
+            auto tableKeyList = m_table->getPrimaryKeys(*keyCondition);
             std::set<std::string> tableKeySet{tableKeyList.begin(), tableKeyList.end()};
             tableKeySet.insert(eqKeyList.begin(), eqKeyList.end());
             for (auto& tableKey : tableKeySet)
@@ -360,7 +347,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
                 // Note: entry maybe nullptr
                 if (entryCondition->filter(entry))
                 {
-                    m_table->remove(tableKey);
+                    m_table->setRow(tableKey, m_table->newDeletedEntry());
                 }
             }
             gasPricer->appendOperation(InterfaceOpcode::Remove, 1);
@@ -371,14 +358,6 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
              func == name2Selector[TABLE_METHOD_UP_STR_WASM])
     {
         // update(address,address) || update(string,string)
-        if (!checkAuthority(_context->getTableFactory(), _origin, _sender))
-        {
-            PRECOMPILED_LOG(ERROR) << LOG_BADGE("TablePrecompiled") << LOG_DESC("permission denied")
-                                   << LOG_KV("origin", _origin) << LOG_KV("contract", _sender);
-            BOOST_THROW_EXCEPTION(
-                protocol::PrecompiledError() << errinfo_comment(
-                    "Permission denied. " + _origin + " can't call contract " + _sender));
-        }
         EntryPrecompiled::Ptr entryPrecompiled = nullptr;
         ConditionPrecompiled::Ptr conditionPrecompiled = nullptr;
         if (_context->isWasm())
@@ -408,7 +387,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
         bool findKeyFlag = false;
         for (auto& cond : entryCondition->m_conditions)
         {
-            if (cond.left == m_table->tableInfo()->key)
+            if (cond.left == m_keyField)
             {
                 findKeyFlag = true;
                 if (cond.cmp == precompiled::Comparator::EQ)
@@ -426,7 +405,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
         {
             PRECOMPILED_LOG(ERROR) << LOG_BADGE("TablePrecompiled") << LOG_BADGE("UPDATE")
                                    << LOG_DESC("can't get any primary key in condition")
-                                   << LOG_KV("primaryKey", m_table->tableInfo()->key);
+                                   << LOG_KV("primaryKey", m_keyField);
             getErrorCodeOut(callResult->mutableExecResult(), CODE_KEY_NOT_EXIST_IN_COND, codec);
         }
         else
@@ -441,8 +420,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
                     PRECOMPILED_LOG(ERROR)
                         << LOG_BADGE("TablePrecompiled") << LOG_BADGE("UPDATE")
                         << LOG_DESC("key not exist in table, please use INSERT method")
-                        << LOG_KV("primaryKey", m_table->tableInfo()->key)
-                        << LOG_KV("notExistKey", key);
+                        << LOG_KV("primaryKey", m_keyField) << LOG_KV("notExistKey", key);
                     eqKeyExist = false;
                     getErrorCodeOut(
                         callResult->mutableExecResult(), CODE_UPDATE_KEY_NOT_EXIST, codec);
@@ -451,7 +429,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
             }
             if (eqKeyExist)
             {
-                auto tableKeyList = m_table->getPrimaryKeys(keyCondition);
+                auto tableKeyList = m_table->getPrimaryKeys(*keyCondition);
                 std::set<std::string> tableKeySet{tableKeyList.begin(), tableKeyList.end()};
                 tableKeySet.insert(eqKeyList.begin(), eqKeyList.end());
                 for (auto& tableKey : tableKeySet)
@@ -459,7 +437,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
                     auto tableEntry = m_table->getRow(tableKey);
                     if (entryCondition->filter(tableEntry))
                     {
-                        m_table->setRow(tableKey, entry);
+                        m_table->setRow(tableKey, *entry);
                     }
                 }
                 gasPricer->setMemUsed(entry->capacityOfHashField());

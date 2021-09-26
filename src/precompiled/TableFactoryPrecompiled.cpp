@@ -53,7 +53,7 @@ std::string TableFactoryPrecompiled::toString()
 
 PrecompiledExecResult::Ptr TableFactoryPrecompiled::call(
     std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
-    const std::string& _origin, const std::string& _sender, u256& _remainGas)
+    const std::string& _origin, const std::string& _sender, int64_t _remainGas)
 {
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
@@ -79,11 +79,6 @@ PrecompiledExecResult::Ptr TableFactoryPrecompiled::call(
     gasPricer->updateMemUsed(callResult->m_execResult.size());
     _remainGas -= gasPricer->calTotalGas();
     return callResult;
-}
-
-crypto::HashType TableFactoryPrecompiled::hash()
-{
-    return m_memoryTableFactory->hash();
 }
 
 void TableFactoryPrecompiled::checkCreateTableParam(
@@ -167,15 +162,19 @@ void TableFactoryPrecompiled::openTable(const std::shared_ptr<executor::BlockCon
     tableName = getTableName(tableName);
     auto table = m_memoryTableFactory->openTable(tableName);
     gasPricer->appendOperation(InterfaceOpcode::OpenTable);
-    if (!table)
+    auto sysTable = m_memoryTableFactory->openTable(storage::StorageInterface::SYS_TABLES);
+    auto sysEntry = sysTable->getRow(tableName);
+    if (!table || !sysEntry)
     {
         PRECOMPILED_LOG(WARNING) << LOG_BADGE("TableFactoryPrecompiled")
                                  << LOG_DESC("Open new table failed")
                                  << LOG_KV("table name", tableName);
         BOOST_THROW_EXCEPTION(PrecompiledError() << errinfo_comment(tableName + " does not exist"));
     }
+    auto keyField = sysEntry->getField("key_field");
     auto tablePrecompiled = std::make_shared<TablePrecompiled>(m_hashImpl);
-    tablePrecompiled->setTable(table);
+    tablePrecompiled->setTable(std::make_shared<Table>(table.value()));
+    tablePrecompiled->setKeyField(keyField);
     if (_context->isWasm())
     {
         auto address = _context->registerPrecompiled(tablePrecompiled);
@@ -188,20 +187,12 @@ void TableFactoryPrecompiled::openTable(const std::shared_ptr<executor::BlockCon
     }
 }
 
+// FIXME: storage create table do not need key field
 void TableFactoryPrecompiled::createTable(const std::shared_ptr<executor::BlockContext>& _context,
     bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
     const std::string& _origin, const std::string& _sender, const PrecompiledGas::Ptr& gasPricer)
 {
     // createTable(string,string,string)
-    if (!checkAuthority(_context->getTableFactory(), _origin, _sender))
-    {
-        PRECOMPILED_LOG(ERROR) << LOG_BADGE("TableFactoryPrecompiled")
-                               << LOG_DESC("permission denied") << LOG_KV("origin", _origin)
-                               << LOG_KV("contract", _sender);
-        BOOST_THROW_EXCEPTION(
-            protocol::PrecompiledError() << errinfo_comment(
-                "Permission denied. " + _origin + " can't call contract " + _sender));
-    }
     std::string tableName;
     std::string keyField;
     std::string valueField;
@@ -241,19 +232,29 @@ void TableFactoryPrecompiled::createTable(const std::shared_ptr<executor::BlockC
         }
         else
         {
-            m_memoryTableFactory->createTable(newTableName, keyField, valueField);
+            if (!m_memoryTableFactory->createTable(newTableName, valueField))
+            {
+                result = CODE_TABLE_CREATE_ERROR;
+                getErrorCodeOut(callResult->mutableExecResult(), result, codec);
+                return;
+            }
+
+            // set keyField in s_tables
+            auto sysTable = m_memoryTableFactory->openTable(storage::StorageInterface::SYS_TABLES);
+            auto sysEntry = sysTable->getRow(newTableName);
+            sysEntry->setField("key_field", keyField);
+            sysTable->setRow(newTableName, sysEntry.value());
             gasPricer->appendOperation(InterfaceOpcode::CreateTable);
 
             // parentPath table must exist
             // update parentDir
             auto parentTable = m_memoryTableFactory->openTable(parentDir);
             auto newEntry = parentTable->newEntry();
-            newEntry->setField(FS_FIELD_TYPE, FS_TYPE_CONTRACT);
-            // FIXME: consider permission inheritance
-            newEntry->setField(FS_FIELD_ACCESS, "");
-            newEntry->setField(FS_FIELD_OWNER, _origin);
-            newEntry->setField(FS_FIELD_GID, "");
-            newEntry->setField(FS_FIELD_EXTRA, "");
+            newEntry.setField(FS_FIELD_TYPE, FS_TYPE_CONTRACT);
+            newEntry.setField(FS_FIELD_ACCESS, "");
+            newEntry.setField(FS_FIELD_OWNER, _origin);
+            newEntry.setField(FS_FIELD_GID, "");
+            newEntry.setField(FS_FIELD_EXTRA, "");
             parentTable->setRow(tableBaseName, newEntry);
         }
     }

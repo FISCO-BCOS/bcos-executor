@@ -19,7 +19,7 @@
  */
 
 #pragma once
-#include "../vm/BlockContext.h"
+#include "../executive/BlockContext.h"
 #include "../vm/Precompiled.h"
 #include "Common.h"
 #include "Utilities.h"
@@ -57,9 +57,17 @@ private:
     void select(std::shared_ptr<executor::BlockContext> _context, bytesConstRef _paramData,
         std::shared_ptr<PrecompiledExecResult> _callResult,
         std::shared_ptr<PrecompiledGas> _gasPricer);
-    int parseEntry(const std::string& entryStr, std::shared_ptr<storage::Entry>& entry);
+    int parseEntry(const std::string& entryStr, storage::Entry& entry);
     int parseCondition(const std::string& conditionStr, precompiled::Condition::Ptr& condition,
         std::shared_ptr<PrecompiledGas> _gasPricer);
+    inline bool isHashField(const std::string_view& _key)
+    {
+        if (!_key.empty())
+        {
+            return ((_key.substr(0, 1) != "_" && _key.substr(_key.size() - 1, 1) != "_"));
+        }
+        return false;
+    }
 };
 }  // namespace precompiled
 }  // namespace bcos

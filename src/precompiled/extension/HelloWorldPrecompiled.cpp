@@ -19,7 +19,7 @@
  */
 
 #include "HelloWorldPrecompiled.h"
-#include "../../vm/BlockContext.h"
+#include "../../executive/BlockContext.h"
 #include "../PrecompiledResult.h"
 #include "../Utilities.h"
 
@@ -61,7 +61,7 @@ std::string HelloWorldPrecompiled::toString()
 
 PrecompiledExecResult::Ptr HelloWorldPrecompiled::call(
     std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
-    const std::string& _origin, const std::string&, u256& _remainGas)
+    const std::string& _origin, const std::string&, int64_t _remainGas)
 {
     PRECOMPILED_LOG(TRACE) << LOG_BADGE("HelloWorldPrecompiled") << LOG_DESC("call")
                            << LOG_KV("param", toHexString(_param));
@@ -75,13 +75,12 @@ PrecompiledExecResult::Ptr HelloWorldPrecompiled::call(
     gasPricer->setMemUsed(_param.size());
 
     auto table =
-        _context->getTableFactory()->openTable(precompiled::getTableName(HELLO_WORLD_TABLE_NAME));
+        _context->storage()->openTable(precompiled::getTableName(HELLO_WORLD_TABLE_NAME));
     gasPricer->appendOperation(InterfaceOpcode::OpenTable);
     if (!table)
     {
         // table is not exist, create it.
-        table = createTable(_context->getTableFactory(),
-            precompiled::getTableName(HELLO_WORLD_TABLE_NAME), HELLO_WORLD_KEY_FIELD,
+        table = createTable(_context->storage(), precompiled::getTableName(HELLO_WORLD_TABLE_NAME),
             HELLO_WORLD_VALUE_FIELD);
         gasPricer->appendOperation(InterfaceOpcode::CreateTable);
         if (!table)
@@ -119,13 +118,7 @@ PrecompiledExecResult::Ptr HelloWorldPrecompiled::call(
         gasPricer->appendOperation(InterfaceOpcode::Select, 1);
         entry->setField(HELLO_WORLD_VALUE_FIELD, strValue);
 
-        if (!_context->getTableFactory()->checkAuthority(HELLO_WORLD_TABLE_NAME, _origin))
-        {
-            PRECOMPILED_LOG(ERROR)
-                << LOG_BADGE("HelloWorldPrecompiled") << LOG_DESC(" permission denied ")
-                << LOG_KV("origin", _origin) << LOG_KV("func", func);
-        }
-        table->setRow(HELLO_WORLD_KEY_FIELD_NAME, entry);
+        table->setRow(HELLO_WORLD_KEY_FIELD_NAME, *entry);
         gasPricer->appendOperation(InterfaceOpcode::Update, 1);
         gasPricer->updateMemUsed(entry->capacityOfHashField());
         getErrorCodeOut(callResult->mutableExecResult(), 1, codec);

@@ -59,7 +59,7 @@ std::string EntryPrecompiled::toString()
 }
 
 PrecompiledExecResult::Ptr EntryPrecompiled::call(std::shared_ptr<executor::BlockContext> _context,
-    bytesConstRef _param, const std::string&, const std::string&, u256& _remainGas)
+    bytesConstRef _param, const std::string&, const std::string&, int64_t _remainGas)
 {
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
@@ -132,14 +132,14 @@ PrecompiledExecResult::Ptr EntryPrecompiled::call(std::shared_ptr<executor::Bloc
         std::string str;
         codec->decode(data, str);
 
-        std::string value = m_entry->getField(str);
+        auto value = m_entry->getField(str);
         if (_context->isWasm())
         {
-            callResult->setExecResult(codec->encode(value));
+            callResult->setExecResult(codec->encode(std::string(value)));
         }
         else
         {
-            auto ret = Address(value);
+            auto ret = Address(std::string(value));
             callResult->setExecResult(codec->encode(ret));
         }
         gasPricer->appendOperation(InterfaceOpcode::GetAddr);
@@ -150,7 +150,7 @@ PrecompiledExecResult::Ptr EntryPrecompiled::call(std::shared_ptr<executor::Bloc
         std::string str;
         codec->decode(data, str);
 
-        std::string value = m_entry->getField(str);
+        auto value = m_entry->getField(str);
 
         string32 ret0;
         string32 ret1;
@@ -169,8 +169,8 @@ PrecompiledExecResult::Ptr EntryPrecompiled::call(std::shared_ptr<executor::Bloc
         std::string str;
         codec->decode(data, str);
 
-        std::string value = m_entry->getField(str);
-        bcos::string32 s32 = bcos::codec::toString32(value);
+        auto value = m_entry->getField(str);
+        bcos::string32 s32 = bcos::codec::toString32(std::string(value));
         callResult->setExecResult(codec->encode(s32));
         gasPricer->appendOperation(InterfaceOpcode::GetByte32);
     }
@@ -180,8 +180,8 @@ PrecompiledExecResult::Ptr EntryPrecompiled::call(std::shared_ptr<executor::Bloc
         std::string str;
         codec->decode(data, str);
 
-        std::string value = m_entry->getField(str);
-        callResult->setExecResult(codec->encode(value));
+        auto value = m_entry->getField(str);
+        callResult->setExecResult(codec->encode(std::string(value)));
         gasPricer->appendOperation(InterfaceOpcode::GetString);
     }
     else

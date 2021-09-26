@@ -19,7 +19,7 @@
  */
 
 #include "DeployWasmPrecompiled.h"
-#include "../vm/TransactionExecutive.h"
+#include "../executive/TransactionExecutive.h"
 #include "Common.h"
 #include "PrecompiledResult.h"
 #include "Utilities.h"
@@ -44,7 +44,7 @@ std::string DeployWasmPrecompiled::toString()
 }
 std::shared_ptr<PrecompiledExecResult> DeployWasmPrecompiled::call(
     std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
-    const std::string& _origin, const std::string& _sender, u256& _remainGas)
+    const std::string& _origin, const std::string& _sender, int64_t _remainGas)
 {
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
@@ -59,7 +59,7 @@ std::shared_ptr<PrecompiledExecResult> DeployWasmPrecompiled::call(
         bytes code, param;
         std::string path, jsonABI;
         codec->decode(data, code, param, path, jsonABI);
-        auto table = _context->getTableFactory()->openTable(path);
+        auto table = _context->storage()->openTable(path);
         if (table)
         {
             PRECOMPILED_LOG(ERROR) << LOG_BADGE("DeployWasmPrecompiled")
@@ -78,31 +78,36 @@ std::shared_ptr<PrecompiledExecResult> DeployWasmPrecompiled::call(
             auto parentDirAndBaseName = getParentDirAndBaseName(path);
             std::string parentDir = parentDirAndBaseName.first;
             std::string contractName = parentDirAndBaseName.second;
-            if (recursiveBuildDir(_context->getTableFactory(), parentDir))
+            if (recursiveBuildDir(_context->storage(), parentDir))
             {
                 // TODO: get critical domains in jsonABI
+
                 // FIXME: change usage
-                auto executive = std::make_shared<TransactionExecutive>(_context);
-                if (!executive->executeCreate(
-                        _sender, _origin, path, _remainGas, ref(code), ref(param)))
-                {
-                    executive->go();
-                    if (executive->status() != TransactionStatus::None)
-                    {
-                        PRECOMPILED_LOG(ERROR)
-                            << LOG_BADGE("DeployWasmPrecompiled") << LOG_DESC("executive->go error")
-                            << LOG_KV("path", path);
-                        // FIXME:  return error message in PrecompiledError
-                        BOOST_THROW_EXCEPTION(protocol::PrecompiledError());
-                    }
-                }
-                else
-                {
-                    PRECOMPILED_LOG(ERROR)
-                        << LOG_BADGE("DeployWasmPrecompiled")
-                        << LOG_DESC("executive->executeCreate error") << LOG_KV("path", path);
-                    BOOST_THROW_EXCEPTION(protocol::PrecompiledError());
-                }
+                //                auto executive = std::make_shared<TransactionExecutive>(_context);
+                //                if (!executive->executeCreate(
+                //                        _sender, _origin, path, _remainGas, ref(code),
+                //                        ref(param)))
+                //                {
+                //                    executive->go();
+                //                    if (executive->status() != TransactionStatus::None)
+                //                    {
+                //                        PRECOMPILED_LOG(ERROR)
+                //                            << LOG_BADGE("DeployWasmPrecompiled") <<
+                //                            LOG_DESC("executive->go error")
+                //                            << LOG_KV("path", path);
+                //                        // FIXME:  return error message in PrecompiledError
+                //                        BOOST_THROW_EXCEPTION(protocol::PrecompiledError());
+                //                    }
+                //                }
+                //                else
+                //                {
+                //                    PRECOMPILED_LOG(ERROR)
+                //                        << LOG_BADGE("DeployWasmPrecompiled")
+                //                        << LOG_DESC("executive->executeCreate error") <<
+                //                        LOG_KV("path", path);
+                //                    BOOST_THROW_EXCEPTION(protocol::PrecompiledError());
+                //                }
+
                 // open parentDir and write subdir
                 if (!setContractFile(_context, parentDir, contractName, _origin))
                 {
@@ -117,7 +122,8 @@ std::shared_ptr<PrecompiledExecResult> DeployWasmPrecompiled::call(
                         << LOG_BADGE("DeployWasmPrecompiled")
                         << LOG_DESC("setContractFile in parentDir success") << LOG_KV("path", path);
                     callResult->setExecResult(codec->encode(s256((int)CODE_SUCCESS)));
-                    _context->getState()->setAbi(path, jsonABI);
+                    // FIXME: how to set abi?
+                    //                    _context->getState()->setAbi(path, jsonABI);
                 }
             }
             else
@@ -142,18 +148,18 @@ std::shared_ptr<PrecompiledExecResult> DeployWasmPrecompiled::call(
 bool DeployWasmPrecompiled::setContractFile(std::shared_ptr<executor::BlockContext> _context,
     const std::string& _parentDir, const std::string& _contractName, const std::string& _owner)
 {
-    auto parentTable = _context->getTableFactory()->openTable(_parentDir);
+    auto parentTable = _context->storage()->openTable(_parentDir);
     if (!parentTable)
         return false;
     auto newEntry = parentTable->newEntry();
-    newEntry->setField(FS_FIELD_TYPE, FS_TYPE_CONTRACT);
+    newEntry.setField(FS_FIELD_TYPE, FS_TYPE_CONTRACT);
     // FIXME: consider permission inheritance
-    newEntry->setField(FS_FIELD_ACCESS, "");
-    newEntry->setField(FS_FIELD_OWNER, _owner);
-    newEntry->setField(FS_FIELD_GID, "");
-    newEntry->setField(FS_FIELD_EXTRA, "");
-    return parentTable->setRow(_contractName, newEntry);
-    ;
+    newEntry.setField(FS_FIELD_ACCESS, "");
+    newEntry.setField(FS_FIELD_OWNER, _owner);
+    newEntry.setField(FS_FIELD_GID, "");
+    newEntry.setField(FS_FIELD_EXTRA, "");
+    parentTable->setRow(_contractName, newEntry);
+    return true;
 }
 
 bool DeployWasmPrecompiled::checkPathValid(std::string const& _path)

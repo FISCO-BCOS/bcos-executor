@@ -48,13 +48,11 @@ public:
 
     std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::BlockContext> _context,
         bytesConstRef _param, const std::string& _origin, const std::string& _sender,
-        u256& _remainGas) override;
+        int64_t _remainGas) override;
 
     std::shared_ptr<storage::Table> getTable() { return m_table; }
     void setTable(std::shared_ptr<storage::Table> _table) { m_table = _table; }
-
-    crypto::HashType hash();
-
+    // FIXME: table hash
 private:
     std::shared_ptr<storage::Table> m_table;
 };

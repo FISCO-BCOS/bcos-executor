@@ -19,7 +19,7 @@
  */
 
 #pragma once
-#include "../vm/BlockContext.h"
+#include "../executive/BlockContext.h"
 #include "../vm/Precompiled.h"
 #include "Common.h"
 #include <bcos-framework/interfaces/storage/Common.h>
@@ -63,9 +63,9 @@ private:
 
 private:
     void showConsensusTable(std::shared_ptr<executor::BlockContext> context);
-    bool checkIsLastSealer(std::shared_ptr<bcos::storage::Table> table, std::string const& nodeID);
-    std::shared_ptr<std::map<std::string, std::shared_ptr<storage::Entry>>> getRowsByNodeType(
-        std::shared_ptr<bcos::storage::Table> _table, std::string const& _nodeType);
+    bool checkIsLastSealer(std::optional<bcos::storage::Table> table, std::string const& nodeID);
+    std::shared_ptr<std::map<std::string, std::optional<storage::Entry>>> getRowsByNodeType(
+        std::optional<bcos::storage::Table> _table, std::string const& _nodeType);
 };
 }  // namespace precompiled
 }  // namespace bcos

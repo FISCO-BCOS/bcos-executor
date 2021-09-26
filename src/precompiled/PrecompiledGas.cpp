@@ -46,16 +46,16 @@ void PrecompiledGas::updateMemUsed(uint64_t const& _newMemSize)
     }
 }
 
-u256 PrecompiledGas::calTotalGas()
+int64_t PrecompiledGas::calTotalGas()
 {
     return (calComputationGas() + calMemGas());
 }
 
 
 // Traverse m_operationList to calculate total gas cost
-u256 PrecompiledGas::calComputationGas()
+int64_t PrecompiledGas::calComputationGas()
 {
-    u256 totalGas = 0;
+    int64_t totalGas = 0;
     for (auto const& it : *m_operationList)
     {
         if (!m_metric->OpCode2GasCost.count(it.first))
@@ -69,7 +69,7 @@ u256 PrecompiledGas::calComputationGas()
 }
 
 // Calculating gas consumed by memory
-u256 PrecompiledGas::calMemGas()
+int64_t PrecompiledGas::calMemGas()
 {
     if (m_memUsed == 0)
     {

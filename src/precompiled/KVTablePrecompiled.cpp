@@ -55,7 +55,7 @@ std::string KVTablePrecompiled::toString()
 
 PrecompiledExecResult::Ptr KVTablePrecompiled::call(
     std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
-    const std::string& _origin, const std::string& _sender, u256& _remainGas)
+    const std::string& _origin, const std::string& _sender, int64_t _remainGas)
 {
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
@@ -92,7 +92,7 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
             gasPricer->updateMemUsed(entry->capacityOfHashField());
             auto entryPrecompiled = std::make_shared<EntryPrecompiled>(m_hashImpl);
             // CachedStorage return entry use copy from
-            entryPrecompiled->setEntry(entry);
+            entryPrecompiled->setEntry(std::make_shared<Entry>(entry.value()));
             if (_context->isWasm())
             {
                 std::string newAddress = _context->registerPrecompiled(entryPrecompiled);
@@ -111,15 +111,6 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
         // WARNING: this method just for wasm
         if (_context->isWasm())
         {
-            if (!checkAuthority(_context->getTableFactory(), _origin, _sender))
-            {
-                PRECOMPILED_LOG(ERROR)
-                    << LOG_BADGE("TablePrecompiled") << LOG_DESC("permission denied")
-                    << LOG_KV("origin", _origin) << LOG_KV("contract", _sender);
-                BOOST_THROW_EXCEPTION(
-                    PrecompiledError() << errinfo_comment(
-                        "Permission denied. " + _origin + " can't call contract " + _sender));
-            }
             std::string key;
             std::string entryAddress;
             codec->decode(data, key, entryAddress);
@@ -133,27 +124,19 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
             auto it = entry->begin();
             for (; it != entry->end(); ++it)
             {
-                checkLengthValidate(it->second, USER_TABLE_FIELD_VALUE_MAX_LENGTH,
-                    CODE_TABLE_KEY_VALUE_LENGTH_OVERFLOW);
+                checkLengthValidate(static_cast<const std::string>(*it),
+                    USER_TABLE_FIELD_VALUE_MAX_LENGTH, CODE_TABLE_KEY_VALUE_LENGTH_OVERFLOW);
             }
 
-            m_table->setRow(key, entry);
+            m_table->setRow(key, *entry);
+            callResult->setExecResult(codec->encode(s256(1)));
             gasPricer->setMemUsed(entry->capacityOfHashField());
             gasPricer->appendOperation(InterfaceOpcode::Insert, 1);
-            callResult->setExecResult(codec->encode(s256(1)));
         }
     }
     else if (func == name2Selector[KV_TABLE_METHOD_SET])
     {
         // set(string,address)
-        if (!checkAuthority(_context->getTableFactory(), _origin, _sender))
-        {
-            PRECOMPILED_LOG(ERROR) << LOG_BADGE("TablePrecompiled") << LOG_DESC("permission denied")
-                                   << LOG_KV("origin", _origin) << LOG_KV("contract", _sender);
-            BOOST_THROW_EXCEPTION(
-                PrecompiledError() << errinfo_comment(
-                    "Permission denied. " + _origin + " can't call contract " + _sender));
-        }
         std::string key;
         Address entryAddress;
         codec->decode(data, key, entryAddress);
@@ -167,20 +150,20 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
         auto it = entry->begin();
         for (; it != entry->end(); ++it)
         {
-            checkLengthValidate(it->second, USER_TABLE_FIELD_VALUE_MAX_LENGTH,
-                CODE_TABLE_KEY_VALUE_LENGTH_OVERFLOW);
+            checkLengthValidate(static_cast<const std::string>(*it),
+                USER_TABLE_FIELD_VALUE_MAX_LENGTH, CODE_TABLE_KEY_VALUE_LENGTH_OVERFLOW);
         }
 
-        m_table->setRow(key, entry);
+        m_table->setRow(key, *entry);
+        callResult->setExecResult(codec->encode(s256(1)));
         gasPricer->setMemUsed(entry->capacityOfHashField());
         gasPricer->appendOperation(InterfaceOpcode::Insert, 1);
-        callResult->setExecResult(codec->encode(s256(1)));
     }
     else if (func == name2Selector[KV_TABLE_METHOD_NEW_ENTRY])
     {  // newEntry()
         auto entry = m_table->newEntry();
         auto entryPrecompiled = std::make_shared<EntryPrecompiled>(m_hashImpl);
-        entryPrecompiled->setEntry(entry);
+        entryPrecompiled->setEntry(std::make_shared<Entry>(entry));
 
         if (_context->isWasm())
         {
@@ -201,9 +184,4 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
     gasPricer->updateMemUsed(callResult->m_execResult.size());
     _remainGas -= gasPricer->calTotalGas();
     return callResult;
-}
-
-crypto::HashType KVTablePrecompiled::hash()
-{
-    return m_table->hash();
 }

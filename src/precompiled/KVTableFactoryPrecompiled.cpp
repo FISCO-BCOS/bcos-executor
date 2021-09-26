@@ -54,7 +54,7 @@ std::string KVTableFactoryPrecompiled::toString()
 
 PrecompiledExecResult::Ptr KVTableFactoryPrecompiled::call(
     std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
-    const std::string& _origin, const std::string& _sender, u256& _remainGas)
+    const std::string& _origin, const std::string& _sender, int64_t _remainGas)
 {
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
@@ -83,11 +83,6 @@ PrecompiledExecResult::Ptr KVTableFactoryPrecompiled::call(
     gasPricer->updateMemUsed(callResult->m_execResult.size());
     _remainGas -= gasPricer->calTotalGas();
     return callResult;
-}
-
-crypto::HashType KVTableFactoryPrecompiled::hash()
-{
-    return m_memoryTableFactory->hash();
 }
 
 void KVTableFactoryPrecompiled::checkCreateTableParam(
@@ -155,7 +150,7 @@ void KVTableFactoryPrecompiled::openTable(const std::shared_ptr<executor::BlockC
         BOOST_THROW_EXCEPTION(PrecompiledError() << errinfo_comment(tableName + " does not exist"));
     }
     auto kvTablePrecompiled = std::make_shared<KVTablePrecompiled>(m_hashImpl);
-    kvTablePrecompiled->setTable(table);
+    kvTablePrecompiled->setTable(std::make_shared<storage::Table>(table.value()));
     if (_context->isWasm())
     {
         auto address = _context->registerPrecompiled(kvTablePrecompiled);
@@ -168,20 +163,12 @@ void KVTableFactoryPrecompiled::openTable(const std::shared_ptr<executor::BlockC
     }
 }
 
+// FIXME: storage create table do not need key field
 void KVTableFactoryPrecompiled::createTable(const std::shared_ptr<executor::BlockContext>& _context,
     bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
     const std::string& _origin, const std::string& _sender, const PrecompiledGas::Ptr& gasPricer)
 {
     // createTable(string,string,string)
-    if (!checkAuthority(_context->getTableFactory(), _origin, _sender))
-    {
-        PRECOMPILED_LOG(ERROR) << LOG_BADGE("KVTableFactoryPrecompiled")
-                               << LOG_DESC("permission denied") << LOG_KV("origin", _origin)
-                               << LOG_KV("contract", _sender);
-        BOOST_THROW_EXCEPTION(
-            PrecompiledError() << errinfo_comment(
-                "Permission denied. " + _origin + " can't call contract " + _sender));
-    }
     std::string tableName;
     std::string keyField;
     std::string valueField;
@@ -219,20 +206,19 @@ void KVTableFactoryPrecompiled::createTable(const std::shared_ptr<executor::Bloc
     }
     else
     {
-        m_memoryTableFactory->createTable(newTableName, keyField, valueField);
+        m_memoryTableFactory->createTable(newTableName, valueField);
         gasPricer->appendOperation(InterfaceOpcode::CreateTable);
 
         // parentPath table must exist
         // update parentDir
         auto parentTable = m_memoryTableFactory->openTable(parentDir);
-        assert(parentTable != nullptr);
+        assert(parentTable != std::nullopt);
         auto newEntry = parentTable->newEntry();
-        newEntry->setField(FS_FIELD_TYPE, FS_TYPE_CONTRACT);
-        // FIXME: consider permission inheritance
-        newEntry->setField(FS_FIELD_ACCESS, "");
-        newEntry->setField(FS_FIELD_OWNER, _origin);
-        newEntry->setField(FS_FIELD_GID, "");
-        newEntry->setField(FS_FIELD_EXTRA, "");
+        newEntry.setField(FS_FIELD_TYPE, FS_TYPE_CONTRACT);
+        newEntry.setField(FS_FIELD_ACCESS, "");
+        newEntry.setField(FS_FIELD_OWNER, _origin);
+        newEntry.setField(FS_FIELD_GID, "");
+        newEntry.setField(FS_FIELD_EXTRA, "");
         parentTable->setRow(tableBaseName, newEntry);
     }
     getErrorCodeOut(callResult->mutableExecResult(), result, codec);

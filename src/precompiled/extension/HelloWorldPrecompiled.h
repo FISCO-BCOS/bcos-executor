@@ -38,7 +38,7 @@ public:
 
     std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::BlockContext> _context,
         bytesConstRef _param, const std::string& _origin, const std::string& _sender,
-        u256& _remainGas) override;
+        int64_t _remainGas) override;
 };
 }  // namespace precompiled
 }  // namespace bcos

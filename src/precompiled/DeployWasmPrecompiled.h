@@ -19,7 +19,7 @@
  */
 
 #pragma once
-#include "../vm/BlockContext.h"
+#include "../executive/BlockContext.h"
 #include "../vm/Precompiled.h"
 #include "Common.h"
 #include <bcos-framework/interfaces/storage/Common.h>

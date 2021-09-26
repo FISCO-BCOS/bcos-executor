@@ -50,7 +50,7 @@ SystemConfigPrecompiled::SystemConfigPrecompiled(crypto::Hash::Ptr _hashImpl)
 
 PrecompiledExecResult::Ptr SystemConfigPrecompiled::call(
     std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
-    const std::string& _origin, const std::string&, u256& _remainGas)
+    const std::string& _origin, const std::string&, int64_t _remainGas)
 {
     // parse function name
     uint32_t func = getParamFunc(_param);
@@ -82,27 +82,18 @@ PrecompiledExecResult::Ptr SystemConfigPrecompiled::call(
             return callResult;
         }
 
-        auto tableFactory = _context->getTableFactory();
-        auto table = tableFactory->openTable(ledger::SYS_CONFIG);
+        auto table = _context->storage()->openTable(ledger::SYS_CONFIG);
 
         auto entry = table->newEntry();
-        entry->setField(SYS_VALUE, configValue);
-        entry->setField(SYS_CONFIG_ENABLE_BLOCK_NUMBER,
+        entry.setField(SYS_VALUE, configValue);
+        entry.setField(SYS_CONFIG_ENABLE_BLOCK_NUMBER,
             boost::lexical_cast<std::string>(_context->currentNumber() + 1));
-        if (tableFactory->checkAuthority(ledger::SYS_CONFIG, _origin))
-        {
-            table->setRow(configKey, entry);
-            PRECOMPILED_LOG(INFO) << LOG_BADGE("SystemConfigPrecompiled")
-                                  << LOG_DESC("set system config") << LOG_KV("configKey", configKey)
-                                  << LOG_KV("configValue", configValue);
-            result = 0;
-        }
-        else
-        {
-            PRECOMPILED_LOG(DEBUG)
-                << LOG_BADGE("SystemConfigPrecompiled") << LOG_DESC("permission denied");
-            result = CODE_NO_AUTHORIZED;
-        }
+        table->setRow(configKey, entry);
+
+        PRECOMPILED_LOG(INFO) << LOG_BADGE("SystemConfigPrecompiled")
+                              << LOG_DESC("set system config") << LOG_KV("configKey", configKey)
+                              << LOG_KV("configValue", configValue);
+        result = 0;
         getErrorCodeOut(callResult->mutableExecResult(), result, codec);
     }
     else if (func == name2Selector[SYSCONFIG_METHOD_GET_STR])
@@ -115,7 +106,7 @@ PrecompiledExecResult::Ptr SystemConfigPrecompiled::call(
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("SystemConfigPrecompiled")
                                << LOG_DESC("getValueByKey func") << LOG_KV("configKey", configKey);
 
-        auto valueNumberPair = getSysConfigByKey(configKey, _context->getTableFactory());
+        auto valueNumberPair = getSysConfigByKey(configKey, _context->storage());
 
         callResult->setExecResult(
             codec->encode(valueNumberPair.first, u256(valueNumberPair.second)));
@@ -167,7 +158,7 @@ std::pair<std::string, protocol::BlockNumber> SystemConfigPrecompiled::getSysCon
     {
         try
         {
-            auto value = entry->getField(SYS_VALUE);
+            auto value = std::string(entry->getField(SYS_VALUE));
             auto enableNumber = boost::lexical_cast<protocol::BlockNumber>(
                 entry->getField(SYS_CONFIG_ENABLE_BLOCK_NUMBER));
             return {value, enableNumber};

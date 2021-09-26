@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "../vm/BlockContext.h"
+#include "../executive/BlockContext.h"
 #include "Common.h"
 #include "PrecompiledCodec.h"
 #include <bcos-framework/interfaces/storage/Table.h>
@@ -36,6 +36,7 @@ namespace bcos
 namespace precompiled
 {
 static const std::string USER_TABLE_PREFIX = "/tables/";
+static const std::string USER_APPS_PREFIX = "/apps/";
 
 enum class Comparator
 {
@@ -72,7 +73,7 @@ struct Condition : public std::enable_shared_from_this<Condition>
     void limit(size_t count);
     void limit(size_t start, size_t end);
 
-    bool filter(std::shared_ptr<storage::Entry> entry);
+    bool filter(std::optional<storage::Entry> entry);
     std::vector<CompareTriple> m_conditions;
     std::pair<size_t, size_t> m_limit;
 };
