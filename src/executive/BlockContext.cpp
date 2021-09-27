@@ -60,7 +60,7 @@ shared_ptr<PrecompiledExecResult> BlockContext::call(const string& address, byte
 
         if (p)
         {
-            auto execResult = p->call(shared_from_this(), param, origin, sender, _remainGas);
+            auto execResult = p->call(shared_from_this(), param, origin, sender);
             return execResult;
         }
         else

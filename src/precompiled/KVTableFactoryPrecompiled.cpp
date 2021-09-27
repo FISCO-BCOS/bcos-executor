@@ -52,9 +52,9 @@ std::string KVTableFactoryPrecompiled::toString()
     return "KVTableFactory";
 }
 
-PrecompiledExecResult::Ptr KVTableFactoryPrecompiled::call(
+std::shared_ptr<PrecompiledExecResult> KVTableFactoryPrecompiled::call(
     std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
-    const std::string& _origin, const std::string& _sender, int64_t _remainGas)
+    const std::string& _origin, const std::string& _sender)
 {
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
@@ -81,7 +81,7 @@ PrecompiledExecResult::Ptr KVTableFactoryPrecompiled::call(
                                << LOG_DESC("call undefined function!");
     }
     gasPricer->updateMemUsed(callResult->m_execResult.size());
-    _remainGas -= gasPricer->calTotalGas();
+    callResult->setGas(gasPricer->calTotalGas());
     return callResult;
 }
 
@@ -163,7 +163,6 @@ void KVTableFactoryPrecompiled::openTable(const std::shared_ptr<executor::BlockC
     }
 }
 
-// FIXME: storage create table do not need key field
 void KVTableFactoryPrecompiled::createTable(const std::shared_ptr<executor::BlockContext>& _context,
     bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
     const std::string& _origin, const std::string& _sender, const PrecompiledGas::Ptr& gasPricer)
@@ -206,7 +205,17 @@ void KVTableFactoryPrecompiled::createTable(const std::shared_ptr<executor::Bloc
     }
     else
     {
-        m_memoryTableFactory->createTable(newTableName, valueField);
+        auto ret = m_memoryTableFactory->createTable(newTableName, valueField);
+        auto sysTable = _context->storage()->openTable(StorageInterface::SYS_TABLES);
+        auto sysEntry = sysTable->getRow(newTableName);
+        if (!ret || !sysEntry)
+        {
+            result = CODE_TABLE_CREATE_ERROR;
+            getErrorCodeOut(callResult->mutableExecResult(), result, codec);
+            return;
+        }
+        sysEntry->setField("key_field", keyField);
+        sysTable->setRow(newTableName, sysEntry.value());
         gasPricer->appendOperation(InterfaceOpcode::CreateTable);
 
         // parentPath table must exist

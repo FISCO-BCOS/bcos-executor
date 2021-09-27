@@ -162,9 +162,9 @@ std::optional<storage::Table> DagTransferPrecompiled::openTable(
     return table;
 }
 
-PrecompiledExecResult::Ptr DagTransferPrecompiled::call(
+std::shared_ptr<PrecompiledExecResult> DagTransferPrecompiled::call(
     std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
-    const std::string& _origin, const std::string&, int64_t _remainGas)
+    const std::string& _origin, const std::string&)
 {
     // parse function name
     uint32_t func = getParamFunc(_param);
@@ -199,7 +199,7 @@ PrecompiledExecResult::Ptr DagTransferPrecompiled::call(
                                << LOG_KV("func", func);
     }
     gasPricer->updateMemUsed(callResult->m_execResult.size());
-    _remainGas -= gasPricer->calTotalGas();
+    callResult->setGas(gasPricer->calTotalGas());
     return callResult;
 }
 

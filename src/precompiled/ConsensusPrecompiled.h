@@ -44,22 +44,16 @@ public:
     virtual ~ConsensusPrecompiled(){};
 
     std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::BlockContext> _context,
-        bytesConstRef _param, const std::string& _origin, const std::string& _sender,
-        int64_t _remainGas) override;
+        bytesConstRef _param, const std::string& _origin, const std::string& _sender) override;
 
 private:
-    int addSealer(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& _data,
-        const std::string& _origin);
+    int addSealer(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& _data);
 
-    int addObserver(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& _data,
-        const std::string& _origin);
+    int addObserver(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& _data);
 
-    int removeNode(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& _data,
-        const std::string& _origin);
+    int removeNode(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& _data);
 
-    int setWeight(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& _data,
-        const std::string& _origin);
-
+    int setWeight(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& _data);
 
 private:
     void showConsensusTable(std::shared_ptr<executor::BlockContext> context);

@@ -114,8 +114,9 @@ int CNSPrecompiled::checkCNSParam(BlockContext::Ptr _context, Address const& _co
     return CODE_SUCCESS;
 }
 
-PrecompiledExecResult::Ptr CNSPrecompiled::call(std::shared_ptr<executor::BlockContext> _context,
-    bytesConstRef _param, const std::string& _origin, const std::string&, int64_t _remainGas)
+std::shared_ptr<PrecompiledExecResult> CNSPrecompiled::call(
+    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
+    const std::string& _origin, const std::string&)
 {
     // parse function name
     uint32_t func = getParamFunc(_param);

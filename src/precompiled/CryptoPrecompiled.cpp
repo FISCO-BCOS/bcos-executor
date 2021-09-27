@@ -55,8 +55,9 @@ CryptoPrecompiled::CryptoPrecompiled(crypto::Hash::Ptr _hashImpl) : Precompiled(
         getFuncSelector(CRYPTO_METHOD_SM2_VERIFY_STR, _hashImpl);
 }
 
-PrecompiledExecResult::Ptr CryptoPrecompiled::call(std::shared_ptr<executor::BlockContext> _context,
-    bytesConstRef _param, const std::string&, const std::string&, int64_t _remainGas)
+std::shared_ptr<PrecompiledExecResult> CryptoPrecompiled::call(
+    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param, const std::string&,
+    const std::string&)
 {
     auto funcSelector = getParamFunc(_param);
     auto paramData = getParamData(_param);
@@ -97,7 +98,7 @@ PrecompiledExecResult::Ptr CryptoPrecompiled::call(std::shared_ptr<executor::Blo
         callResult->setExecResult(codec->encode(u256((int)CODE_UNKNOW_FUNCTION_CALL)));
     }
     gasPricer->updateMemUsed(callResult->m_execResult.size());
-    _remainGas -= gasPricer->calTotalGas();
+    callResult->setGas(gasPricer->calTotalGas());
     return callResult;
 }
 

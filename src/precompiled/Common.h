@@ -34,9 +34,10 @@ namespace precompiled
 {
 #define PRECOMPILED_LOG(LEVEL) BCOS_LOG(LEVEL) << "[PRECOMPILED]"
 
-using EntriesConstPtr = std::shared_ptr<const std::vector<std::shared_ptr<storage::Entry>>>;
-using Entries = std::vector<std::shared_ptr<storage::Entry>>;
-using EntriesPtr = std::shared_ptr<std::vector<std::shared_ptr<storage::Entry>>>;
+// <k,v,entry>
+using Entries = std::vector<std::tuple<std::string_view, std::string_view, storage::Entry>>;
+using EntryWithKV = std::tuple<std::string_view, std::string_view, storage::Entry>;
+using EntriesPtr = std::shared_ptr<Entries>;
 
 /// SYS_CNS table
 const char* const SYS_CNS = "s_cns";

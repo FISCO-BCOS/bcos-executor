@@ -49,8 +49,8 @@ std::string PermissionPrecompiled::toString()
 }
 
 std::shared_ptr<PrecompiledExecResult> PermissionPrecompiled::call(
-    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
-    const std::string&, const std::string&, int64_t _remainGas)
+    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param, const std::string&,
+    const std::string&)
 {
     // parse function name
     uint32_t func = getParamFunc(_param);
@@ -131,7 +131,7 @@ std::shared_ptr<PrecompiledExecResult> PermissionPrecompiled::call(
                                << LOG_KV("func", func);
     }
     gasPricer->updateMemUsed(callResult->m_execResult.size());
-    _remainGas -= gasPricer->calTotalGas();
+    callResult->setGas(gasPricer->calTotalGas());
     return callResult;
 }
 PermissionRet::Ptr PermissionPrecompiled::login(

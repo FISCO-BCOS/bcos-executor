@@ -148,7 +148,7 @@ public:
     virtual std::string toString() { return ""; }
     virtual std::shared_ptr<PrecompiledExecResult> call(
         std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
-        const std::string& _origin, const std::string& _sender, int64_t _remainGas) = 0;
+        const std::string& _origin, const std::string& _sender) = 0;
 
     virtual bool isParallelPrecompiled() { return false; }
     virtual std::vector<std::string> getParallelTag(bytesConstRef /*param*/)

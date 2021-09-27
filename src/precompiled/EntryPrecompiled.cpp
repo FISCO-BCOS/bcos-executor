@@ -58,8 +58,9 @@ std::string EntryPrecompiled::toString()
     return "Entry";
 }
 
-PrecompiledExecResult::Ptr EntryPrecompiled::call(std::shared_ptr<executor::BlockContext> _context,
-    bytesConstRef _param, const std::string&, const std::string&, int64_t _remainGas)
+std::shared_ptr<PrecompiledExecResult> EntryPrecompiled::call(
+    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param, const std::string&,
+    const std::string&)
 {
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
@@ -67,6 +68,13 @@ PrecompiledExecResult::Ptr EntryPrecompiled::call(std::shared_ptr<executor::Bloc
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->setMemUsed(_param.size());
+    if (m_keyField.empty())
+    {
+        auto sysTable = _context->storage()->openTable(StorageInterface::SYS_TABLES);
+        auto sysEntry = sysTable->getRow(m_entry->tableInfo()->name());
+        if (sysEntry)
+            m_keyField = sysEntry->getField("key_field");
+    }
 
     if (func == name2Selector[ENTRY_GET_INT])
     {
@@ -113,7 +121,14 @@ PrecompiledExecResult::Ptr EntryPrecompiled::call(std::shared_ptr<executor::Bloc
         std::string value;
         codec->decode(data, str, value);
 
-        m_entry->setField(str, value);
+        if (str == m_keyField)
+        {
+            m_keyValue = {str, value};
+        }
+        else
+        {
+            m_entry->setField(str, value);
+        }
         gasPricer->appendOperation(InterfaceOpcode::Set);
     }
     else if (func == name2Selector[ENTRY_SET_STR_ADDR])
@@ -189,6 +204,6 @@ PrecompiledExecResult::Ptr EntryPrecompiled::call(std::shared_ptr<executor::Bloc
         STORAGE_LOG(ERROR) << LOG_BADGE("EntryPrecompiled") << LOG_DESC("call undefined function!");
     }
     gasPricer->updateMemUsed(callResult->m_execResult.size());
-    _remainGas -= gasPricer->calTotalGas();
+    callResult->setGas(gasPricer->calTotalGas());
     return callResult;
 }
