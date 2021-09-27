@@ -92,13 +92,15 @@ public:
 
     virtual ~TransactionExecutive() {}
 
-    void start(CallParameters::UniquePtr callParameters);  // start a new corountine to execute
-                                                           // parameters
+    void start();  // start a new corountine to execute
+                   // parameters
 
-    void pushMessage(CallParameters::UniquePtr callParameters)  // call by executor
+    void pushMessage(CoroutineMessage message)  // call by executor
     {
-        (*m_pushMessage)(std::move(callParameters));
+        (*m_pushMessage)(std::move(message));
     }
+
+    // void switchAndExecute(std::function<void()> callback);
 
     // External call request
     CallParameters::UniquePtr externalCall(CallParameters::UniquePtr input);  // call by

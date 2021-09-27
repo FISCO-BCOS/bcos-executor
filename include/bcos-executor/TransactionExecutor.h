@@ -80,10 +80,7 @@ public:
         protocol::ExecutionMessageFactory::Ptr executionMessageFactory,
         bcos::crypto::Hash::Ptr hashImpl, bool isWasm);
 
-    virtual ~TransactionExecutor() { stop(); }
-
-    void stop() {}
-    void start() {}
+    virtual ~TransactionExecutor() {}
 
     void nextBlockHeader(const bcos::protocol::BlockHeader::ConstPtr& blockHeader,
         std::function<void(bcos::Error::UniquePtr&&)> callback) noexcept override;

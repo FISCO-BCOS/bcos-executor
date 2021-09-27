@@ -770,7 +770,8 @@ void TransactionExecutor::asyncExecute(bcos::protocol::ExecutionMessage::UniqueP
 
             try
             {
-                executive->start(std::move(callParameters));
+                executive->start();
+                executive->pushMessage(std::move(callParameters));
             }
             catch (std::exception& e)
             {
@@ -805,7 +806,8 @@ void TransactionExecutor::asyncExecute(bcos::protocol::ExecutionMessage::UniqueP
 
             try
             {
-                executive->start(std::move(callParameters));
+                executive->start();
+                executive->pushMessage(std::move(callParameters));
             }
             catch (std::exception& e)
             {

@@ -4,6 +4,8 @@
 #include "bcos-framework/interfaces/storage/StorageInterface.h"
 #include "bcos-framework/interfaces/storage/Table.h"
 #include <boost/coroutine2/coroutine.hpp>
+#include <optional>
+#include <thread>
 
 namespace bcos::executor
 {
@@ -97,15 +99,32 @@ public:
 
     std::optional<storage::Table> createTable(std::string _tableName, std::string _valueFields)
     {
+        std::optional<std::tuple<Error::UniquePtr, std::optional<storage::Table>>> value;
+
         m_storage->asyncCreateTable(std::move(_tableName), std::move(_valueFields),
-            [this](Error::UniquePtr&& error, auto&& table) {
-                EXECUTOR_LOG(TRACE) << "Push create table result";
-                m_push(std::tuple{std::move(error), std::move(table)});
+            [this, value = &value, threadID = std::this_thread::get_id()](
+                Error::UniquePtr&& error, auto&& table) {
+                if (std::this_thread::get_id() == threadID)
+                {
+                    // Execute in the same rountine
+                    EXECUTOR_LOG(TRACE) << "Same rountine";
+                    *value = std::make_optional(std::tuple{std::move(error), std::move(table)});
+                }
+                else
+                {
+                    EXECUTOR_LOG(TRACE) << "Push create table result";
+                    m_push(std::tuple{std::move(error), std::move(table)});
+                }
             });
 
-        EXECUTOR_LOG(TRACE) << "Switch the main coroutine";
-        m_pull();
-        auto [error, table] = std::get<CreateTableMessage>(m_pull.get());
+        if (!value)
+        {
+            EXECUTOR_LOG(TRACE) << "Switch the main coroutine";
+            m_pull();
+            value = std::make_optional(std::get<CreateTableMessage>(m_pull.get()));
+        }
+
+        auto [error, table] = std::move(*value);
 
         if (error)
         {
