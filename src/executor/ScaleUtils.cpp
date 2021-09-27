@@ -23,7 +23,7 @@
 #include "ScaleUtils.h"
 #include <bcos-framework/libcodec/scale/Scale.h>
 #include <boost/algorithm/string/predicate.hpp>
-#include <charconv>
+#include <string>
 
 using namespace std;
 using namespace bcos;
@@ -151,9 +151,11 @@ optional<size_t> bcos::executor::scaleEncodingLength(
         else
         {
             auto dimmension = type.substr(leftBracketPos + 1, type.length() - leftBracketPos - 1);
-            auto [ptr, ec] =
-                from_chars(dimmension.data(), dimmension.data() + dimmension.length(), size);
-            if (ec != errc{})
+            try
+            {
+                size = stoul(dimmension);
+            }
+            catch (...)
             {
                 EXECUTOR_LOG(ERROR)
                     << LOG_BADGE("executor") << LOG_DESC("unable to parse dimmension")
@@ -186,9 +188,11 @@ optional<size_t> bcos::executor::scaleEncodingLength(
     {
         auto digitStartPos = type.rfind("t");
         auto digitsNum = 0u;
-        auto [ptr, ec] =
-            from_chars(type.data() + digitStartPos + 1, type.data() + type.size(), digitsNum);
-        if (ec != errc{})
+        try
+        {
+            digitsNum = stoul(type.substr(digitStartPos + 1));
+        }
+        catch (...)
         {
             EXECUTOR_LOG(ERROR) << LOG_BADGE("executor") << LOG_DESC("unable to parse type")
                                 << LOG_KV("type", type);
@@ -222,9 +226,11 @@ optional<size_t> bcos::executor::scaleEncodingLength(
     {
         auto digitStartPos = type.rfind("s");
         auto digitsNum = 0u;
-        auto [ptr, ec] =
-            from_chars(type.data() + digitStartPos + 1, type.data() + type.size(), digitsNum);
-        if (ec != errc{})
+        try
+        {
+            digitsNum = stoul(type.substr(digitStartPos + 1));
+        }
+        catch (...)
         {
             EXECUTOR_LOG(ERROR) << LOG_BADGE("executor") << LOG_DESC("unable to parse type")
                                 << LOG_KV("type", type);
