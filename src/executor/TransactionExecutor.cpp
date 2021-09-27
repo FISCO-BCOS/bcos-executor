@@ -303,6 +303,7 @@ void TransactionExecutor::dagExecuteTransactions(
         txHashes->emplace_back(execution_params->transactionHash());
     }
 
+    // TODO: After passing function testing, change sync behaviour to async way.
     std::promise<protocol::TransactionsPtr> promise;
     m_txpool->asyncFillBlock(txHashes, [&promise](Error::Ptr error, protocol::TransactionsPtr txs) {
         if (error)
@@ -423,18 +424,18 @@ void TransactionExecutor::dagExecuteTransactions(
                     std::bind(&TransactionExecutor::onCallResultsCallback, this,
                         std::placeholders::_1, std::placeholders::_2));
 
-                try
+                auto response = executive->execute(std::move(callParameters));
+                executionResults[i]->setNewEVMContractAddress(response->newEVMContractAddress);
+                executionResults[i]->setLogEntries(response->logEntries);
+                executionResults[i]->setStatus(response->status);
+                executionResults[i]->setMessage(response->message);
+                if (response->status != 0)
                 {
-                    auto response = executive->execute(std::move(callParameters));
-                    executionResults[i]->setNewEVMContractAddress(response->newEVMContractAddress);
-                    executionResults[i]->setLogEntries(response->logEntries);
-                    executionResults[i]->setStatus(response->status);
-                    executionResults[i]->setMessage(response->message);
-                    executionResults[i]->setType(ExecutionMessage::FINISHED);
+                    executionResults[i]->setType(ExecutionMessage::REVERT);
                 }
-                catch (std::exception& e)
+                else
                 {
-                    EXECUTOR_LOG(ERROR) << "Execute error: " << boost::diagnostic_information(e);
+                    executionResults[i]->setType(ExecutionMessage::FINISHED);
                 }
             }));
 
