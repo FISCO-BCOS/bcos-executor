@@ -28,14 +28,14 @@ struct CallParameters
     CallParameters(const CallParameters&&) = delete;
 
     Type type;
-    std::string senderAddress;   // by request or response, readable format
-    std::string codeAddress;     // by request or response, readable format
-    std::string receiveAddress;  // by request or response, readable format
-    std::string origin;          // by request or response, readable format
+    std::string senderAddress;   // common field, readable format
+    std::string codeAddress;     // common field, readable format
+    std::string receiveAddress;  // common field, readable format
+    std::string origin;          // common field, readable format
 
-    int64_t gas;       // by request or response
-    bcos::bytes data;  // by request or response, transaction data, binary format
-    bool staticCall;   // by request or response
+    int64_t gas;       // common field
+    bcos::bytes data;  // common field, transaction data, binary format
+    bool staticCall;   // common field
     bool create;       // by request, is create
 
     int32_t status;                                    // by response

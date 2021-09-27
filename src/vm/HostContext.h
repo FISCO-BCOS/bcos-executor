@@ -71,6 +71,7 @@ public:
 
     std::vector<uint64_t> getNotFungibleAssetIDs(
         const std::string_view& _account, const std::string& _assetName);
+        
     /// Read storage location.
     u256 store(const u256& _n);
 

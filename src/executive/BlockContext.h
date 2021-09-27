@@ -138,7 +138,6 @@ public:
     void clear() { m_executives.clear(); }
 
 private:
-    // TODO: make this static?
     tbb::concurrent_unordered_map<std::string, std::shared_ptr<precompiled::Precompiled>,
         std::hash<std::string>>
         m_address2Precompiled;
@@ -167,7 +166,6 @@ private:
     std::atomic<int> m_addressCount;
     protocol::BlockHeader::ConstPtr m_currentHeader;
     protocol::ExecutionMessageFactory::Ptr m_executionMessageFactory;
-    CallBackFunction m_numberHash;
     EVMSchedule m_schedule;
     u256 m_gasLimit;
     bool m_isWasm = false;

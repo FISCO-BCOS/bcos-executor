@@ -25,6 +25,8 @@
 #include "../precompiled/PrecompiledResult.h"
 #include "../vm/gas_meter/GasInjector.h"
 #include "BlockContext.h"
+#include "CoroutineStorageWrapper.h"
+#include "bcos-executor/TransactionExecutor.h"
 #include "bcos-framework/interfaces/executor/ExecutionMessage.h"
 #include "bcos-framework/interfaces/protocol/BlockHeader.h"
 #include "bcos-framework/interfaces/protocol/Transaction.h"
@@ -32,6 +34,7 @@
 #include <boost/coroutine2/all.hpp>
 #include <boost/coroutine2/coroutine.hpp>
 #include <functional>
+#include <variant>
 
 namespace bcos
 {
@@ -59,18 +62,24 @@ class TransactionExecutive : public std::enable_shared_from_this<TransactionExec
 {
 public:
     using Ptr = std::shared_ptr<TransactionExecutive>;
-    using Coroutine = boost::coroutines2::coroutine<CallParameters::UniquePtr>;
 
-    TransactionExecutive(std::shared_ptr<BlockContext> blockContext, std::string contractAddress,
+    using CallMessage = CallParameters::UniquePtr;
+
+    using CoroutineMessage =
+        std::variant<CallMessage, GetStorageMessage, SetStorageMessage, CreateTableMessage>;
+
+    using Coroutine = boost::coroutines2::coroutine<CoroutineMessage>;
+
+    TransactionExecutive(std::weak_ptr<BlockContext> blockContext, std::string contractAddress,
         int64_t contextID, int64_t seq,
         std::function<void(
             std::shared_ptr<TransactionExecutive> executive, CallParameters::UniquePtr&&)>
-            callback)
+            externalCallCallback)
       : m_blockContext(std::move(blockContext)),
         m_contractAddress(std::move(contractAddress)),
         m_contextID(contextID),
         m_seq(seq),
-        m_callback(std::move(callback)),
+        m_externalCallCallback(std::move(externalCallCallback)),
         m_gasInjector(std::make_shared<wasm::GasInjector>(wasm::GetInstructionTable()))
     {
         m_recoder = m_blockContext.lock()->storage()->newRecoder();
@@ -91,8 +100,11 @@ public:
         (*m_pushMessage)(std::move(callParameters));
     }
 
-    CallParameters::UniquePtr externalRequest(CallParameters::UniquePtr input);  // call by
-                                                                                 // hostContext
+    // External call request
+    CallParameters::UniquePtr externalCall(CallParameters::UniquePtr input);  // call by
+                                                                              // hostContext
+
+    CoroutineStorageWrapper<CoroutineMessage>& storage() { return *m_storageWrapper; }
 
     std::weak_ptr<BlockContext> blockContext() { return m_blockContext; }
 
@@ -104,12 +116,14 @@ public:
 private:
     CallParameters::UniquePtr execute(
         CallParameters::UniquePtr callParameters);  // execute parameters in
-                                                    // current corounitine
+                                                    // current corouitine
     std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> call(
         CallParameters::UniquePtr callParameters);
     std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> create(
         CallParameters::UniquePtr callParameters);
     CallParameters::UniquePtr go(HostContext& hostContext);
+
+    void revert();
 
     CallParameters::UniquePtr parseEVMCResult(bool isCreate, const Result& _result);
 
@@ -117,11 +131,6 @@ private:
     void updateGas(std::shared_ptr<precompiled::PrecompiledExecResult> _callResult);
 
     std::string getContractTableName(const std::string_view& _address, bool _isWasm);
-
-    CallParameters::UniquePtr getPullMessage()  // call by host context
-    {
-        return m_pullMessage->get();
-    }
 
     std::weak_ptr<BlockContext> m_blockContext;  ///< Information on the runtime environment.
     std::string m_contractAddress;
@@ -134,13 +143,15 @@ private:
 
     std::function<void(
         std::shared_ptr<TransactionExecutive> executive, CallParameters::UniquePtr&&)>
-        m_callback;
+        m_externalCallCallback;
 
     std::shared_ptr<wasm::GasInjector> m_gasInjector;
 
     std::unique_ptr<Coroutine::push_type> m_pushMessage;
     std::unique_ptr<Coroutine::pull_type> m_pullMessage;
     bcos::storage::StateStorage::Recoder::Ptr m_recoder;
+    std::set<std::string> m_keyLocks;
+    std::unique_ptr<CoroutineStorageWrapper<CoroutineMessage>> m_storageWrapper;
 };
 
 }  // namespace executor
