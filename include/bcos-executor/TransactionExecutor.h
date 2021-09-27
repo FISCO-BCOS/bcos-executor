@@ -33,6 +33,7 @@
 #include "tbb/concurrent_unordered_map.h"
 #include <boost/function.hpp>
 #include <algorithm>
+#include <cstdint>
 #include <functional>
 #include <future>
 #include <memory>
@@ -46,7 +47,6 @@ class ThreadPool;
 namespace protocol
 {
 class TransactionReceipt;
-
 }  // namespace protocol
 
 namespace executor
@@ -59,6 +59,9 @@ enum ExecutorVersion : int32_t
 class TransactionExecutive;
 class BlockContext;
 class PrecompiledContract;
+template <typename T, typename V>
+class ClockCache;
+struct FunctionAbi;
 struct CallParameters;
 
 using executionCallback = std::function<void(
@@ -154,6 +157,9 @@ private:
         const bcos::protocol::ExecutionMessage& input, bcos::protocol::Transaction::Ptr&& tx,
         const BlockContext& blockContext);
 
+    std::optional<std::vector<bcos::bytes>> decodeConflictFields(
+        const FunctionAbi& functionAbi, bcos::protocol::Transaction* transaction);
+
     txpool::TxPoolInterface::Ptr m_txpool;
     std::shared_ptr<storage::TransactionalStorageInterface> m_backendStorage;
     protocol::ExecutionMessageFactory::Ptr m_executionMessageFactory;
@@ -161,6 +167,7 @@ private:
     crypto::Hash::Ptr m_hashImpl;
     bool m_isWasm = false;
     const ExecutorVersion m_version;
+    std::shared_ptr<ClockCache<bcos::bytes, FunctionAbi>> m_abiCache = nullptr;
 
     struct State
     {
@@ -177,6 +184,22 @@ private:
         m_precompiledContract;
 };
 
-}  // namespace executor
+enum ConflictFieldKind : std::uint8_t
+{
+    All = 0,
+    Len,
+    Env,
+    Var,
+    Const,
+};
 
+enum EnvKind : std::uint8_t
+{
+    Caller = 0,
+    Origin,
+    Now,
+    BlockNumber,
+    Addr,
+};
+}  // namespace executor
 }  // namespace bcos
