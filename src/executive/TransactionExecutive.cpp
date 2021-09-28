@@ -223,12 +223,9 @@ std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionE
     // }
     else
     {
-        auto table = blockContext->storage()->openTable(
-            getContractTableName(callParameters->codeAddress, blockContext->isWasm()));
-        auto hostContext = make_unique<HostContext>(std::move(callParameters), std::move(*table),
-            callParameters->codeAddress,
-            std::bind(&TransactionExecutive::externalCall, this, std::placeholders::_1),
-            blockContext->currentBlockHeader(), blockContext->isWasm());
+        auto tableName = getContractTableName(callParameters->codeAddress, blockContext->isWasm());
+        auto hostContext = make_unique<HostContext>(
+            std::move(callParameters), shared_from_this(), std::move(tableName));
 
         return {std::move(hostContext), nullptr};
     }
@@ -282,11 +279,10 @@ std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionE
 
     // Create the table first
     auto tableName = getContractTableName(newAddress, blockContext->isWasm());
-    auto table = storage().createTable(std::move(tableName), STORAGE_VALUE);
+    m_storageWrapper->createTable(tableName, STORAGE_VALUE);
 
-    auto hostContext = std::make_unique<HostContext>(std::move(callParameters), std::move(*table),
-        newAddress, std::bind(&TransactionExecutive::externalCall, this, std::placeholders::_1),
-        blockContext->currentBlockHeader(), blockContext->isWasm());
+    auto hostContext = std::make_unique<HostContext>(
+        std::move(callParameters), shared_from_this(), std::move(tableName));
 
     return {std::move(hostContext), nullptr};
 }

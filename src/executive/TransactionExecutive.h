@@ -65,8 +65,8 @@ public:
 
     using CallMessage = CallParameters::UniquePtr;
 
-    using CoroutineMessage =
-        std::variant<CallMessage, GetStorageMessage, SetStorageMessage, CreateTableMessage>;
+    using CoroutineMessage = std::variant<CallMessage, GetPrimaryKeysReponse, GetRowResponse,
+        GetRowsResponse, SetRowResponse, OpenTableResponse>;
 
     using Coroutine = boost::coroutines2::coroutine<CoroutineMessage>;
 

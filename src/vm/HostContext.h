@@ -35,6 +35,8 @@ namespace bcos
 {
 namespace executor
 {
+class TransactionExecutive;
+
 class HostContext : public evmc_host_context
 {
 public:
@@ -42,10 +44,8 @@ public:
     using UniqueConstPtr = std::unique_ptr<const HostContext>;
 
     /// Full constructor.
-    HostContext(CallParameters::UniquePtr callParameters, bcos::storage::Table table,
-        std::string contractAddress,
-        std::function<CallParameters::UniquePtr(CallParameters::UniquePtr)> externalRequest,
-        protocol::BlockHeader::ConstPtr blockHeader, bool isWasm);
+    HostContext(CallParameters::UniquePtr callParameters,
+        std::shared_ptr<TransactionExecutive> executive, std::string tableName);
     ~HostContext() = default;
 
     HostContext(HostContext const&) = delete;
@@ -71,7 +71,7 @@ public:
 
     std::vector<uint64_t> getNotFungibleAssetIDs(
         const std::string_view& _account, const std::string& _assetName);
-        
+
     /// Read storage location.
     u256 store(const u256& _n);
 
@@ -93,20 +93,13 @@ public:
     /// Does the account exist?
     bool exists(const std::string_view&) { return true; }
 
-    /// Suicide the associated contract to the given address.
-    void suicide();
-
     /// Return the EVM gas-price schedule for this execution context.
     EVMSchedule const& evmSchedule() const { return m_evmSchedule; }
 
     /// Hash of a block if within the last 256 blocks, or h256() otherwise.
-    h256 blockHash() const { return m_blockHeader->hash(); }
-    int64_t blockNumber() const { return m_blockHeader->number(); }
-    int64_t timestamp() const
-    {
-        return std::const_pointer_cast<protocol::BlockHeader>(m_blockHeader)
-            ->timestamp();  // TODO: set blockHeader timestamp() to const
-    }
+    h256 blockHash() const;
+    int64_t blockNumber() const;
+    int64_t timestamp() const;
     int64_t blockGasLimit() const
     {
         return 30000000;  // TODO: add config
@@ -117,10 +110,8 @@ public:
     /// Revert any changes made (by any of the other calls).
     void log(h256s&& _topics, bytesConstRef _data);
 
-    void suicide(const std::string_view& _a);
-
     /// ------ get interfaces related to HostContext------
-    std::string_view myAddress() const { return m_contractAddress; }
+    std::string_view myAddress() const;
     std::string_view caller() const { return m_callParameters->senderAddress; }
     std::string_view origin() const { return m_callParameters->origin; }
     std::string_view codeAddress() const { return m_callParameters->codeAddress; }
@@ -142,17 +133,13 @@ private:
         uint64_t _assetID, const std::string& _uri);
 
     CallParameters::UniquePtr m_callParameters;
-    bcos::storage::Table m_table;  ///< The table of contract
+    std::shared_ptr<TransactionExecutive> m_executive;
+    std::string m_tableName;
 
     u256 m_salt;     ///< Values used in new address construction by CREATE2
     SubState m_sub;  ///< Sub-band VM state (suicides, refund counter, logs).
 
-    std::string m_contractAddress;
-    std::function<CallParameters::UniquePtr(CallParameters::UniquePtr)> m_externalRequest;
-    protocol::BlockHeader::ConstPtr m_blockHeader;
-
     std::list<CallParameters::UniquePtr> m_responseStore;
-    bool m_isWasm;
 
     static EVMSchedule m_evmSchedule;
 };

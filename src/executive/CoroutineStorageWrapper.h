@@ -6,12 +6,15 @@
 #include <boost/coroutine2/coroutine.hpp>
 #include <optional>
 #include <thread>
+#include <vector>
 
 namespace bcos::executor
 {
-using GetStorageMessage = std::tuple<Error::UniquePtr, std::optional<storage::Entry>>;
-using SetStorageMessage = std::tuple<Error::UniquePtr>;
-using CreateTableMessage = std::tuple<Error::UniquePtr, std::optional<bcos::storage::Table>>;
+using GetPrimaryKeysReponse = std::tuple<Error::UniquePtr, std::vector<std::string>>;
+using GetRowResponse = std::tuple<Error::UniquePtr, std::optional<storage::Entry>>;
+using GetRowsResponse = std::tuple<Error::UniquePtr, std::vector<std::optional<storage::Entry>>>;
+using SetRowResponse = std::tuple<Error::UniquePtr>;
+using OpenTableResponse = std::tuple<Error::UniquePtr, std::optional<storage::Table>>;
 
 template <class T>
 class CoroutineStorageWrapper
@@ -31,12 +34,28 @@ public:
     std::vector<std::string> getPrimaryKeys(
         const std::string_view& table, const std::optional<storage::Condition const>& _condition)
     {
-        m_storage->asyncGetPrimaryKeys(table, _condition, [this](auto&& error, auto&& keys) {
-            m_push({std::move(error), std::move(keys)});
-        });
+        std::optional<GetPrimaryKeysReponse> value;
 
-        m_pull();
-        auto [error, keys] = m_pull.get();
+        m_storage->asyncGetPrimaryKeys(table, _condition,
+            [this, value = &value, threadID = std::this_thread::get_id()](
+                auto&& error, auto&& keys) {
+                if (std::this_thread::get_id() == threadID)
+                {
+                    *value = std::make_optional(std::tuple{std::move(error), std::move(keys)});
+                }
+                else
+                {
+                    m_push(GetPrimaryKeysReponse{std::move(error), std::move(keys)});
+                }
+            });
+
+        if (!value)
+        {
+            m_pull();
+            value = std::make_optional(std::get<GetPrimaryKeysReponse>(m_pull.get()));
+        }
+
+        auto [error, keys] = std::move(*value);
 
         if (error)
         {
@@ -49,12 +68,28 @@ public:
     std::optional<storage::Entry> getRow(
         const std::string_view& table, const std::string_view& _key)
     {
-        m_storage->asyncGetRow(table, _key, [this](auto&& error, auto&& entry) {
-            m_push({std::move(error), std::move(entry)});
-        });
+        std::optional<GetRowResponse> value;
 
-        m_pull();
-        auto [error, entry] = m_pull.get();
+        m_storage->asyncGetRow(table, _key,
+            [this, value = &value, threadID = std::this_thread::get_id()](
+                auto&& error, auto&& entry) {
+                if (std::this_thread::get_id() == threadID)
+                {
+                    *value = std::make_optional(GetRowResponse{std::move(error), std::move(entry)});
+                }
+                else
+                {
+                    m_push(GetRowResponse{std::move(error), std::move(entry)});
+                }
+            });
+
+        if (!value)
+        {
+            m_pull();
+            value = std::make_optional(std::get<GetRowResponse>(m_pull.get()));
+        }
+
+        auto [error, entry] = std::move(*value);
 
         if (error)
         {
@@ -68,12 +103,29 @@ public:
         const std::string_view& table, const std::variant<const gsl::span<std::string_view const>,
                                            const gsl::span<std::string const>>& _keys)
     {
-        m_storage->asyncGetRows(table, _keys, [this](auto&& error, auto&& entries) {
-            m_push({std::move(error), std::move(entries)});
-        });
+        std::optional<GetRowsResponse> value;
 
-        m_pull();
-        auto [error, entries] = m_pull.get();
+        m_storage->asyncGetRows(table, _keys,
+            [this, value = &value, threadID = std::this_thread::get_id()](
+                auto&& error, auto&& entries) {
+                if (std::this_thread::get_id() == threadID)
+                {
+                    *value =
+                        std::make_optional(GetRowsResponse{std::move(error), std::move(entries)});
+                }
+                else
+                {
+                    m_push(GetRowsResponse{std::move(error), std::move(entries)});
+                }
+            });
+
+        if (!value)
+        {
+            m_pull();
+            value = std::make_optional(std::get<GetRowsResponse>(m_pull.get()));
+        }
+
+        auto [error, entries] = std::move(*value);
 
         if (error)
         {
@@ -85,11 +137,27 @@ public:
 
     void setRow(const std::string_view& table, const std::string_view& key, storage::Entry entry)
     {
-        m_storage->asyncSetRow(
-            table, key, std::move(entry), [this](auto&& error) { m_push({std::move(error)}); });
+        std::optional<SetRowResponse> value;
 
-        m_pull();
-        auto [error] = m_pull.get();
+        m_storage->asyncSetRow(table, key, std::move(entry),
+            [this, value = &value, threadID = std::this_thread::get_id()](auto&& error) {
+                if (std::this_thread::get_id() == threadID)
+                {
+                    *value = std::make_optional(SetRowResponse{std::move(error)});
+                }
+                else
+                {
+                    m_push(SetRowResponse{std::move(error)});
+                }
+            });
+
+        if (!value)
+        {
+            m_pull();
+            value = std::make_optional(std::get<SetRowResponse>(m_pull.get()));
+        }
+
+        auto [error] = std::move(*value);
 
         if (error)
         {
@@ -99,29 +167,26 @@ public:
 
     std::optional<storage::Table> createTable(std::string _tableName, std::string _valueFields)
     {
-        std::optional<std::tuple<Error::UniquePtr, std::optional<storage::Table>>> value;
+        std::optional<OpenTableResponse> value;
 
         m_storage->asyncCreateTable(std::move(_tableName), std::move(_valueFields),
             [this, value = &value, threadID = std::this_thread::get_id()](
                 Error::UniquePtr&& error, auto&& table) {
                 if (std::this_thread::get_id() == threadID)
                 {
-                    // Execute in the same rountine
-                    EXECUTOR_LOG(TRACE) << "Same rountine";
-                    *value = std::make_optional(std::tuple{std::move(error), std::move(table)});
+                    *value =
+                        std::make_optional(OpenTableResponse{std::move(error), std::move(table)});
                 }
                 else
                 {
-                    EXECUTOR_LOG(TRACE) << "Push create table result";
-                    m_push(std::tuple{std::move(error), std::move(table)});
+                    m_push(OpenTableResponse{std::move(error), std::move(table)});
                 }
             });
 
         if (!value)
         {
-            EXECUTOR_LOG(TRACE) << "Switch the main coroutine";
             m_pull();
-            value = std::make_optional(std::get<CreateTableMessage>(m_pull.get()));
+            value = std::make_optional(std::get<OpenTableResponse>(m_pull.get()));
         }
 
         auto [error, table] = std::move(*value);
@@ -136,12 +201,27 @@ public:
 
     std::optional<storage::Table> openTable(std::string_view tableName)
     {
-        m_storage->asyncOpenTable(tableName, [this](auto&& error, auto&& table) {
-            m_push({std::move(error), std::move(table)});
+        std::optional<OpenTableResponse> value;
+
+        m_storage->asyncOpenTable(tableName, [this, value = &value,
+                                                 threadID = std::this_thread::get_id()](
+                                                 auto&& error, auto&& table) {
+            if (std::this_thread::get_id() == threadID)
+            {
+                *value = std::make_optional(OpenTableResponse{std::move(error), std::move(table)});
+            }
+            else
+            {
+                m_push(OpenTableResponse{std::move(error), std::move(table)});
+            }
         });
 
-        m_pull();
-        auto [error, table] = m_pull.get();
+        if (!value)
+        {
+            m_pull();
+            value = std::make_optional(std::get<OpenTableResponse>(m_pull.get()));
+        }
+        auto [error, table] = std::move(*value);
 
         if (error)
         {

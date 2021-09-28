@@ -22,6 +22,7 @@
 #include "HostContext.h"
 #include "../ChecksumAddress.h"
 #include "../Common.h"
+#include "../executive/TransactionExecutive.h"
 #include "EVMHostInterface.h"
 #include "bcos-framework/interfaces/storage/Table.h"
 #include "bcos-framework/libstorage/StateStorage.h"
@@ -78,16 +79,11 @@ evmc_bytes32 evm_hash_fn(const uint8_t* data, size_t size)
 EVMSchedule HostContext::m_evmSchedule;
 // crypto::Hash::Ptr g_hashImpl = nullptr;
 
-HostContext::HostContext(CallParameters::UniquePtr callParameters, bcos::storage::Table table,
-    std::string contractAddress,
-    std::function<CallParameters::UniquePtr(CallParameters::UniquePtr)> externalRequest,
-    protocol::BlockHeader::ConstPtr blockHeader, bool isWasm)
+HostContext::HostContext(CallParameters::UniquePtr callParameters,
+    std::shared_ptr<TransactionExecutive> executive, std::string tableName)
   : m_callParameters(std::move(callParameters)),
-    m_table(std::move(table)),
-    m_contractAddress(std::move(contractAddress)),
-    m_externalRequest(std::move(externalRequest)),
-    m_blockHeader(std::move(blockHeader)),
-    m_isWasm(isWasm)
+    m_executive(std::move(executive)),
+    m_tableName(tableName)
 {
     interface = getHostInterface();
     wasm_interface = getWasmHostInterface();
@@ -105,7 +101,7 @@ HostContext::HostContext(CallParameters::UniquePtr callParameters, bcos::storage
 
 std::string_view HostContext::get(const std::string_view& _key)
 {
-    auto entry = m_table.getRow(_key);
+    auto entry = m_executive->storage().getRow(m_tableName, _key);
     if (entry)
     {
         return entry->getField(STORAGE_VALUE);
@@ -116,10 +112,10 @@ std::string_view HostContext::get(const std::string_view& _key)
 
 void HostContext::set(const std::string_view& _key, std::string _value)
 {
-    auto entry = m_table.newEntry();
+    Entry entry;
     entry.importFields({std::move(_value)});
 
-    m_table.setRow(_key, std::move(entry));
+    m_executive->storage().setRow(m_tableName, _key, std::move(entry));
 }
 
 evmc_result HostContext::externalRequest(const evmc_message* _msg)
@@ -142,7 +138,7 @@ evmc_result HostContext::externalRequest(const evmc_message* _msg)
         request->createSalt = fromEvmC(_msg->create2_salt);
         break;
     case EVMC_CALL:
-        if (m_isWasm)
+        if (m_executive->blockContext().lock()->isWasm())
         {
             request->receiveAddress.assign((char*)_msg->destination_ptr, _msg->destination_len);
         }
@@ -163,7 +159,7 @@ evmc_result HostContext::externalRequest(const evmc_message* _msg)
         break;
     }
 
-    auto response = m_externalRequest(std::move(request));
+    auto response = m_executive->externalCall(std::move(request));
 
     // Convert CallParameters to evmc_result
     evmc_result result;
@@ -186,14 +182,14 @@ evmc_result HostContext::externalRequest(const evmc_message* _msg)
 
 void HostContext::setCode(bytes code)
 {
-    auto codeHashEntry = m_table.newEntry();
+    Entry codeHashEntry;
     auto codeHash = hashImpl()->hash(code);
     codeHashEntry.importFields({codeHash.asBytes()});
-    m_table.setRow(ACCOUNT_CODE_HASH, std::move(codeHashEntry));
+    m_executive->storage().setRow(m_tableName, ACCOUNT_CODE_HASH, std::move(codeHashEntry));
 
-    auto codeEntry = m_table.newEntry();
+    Entry codeEntry;
     codeEntry.importFields({std::move(code)});
-    m_table.setRow(ACCOUNT_CODE, std::move(codeEntry));
+    m_executive->storage().setRow(m_tableName, ACCOUNT_CODE, std::move(codeEntry));
 }
 
 size_t HostContext::codeSizeAt(const std::string_view& _a)
@@ -213,7 +209,7 @@ u256 HostContext::store(const u256& _n)
     auto key = toEvmC(_n);
     auto keyView = std::string_view((char*)key.bytes, sizeof(key.bytes));
 
-    auto entry = m_table.getRow(keyView);
+    auto entry = m_executive->storage().getRow(m_tableName, keyView);
     if (entry)
     {
         return fromBigEndian<u256>(entry->getField(STORAGE_VALUE));
@@ -230,41 +226,56 @@ void HostContext::setStore(u256 const& _n, u256 const& _v)
     auto value = toEvmC(_v);
     bytes valueBytes(value.bytes, value.bytes + sizeof(value.bytes));
 
-    auto entry = m_table.newEntry();
+    Entry entry;
     entry.importFields({std::move(valueBytes)});
 
-    m_table.setRow(keyView, std::move(entry));
+    m_executive->storage().setRow(m_tableName, keyView, std::move(entry));
 }
 
 void HostContext::log(h256s&& _topics, bytesConstRef _data)
 {
-    if (m_isWasm || myAddress().empty())
-    {
-        m_sub.logs->push_back(
-            protocol::LogEntry(bytes(myAddress().data(), myAddress().data() + myAddress().size()),
-                std::move(_topics), _data.toBytes()));
-    }
-    else
-    {
-        // convert solidity address to hex string
-        auto hexAddress = *toHexString(myAddress());
-        boost::algorithm::to_lower(hexAddress);  // this is in case of toHexString be modified
-        toChecksumAddress(hexAddress, hashImpl()->hash(hexAddress).hex());
-        m_sub.logs->push_back(
-            protocol::LogEntry(asBytes(hexAddress), std::move(_topics), _data.toBytes()));
-    }
+    // if (m_isWasm || myAddress().empty())
+    // {
+    //     m_sub.logs->push_back(
+    //         protocol::LogEntry(bytes(myAddress().data(), myAddress().data() +
+    //         myAddress().size()),
+    //             std::move(_topics), _data.toBytes()));
+    // }
+    // else
+    // {
+    //     // convert solidity address to hex string
+    //     auto hexAddress = *toHexString(myAddress());
+    //     boost::algorithm::to_lower(hexAddress);  // this is in case of toHexString be modified
+    //     toChecksumAddress(hexAddress, hashImpl()->hash(hexAddress).hex());
+    //     m_sub.logs->push_back(
+    //         protocol::LogEntry(asBytes(hexAddress), std::move(_topics), _data.toBytes()));
+    // }
+    m_sub.logs->push_back(
+        protocol::LogEntry(bytes(myAddress().data(), myAddress().data() + myAddress().size()),
+            std::move(_topics), _data.toBytes()));
 }
 
-void HostContext::suicide(const std::string_view& _a)
+h256 HostContext::blockHash() const
 {
-    (void)_a;
-    // m_sub.suicides.insert(m_myAddress);
-    // m_s->kill(m_myAddress);
+    return m_executive->blockContext().lock()->currentBlockHeader()->hash();
+}
+int64_t HostContext::blockNumber() const
+{
+    return m_executive->blockContext().lock()->currentNumber();
+}
+int64_t HostContext::timestamp() const
+{
+    return m_executive->blockContext().lock()->timestamp();
+}
+
+std::string_view HostContext::myAddress() const
+{
+    return m_executive->contractAddress();
 }
 
 bytesConstRef HostContext::code()
 {
-    auto entry = m_table.getRow(ACCOUNT_CODE);
+    auto entry = m_executive->storage().getRow(m_tableName, ACCOUNT_CODE);
     if (entry)
     {
         auto code = entry->getField(0);
@@ -277,7 +288,7 @@ bytesConstRef HostContext::code()
 
 h256 HostContext::codeHash()
 {
-    auto entry = m_table.getRow(ACCOUNT_CODE_HASH);
+    auto entry = m_executive->storage().getRow(m_tableName, ACCOUNT_CODE_HASH);
     if (entry)
     {
         auto code = entry->getField(0);
