@@ -43,10 +43,10 @@ public:
     ~VMFactory() = delete;
 
     /// Creates a VM instance of the global kind.
-    static std::unique_ptr<VMInstance> create();
+    static VMInstance create();
 
     /// Creates a VM instance of the kind provided.
-    static std::unique_ptr<VMInstance> create(VMKind _kind);
+    static VMInstance create(VMKind _kind);
 };
 }  // namespace executor
 }  // namespace bcos

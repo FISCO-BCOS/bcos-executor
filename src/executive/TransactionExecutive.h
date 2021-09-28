@@ -92,7 +92,7 @@ public:
 
     virtual ~TransactionExecutive() {}
 
-    void start(CallParameters::UniquePtr input);  // start a new corountine to execute
+    void start(CallParameters::UniquePtr input);  // start a new coroutine to execute
                                                   // parameters
 
     void pushMessage(CoroutineMessage message)  // call by executor
@@ -115,7 +115,7 @@ public:
 
     CallParameters::UniquePtr execute(
         CallParameters::UniquePtr callParameters);  // execute parameters in
-                                                    // current corounitine
+                                                    // current corouitine
 
 private:
     std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> call(
@@ -139,7 +139,7 @@ private:
     int64_t m_seq;
     crypto::Hash::Ptr m_hashImpl;
 
-    int64_t m_baseGasRequired = 0;  ///< The base amount of gas requried for executing
+    int64_t m_baseGasRequired = 0;  ///< The base amount of gas required for executing
                                     ///< this transaction.
 
     std::function<void(

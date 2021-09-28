@@ -785,7 +785,7 @@ void TransactionExecutor::asyncExecute(bcos::protocol::ExecutionMessage::UniqueP
     case bcos::protocol::ExecutionMessage::REVERT:
     case bcos::protocol::ExecutionMessage::FINISHED:
     {
-        auto callParameters = createCallParameters(*input, *blockContext, staticCall);
+        auto callParameters = createCallParameters(*input, staticCall);
 
         auto it = blockContext->getExecutive(input->contextID(), input->seq());
         if (it)
@@ -838,29 +838,45 @@ void TransactionExecutor::onCallResultsCallback(
                 "," + boost::lexical_cast<std::string>(executive->seq())));
     }
 
-    auto executionResult = m_executionMessageFactory->createExecutionMessage();
-    executionResult->setMessage(std::move(response->message));
-    if (response->type == CallParameters::MESSAGE)
+    auto message = m_executionMessageFactory->createExecutionMessage();
+    switch (response->type)
     {
-        executionResult->setType(ExecutionMessage::MESSAGE);
+    case CallParameters::MESSAGE:
+        message->setType(ExecutionMessage::MESSAGE);
+        break;
+    case CallParameters::FINISHED:
+        message->setType(ExecutionMessage::FINISHED);
+        break;
+    case CallParameters::REVERT:
+        message->setType(ExecutionMessage::REVERT);
+        break;
     }
-    else
-    {
-        executionResult->setType(ExecutionMessage::FINISHED);
-    }
-    executionResult->setTo(response->receiveAddress);
-    executionResult->setStatus(response->status);
-    executionResult->setContextID(executive->contextID());
+
+    message->setContextID(executive->contextID());
+    message->setSeq(executive->seq());
+
+    // Response message, swap the from and to
+    message->setOrigin(std::move(response->origin));
+    message->setFrom(std::move(response->receiveAddress));
+    message->setTo(std::move(response->senderAddress));
+
+    message->setGasAvailable(response->gas);
+    message->setData(std::move(response->data));
+    message->setStaticCall(response->staticCall);
     if (response->createSalt)
     {
-        executionResult->setCreateSalt(*response->createSalt);
+        message->setCreateSalt(*response->createSalt);
     }
-    executionResult->setStaticCall(response->staticCall);
-    executionResult->setNewEVMContractAddress(response->newEVMContractAddress);
-    executionResult->setData(std::move(response->data));
-    executionResult->setLogEntries(std::move(response->logEntries));
 
-    std::get<1> (*it)(nullptr, std::move(executionResult));
+    message->setStatus(response->status);
+    message->setMessage(std::move(response->message));
+    message->setLogEntries(std::move(response->logEntries));
+    message->setNewEVMContractAddress(response->newEVMContractAddress);
+
+    // std::vector<std::string> keyLocks(executive->)
+    // message->setKeyLocks(executive->ta
+
+    std::get<1> (*it)(nullptr, std::move(message));
 }
 
 BlockContext::Ptr TransactionExecutor::createBlockContext(
@@ -1056,34 +1072,34 @@ std::string TransactionExecutor::newEVMAddress(
 }
 
 std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
-    const bcos::protocol::ExecutionMessage& input, const BlockContext& blockContext,
-    bool staticCall)
+    const bcos::protocol::ExecutionMessage& input, bool staticCall)
 {
-    std::string contract;
-    bool create = false;
-    if (input.to().empty() && !m_isWasm)
-    {
-        create = true;
-        if (input.createSalt())
-        {
-            contract = newEVMAddress(input.from(), input.data(), input.createSalt().value());
-        }
-        else
-        {
-            contract = newEVMAddress(input.from(), blockContext.currentNumber(), input.contextID());
-        }
-    }
-    else
-    {
-        contract = input.to();
-    }
+    // std::string contract;
+    // bool create = false;
+    // if (input.create())
+    // {
+    //     create = true;
+    //     // if (input.createSalt())
+    //     // {
+    //     //     contract = newEVMAddress(input.from(), input.data(), input.createSalt().value());
+    //     // }
+    //     // else
+    //     // {
+    //     //     contract = newEVMAddress(input.from(), blockContext.currentNumber(),
+    //     //     input.contextID());
+    //     // }
+    // }
+    // else
+    // {
+    //     contract = input.to();
+    // }
 
     auto callParameters = std::make_unique<CallParameters>(CallParameters::MESSAGE);
     callParameters->origin = input.origin();
     callParameters->senderAddress = input.from();
-    callParameters->receiveAddress = contract;
-    callParameters->codeAddress = contract;
-    callParameters->create = create;
+    callParameters->receiveAddress = input.to();
+    callParameters->codeAddress = input.to();
+    callParameters->create = input.create();
     callParameters->gas = input.gasAvailable();
     callParameters->data = input.data().toBytes();
     callParameters->staticCall = staticCall;

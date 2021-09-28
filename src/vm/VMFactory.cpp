@@ -91,23 +91,23 @@ void setVMKind(const std::string& _name)
 #endif
 }  // namespace
 
-std::unique_ptr<VMInstance> VMFactory::create()
+VMInstance VMFactory::create()
 {
     return create(g_kind);
 }
 
-std::unique_ptr<VMInstance> VMFactory::create(VMKind _kind)
+VMInstance VMFactory::create(VMKind _kind)
 {
     switch (_kind)
     {
     case VMKind::Hera:
-        return std::unique_ptr<VMInstance>(new VMInstance{evmc_create_hera()});
+        return VMInstance{evmc_create_hera()};
     case VMKind::evmone:
-        return std::unique_ptr<VMInstance>(new VMInstance{evmc_create_evmone()});
+        return VMInstance{evmc_create_evmone()};
     case VMKind::DLL:
-        return std::unique_ptr<VMInstance>(new VMInstance{g_evmcCreateFn()});
+        return VMInstance{g_evmcCreateFn()};
     default:
-        return std::unique_ptr<VMInstance>(new VMInstance{evmc_create_evmone()});
+        return VMInstance{evmc_create_evmone()};
     }
 }
 }  // namespace executor

@@ -143,8 +143,7 @@ private:
         const std::string_view& _sender, bytesConstRef _init, u256 const& _salt);
 
     std::unique_ptr<CallParameters> createCallParameters(
-        const bcos::protocol::ExecutionMessage& inputs, const BlockContext& blockContext,
-        bool staticCall);
+        const bcos::protocol::ExecutionMessage& inputs, bool staticCall);
 
     std::unique_ptr<CallParameters> createCallParameters(
         std::shared_ptr<bcos::protocol::Transaction>&& tx, const BlockContext& blockContext,

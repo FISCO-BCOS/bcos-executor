@@ -322,11 +322,7 @@ CallParameters::UniquePtr TransactionExecutive::go(HostContext& hostContext)
                 auto callerBytes = boost::algorithm::unhex(std::string(hostContext.caller()));
 
                 evmcMessage.destination = toEvmC(myAddressBytes);
-                evmcMessage.destination_ptr = evmcMessage.destination.bytes;
-                evmcMessage.destination_len = sizeof(evmcMessage.destination.bytes);
                 evmcMessage.sender = toEvmC(callerBytes);
-                evmcMessage.sender_ptr = evmcMessage.sender.bytes;
-                evmcMessage.sender_len = sizeof(evmcMessage.sender.bytes);
             }
 
             return evmcMessage;
@@ -351,7 +347,7 @@ CallParameters::UniquePtr TransactionExecutive::go(HostContext& hostContext)
             }
             auto vm = VMFactory::create(vmKind);
 
-            auto ret = vm->exec(hostContext, mode, &evmcMessage, code.data(), code.size());
+            auto ret = vm.exec(hostContext, mode, &evmcMessage, code.data(), code.size());
             callResults = parseEVMCResult(hostContext.isCreate(), ret);
 
             auto outputRef = ret.output();
@@ -397,7 +393,7 @@ CallParameters::UniquePtr TransactionExecutive::go(HostContext& hostContext)
 
             auto mode = toRevision(hostContext.evmSchedule());
             auto evmcMessage = getEVMCMessage(*blockContext, hostContext);
-            auto ret = vm->exec(hostContext, mode, &evmcMessage, code.data(), code.size());
+            auto ret = vm.exec(hostContext, mode, &evmcMessage, code.data(), code.size());
             callResults = parseEVMCResult(hostContext.isCreate(), ret);
         }
     }
