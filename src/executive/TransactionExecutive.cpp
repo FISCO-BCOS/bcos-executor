@@ -50,13 +50,9 @@ using namespace bcos::codec;
 /// Error info for VMInstance status code.
 using errinfo_evmcStatusCode = boost::error_info<struct tag_evmcStatusCode, evmc_status_code>;
 
-void TransactionExecutive::start()
+void TransactionExecutive::start(CallParameters::UniquePtr input)
 {
-    EXECUTOR_LOG(TRACE) << "Create coroutine";
-
     m_pushMessage = std::make_unique<Coroutine::push_type>([this](Coroutine::pull_type& source) {
-        EXECUTOR_LOG(TRACE) << "start coroutine run";
-
         auto blockContext = m_blockContext.lock();
         if (!blockContext)
         {
@@ -68,9 +64,7 @@ void TransactionExecutive::start()
         m_storageWrapper = std::make_unique<CoroutineStorageWrapper<CoroutineMessage>>(
             blockContext->storage(), *m_pushMessage, *m_pullMessage);
 
-        EXECUTOR_LOG(TRACE) << "Switch to main coroutine";
         auto callParameters = m_pullMessage->get();
-        EXECUTOR_LOG(TRACE) << "Got callParameters";
 
         auto response = execute(std::move(std::get<CallParameters::UniquePtr>(callParameters)));
 
@@ -79,9 +73,7 @@ void TransactionExecutive::start()
         EXECUTOR_LOG(TRACE) << "end coroutine execution";
     });
 
-    // EXECUTOR_LOG(TRACE) << "Push message";
-    // pushMessage(std::move(callParameters));
-    // EXECUTOR_LOG(TRACE) << "Return to the main coroutine";
+    pushMessage(std::move(input));
 }
 
 CallParameters::UniquePtr TransactionExecutive::externalCall(CallParameters::UniquePtr input)
