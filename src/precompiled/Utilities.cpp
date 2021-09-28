@@ -58,8 +58,8 @@ void bcos::precompiled::checkNameValidate(std::string_view tableName,
                 // Note: the StorageException and PrecompiledException content can't
                 // be modified at will for the information will be write to the
                 // blockchain
-                BOOST_THROW_EXCEPTION(
-                    PrecompiledError() << errinfo_comment("invalid table name:" + std::string(tableName)));
+                BOOST_THROW_EXCEPTION(PrecompiledError() << errinfo_comment(
+                                          "invalid table name:" + std::string(tableName)));
             }
         }
     };
@@ -92,8 +92,8 @@ void bcos::precompiled::checkNameValidate(std::string_view tableName,
                 STORAGE_LOG(ERROR)
                     << LOG_DESC(errorMessage.str()) << LOG_KV("field name", fieldName)
                     << LOG_KV("table name", tableName);
-                BOOST_THROW_EXCEPTION(
-                    PrecompiledError() << errinfo_comment("invalid filed: " + std::string(fieldName)));
+                BOOST_THROW_EXCEPTION(PrecompiledError() << errinfo_comment(
+                                          "invalid filed: " + std::string(fieldName)));
             }
         }
     };
@@ -478,6 +478,8 @@ std::pair<std::string, std::string> precompiled::getParentDirAndBaseName(
     const std::string& _absolutePath)
 {
     // transfer /usr/local/bin => ["usr", "local", "bin"]
+    if (_absolutePath == "/")
+        return {"/", "/"};
     std::vector<std::string> dirList;
     std::string absoluteDir = _absolutePath;
     if (absoluteDir[0] == '/')

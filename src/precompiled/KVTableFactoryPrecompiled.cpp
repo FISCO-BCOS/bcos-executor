@@ -165,7 +165,7 @@ void KVTableFactoryPrecompiled::openTable(const std::shared_ptr<executor::BlockC
 
 void KVTableFactoryPrecompiled::createTable(const std::shared_ptr<executor::BlockContext>& _context,
     bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
-    const std::string& _origin, const std::string& _sender, const PrecompiledGas::Ptr& gasPricer)
+    const std::string& _origin, const std::string&, const PrecompiledGas::Ptr& gasPricer)
 {
     // createTable(string,string,string)
     std::string tableName;
@@ -174,11 +174,10 @@ void KVTableFactoryPrecompiled::createTable(const std::shared_ptr<executor::Bloc
     auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     codec->decode(data, tableName, keyField, valueField);
 
-    if (_context->isWasm() && (tableName.empty() || tableName.at(0) != '/'))
+    if (tableName.empty())
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("KVTableFactoryPrecompiled")
-                               << LOG_DESC("create table in wasm env: error tableName")
-                               << LOG_KV("tableName", tableName);
+                               << LOG_DESC("error tableName") << LOG_KV("tableName", tableName);
         BOOST_THROW_EXCEPTION(PrecompiledError() << errinfo_comment("Table name error."));
     }
 
@@ -214,7 +213,7 @@ void KVTableFactoryPrecompiled::createTable(const std::shared_ptr<executor::Bloc
             getErrorCodeOut(callResult->mutableExecResult(), result, codec);
             return;
         }
-        sysEntry->setField("key_field", keyField);
+        sysEntry->setField(StorageInterface::SYS_TABLE_VALUE_FIELDS, valueField + "," + keyField);
         sysTable->setRow(newTableName, sysEntry.value());
         gasPricer->appendOperation(InterfaceOpcode::CreateTable);
 

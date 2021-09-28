@@ -56,7 +56,6 @@ public:
 
 private:
     EntriesPtr m_entries;
-
 };
 }  // namespace precompiled
 }  // namespace bcos

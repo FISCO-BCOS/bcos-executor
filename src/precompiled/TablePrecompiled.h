@@ -64,6 +64,7 @@ public:
     std::shared_ptr<bcos::storage::Table> getTable() { return m_table; }
     void setTable(std::shared_ptr<bcos::storage::Table> _table) { m_table = _table; }
     void setKeyField(const std::string_view& _key) { m_keyField = _key; }
+
 private:
     std::shared_ptr<bcos::storage::Table> m_table;
     std::string_view m_keyField = "";

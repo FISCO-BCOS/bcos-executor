@@ -171,7 +171,8 @@ void TableFactoryPrecompiled::openTable(const std::shared_ptr<executor::BlockCon
                                  << LOG_KV("table name", tableName);
         BOOST_THROW_EXCEPTION(PrecompiledError() << errinfo_comment(tableName + " does not exist"));
     }
-    auto keyField = sysEntry->getField("key_field");
+    auto valueKey = sysEntry->getField(StorageInterface::SYS_TABLE_VALUE_FIELDS);
+    auto keyField = valueKey.substr(valueKey.find_last_of(',') + 1);
     auto tablePrecompiled = std::make_shared<TablePrecompiled>(m_hashImpl);
     tablePrecompiled->setTable(std::make_shared<Table>(table.value()));
     tablePrecompiled->setKeyField(keyField);
@@ -189,7 +190,7 @@ void TableFactoryPrecompiled::openTable(const std::shared_ptr<executor::BlockCon
 
 void TableFactoryPrecompiled::createTable(const std::shared_ptr<executor::BlockContext>& _context,
     bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
-    const std::string& _origin, const std::string& _sender, const PrecompiledGas::Ptr& gasPricer)
+    const std::string& _origin, const std::string&, const PrecompiledGas::Ptr& gasPricer)
 {
     // createTable(string,string,string)
     std::string tableName;
@@ -231,13 +232,6 @@ void TableFactoryPrecompiled::createTable(const std::shared_ptr<executor::BlockC
         }
         else
         {
-            if (!m_memoryTableFactory->createTable(newTableName, valueField))
-            {
-                result = CODE_TABLE_CREATE_ERROR;
-                getErrorCodeOut(callResult->mutableExecResult(), result, codec);
-                return;
-            }
-
             auto ret = m_memoryTableFactory->createTable(newTableName, valueField);
             auto sysTable = _context->storage()->openTable(StorageInterface::SYS_TABLES);
             auto sysEntry = sysTable->getRow(newTableName);
@@ -247,7 +241,8 @@ void TableFactoryPrecompiled::createTable(const std::shared_ptr<executor::BlockC
                 getErrorCodeOut(callResult->mutableExecResult(), result, codec);
                 return;
             }
-            sysEntry->setField("key_field", keyField);
+            sysEntry->setField(
+                StorageInterface::SYS_TABLE_VALUE_FIELDS, valueField + "," + keyField);
             sysTable->setRow(newTableName, sysEntry.value());
             gasPricer->appendOperation(InterfaceOpcode::CreateTable);
 

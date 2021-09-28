@@ -9,6 +9,7 @@ namespace bcos::test
 class MockExecutionMessage : public protocol::ExecutionMessage
 {
 public:
+    MockExecutionMessage() = default;
     virtual ~MockExecutionMessage() {}
 
     Type type() const override { return m_type; }
@@ -50,6 +51,9 @@ public:
 
     int32_t status() const override { return m_status; }
     void setStatus(int32_t status) override { m_status = status; }
+
+    bool create() const override { return false; }
+    void setCreate(bool) override {}
 
     std::string_view message() const override { return m_message; }
     void setMessage(std::string message) override { m_message = std::move(message); }

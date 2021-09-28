@@ -92,8 +92,8 @@ std::shared_ptr<PrecompiledExecResult> ConsensusPrecompiled::call(
     return callResult;
 }
 
-int ConsensusPrecompiled::addSealer(const std::shared_ptr<executor::BlockContext>& _context,
-    bytesConstRef& _data)
+int ConsensusPrecompiled::addSealer(
+    const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& _data)
 {
     // addSealer(string, uint256)
     std::string nodeID;
@@ -132,8 +132,8 @@ int ConsensusPrecompiled::addSealer(const std::shared_ptr<executor::BlockContext
     return 0;
 }
 
-int ConsensusPrecompiled::addObserver(const std::shared_ptr<executor::BlockContext>& _context,
-    bytesConstRef& _data)
+int ConsensusPrecompiled::addObserver(
+    const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& _data)
 {
     // addObserver(string)
     std::string nodeID;
@@ -171,8 +171,8 @@ int ConsensusPrecompiled::addObserver(const std::shared_ptr<executor::BlockConte
     return 0;
 }
 
-int ConsensusPrecompiled::removeNode(const std::shared_ptr<executor::BlockContext>& _context,
-    bytesConstRef& _data)
+int ConsensusPrecompiled::removeNode(
+    const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& _data)
 {
     // remove(string)
     std::string nodeID;
@@ -202,8 +202,8 @@ int ConsensusPrecompiled::removeNode(const std::shared_ptr<executor::BlockContex
     return 0;
 }
 
-int ConsensusPrecompiled::setWeight(const std::shared_ptr<executor::BlockContext>& _context,
-    bytesConstRef& _data)
+int ConsensusPrecompiled::setWeight(
+    const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& _data)
 {
     // setWeight(string,uint256)
     std::string nodeID;

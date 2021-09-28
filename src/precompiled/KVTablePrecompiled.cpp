@@ -54,8 +54,8 @@ std::string KVTablePrecompiled::toString()
 }
 
 std::shared_ptr<PrecompiledExecResult> KVTablePrecompiled::call(
-    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
-    const std::string& _origin, const std::string& _sender)
+    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param, const std::string&,
+    const std::string&)
 {
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
@@ -121,7 +121,7 @@ std::shared_ptr<PrecompiledExecResult> KVTablePrecompiled::call(
             checkLengthValidate(
                 key, USER_TABLE_KEY_VALUE_MAX_LENGTH, CODE_TABLE_KEY_VALUE_LENGTH_OVERFLOW);
 
-            for (auto const &entryValue : *entry)
+            for (auto const& entryValue : *entry)
             {
                 checkLengthValidate(entryValue, USER_TABLE_FIELD_VALUE_MAX_LENGTH,
                     CODE_TABLE_KEY_VALUE_LENGTH_OVERFLOW);
@@ -146,7 +146,7 @@ std::shared_ptr<PrecompiledExecResult> KVTablePrecompiled::call(
         checkLengthValidate(
             key, USER_TABLE_KEY_VALUE_MAX_LENGTH, CODE_TABLE_KEY_VALUE_LENGTH_OVERFLOW);
 
-        for (auto const &  entryValue : *entry)
+        for (auto const& entryValue : *entry)
         {
             checkLengthValidate(entryValue, USER_TABLE_FIELD_VALUE_MAX_LENGTH,
                 CODE_TABLE_KEY_VALUE_LENGTH_OVERFLOW);

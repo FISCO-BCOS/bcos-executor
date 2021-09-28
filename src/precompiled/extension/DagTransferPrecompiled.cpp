@@ -204,7 +204,7 @@ std::shared_ptr<PrecompiledExecResult> DagTransferPrecompiled::call(
 }
 
 void DagTransferPrecompiled::userAddCall(std::shared_ptr<executor::BlockContext> _context,
-    bytesConstRef _data, std::string const& _origin, bytes& _out)
+    bytesConstRef _data, std::string const&, bytes& _out)
 {
     // userAdd(string,uint256)
     std::string user;
@@ -252,7 +252,7 @@ void DagTransferPrecompiled::userAddCall(std::shared_ptr<executor::BlockContext>
 }
 
 void DagTransferPrecompiled::userSaveCall(std::shared_ptr<executor::BlockContext> _context,
-    bytesConstRef _data, std::string const& _origin, bytes& _out)
+    bytesConstRef _data, std::string const&, bytes& _out)
 {
     // userSave(string,uint256)
     std::string user;
@@ -326,7 +326,7 @@ void DagTransferPrecompiled::userSaveCall(std::shared_ptr<executor::BlockContext
 }
 
 void DagTransferPrecompiled::userDrawCall(std::shared_ptr<executor::BlockContext> _context,
-    bytesConstRef _data, std::string const& _origin, bytes& _out)
+    bytesConstRef _data, std::string const&, bytes& _out)
 {
     std::string user;
     u256 amount;
@@ -438,7 +438,7 @@ void DagTransferPrecompiled::userBalanceCall(
 }
 
 void DagTransferPrecompiled::userTransferCall(std::shared_ptr<executor::BlockContext> _context,
-    bytesConstRef _data, std::string const& _origin, bytes& _out)
+    bytesConstRef _data, std::string const&, bytes& _out)
 {
     auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     std::string fromUser, toUser;

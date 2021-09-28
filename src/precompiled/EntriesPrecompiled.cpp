@@ -62,7 +62,8 @@ std::shared_ptr<PrecompiledExecResult> EntriesPrecompiled::call(
         auto entryWithKV = getEntriesPtr()->at(num.convert_to<size_t>());
         EntryPrecompiled::Ptr entryPrecompiled = std::make_shared<EntryPrecompiled>(m_hashImpl);
         entryPrecompiled->setEntry(std::make_shared<storage::Entry>(std::get<2>(entryWithKV)));
-        entryPrecompiled->setKeyValue(std::get<0>(entryWithKV), std::get<1>(entryWithKV));
+        entryPrecompiled->setKeyValue(
+            std::string(std::get<0>(entryWithKV)), std::string(std::get<1>(entryWithKV)));
         if (_context->isWasm())
         {
             std::string address = _context->registerPrecompiled(entryPrecompiled);

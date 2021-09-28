@@ -78,6 +78,16 @@ std::shared_ptr<PrecompiledExecResult> TablePrecompiled::call(
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->setMemUsed(_param.size());
+    if (m_keyField.empty())
+    {
+        auto sysTable = _context->storage()->openTable(StorageInterface::SYS_TABLES);
+        auto sysEntry = sysTable->getRow(m_table->tableInfo()->name());
+        if (sysEntry)
+        {
+            auto valueKey = sysEntry->getField(StorageInterface::SYS_TABLE_VALUE_FIELDS);
+            m_keyField = valueKey.substr(valueKey.find_last_of(',') + 1);
+        }
+    }
 
     if (func == name2Selector[TABLE_METHOD_SLT_STR_ADD] ||
         func == name2Selector[TABLE_METHOD_SLT_STR_WASM])
@@ -264,7 +274,7 @@ std::shared_ptr<PrecompiledExecResult> TablePrecompiled::call(
         auto entry = m_table->newEntry();
         auto entryPrecompiled = std::make_shared<EntryPrecompiled>(m_hashImpl);
         entryPrecompiled->setEntry(std::make_shared<storage::Entry>(entry));
-        entryPrecompiled->setKeyValue(m_keyField, "");
+        entryPrecompiled->setKeyValue(std::string(m_keyField), "");
 
         if (_context->isWasm())
         {
@@ -424,7 +434,7 @@ std::shared_ptr<PrecompiledExecResult> TablePrecompiled::call(
                 auto tableKeyList = m_table->getPrimaryKeys(*keyCondition);
                 std::set<std::string> tableKeySet{tableKeyList.begin(), tableKeyList.end()};
                 tableKeySet.insert(eqKeyList.begin(), eqKeyList.end());
-                auto updateCount = 0;
+                u256 updateCount = 0;
                 for (auto& tableKey : tableKeySet)
                 {
                     auto tableEntry = m_table->getRow(tableKey);
@@ -432,6 +442,9 @@ std::shared_ptr<PrecompiledExecResult> TablePrecompiled::call(
                     {
                         for (auto const& field : entry->tableInfo()->fields())
                         {
+                            auto value = entry->getField(field);
+                            if (value.empty())
+                                continue;
                             tableEntry->setField(field, std::string(entry->getField(field)));
                         }
                         m_table->setRow(tableKey, std::move(tableEntry.value()));
@@ -439,7 +452,7 @@ std::shared_ptr<PrecompiledExecResult> TablePrecompiled::call(
                     }
                 }
                 gasPricer->setMemUsed(entry->capacityOfHashField());
-                gasPricer->appendOperation(InterfaceOpcode::Update, updateCount);
+                gasPricer->appendOperation(InterfaceOpcode::Update, (unsigned int)updateCount);
                 callResult->setExecResult(codec->encode(updateCount));
             }
         }

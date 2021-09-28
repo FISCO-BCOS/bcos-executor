@@ -73,7 +73,10 @@ std::shared_ptr<PrecompiledExecResult> EntryPrecompiled::call(
         auto sysTable = _context->storage()->openTable(StorageInterface::SYS_TABLES);
         auto sysEntry = sysTable->getRow(m_entry->tableInfo()->name());
         if (sysEntry)
-            m_keyField = sysEntry->getField("key_field");
+        {
+            auto valueKey = sysEntry->getField(StorageInterface::SYS_TABLE_VALUE_FIELDS);
+            m_keyField = valueKey.substr(valueKey.find_last_of(',') + 1);
+        }
     }
 
     if (func == name2Selector[ENTRY_GET_INT])

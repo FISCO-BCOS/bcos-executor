@@ -49,8 +49,8 @@ SystemConfigPrecompiled::SystemConfigPrecompiled(crypto::Hash::Ptr _hashImpl)
 }
 
 std::shared_ptr<PrecompiledExecResult> SystemConfigPrecompiled::call(
-    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
-    const std::string& _origin, const std::string&)
+    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param, const std::string&,
+    const std::string&)
 {
     // parse function name
     uint32_t func = getParamFunc(_param);

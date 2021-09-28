@@ -58,6 +58,7 @@ public:
     }
 
     bcos::storage::StateStorage::Ptr getMemoryTableFactory() { return m_memoryTableFactory; }
+
 private:
     void openTable(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& data,
         const std::shared_ptr<PrecompiledExecResult>& callResult,

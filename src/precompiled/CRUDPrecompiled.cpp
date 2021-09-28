@@ -125,8 +125,9 @@ void CRUDPrecompiled::desc(const std::shared_ptr<executor::BlockContext>& _conte
     if (entry)
     {
         _gasPricer->appendOperation(InterfaceOpcode::Select, entry->capacityOfHashField());
-        keyField = entry->getField("key_field");
-        valueField = entry->getField(StorageInterface::SYS_TABLE_VALUE_FIELDS);
+        auto valueKey = entry->getField(StorageInterface::SYS_TABLE_VALUE_FIELDS);
+        keyField = valueKey.substr(valueKey.find_last_of(',') + 1);
+        valueField = valueKey.substr(0, valueKey.find_last_of(','));
     }
     else
     {
@@ -151,7 +152,9 @@ void CRUDPrecompiled::update(const std::shared_ptr<executor::BlockContext>& _con
     auto sysEntry = sysTable->getRow(tableName);
     if (table && sysEntry)
     {
-        auto keyField = std::string(sysEntry->getField("key_field"));
+        auto valueKeyCombined = sysEntry->getField(StorageInterface::SYS_TABLE_VALUE_FIELDS);
+        auto keyField =
+            std::string(valueKeyCombined.substr(valueKeyCombined.find_last_of(',') + 1));
         std::string keyValue;
         auto entry = table->newEntry();
         int parseEntryResult = parseEntry(entryStr, entry, keyField, keyValue);
@@ -161,7 +164,7 @@ void CRUDPrecompiled::update(const std::shared_ptr<executor::BlockContext>& _con
             return;
         }
         // check the entry value valid
-        for (auto const& entryValue : entry)
+        for (auto entryValue : entry)
         {
             checkLengthValidate(entryValue, USER_TABLE_FIELD_VALUE_MAX_LENGTH,
                 CODE_TABLE_KEY_VALUE_LENGTH_OVERFLOW);
@@ -237,10 +240,13 @@ void CRUDPrecompiled::update(const std::shared_ptr<executor::BlockContext>& _con
                 {
                     for (auto const& field : entry.tableInfo()->fields())
                     {
-                        tableEntry->setField(field, std::string(entry.getField(field)));
+                        auto value = entry.getField(field);
+                        if (value.empty())
+                            continue;
+                        tableEntry->setField(field, std::string(value));
                     }
                     table->setRow(tableKey, std::move(tableEntry.value()));
-                    updateCount ++;
+                    updateCount++;
                 }
             }
             _gasPricer->setMemUsed(entry.capacityOfHashField());
@@ -273,7 +279,9 @@ void CRUDPrecompiled::insert(const std::shared_ptr<executor::BlockContext>& _con
     auto sysEntry = sysTable->getRow(tableName);
     if (table && sysEntry)
     {
-        auto keyField = std::string(sysEntry->getField("key_field"));
+        auto valueKeyCombined = sysEntry->getField(StorageInterface::SYS_TABLE_VALUE_FIELDS);
+        auto keyField =
+            std::string(valueKeyCombined.substr(valueKeyCombined.find_last_of(',') + 1));
         std::string keyValue;
         auto tableInfo = table->tableInfo();
         auto entry = table->newEntry();
@@ -284,7 +292,7 @@ void CRUDPrecompiled::insert(const std::shared_ptr<executor::BlockContext>& _con
             return;
         }
         // check entry
-        for (auto const& entryValue : entry)
+        for (auto entryValue : entry)
         {
             checkLengthValidate(entryValue, USER_TABLE_FIELD_VALUE_MAX_LENGTH,
                 CODE_TABLE_KEY_VALUE_LENGTH_OVERFLOW);
@@ -294,13 +302,22 @@ void CRUDPrecompiled::insert(const std::shared_ptr<executor::BlockContext>& _con
             PRECOMPILED_LOG(ERROR) << LOG_BADGE("CRUDPrecompiled") << LOG_BADGE("INSERT")
                                    << LOG_DESC("can't find specific key in entry")
                                    << LOG_KV("table", tableName) << LOG_KV("key", keyField);
-            getErrorCodeOut(_callResult->mutableExecResult(), CODE_INVALID_UPDATE_TABLE_KEY, codec);
+            getErrorCodeOut(_callResult->mutableExecResult(), CODE_KEY_NOT_EXIST_IN_ENTRY, codec);
+            return;
+        }
+        if (table->getRow(keyValue))
+        {
+            PRECOMPILED_LOG(ERROR)
+                << LOG_BADGE("CRUDPrecompiled") << LOG_BADGE("INSERT")
+                << LOG_DESC("key already exist in table, please use UPDATE method")
+                << LOG_KV("primaryKey", keyField) << LOG_KV("existKey", keyValue);
+            getErrorCodeOut(_callResult->mutableExecResult(), CODE_INSERT_KEY_EXIST, codec);
             return;
         }
         auto capacityOfHashField = entry.capacityOfHashField();
         table->setRow(keyValue, std::move(entry));
         _gasPricer->appendOperation(InterfaceOpcode::Insert, 1);
-        _gasPricer->updateMemUsed(capacityOfHashField);
+        _gasPricer->updateMemUsed(std::move(capacityOfHashField));
         _callResult->setExecResult(codec->encode(u256(1)));
     }
     else
@@ -325,7 +342,9 @@ void CRUDPrecompiled::remove(const std::shared_ptr<executor::BlockContext>& _con
     auto sysEntry = sysTable->getRow(tableName);
     if (table && sysEntry)
     {
-        auto keyField = sysEntry->getField("key_field");
+        auto valueKeyCombined = sysEntry->getField(StorageInterface::SYS_TABLE_VALUE_FIELDS);
+        auto keyField =
+            std::string(valueKeyCombined.substr(valueKeyCombined.find_last_of(',') + 1));
         auto condition = std::make_shared<precompiled::Condition>();
         int parseConditionResult = parseCondition(conditionStr, condition, _gasPricer);
         if (parseConditionResult != CODE_SUCCESS)
@@ -405,7 +424,9 @@ void CRUDPrecompiled::select(const std::shared_ptr<executor::BlockContext>& _con
     auto sysEntry = sysTable->getRow(tableName);
     if (table && sysEntry)
     {
-        auto keyField = sysEntry->getField("key_field");
+        auto valueKeyCombined = sysEntry->getField(StorageInterface::SYS_TABLE_VALUE_FIELDS);
+        auto keyField =
+            std::string(valueKeyCombined.substr(valueKeyCombined.find_last_of(',') + 1));
         auto condition = std::make_shared<precompiled::Condition>();
         int parseConditionResult = parseCondition(conditionStr, condition, _gasPricer);
         if (parseConditionResult != CODE_SUCCESS)
@@ -498,7 +519,7 @@ int CRUDPrecompiled::parseCondition(const std::string& conditionStr,
     {
         auto members = conditionJson.getMemberNames();
         Json::Value OPJson;
-        for (auto & member : members)
+        for (auto& member : members)
         {
             if (!isHashField(member))
             {
@@ -585,10 +606,7 @@ int CRUDPrecompiled::parseEntry(
             {
                 keyValue = entryJson[keyField].asString();
             }
-            else
-            {
-                entry.setField(member, entryJson[member].asString());
-            }
+            entry.setField(member, entryJson[member].asString());
         }
 
         return CODE_SUCCESS;
