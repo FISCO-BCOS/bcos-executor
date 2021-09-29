@@ -68,16 +68,6 @@ std::shared_ptr<PrecompiledExecResult> EntryPrecompiled::call(
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->setMemUsed(_param.size());
-    if (m_keyField.empty())
-    {
-        auto sysTable = _context->storage()->openTable(StorageInterface::SYS_TABLES);
-        auto sysEntry = sysTable->getRow(m_entry->tableInfo()->name());
-        if (sysEntry)
-        {
-            auto valueKey = sysEntry->getField(StorageInterface::SYS_TABLE_VALUE_FIELDS);
-            m_keyField = valueKey.substr(valueKey.find_last_of(',') + 1);
-        }
-    }
 
     if (func == name2Selector[ENTRY_GET_INT])
     {
@@ -123,15 +113,7 @@ std::shared_ptr<PrecompiledExecResult> EntryPrecompiled::call(
         std::string str;
         std::string value;
         codec->decode(data, str, value);
-
-        if (str == m_keyField)
-        {
-            m_keyValue = {str, value};
-        }
-        else
-        {
-            m_entry->setField(str, value);
-        }
+        m_entry->setField(str, value);
         gasPricer->appendOperation(InterfaceOpcode::Set);
     }
     else if (func == name2Selector[ENTRY_SET_STR_ADDR])

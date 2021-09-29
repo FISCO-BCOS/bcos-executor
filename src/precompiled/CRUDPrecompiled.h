@@ -68,6 +68,17 @@ private:
         }
         return false;
     }
+    std::string_view getKeyField(
+        const std::shared_ptr<executor::BlockContext>& _context, std::string_view tableName)
+    {
+        auto sysTable = _context->storage()->openTable(storage::StorageInterface::SYS_TABLES);
+        auto sysEntry = sysTable->getRow(tableName);
+        if (!sysEntry)
+            return "";
+        auto valueKeyCombined =
+            sysEntry->getField(storage::StorageInterface::SYS_TABLE_VALUE_FIELDS);
+        return valueKeyCombined.substr(valueKeyCombined.find_last_of(',') + 1);
+    }
 };
 }  // namespace precompiled
 }  // namespace bcos

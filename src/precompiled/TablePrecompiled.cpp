@@ -161,12 +161,9 @@ std::shared_ptr<PrecompiledExecResult> TablePrecompiled::call(
             for (auto& key : tableKeySet)
             {
                 auto entry = m_table->getRow(key);
-                if (!entry)
-                    continue;
                 if (entryCondition->filter(entry))
                 {
-                    precompiled::EntryWithKV entryWithKv = {m_keyField, key, entry.value()};
-                    entries->emplace_back(std::move(entryWithKv));
+                    entries->emplace_back(std::move(entry.value()));
                 }
             }
             // update the memory gas and the computation gas
@@ -212,15 +209,15 @@ std::shared_ptr<PrecompiledExecResult> TablePrecompiled::call(
         }
 
         auto entry = entryPrecompiled->getEntry();
-        auto kvTuple = entryPrecompiled->getKeyValue();
-        auto keyValue = std::get<1>(kvTuple);
+        auto keyValue = entry->getField(m_keyField);
         // check entry value validate
         for (auto const& entryValue : *entry)
         {
             checkLengthValidate(entryValue, USER_TABLE_FIELD_VALUE_MAX_LENGTH,
                 CODE_TABLE_KEY_VALUE_LENGTH_OVERFLOW);
         }
-        if (std::get<0>(kvTuple) != m_keyField || std::get<1>(kvTuple).empty())
+        // FIXME: getField may return optional
+        if (keyValue.empty())
         {
             PRECOMPILED_LOG(ERROR) << LOG_BADGE("TablePrecompiled") << LOG_BADGE("INSERT")
                                    << LOG_DESC("can't get any primary key in entry string")
@@ -274,7 +271,6 @@ std::shared_ptr<PrecompiledExecResult> TablePrecompiled::call(
         auto entry = m_table->newEntry();
         auto entryPrecompiled = std::make_shared<EntryPrecompiled>(m_hashImpl);
         entryPrecompiled->setEntry(std::make_shared<storage::Entry>(entry));
-        entryPrecompiled->setKeyValue(std::string(m_keyField), "");
 
         if (_context->isWasm())
         {

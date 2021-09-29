@@ -62,13 +62,9 @@ public:
 
     void setEntry(std::shared_ptr<storage::Entry> entry) { m_entry = entry; }
     std::shared_ptr<storage::Entry> getEntry() const { return m_entry; };
-    void setKeyValue(std::string _k, std::string _v) { m_keyValue = {_k, _v}; };
-    const std::tuple<std::string, std::string>& getKeyValue() const { return m_keyValue; }
 
 private:
     std::shared_ptr<storage::Entry> m_entry;
-    std::string_view m_keyField;
-    std::tuple<std::string, std::string> m_keyValue = {"", ""};
 };
 }  // namespace precompiled
 }  // namespace bcos

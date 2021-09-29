@@ -24,9 +24,7 @@
 #include "precompiled/EntriesPrecompiled.h"
 #include "precompiled/EntryPrecompiled.h"
 #include "precompiled/TableFactoryPrecompiled.h"
-#include "precompiled/extension/UserPrecompiled.h"
 #include <bcos-framework/libutilities/Error.h>
-#include <bcos-framework/libutilities/Exceptions.h>
 #include <bcos-framework/testutils/TestPromptFixture.h>
 #include <json/json.h>
 

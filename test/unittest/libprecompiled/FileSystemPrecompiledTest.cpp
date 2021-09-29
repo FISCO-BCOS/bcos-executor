@@ -21,7 +21,6 @@
 #include "precompiled/FileSystemPrecompiled.h"
 #include "PreCompiledFixture.h"
 #include "precompiled/KVTableFactoryPrecompiled.h"
-#include "precompiled/extension/UserPrecompiled.h"
 #include <bcos-framework/testutils/TestPromptFixture.h>
 #include <json/json.h>
 

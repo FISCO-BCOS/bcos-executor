@@ -19,7 +19,6 @@
  */
 
 #include "precompiled/PrecompiledGas.h"
-#include "precompiled/extension/UserPrecompiled.h"
 #include <bcos-framework/testutils/TestPromptFixture.h>
 
 using namespace bcos;

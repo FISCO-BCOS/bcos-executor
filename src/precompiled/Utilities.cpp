@@ -410,7 +410,7 @@ uint64_t precompiled::getEntriesCapacity(precompiled::EntriesPtr _entries)
     int64_t totalCapacity = 0;
     for (auto& entry : *_entries)
     {
-        totalCapacity += std::get<2>(entry).capacityOfHashField();
+        totalCapacity += entry.capacityOfHashField();
     }
     return totalCapacity;
 }

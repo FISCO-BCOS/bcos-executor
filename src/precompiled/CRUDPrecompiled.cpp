@@ -275,17 +275,13 @@ void CRUDPrecompiled::insert(const std::shared_ptr<executor::BlockContext>& _con
     _gasPricer->appendOperation(InterfaceOpcode::OpenTable);
 
     // get key field name from s_tables
-    auto sysTable = _context->storage()->openTable(StorageInterface::SYS_TABLES);
-    auto sysEntry = sysTable->getRow(tableName);
-    if (table && sysEntry)
+    auto keyField = getKeyField(_context, tableName);
+    if (table && !keyField.empty())
     {
-        auto valueKeyCombined = sysEntry->getField(StorageInterface::SYS_TABLE_VALUE_FIELDS);
-        auto keyField =
-            std::string(valueKeyCombined.substr(valueKeyCombined.find_last_of(',') + 1));
         std::string keyValue;
         auto tableInfo = table->tableInfo();
         auto entry = table->newEntry();
-        int parseEntryResult = parseEntry(entryStr, entry, keyField, keyValue);
+        int parseEntryResult = parseEntry(entryStr, entry, std::string(keyField), keyValue);
         if (parseEntryResult != CODE_SUCCESS)
         {
             getErrorCodeOut(_callResult->mutableExecResult(), parseEntryResult, codec);
@@ -317,7 +313,7 @@ void CRUDPrecompiled::insert(const std::shared_ptr<executor::BlockContext>& _con
         auto capacityOfHashField = entry.capacityOfHashField();
         table->setRow(keyValue, std::move(entry));
         _gasPricer->appendOperation(InterfaceOpcode::Insert, 1);
-        _gasPricer->updateMemUsed(std::move(capacityOfHashField));
+        _gasPricer->updateMemUsed(capacityOfHashField);
         _callResult->setExecResult(codec->encode(u256(1)));
     }
     else
@@ -338,13 +334,9 @@ void CRUDPrecompiled::remove(const std::shared_ptr<executor::BlockContext>& _con
     tableName = precompiled::getTableName(tableName);
     auto table = _context->storage()->openTable(tableName);
     _gasPricer->appendOperation(InterfaceOpcode::OpenTable);
-    auto sysTable = _context->storage()->openTable(StorageInterface::SYS_TABLES);
-    auto sysEntry = sysTable->getRow(tableName);
-    if (table && sysEntry)
+    auto keyField = getKeyField(_context, tableName);
+    if (table && !keyField.empty())
     {
-        auto valueKeyCombined = sysEntry->getField(StorageInterface::SYS_TABLE_VALUE_FIELDS);
-        auto keyField =
-            std::string(valueKeyCombined.substr(valueKeyCombined.find_last_of(',') + 1));
         auto condition = std::make_shared<precompiled::Condition>();
         int parseConditionResult = parseCondition(conditionStr, condition, _gasPricer);
         if (parseConditionResult != CODE_SUCCESS)
@@ -420,13 +412,9 @@ void CRUDPrecompiled::select(const std::shared_ptr<executor::BlockContext>& _con
     auto table = _context->storage()->openTable(tableName);
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->appendOperation(InterfaceOpcode::OpenTable);
-    auto sysTable = _context->storage()->openTable(StorageInterface::SYS_TABLES);
-    auto sysEntry = sysTable->getRow(tableName);
-    if (table && sysEntry)
+    auto keyField = getKeyField(_context, tableName);
+    if (table && !keyField.empty())
     {
-        auto valueKeyCombined = sysEntry->getField(StorageInterface::SYS_TABLE_VALUE_FIELDS);
-        auto keyField =
-            std::string(valueKeyCombined.substr(valueKeyCombined.find_last_of(',') + 1));
         auto condition = std::make_shared<precompiled::Condition>();
         int parseConditionResult = parseCondition(conditionStr, condition, _gasPricer);
         if (parseConditionResult != CODE_SUCCESS)
@@ -471,9 +459,8 @@ void CRUDPrecompiled::select(const std::shared_ptr<executor::BlockContext>& _con
             auto entry = table->getRow(keyValue);
             if (condition->filter(entry))
             {
-                precompiled::EntryWithKV entryWithKv = {
-                    keyField, keyValue, std::move(entry.value())};
-                entries->emplace_back(std::move(entryWithKv));
+                entry->setField(keyField, keyValue);
+                entries->emplace_back(std::move(entry.value()));
             }
         }
         // update the memory gas and the computation gas
@@ -485,9 +472,9 @@ void CRUDPrecompiled::select(const std::shared_ptr<executor::BlockContext>& _con
             for (auto& entry : *entries)
             {
                 Json::Value record;
-                for (auto& field : std::get<2>(entry).tableInfo()->fields())
+                for (auto& field : entry.tableInfo()->fields())
                 {
-                    record[field] = std::string(std::get<2>(entry).getField(field));
+                    record[field] = std::string(entry.getField(field));
                 }
                 records.append(record);
             }

@@ -22,7 +22,6 @@
 #include "precompiled/EntryPrecompiled.h"
 #include "precompiled/KVTableFactoryPrecompiled.h"
 #include "precompiled/KVTablePrecompiled.h"
-#include "precompiled/extension/UserPrecompiled.h"
 #include <bcos-framework/testutils/TestPromptFixture.h>
 
 using namespace bcos;

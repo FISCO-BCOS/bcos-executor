@@ -58,12 +58,10 @@ std::shared_ptr<PrecompiledExecResult> EntriesPrecompiled::call(
         // get(int256)
         u256 num;
         codec->decode(data, num);
-
-        auto entryWithKV = getEntriesPtr()->at(num.convert_to<size_t>());
+        // FIXME: num out of range
+        auto entry = getEntriesPtr()->at(num.convert_to<size_t>());
         EntryPrecompiled::Ptr entryPrecompiled = std::make_shared<EntryPrecompiled>(m_hashImpl);
-        entryPrecompiled->setEntry(std::make_shared<storage::Entry>(std::get<2>(entryWithKV)));
-        entryPrecompiled->setKeyValue(
-            std::string(std::get<0>(entryWithKV)), std::string(std::get<1>(entryWithKV)));
+        entryPrecompiled->setEntry(std::make_shared<storage::Entry>(entry));
         if (_context->isWasm())
         {
             std::string address = _context->registerPrecompiled(entryPrecompiled);

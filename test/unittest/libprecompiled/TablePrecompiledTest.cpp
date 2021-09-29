@@ -24,7 +24,6 @@
 #include "precompiled/EntriesPrecompiled.h"
 #include "precompiled/EntryPrecompiled.h"
 #include "precompiled/TableFactoryPrecompiled.h"
-#include "precompiled/extension/UserPrecompiled.h"
 #include <bcos-framework/testutils/TestPromptFixture.h>
 
 using namespace bcos;
@@ -365,7 +364,6 @@ BOOST_AUTO_TEST_CASE(insert_evm)
         entry.setField("name", "bcos");
         auto entryPrecompiled = std::make_shared<EntryPrecompiled>(hashImpl);
         entryPrecompiled->setEntry(std::make_shared<storage::Entry>(entry));
-        entryPrecompiled->setKeyValue("id", "3");
         auto entryAddress = Address(context->registerPrecompiled(entryPrecompiled));
 
         bytes in = codec->encodeWithSig("insert(address)", entryAddress);
@@ -383,7 +381,6 @@ BOOST_AUTO_TEST_CASE(insert_evm)
         entry.setField("name", "bcos");
         auto entryPrecompiled = std::make_shared<EntryPrecompiled>(hashImpl);
         entryPrecompiled->setEntry(std::make_shared<storage::Entry>(entry));
-        entryPrecompiled->setKeyValue("id", "2");
         auto entryAddress = Address(context->registerPrecompiled(entryPrecompiled));
 
         bytes in = codec->encodeWithSig("insert(address)", entryAddress);
@@ -423,7 +420,6 @@ BOOST_AUTO_TEST_CASE(insert_wasm)
         entry.setField("name", "bcos");
         auto entryPrecompiled = std::make_shared<EntryPrecompiled>(hashImpl);
         entryPrecompiled->setEntry(std::make_shared<storage::Entry>(entry));
-        entryPrecompiled->setKeyValue("id", "3");
         auto entryAddress = context->registerPrecompiled(entryPrecompiled);
 
         bytes in = codec->encodeWithSig("insert(string)", entryAddress);
@@ -676,9 +672,6 @@ BOOST_AUTO_TEST_CASE(entry_test)
 
     in = codec->encodeWithSig("set(string,string)", std::string("key"), std::string("keyValue"));
     entryPrecompiled->call(context, bytesConstRef(&in), "", "");
-
-    auto kv = entryPrecompiled->getKeyValue();
-    BOOST_CHECK(std::string(std::get<1>(kv)) == "keyValue");
 
     in = codec->encodeWithSig("getInt(string)", std::string("int"));
     auto callResult = entryPrecompiled->call(context, bytesConstRef(&in), "", "");
