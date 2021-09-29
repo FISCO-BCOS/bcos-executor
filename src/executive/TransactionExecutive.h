@@ -152,7 +152,7 @@ private:
     std::unique_ptr<Coroutine::push_type> m_pushMessage;
     std::unique_ptr<Coroutine::pull_type> m_pullMessage;
     bcos::storage::StateStorage::Recoder::Ptr m_recoder;
-    std::set<std::string> m_keyLocks;
+    std::set<std::string, std::less<>> m_keyLocks;
     std::unique_ptr<CoroutineStorageWrapper<CoroutineMessage>> m_storageWrapper;
 };
 

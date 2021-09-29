@@ -15,6 +15,7 @@ using GetRowResponse = std::tuple<Error::UniquePtr, std::optional<storage::Entry
 using GetRowsResponse = std::tuple<Error::UniquePtr, std::vector<std::optional<storage::Entry>>>;
 using SetRowResponse = std::tuple<Error::UniquePtr>;
 using OpenTableResponse = std::tuple<Error::UniquePtr, std::optional<storage::Table>>;
+using KeyLockResponse = SetRowResponse;
 
 template <class T>
 class CoroutineStorageWrapper
@@ -96,6 +97,7 @@ public:
             BOOST_THROW_EXCEPTION(*error);
         }
 
+        acquireKeyLock(_key);
         return entry;
     }
 
@@ -132,6 +134,21 @@ public:
             BOOST_THROW_EXCEPTION(*error);
         }
 
+        if (_keys.index() == 0)
+        {
+            for (auto& it : std::get<0>(_keys))
+            {
+                acquireKeyLock(it);
+            }
+        }
+        else
+        {
+            for (auto& it : std::get<1>(_keys))
+            {
+                acquireKeyLock(it);
+            }
+        }
+
         return entries;
     }
 
@@ -163,6 +180,8 @@ public:
         {
             BOOST_THROW_EXCEPTION(*error);
         }
+
+        acquireKeyLock(key);
     }
 
     std::optional<storage::Table> createTable(std::string _tableName, std::string _valueFields)
@@ -232,8 +251,19 @@ public:
     }
 
 private:
+    void acquireKeyLock(const std::string_view key)
+    {
+        auto it = m_keyLocks.lower_bound(key);
+        if (it == m_keyLocks.end() || *it != key)
+        {
+            m_keyLocks.emplace_hint(it, key);
+        }
+    }
+
     storage::StorageInterface::Ptr m_storage;
     typename boost::coroutines2::coroutine<T>::push_type& m_push;
     typename boost::coroutines2::coroutine<T>::pull_type& m_pull;
+
+    std::set<std::string, std::less<>> m_keyLocks;
 };
 }  // namespace bcos::executor
