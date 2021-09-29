@@ -29,6 +29,7 @@
 #include "evmc/evmc.hpp"
 #include "libutilities/Common.h"
 #include <evmc/evmc.h>
+#include <evmc/helpers.h>
 #include <boost/algorithm/hex.hpp>
 #include <boost/algorithm/string/split.hpp>
 #include <boost/thread.hpp>
@@ -130,7 +131,6 @@ evmc_result HostContext::externalRequest(const evmc_message* _msg)
 
     request->senderAddress = myAddress();
     request->origin = origin();
-    request->gas = _msg->gas;
 
     switch (_msg->kind)
     {
@@ -148,16 +148,22 @@ evmc_result HostContext::externalRequest(const evmc_message* _msg)
             boost::algorithm::hex_lower(receiveAddressBytes.begin(), receiveAddressBytes.end(),
                 std::back_inserter(request->receiveAddress));
         }
+
         request->codeAddress = request->receiveAddress;
+        request->data.assign(_msg->input_data, _msg->input_data + _msg->input_size);
         break;
     case EVMC_DELEGATECALL:
     case EVMC_CALLCODE:
         BOOST_THROW_EXCEPTION(BCOS_ERROR(-1, "Unspoort opcode EVM_DELEGATECALL or EVM_CALLCODE"));
         break;
     case EVMC_CREATE:
-        // nothing to do
+        request->data.assign(_msg->input_data, _msg->input_data + _msg->input_size);
+        request->create = true;
         break;
     }
+
+    request->gas = _msg->gas;
+    request->staticCall = m_callParameters->staticCall;
 
     auto response = m_executive->externalCall(std::move(request));
 
@@ -195,13 +201,13 @@ void HostContext::setCode(bytes code)
 size_t HostContext::codeSizeAt(const std::string_view& _a)
 {
     (void)_a;
-    return 10 * 1024;  // 10k code size ok?
+    return 10 * 1024;  // TODO: 10k code size ok?
 }
 
 h256 HostContext::codeHashAt(const std::string_view& _a)
 {
     (void)_a;
-    return h256("0x1234567");  // ok?
+    return h256("0x1234567");  // TODO: ok?
 }
 
 u256 HostContext::store(const u256& _n)
@@ -250,6 +256,7 @@ void HostContext::log(h256s&& _topics, bytesConstRef _data)
     //     m_sub.logs->push_back(
     //         protocol::LogEntry(asBytes(hexAddress), std::move(_topics), _data.toBytes()));
     // }
+
     m_sub.logs->push_back(
         protocol::LogEntry(bytes(myAddress().data(), myAddress().data() + myAddress().size()),
             std::move(_topics), _data.toBytes()));

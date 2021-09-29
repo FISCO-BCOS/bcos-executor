@@ -81,9 +81,6 @@ public:
     /// Create a new contract.
     evmc_result externalRequest(const evmc_message* _msg);
 
-    // /// Create a new message call.
-    // evmc_result externalCall(const evmc_message* _msg);
-
     void setCode(bytes code);
 
     size_t codeSizeAt(const std::string_view& _a);
@@ -123,6 +120,8 @@ public:
     bool isCreate() const { return m_callParameters->create; }
     bool staticCall() const { return m_callParameters->staticCall; }
     int64_t gas() const { return m_callParameters->gas; }
+
+    CallParameters::UniquePtr&& takeCallParameters() { return std::move(m_callParameters); }
 
     static crypto::Hash::Ptr hashImpl() { return GlobalHashImpl::g_hashImpl; }
 

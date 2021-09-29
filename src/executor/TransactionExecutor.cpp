@@ -415,8 +415,7 @@ void TransactionExecutor::dagExecuteTransactions(
         tasks.emplace_back(
             Task(flowGraph, [this, i, &inputs, &transactions, &executionResults](Msg) {
                 auto& input = inputs[i];
-                auto callParameters =
-                    createCallParameters(*input, std::move(transactions->at(i)), *m_blockContext);
+                auto callParameters = createCallParameters(*input, std::move(transactions->at(i)));
 
                 auto executive = make_shared<TransactionExecutive>(m_blockContext,
                     callParameters->codeAddress, input->contextID(), input->seq(),
@@ -759,7 +758,7 @@ void TransactionExecutor::asyncExecute(bcos::protocol::ExecutionMessage::UniqueP
 
             auto tx = (*transactons)[0];
 
-            auto callParameters = createCallParameters(*input, std::move(tx), *blockContext);
+            auto callParameters = createCallParameters(*input, std::move(tx));
 
             auto executive = std::make_shared<TransactionExecutive>(blockContext,
                 callParameters->codeAddress, input->contextID(), input->seq(),
@@ -790,12 +789,14 @@ void TransactionExecutor::asyncExecute(bcos::protocol::ExecutionMessage::UniqueP
         auto it = blockContext->getExecutive(input->contextID(), input->seq());
         if (it)
         {
+            // REVERT or FINISHED
             auto [executive, executiveCallback] = *it;
             executiveCallback = callback;
             executive->pushMessage(std::move(callParameters));
         }
         else
         {
+            // new external call MESSAGE
             auto executive = std::make_shared<TransactionExecutive>(blockContext,
                 callParameters->codeAddress, input->contextID(), input->seq(),
                 std::bind(&TransactionExecutor::onCallResultsCallback, this, std::placeholders::_1,
@@ -1074,26 +1075,6 @@ std::string TransactionExecutor::newEVMAddress(
 std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
     const bcos::protocol::ExecutionMessage& input, bool staticCall)
 {
-    // std::string contract;
-    // bool create = false;
-    // if (input.create())
-    // {
-    //     create = true;
-    //     // if (input.createSalt())
-    //     // {
-    //     //     contract = newEVMAddress(input.from(), input.data(), input.createSalt().value());
-    //     // }
-    //     // else
-    //     // {
-    //     //     contract = newEVMAddress(input.from(), blockContext.currentNumber(),
-    //     //     input.contextID());
-    //     // }
-    // }
-    // else
-    // {
-    //     contract = input.to();
-    // }
-
     auto callParameters = std::make_unique<CallParameters>(CallParameters::MESSAGE);
     callParameters->origin = input.origin();
     callParameters->senderAddress = input.from();
@@ -1103,13 +1084,13 @@ std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
     callParameters->gas = input.gasAvailable();
     callParameters->data = input.data().toBytes();
     callParameters->staticCall = staticCall;
+    callParameters->create = input.create();
 
     return callParameters;
 }
 
 std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
-    const bcos::protocol::ExecutionMessage& input, bcos::protocol::Transaction::Ptr&& tx,
-    const BlockContext& blockContext)
+    const bcos::protocol::ExecutionMessage& input, bcos::protocol::Transaction::Ptr&& tx)
 {
     auto callParameters = std::make_unique<CallParameters>(CallParameters::MESSAGE);
 
@@ -1124,20 +1105,10 @@ std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
     else
     {
         boost::algorithm::hex_lower(tx->sender(), std::back_inserter(callParameters->origin));
+        toChecksumAddress(callParameters->origin, m_hashImpl);
+
         callParameters->senderAddress = callParameters->origin;
-
-        if (tx->to().empty())
-        {
-            create = true;
-            callParameters->receiveAddress = newEVMAddress(
-                callParameters->senderAddress, blockContext.currentNumber(), input.contextID());
-        }
-        else
-        {
-            boost::algorithm::hex_lower(
-                tx->to(), std::back_inserter(callParameters->receiveAddress));
-        }
-
+        callParameters->receiveAddress = input.to();
         callParameters->codeAddress = callParameters->receiveAddress;
     }
 
@@ -1145,6 +1116,7 @@ std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
     callParameters->gas = input.gasAvailable();
     callParameters->data = tx->input().toBytes();
     callParameters->staticCall = false;
+    callParameters->create = input.create();
 
     return callParameters;
 }

@@ -35,6 +35,9 @@ public:
     int32_t depth() const override { return m_depth; }
     void setDepth(int32_t depth) override { m_depth = depth; }
 
+    bool create() const override { return m_create; }
+    void setCreate(bool create) override { m_create = create; }
+
     int64_t gasAvailable() const override { return m_gasAvailable; }
     void setGasAvailable(int64_t gasAvailable) override { m_gasAvailable = gasAvailable; }
 
@@ -80,7 +83,6 @@ public:
         m_keyLocks = std::move(keyLocks);
     }
 
-    Type m_type;
     bcos::crypto::HashType m_transactionHash;
     int64_t m_contextID;
     int64_t m_seq;
@@ -89,17 +91,21 @@ public:
     std::string m_from;
     std::string m_to;
 
-    int32_t m_depth;
     int64_t m_gasAvailable;
     bcos::bytes m_input;
-    bool m_staticCall;
-    std::optional<u256> m_createSalt;
 
-    int32_t m_status;
+    std::optional<u256> m_createSalt;
+    
     std::string m_message;
     std::vector<bcos::protocol::LogEntry> m_logEntries;
     std::string m_newEVMContractAddress;
     std::vector<std::string> m_keyLocks;
+
+    int32_t m_status;
+    int32_t m_depth;
+    Type m_type;
+    bool m_create;
+    bool m_staticCall;
 };
 
 class MockExecutionMessageFactory : public protocol::ExecutionMessageFactory

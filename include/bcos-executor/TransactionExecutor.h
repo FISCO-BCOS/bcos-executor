@@ -145,13 +145,12 @@ private:
     std::unique_ptr<CallParameters> createCallParameters(
         const bcos::protocol::ExecutionMessage& inputs, bool staticCall);
 
-    std::unique_ptr<CallParameters> createCallParameters(
-        std::shared_ptr<bcos::protocol::Transaction>&& tx, const BlockContext& blockContext,
-        int64_t contextID);
+    // std::unique_ptr<CallParameters> createCallParameters(
+    //     std::shared_ptr<bcos::protocol::Transaction>&& tx, const BlockContext& blockContext,
+    //     int64_t contextID);
 
     std::unique_ptr<CallParameters> createCallParameters(
-        const bcos::protocol::ExecutionMessage& input, bcos::protocol::Transaction::Ptr&& tx,
-        const BlockContext& blockContext);
+        const bcos::protocol::ExecutionMessage& input, bcos::protocol::Transaction::Ptr&& tx);
 
     std::optional<std::vector<bcos::bytes>> decodeConflictFields(
         const FunctionAbi& functionAbi, bcos::protocol::Transaction* transaction);

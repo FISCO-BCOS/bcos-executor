@@ -126,7 +126,8 @@ private:
 
     void revert();
 
-    CallParameters::UniquePtr parseEVMCResult(bool isCreate, const Result& _result);
+    CallParameters::UniquePtr parseEVMCResult(
+        CallParameters::UniquePtr callResults, const Result& _result);
 
     void writeErrInfoToOutput(std::string const& errInfo);
     void updateGas(std::shared_ptr<precompiled::PrecompiledExecResult> _callResult);

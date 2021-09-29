@@ -22,6 +22,7 @@
 #include "../mock/MockExecutionMessage.h"
 #include "../mock/MockTransactionalStorage.h"
 #include "../mock/MockTxPool.h"
+#include "ChecksumAddress.h"
 #include "Common.h"
 #include "bcos-executor/TransactionExecutor.h"
 #include "interfaces/crypto/CommonType.h"
@@ -54,7 +55,7 @@ struct TransactionExecutorFixture
 {
     TransactionExecutorFixture()
     {
-        auto hashImpl = std::make_shared<Keccak256Hash>();
+        hashImpl = std::make_shared<Keccak256Hash>();
         assert(hashImpl);
         auto signatureImpl = std::make_shared<Secp256k1SignatureImpl>();
         assert(signatureImpl);
@@ -72,6 +73,7 @@ struct TransactionExecutorFixture
     CryptoSuite::Ptr cryptoSuite;
     std::shared_ptr<MockTxPool> txpool;
     std::shared_ptr<MockTransactionalStorage> backend;
+    std::shared_ptr<Keccak256Hash> hashImpl;
 
     string helloBin =
         "60806040526040805190810160405280600181526020017f3100000000000000000000000000000000000000"
@@ -133,6 +135,7 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
     boost::algorithm::unhex(helloworld, std::back_inserter(input));
     auto tx = fakeTransaction(cryptoSuite, keyPair, "", input, 101, 100001, "1", "1");
     auto sender = *toHexString(string_view((char*)tx->sender().data(), tx->sender().size()));
+    toChecksumAddress(sender, hashImpl);
 
     auto hash = tx->hash();
     txpool->hash2Transaction.emplace(hash, tx);
@@ -141,13 +144,25 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
     params->setContextID(100);
     params->setSeq(1000);
     params->setDepth(0);
+
+    params->setOrigin(std::string(sender));
     params->setFrom(std::string(sender));
+
+    // The contract address
+    h256 addressCreate("ff6f30856ad3bae00b1169808488502786a13e3c174d85682135ffd51310310e");
+    std::string addressString = addressCreate.hex().substr(0, 40);
+    toChecksumAddress(addressString, hashImpl);
+    params->setTo(std::move(addressString));
+
     // params->setTo(std::string((char*)to.data(), to.size())); create transaction
     params->setStaticCall(false);
     params->setGasAvailable(gas);
     params->setData(input);
     params->setType(MockExecutionMessage::TXHASH);
     params->setTransactionHash(hash);
+    params->setCreate(true);
+
+    MockExecutionMessage paramsBak = *params;
 
     auto blockHeader = std::make_shared<bcos::protocol::PBBlockHeader>(cryptoSuite);
     blockHeader->setNumber(1);
@@ -168,6 +183,10 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
 
     auto result = executePromise.get_future().get();
     BOOST_CHECK_EQUAL(result->status(), 0);
+
+    BOOST_CHECK_EQUAL(result->origin(), paramsBak.origin());
+    BOOST_CHECK_EQUAL(result->from(), paramsBak.to());
+    BOOST_CHECK_EQUAL(result->to(), paramsBak.from());
 
     BOOST_CHECK(result->message().empty());
     BOOST_CHECK(!result->newEVMContractAddress().empty());
