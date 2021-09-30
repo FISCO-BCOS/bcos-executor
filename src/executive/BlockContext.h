@@ -32,6 +32,7 @@
 #include <functional>
 #include <memory>
 #include <stack>
+#include <string_view>
 
 namespace bcos
 {
@@ -47,7 +48,6 @@ namespace executor
 class TransactionExecutive;
 class PrecompiledContract;
 
-typedef std::function<crypto::HashType(int64_t x)> CallBackFunction;
 class BlockContext : public std::enable_shared_from_this<BlockContext>
 {
 public:
