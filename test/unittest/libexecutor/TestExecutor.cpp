@@ -31,6 +31,7 @@
 #include "interfaces/protocol/Transaction.h"
 #include "libprotocol/protobuf/PBBlockHeader.h"
 #include "libstorage/StateStorage.h"
+#include "precompiled/PrecompiledCodec.h"
 #include <bcos-framework/testutils/crypto/HashImpl.h>
 #include <bcos-framework/testutils/crypto/SignatureImpl.h>
 #include <bcos-framework/testutils/protocol/FakeBlockHeader.h>
@@ -79,6 +80,8 @@ struct TransactionExecutorFixture
                 "03f56e250af52b25682014554f7b3297d6152401e85d426a06ae")
                 ->data(),
             64);
+
+        codec = std::make_unique<bcos::precompiled::PrecompiledCodec>(hashImpl, false);
     }
 
     TransactionExecutor::Ptr executor;
@@ -89,6 +92,7 @@ struct TransactionExecutorFixture
 
     KeyPairInterface::Ptr keyPair;
     int64_t gas = 3000000;
+    std::unique_ptr<bcos::precompiled::PrecompiledCodec> codec;
 
     string helloBin =
         "60806040526040805190810160405280600181526020017f3100000000000000000000000000000000000000"
@@ -404,6 +408,33 @@ BOOST_AUTO_TEST_CASE(externalCall)
     BOOST_CHECK_GT(address.size(), 0);
 
     // call createAndCallB(int256) and check
+    auto params2 = std::make_unique<MockExecutionMessage>();
+    params2->setContextID(101);
+    params2->setSeq(1000);
+    params2->setDepth(0);
+    params2->setFrom(std::string(sender));
+    params2->setTo(std::string(address));
+    params2->setOrigin(std::string(sender));
+    params2->setStaticCall(false);
+    params2->setGasAvailable(gas);
+
+    bcos::u256 value(1000);
+    params2->setData(codec->encodeWithSig("createAndCallB(int256)", value));
+    params2->setType(MockExecutionMessage::MESSAGE);
+
+    std::promise<ExecutionMessage::UniquePtr> executePromise2;
+    executor->executeTransaction(std::move(params2),
+        [&](bcos::Error::UniquePtr&& error, MockExecutionMessage::UniquePtr&& result) {
+            BOOST_CHECK(!error);
+            executePromise2.set_value(std::move(result));
+        });
+    auto result2 = executePromise2.get_future().get();
+
+    BOOST_CHECK(result2);
+    BOOST_CHECK_EQUAL(result2->status(), 0);
+    BOOST_CHECK_EQUAL(result2->message(), "");
+    BOOST_CHECK_EQUAL(result2->newEVMContractAddress(), "");
+    BOOST_CHECK_LT(result2->gasAvailable(), gas);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
