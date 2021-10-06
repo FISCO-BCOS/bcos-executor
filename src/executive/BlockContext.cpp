@@ -152,11 +152,14 @@ void BlockContext::insertExecutive(int64_t contextID, int64_t seq,
     }
 
     bool success;
-    std::tie(it, success) = m_executives.emplace(std::tuple{contextID, seq}, std::move(item));
+    std::tie(it, success) = m_executives.emplace(std::tuple{contextID, seq},
+        std::tuple{std::move(std::get<0>(item)), std::move(std::get<1>(item)),
+            std::function<void(bcos::Error::UniquePtr&&, CallParameters::UniquePtr)>()});
 }
 
 std::tuple<std::shared_ptr<TransactionExecutive>,
-    std::function<void(bcos::Error::UniquePtr&&, bcos::protocol::ExecutionMessage::UniquePtr&&)>>*
+    std::function<void(bcos::Error::UniquePtr&&, bcos::protocol::ExecutionMessage::UniquePtr&&)>,
+    std::function<void(bcos::Error::UniquePtr&&, CallParameters::UniquePtr)>>*
 BlockContext::getExecutive(int64_t contextID, int64_t seq)
 {
     auto it = m_executives.find({contextID, seq});

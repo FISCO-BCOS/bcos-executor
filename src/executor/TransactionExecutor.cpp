@@ -96,7 +96,7 @@ TransactionExecutor::TransactionExecutor(txpool::TxPoolInterface::Ptr txpool,
         return stream.str();
     };
 
-    m_lastUncommitedIterator = m_stateStorages.begin();
+    m_lastUncommittedIterator = m_stateStorages.begin();
 
     m_precompiledContract =
         std::make_shared<std::map<std::string, std::shared_ptr<PrecompiledContract>>>();
@@ -153,10 +153,10 @@ void TransactionExecutor::nextBlockHeader(const bcos::protocol::BlockHeader::Con
         m_blockContext->setPrecompiledContract(m_precompiledContract);
         m_stateStorages.push_back({blockHeader->number(), std::move(stateStorage)});
 
-        if (m_lastUncommitedIterator == m_stateStorages.end())
+        if (m_lastUncommittedIterator == m_stateStorages.end())
         {
-            m_lastUncommitedIterator = m_stateStorages.cend();
-            --m_lastUncommitedIterator;
+            m_lastUncommittedIterator = m_stateStorages.cend();
+            --m_lastUncommittedIterator;
         }
 
         EXECUTOR_LOG(INFO) << "NextBlockHeader success";
@@ -417,10 +417,10 @@ void TransactionExecutor::dagExecuteTransactions(
                 auto& input = inputs[i];
                 auto callParameters = createCallParameters(*input, std::move(transactions->at(i)));
 
-                auto executive = make_shared<TransactionExecutive>(m_blockContext,
+                auto executive = std::make_shared<TransactionExecutive>(m_blockContext,
                     callParameters->codeAddress, input->contextID(), input->seq(),
-                    std::bind(&TransactionExecutor::onCallResultsCallback, this,
-                        std::placeholders::_1, std::placeholders::_2));
+                    std::bind(&TransactionExecutor::externalCall, this, std::placeholders::_1,
+                        std::placeholders::_2, std::placeholders::_3));
 
                 auto response = executive->execute(std::move(callParameters));
                 executionResults[i]->setNewEVMContractAddress(response->newEVMContractAddress);
@@ -565,7 +565,7 @@ void TransactionExecutor::prepare(
         return;
     }
 
-    auto last = m_lastUncommitedIterator;
+    auto last = m_lastUncommittedIterator;
     if (last == m_stateStorages.end())
     {
         auto errorMessage = "Prepare error: empty stateStorages";
@@ -611,14 +611,14 @@ void TransactionExecutor::commit(
 {
     EXECUTOR_LOG(INFO) << "Commit request" << LOG_KV("number", params.number);
 
-    if (m_lastUncommitedIterator == m_stateStorages.end())
+    if (m_lastUncommittedIterator == m_stateStorages.end())
     {
         EXECUTOR_LOG(ERROR) << "Commit error: No uncommited state in executor";
         callback(BCOS_ERROR_PTR(-1, "No uncommited state in executor"));
         return;
     }
 
-    auto last = *m_lastUncommitedIterator;
+    auto last = *m_lastUncommittedIterator;
     if (last.number != params.number)
     {
         auto errorMessage =
@@ -647,7 +647,7 @@ void TransactionExecutor::commit(
 
             EXECUTOR_LOG(INFO) << "Commit success";
 
-            ++m_lastUncommitedIterator;
+            ++m_lastUncommittedIterator;
             m_blockContext = nullptr;
 
             callback(nullptr);
@@ -659,14 +659,14 @@ void TransactionExecutor::rollback(
 {
     EXECUTOR_LOG(INFO) << "Rollback request: " << LOG_KV("number", params.number);
 
-    if (m_lastUncommitedIterator == m_stateStorages.end())
+    if (m_lastUncommittedIterator == m_stateStorages.end())
     {
         EXECUTOR_LOG(ERROR) << "Rollback error: No uncommited state in executor";
         callback(BCOS_ERROR_PTR(-1, "No uncommited state in executor"));
         return;
     }
 
-    auto last = *m_lastUncommitedIterator;
+    auto last = *m_lastUncommittedIterator;
     if (last.number != params.number)
     {
         auto errorMessage =
@@ -762,8 +762,8 @@ void TransactionExecutor::asyncExecute(bcos::protocol::ExecutionMessage::UniqueP
 
             auto executive = std::make_shared<TransactionExecutive>(blockContext,
                 callParameters->codeAddress, input->contextID(), input->seq(),
-                std::bind(&TransactionExecutor::onCallResultsCallback, this, std::placeholders::_1,
-                    std::placeholders::_2));
+                std::bind(&TransactionExecutor::externalCall, this, std::placeholders::_1,
+                    std::placeholders::_2, std::placeholders::_3));
 
             blockContext->insertExecutive(input->contextID(), input->seq(), {executive, callback});
 
@@ -790,17 +790,22 @@ void TransactionExecutor::asyncExecute(bcos::protocol::ExecutionMessage::UniqueP
         if (it)
         {
             // REVERT or FINISHED
-            auto [executive, executiveCallback] = *it;
-            executiveCallback = callback;
-            executive->pushMessage(std::move(callParameters));
+            auto [executive, externalCallFunc, responseFunc] = *it;
+            externalCallFunc = callback;
+
+            // Call callback
+            // executive->pushMessage(std::move(callParameters));
+            responseFunc(nullptr, std::move(callParameters));
+
+            (void)executive;
         }
         else
         {
             // new external call MESSAGE
             auto executive = std::make_shared<TransactionExecutive>(blockContext,
                 callParameters->codeAddress, input->contextID(), input->seq(),
-                std::bind(&TransactionExecutor::onCallResultsCallback, this, std::placeholders::_1,
-                    std::placeholders::_2));
+                std::bind(&TransactionExecutor::externalCall, this, std::placeholders::_1,
+                    std::placeholders::_2, std::placeholders::_3));
 
             blockContext->insertExecutive(input->contextID(), input->seq(), {executive, callback});
 
@@ -828,8 +833,9 @@ void TransactionExecutor::asyncExecute(bcos::protocol::ExecutionMessage::UniqueP
     }
 }
 
-void TransactionExecutor::onCallResultsCallback(
-    TransactionExecutive::Ptr executive, std::unique_ptr<CallParameters> response)
+void TransactionExecutor::externalCall(TransactionExecutive::Ptr executive,
+    std::unique_ptr<CallParameters> response,
+    std::function<void(Error::UniquePtr, std::unique_ptr<CallParameters>)> callback)
 {
     auto it = m_blockContext->getExecutive(executive->contextID(), executive->seq());
     if (!it)
@@ -839,11 +845,19 @@ void TransactionExecutor::onCallResultsCallback(
                 "," + boost::lexical_cast<std::string>(executive->seq())));
     }
 
+    if (callback)
+    {
+        std::get<2>(*it) = std::move(callback);
+    }
+
     auto message = m_executionMessageFactory->createExecutionMessage();
     switch (response->type)
     {
     case CallParameters::MESSAGE:
         message->setType(ExecutionMessage::MESSAGE);
+        break;
+    case CallParameters::WAIT_KEY:
+        message->setType(ExecutionMessage::WAIT_KEY);
         break;
     case CallParameters::FINISHED:
         message->setType(ExecutionMessage::FINISHED);
@@ -873,9 +887,6 @@ void TransactionExecutor::onCallResultsCallback(
     message->setMessage(std::move(response->message));
     message->setLogEntries(std::move(response->logEntries));
     message->setNewEVMContractAddress(response->newEVMContractAddress);
-
-    // std::vector<std::string> keyLocks(executive->)
-    // message->setKeyLocks(executive->ta
 
     std::get<1> (*it)(nullptr, std::move(message));
 }
@@ -1104,6 +1115,7 @@ std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
     }
     else
     {
+        callParameters->origin.reserve(tx->sender().size() * 2);
         boost::algorithm::hex_lower(tx->sender(), std::back_inserter(callParameters->origin));
         toChecksumAddress(callParameters->origin, m_hashImpl);
 

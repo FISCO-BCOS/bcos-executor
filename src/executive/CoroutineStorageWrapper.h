@@ -3,7 +3,9 @@
 #include "../Common.h"
 #include "bcos-framework/interfaces/storage/StorageInterface.h"
 #include "bcos-framework/interfaces/storage/Table.h"
+#include <boost/container/flat_set.hpp>
 #include <boost/coroutine2/coroutine.hpp>
+#include <boost/iterator/iterator_categories.hpp>
 #include <optional>
 #include <thread>
 #include <vector>
@@ -16,6 +18,8 @@ using GetRowsResponse = std::tuple<Error::UniquePtr, std::vector<std::optional<s
 using SetRowResponse = std::tuple<Error::UniquePtr>;
 using OpenTableResponse = std::tuple<Error::UniquePtr, std::optional<storage::Table>>;
 using KeyLockResponse = SetRowResponse;
+using AcquireKeyLockResponse =
+    std::tuple<Error::UniquePtr, boost::any_range<std::string_view, boost::forward_traversal_tag>>;
 
 template <class T>
 class CoroutineStorageWrapper
@@ -253,10 +257,15 @@ public:
 private:
     void acquireKeyLock(const std::string_view key)
     {
-        auto it = m_keyLocks.lower_bound(key);
-        if (it == m_keyLocks.end() || *it != key)
+        if (m_existsKeyLocks.contains(key))
         {
-            m_keyLocks.emplace_hint(it, key);
+            // Wait for lock release
+        }
+
+        auto it = m_myKeyLocks.lower_bound(key);
+        if (it == m_myKeyLocks.end() || *it != key)
+        {
+            m_myKeyLocks.emplace_hint(it, key);
         }
     }
 
@@ -264,6 +273,7 @@ private:
     typename boost::coroutines2::coroutine<T>::push_type& m_push;
     typename boost::coroutines2::coroutine<T>::pull_type& m_pull;
 
-    std::set<std::string, std::less<>> m_keyLocks;
+    boost::container::flat_set<std::string, std::less<>> m_existsKeyLocks;
+    std::set<std::string, std::less<>> m_myKeyLocks;
 };
 }  // namespace bcos::executor

@@ -72,14 +72,15 @@ public:
 
     TransactionExecutive(std::weak_ptr<BlockContext> blockContext, std::string contractAddress,
         int64_t contextID, int64_t seq,
-        std::function<void(
-            std::shared_ptr<TransactionExecutive> executive, CallParameters::UniquePtr&&)>
+        std::function<void(std::shared_ptr<TransactionExecutive> executive,
+            std::unique_ptr<CallParameters> callResults,
+            std::function<void(Error::UniquePtr, std::unique_ptr<CallParameters>)> callback)>
             externalCallCallback)
       : m_blockContext(std::move(blockContext)),
         m_contractAddress(std::move(contractAddress)),
         m_contextID(contextID),
         m_seq(seq),
-        m_externalCallCallback(std::move(externalCallCallback)),
+        m_externalCallFunction(std::move(externalCallCallback)),
         m_gasInjector(std::make_shared<wasm::GasInjector>(wasm::GetInstructionTable()))
     {
         m_recoder = m_blockContext.lock()->storage()->newRecoder();
@@ -143,16 +144,16 @@ private:
     int64_t m_baseGasRequired = 0;  ///< The base amount of gas required for executing
                                     ///< this transaction.
 
-    std::function<void(
-        std::shared_ptr<TransactionExecutive> executive, CallParameters::UniquePtr&&)>
-        m_externalCallCallback;
+    std::function<void(std::shared_ptr<TransactionExecutive> executive,
+        std::unique_ptr<CallParameters> callResults,
+        std::function<void(Error::UniquePtr, std::unique_ptr<CallParameters>)> callback)>
+        m_externalCallFunction;
 
     std::shared_ptr<wasm::GasInjector> m_gasInjector;
 
     std::unique_ptr<Coroutine::push_type> m_pushMessage;
     std::unique_ptr<Coroutine::pull_type> m_pullMessage;
     bcos::storage::StateStorage::Recoder::Ptr m_recoder;
-    std::set<std::string, std::less<>> m_keyLocks;
     std::unique_ptr<CoroutineStorageWrapper<CoroutineMessage>> m_storageWrapper;
 };
 

@@ -39,6 +39,7 @@
 #include <boost/throw_exception.hpp>
 #include <functional>
 #include <numeric>
+#include <thread>
 
 using namespace std;
 using namespace bcos;
@@ -52,25 +53,24 @@ using errinfo_evmcStatusCode = boost::error_info<struct tag_evmcStatusCode, evmc
 
 void TransactionExecutive::start(CallParameters::UniquePtr input)
 {
+    auto blockContext = m_blockContext.lock();
+    if (!blockContext)
+    {
+        BOOST_THROW_EXCEPTION(BCOS_ERROR(-1, "blockContext is null"));
+    }
+
+    m_storageWrapper = std::make_unique<CoroutineStorageWrapper<CoroutineMessage>>(
+        blockContext->storage(), *m_pushMessage, *m_pullMessage);
+
     m_pushMessage = std::make_unique<Coroutine::push_type>([this](Coroutine::pull_type& source) {
-        auto blockContext = m_blockContext.lock();
-        if (!blockContext)
-        {
-            BOOST_THROW_EXCEPTION(BCOS_ERROR(-1, "blockContext is null"));
-        }
-
         m_pullMessage = std::make_unique<Coroutine::pull_type>(std::move(source));
-
-        m_storageWrapper = std::make_unique<CoroutineStorageWrapper<CoroutineMessage>>(
-            blockContext->storage(), *m_pushMessage, *m_pullMessage);
-
         auto callParameters = m_pullMessage->get();
 
         auto response = execute(std::move(std::get<CallParameters::UniquePtr>(callParameters)));
 
-        m_externalCallCallback(shared_from_this(), std::move(response));
+        m_externalCallFunction(shared_from_this(), std::move(response), {});
 
-        EXECUTOR_LOG(TRACE) << "end coroutine execution";
+        EXECUTOR_LOG(TRACE) << "End coroutine execution";
     });
 
     pushMessage(std::move(input));
@@ -78,11 +78,30 @@ void TransactionExecutive::start(CallParameters::UniquePtr input)
 
 CallParameters::UniquePtr TransactionExecutive::externalCall(CallParameters::UniquePtr input)
 {
-    m_externalCallCallback(shared_from_this(), std::move(input));
-    (*m_pullMessage)();  // move to the main coroutine
+    std::optional<CallParameters::UniquePtr> value;
 
-    auto output =
-        std::get<CallMessage>(m_pullMessage->get());  // Wait for main coroutine's response
+    m_externalCallFunction(shared_from_this(), std::move(input),
+        [this, threadID = std::this_thread::get_id(), value = &value](
+            Error::UniquePtr error, CallParameters::UniquePtr response) {
+            (void)error;
+
+            if (std::this_thread::get_id() == threadID)
+            {
+                *value = std::make_optional(std::move(response));
+            }
+            else
+            {
+                (*m_pushMessage)(CallMessage(std::move(response)));
+            }
+        });
+
+    if (!value)
+    {
+        (*m_pullMessage)();  // move to the main coroutine
+        value = std::make_optional(std::get<CallMessage>(m_pullMessage->get()));
+    }
+
+    auto output = std::move(*value);
 
     // After coroutine switch, set the recoder
     auto blockContext = m_blockContext.lock();
@@ -611,7 +630,7 @@ CallParameters::UniquePtr TransactionExecutive::parseEVMCResult(
         }
         else
         {  // These cases aren't really internal errors, just more specific
-           // error codes returned by the VM. Map all of them to OOG.
+           // error codes returned by the VM. Map all of them to OOG.m_externalCallCallback
             BOOST_THROW_EXCEPTION(OutOfGas());
         }
     }
