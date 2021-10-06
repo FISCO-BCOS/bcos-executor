@@ -67,6 +67,18 @@ struct TransactionExecutorFixture
 
         executor = std::make_shared<TransactionExecutor>(
             txpool, backend, executionResultFactory, hashImpl, false);
+
+        keyPair = cryptoSuite->signatureImpl()->generateKeyPair();
+        memcpy(keyPair->secretKey()->mutableData(),
+            fromHexString("ff6f30856ad3bae00b1169808488502786a13e3c174d85682135ffd51310310e")
+                ->data(),
+            32);
+        memcpy(keyPair->publicKey()->mutableData(),
+            fromHexString(
+                "ccd8de502ac45462767e649b462b5f4ca7eadd69c7e1f1b410bdf754359be29b1b88ffd79744"
+                "03f56e250af52b25682014554f7b3297d6152401e85d426a06ae")
+                ->data(),
+            64);
     }
 
     TransactionExecutor::Ptr executor;
@@ -74,6 +86,9 @@ struct TransactionExecutorFixture
     std::shared_ptr<MockTxPool> txpool;
     std::shared_ptr<MockTransactionalStorage> backend;
     std::shared_ptr<Keccak256Hash> hashImpl;
+
+    KeyPairInterface::Ptr keyPair;
+    int64_t gas = 3000000;
 
     string helloBin =
         "60806040526040805190810160405280600181526020017f3100000000000000000000000000000000000000"
@@ -116,19 +131,6 @@ BOOST_FIXTURE_TEST_SUITE(TestTransactionExecutor, TransactionExecutorFixture)
 
 BOOST_AUTO_TEST_CASE(deployAndCall)
 {
-    auto keyPair = cryptoSuite->signatureImpl()->generateKeyPair();
-    memcpy(keyPair->secretKey()->mutableData(),
-        fromHexString("ff6f30856ad3bae00b1169808488502786a13e3c174d85682135ffd51310310e")->data(),
-        32);
-    memcpy(keyPair->publicKey()->mutableData(),
-        fromHexString("ccd8de502ac45462767e649b462b5f4ca7eadd69c7e1f1b410bdf754359be29b1b88ffd79744"
-                      "03f56e250af52b25682014554f7b3297d6152401e85d426a06ae")
-            ->data(),
-        64);
-
-    int64_t gas = 3000000;
-    cout << keyPair->secretKey()->hex() << endl << keyPair->publicKey()->hex() << endl;
-    auto to = boost::algorithm::hex_lower(keyPair->address(cryptoSuite->hashImpl()).asBytes());
     auto helloworld = string(helloBin);
 
     bytes input;
@@ -154,7 +156,6 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
     toChecksumAddress(addressString, hashImpl);
     params->setTo(std::move(addressString));
 
-    // params->setTo(std::string((char*)to.data(), to.size())); create transaction
     params->setStaticCall(false);
     params->setGasAvailable(gas);
     params->setData(input);
@@ -316,7 +317,94 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
         "00000000000000000000000000");
 }
 
-BOOST_AUTO_TEST_CASE(corountine) {}
+BOOST_AUTO_TEST_CASE(externalCall)
+{
+    // Solidity source code from test_external_call.sol, using solc
+    // 0.6.6+commit.6c089d02.Emscripten.clang
+
+    std::string ABin =
+        "608060405234801561001057600080fd5b506102d8806100206000396000f3fe60806040523480156100105760"
+        "0080fd5b506004361061002b5760003560e01c80635b975a7314610030575b600080fd5b61005c600480360360"
+        "2081101561004657600080fd5b8101908080359060200190929190505050610072565b60405180828152602001"
+        "91505060405180910390f35b60008160405161008190610190565b808281526020019150506040518091039060"
+        "00f0801580156100a7573d6000803e3d6000fd5b506000806101000a81548173ffffffffffffffffffffffffff"
+        "ffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff160217905550600080905490"
+        "6101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffff"
+        "ffffffff16633fa4f2456040518163ffffffff1660e01b815260040160206040518083038186803b1580156101"
+        "4e57600080fd5b505afa158015610162573d6000803e3d6000fd5b505050506040513d60208110156101785760"
+        "0080fd5b81019080805190602001909291905050509050919050565b6101058061019e8339019056fe60806040"
+        "5234801561001057600080fd5b5060405161010538038061010583398181016040526020811015610033576000"
+        "80fd5b8101908080519060200190929190505050806000819055505060ab8061005a6000396000f3fe60806040"
+        "52348015600f57600080fd5b506004361060325760003560e01c80633fa4f245146037578063a16fe09b146053"
+        "575b600080fd5b603d605b565b6040518082815260200191505060405180910390f35b60596064565b005b6000"
+        "8054905090565b60008081546001019190508190555056fea2646970667358221220214f0037b653f3ca36b8e7"
+        "7f9859af35cce186e03186594eb454877aa283f20e64736f6c63430006060033a26469706673582212205ea3f6"
+        "3d07621a0bc374db91568514f3ce309623d18189b9b292c1968e10d9e664736f6c63430006060033";
+
+    std::string BBin =
+        "608060405234801561001057600080fd5b50604051610105380380610105833981810160405260208110156100"
+        "3357600080fd5b8101908080519060200190929190505050806000819055505060ab8061005a6000396000f3fe"
+        "6080604052348015600f57600080fd5b506004361060325760003560e01c80633fa4f245146037578063a16fe0"
+        "9b146053575b600080fd5b603d605b565b6040518082815260200191505060405180910390f35b60596064565b"
+        "005b60008054905090565b60008081546001019190508190555056fea2646970667358221220214f0037b653f3"
+        "ca36b8e77f9859af35cce186e03186594eb454877aa283f20e64736f6c63430006060033";
+
+    bytes input;
+    boost::algorithm::unhex(ABin, std::back_inserter(input));
+    auto tx = fakeTransaction(cryptoSuite, keyPair, "", input, 101, 100001, "1", "1");
+    auto sender = boost::algorithm::hex_lower(std::string(tx->sender()));
+    toChecksumAddress(sender, hashImpl);
+
+    auto hash = tx->hash();
+    txpool->hash2Transaction.emplace(hash, tx);
+
+    auto params = std::make_unique<MockExecutionMessage>();
+    params->setContextID(100);
+    params->setSeq(1000);
+    params->setDepth(0);
+
+    params->setOrigin(std::string(sender));
+    params->setFrom(std::string(sender));
+
+    // The contract address
+    h256 addressCreate("ff6f30856ad3bae00b1169808488502786a13e3c174d85682135ffd51310310e");
+    std::string addressString = addressCreate.hex().substr(0, 40);
+    toChecksumAddress(addressString, hashImpl);
+    params->setTo(std::move(addressString));
+
+    params->setStaticCall(false);
+    params->setGasAvailable(gas);
+    params->setData(input);
+    params->setType(MockExecutionMessage::TXHASH);
+    params->setTransactionHash(hash);
+    params->setCreate(true);
+
+    MockExecutionMessage paramsBak = *params;
+
+    auto blockHeader = std::make_shared<bcos::protocol::PBBlockHeader>(cryptoSuite);
+    blockHeader->setNumber(1);
+
+    std::promise<void> nextPromise;
+    executor->nextBlockHeader(blockHeader, [&](bcos::Error::Ptr&& error) {
+        BOOST_CHECK(!error);
+        nextPromise.set_value();
+    });
+    nextPromise.get_future().get();
+
+    std::promise<bcos::protocol::ExecutionMessage::UniquePtr> executePromise;
+    executor->executeTransaction(std::move(params),
+        [&](bcos::Error::UniquePtr&& error, bcos::protocol::ExecutionMessage::UniquePtr&& result) {
+            BOOST_CHECK(!error);
+            executePromise.set_value(std::move(result));
+        });
+
+    auto result = executePromise.get_future().get();
+
+    auto address = result->newEVMContractAddress();
+    BOOST_CHECK_GT(address.size(), 0);
+
+    // call createAndCallB(int256) and check
+}
 
 BOOST_AUTO_TEST_SUITE_END()
 }  // namespace test

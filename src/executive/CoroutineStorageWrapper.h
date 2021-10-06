@@ -3,6 +3,7 @@
 #include "../Common.h"
 #include "bcos-framework/interfaces/storage/StorageInterface.h"
 #include "bcos-framework/interfaces/storage/Table.h"
+#include "bcos-framework/libstorage/StateStorage.h"
 #include <boost/container/flat_set.hpp>
 #include <boost/coroutine2/coroutine.hpp>
 #include <boost/iterator/iterator_categories.hpp>
@@ -25,7 +26,7 @@ template <class T>
 class CoroutineStorageWrapper
 {
 public:
-    CoroutineStorageWrapper(storage::StorageInterface::Ptr storage,
+    CoroutineStorageWrapper(storage::StateStorage::Ptr storage,
         typename boost::coroutines2::coroutine<T>::push_type& push,
         typename boost::coroutines2::coroutine<T>::pull_type& pull)
       : m_storage(std::move(storage)), m_push(push), m_pull(pull)
@@ -254,6 +255,11 @@ public:
         return table;
     }
 
+    void setRecoder(storage::StateStorage::Recoder::Ptr recoder)
+    {
+        m_storage->setRecoder(std::move(recoder));
+    }
+
 private:
     void acquireKeyLock(const std::string_view key)
     {
@@ -269,7 +275,7 @@ private:
         }
     }
 
-    storage::StorageInterface::Ptr m_storage;
+    storage::StateStorage::Ptr m_storage;
     typename boost::coroutines2::coroutine<T>::push_type& m_push;
     typename boost::coroutines2::coroutine<T>::pull_type& m_pull;
 

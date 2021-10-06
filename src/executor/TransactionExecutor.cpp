@@ -591,7 +591,7 @@ void TransactionExecutor::prepare(
     bcos::storage::TransactionalStorageInterface::TwoPCParams storageParams;
     storageParams.number = params.number;
     m_backendStorage->asyncPrepare(
-        storageParams, last->storage, [callback = std::move(callback)](auto&& error) {
+        storageParams, last->storage, [callback = std::move(callback)](auto&& error, uint64_t) {
             if (error)
             {
                 auto errorMessage = "Prepare error: " + boost::diagnostic_information(*error);

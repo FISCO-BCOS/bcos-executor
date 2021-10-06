@@ -3,6 +3,11 @@
 #include "bcos-framework/interfaces/executor/ExecutionMessage.h"
 #include "interfaces/crypto/CommonType.h"
 #include "libutilities/Common.h"
+#include <boost/iterator/transform_iterator.hpp>
+#include <boost/multi_index/detail/modify_key_adaptor.hpp>
+#include <boost/range/adaptor/transformed.hpp>
+#include <boost/range/adaptors.hpp>
+#include <boost/range/iterator_range_core.hpp>
 
 namespace bcos::test
 {
@@ -55,9 +60,6 @@ public:
     int32_t status() const override { return m_status; }
     void setStatus(int32_t status) override { m_status = status; }
 
-    bool create() const override { return false; }
-    void setCreate(bool) override {}
-
     std::string_view message() const override { return m_message; }
     void setMessage(std::string message) override { m_message = std::move(message); }
 
@@ -80,12 +82,25 @@ public:
         m_newEVMContractAddress = std::move(newEVMContractAddress);
     }
 
-    virtual gsl::span<std::string const> const keyLocks() const override { return m_keyLocks; }
-    virtual std::vector<std::string>&& takeKeyLocks() override { return std::move(m_keyLocks); }
-    virtual void setKeyLocks(std::vector<std::string> keyLocks) override
+    std::string_view toStringView(const std::string& it) const { return std::string_view(it); }
+
+    boost::any_range<std::string_view, boost::forward_traversal_tag> keyLocks() const override
     {
-        m_keyLocks = std::move(keyLocks);
+        return boost::adaptors::transform(
+            m_keyLocks, [](auto&& it) { return std::string_view(it); });
     }
+    
+    void setKeyLocks(boost::any_range<std::string, boost::forward_traversal_tag> keyLocks) override
+    {
+        m_keyLocks.clear();
+        for (auto& it : keyLocks)
+        {
+            m_keyLocks.emplace_back(std::move(it));
+        }
+    }
+
+    std::string_view keyLockAcquired() const override { return m_keyLockAcquired; }
+    void setKeyLockAcquired(std::string keyLock) override { m_keyLockAcquired = keyLock; }
 
     bcos::crypto::HashType m_transactionHash;
     int64_t m_contextID;
@@ -99,17 +114,19 @@ public:
     bcos::bytes m_input;
 
     std::optional<u256> m_createSalt;
-    
+
     std::string m_message;
     std::vector<bcos::protocol::LogEntry> m_logEntries;
     std::string m_newEVMContractAddress;
-    std::vector<std::string> m_keyLocks;
 
     int32_t m_status;
     int32_t m_depth;
     Type m_type;
     bool m_create;
     bool m_staticCall;
+
+    std::vector<std::string> m_keyLocks;
+    std::string m_keyLockAcquired;
 };
 
 class MockExecutionMessageFactory : public protocol::ExecutionMessageFactory

@@ -104,41 +104,30 @@ CallParameters::UniquePtr TransactionExecutive::externalCall(CallParameters::Uni
     auto output = std::move(*value);
 
     // After coroutine switch, set the recoder
-    auto blockContext = m_blockContext.lock();
-    if (!blockContext)
-    {
-        BOOST_THROW_EXCEPTION(BCOS_ERROR(-1, "blockContext is null"));
-    }
-
-    blockContext->storage()->setRecoder(m_recoder);
+    m_storageWrapper->setRecoder(m_recoder);
 
     return output;
 }
 
 CallParameters::UniquePtr TransactionExecutive::execute(CallParameters::UniquePtr callParameters)
 {
-    int64_t txGasLimit = m_blockContext.lock()->txGasLimit();
+    // Control by scheduler
+    // int64_t txGasLimit = m_blockContext.lock()->txGasLimit();
 
-    if (txGasLimit < m_baseGasRequired)
-    {
-        auto callResults = std::make_unique<CallParameters>(CallParameters::REVERT);
-        callResults->status = (int32_t)TransactionStatus::OutOfGasLimit;
-        callResults->message =
-            "The gas required by deploying/accessing this contract is more than "
-            "tx_gas_limit" +
-            boost::lexical_cast<std::string>(txGasLimit) +
-            " require: " + boost::lexical_cast<std::string>(m_baseGasRequired);
+    // if (txGasLimit < m_baseGasRequired)
+    // {
+    //     auto callResults = std::make_unique<CallParameters>(CallParameters::REVERT);
+    //     callResults->status = (int32_t)TransactionStatus::OutOfGasLimit;
+    //     callResults->message =
+    //         "The gas required by deploying/accessing this contract is more than "
+    //         "tx_gas_limit" +
+    //         boost::lexical_cast<std::string>(txGasLimit) +
+    //         " require: " + boost::lexical_cast<std::string>(m_baseGasRequired);
 
-        return callResults;
-    }
+    //     return callResults;
+    // }
 
-    // Set the recoder
-    auto blockContext = m_blockContext.lock();
-    if (!blockContext)
-    {
-        BOOST_THROW_EXCEPTION(BCOS_ERROR(-1, "blockContext is null"));
-    }
-    blockContext->storage()->setRecoder(m_recoder);
+    m_storageWrapper->setRecoder(m_recoder);
 
     std::unique_ptr<HostContext> hostContext;
     CallParameters::UniquePtr callResults;
