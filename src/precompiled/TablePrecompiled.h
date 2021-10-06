@@ -59,13 +59,12 @@ public:
     std::string toString() override;
 
     std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::BlockContext> _context,
-        bytesConstRef _param, const std::string& _origin, const std::string& _sender,
-        int64_t _remainGas) override;
+        bytesConstRef _param, const std::string& _origin, const std::string& _sender) override;
 
     std::shared_ptr<bcos::storage::Table> getTable() { return m_table; }
     void setTable(std::shared_ptr<bcos::storage::Table> _table) { m_table = _table; }
     void setKeyField(const std::string_view& _key) { m_keyField = _key; }
-    // FIXME: table hash
+
 private:
     std::shared_ptr<bcos::storage::Table> m_table;
     std::string_view m_keyField = "";

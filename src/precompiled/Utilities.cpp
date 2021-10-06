@@ -31,7 +31,7 @@ using namespace bcos::crypto;
 
 static tbb::concurrent_unordered_map<std::string, uint32_t> s_name2SelectCache;
 
-void bcos::precompiled::checkNameValidate(const std::string& tableName,
+void bcos::precompiled::checkNameValidate(std::string_view tableName,
     std::vector<std::string>& keyFieldList, std::vector<std::string>& valueFieldList)
 {
     std::set<std::string> valueFieldSet;
@@ -41,7 +41,7 @@ void bcos::precompiled::checkNameValidate(const std::string& tableName,
     std::string allowCharString = "{$, _, @}";
     std::string tableAllowCharString = "{_, /}";
     auto checkTableNameValidate = [&tableAllowChar, &tableAllowCharString](
-                                      const std::string& tableName) {
+                                      std::string_view tableName) {
         size_t iSize = tableName.size();
         for (size_t i = 0; i < iSize; i++)
         {
@@ -58,24 +58,24 @@ void bcos::precompiled::checkNameValidate(const std::string& tableName,
                 // Note: the StorageException and PrecompiledException content can't
                 // be modified at will for the information will be write to the
                 // blockchain
-                BOOST_THROW_EXCEPTION(
-                    PrecompiledError() << errinfo_comment("invalid table name:" + tableName));
+                BOOST_THROW_EXCEPTION(PrecompiledError() << errinfo_comment(
+                                          "invalid table name:" + std::string(tableName)));
             }
         }
     };
 
     auto checkFieldNameValidate = [&allowChar, &allowCharString](
-                                      const std::string& tableName, const std::string& fieldName) {
+                                      std::string_view tableName, std::string_view fieldName) {
         if (fieldName.empty() || fieldName[0] == '_')
         {
             std::stringstream errorMessage;
-            errorMessage << "Invalid field \"" + fieldName
+            errorMessage << "Invalid field \"" << fieldName
                          << "\", the size of the field must be larger than 0 and "
                             "the field can't start with \"_\"";
             STORAGE_LOG(ERROR) << LOG_DESC(errorMessage.str()) << LOG_KV("field name", fieldName)
                                << LOG_KV("table name", tableName);
             BOOST_THROW_EXCEPTION(
-                PrecompiledError() << errinfo_comment("invalid field: " + fieldName));
+                PrecompiledError() << errinfo_comment("invalid field: " + std::string(fieldName)));
         }
         size_t iSize = fieldName.size();
         for (size_t i = 0; i < iSize; i++)
@@ -92,8 +92,8 @@ void bcos::precompiled::checkNameValidate(const std::string& tableName,
                 STORAGE_LOG(ERROR)
                     << LOG_DESC(errorMessage.str()) << LOG_KV("field name", fieldName)
                     << LOG_KV("table name", tableName);
-                BOOST_THROW_EXCEPTION(
-                    PrecompiledError() << errinfo_comment("invalid filed: " + fieldName));
+                BOOST_THROW_EXCEPTION(PrecompiledError() << errinfo_comment(
+                                          "invalid filed: " + std::string(fieldName)));
             }
         }
     };
@@ -129,7 +129,7 @@ void bcos::precompiled::checkNameValidate(const std::string& tableName,
 }
 
 int bcos::precompiled::checkLengthValidate(
-    const std::string& fieldValue, int32_t maxLength, int32_t errorCode)
+    std::string_view fieldValue, int32_t maxLength, int32_t errorCode)
 {
     if (fieldValue.size() > (size_t)maxLength)
     {
@@ -139,7 +139,6 @@ int bcos::precompiled::checkLengthValidate(
                               << errinfo_comment(
                                      "size of value/key greater than" + std::to_string(maxLength))
                               << errinfo_comment(std::to_string(errorCode)));
-        return errorCode;
     }
     return 0;
 }
@@ -192,7 +191,7 @@ bcos::precompiled::ContractStatus bcos::precompiled::getContractStatus(
     HashType codeHash;
     codeHash = HashType(std::string(codeHashEntry->getField(executor::STORAGE_VALUE)));
 
-    if (codeHash == HashType(""))
+    if (codeHash == HashType())
     {
         return ContractStatus::NotContractAddress;
     }
@@ -347,6 +346,8 @@ bool Condition::filter(std::optional<storage::Entry> _entry)
                 }
             }
         }
+        else
+            return false;
     }
     catch (...)
     {
@@ -404,13 +405,12 @@ void precompiled::addCondition(const std::string& key, const std::string& value,
     }
 }
 
-uint64_t precompiled::getEntriesCapacity(precompiled::EntriesConstPtr _entries)
+uint64_t precompiled::getEntriesCapacity(precompiled::EntriesPtr _entries)
 {
     int64_t totalCapacity = 0;
-    int64_t entriesSize = _entries->size();
-    for (int64_t i = 0; i < entriesSize; i++)
+    for (auto& entry : *_entries)
     {
-        totalCapacity += _entries->at(i)->capacityOfHashField();
+        totalCapacity += entry.capacityOfHashField();
     }
     return totalCapacity;
 }
@@ -478,6 +478,8 @@ std::pair<std::string, std::string> precompiled::getParentDirAndBaseName(
     const std::string& _absolutePath)
 {
     // transfer /usr/local/bin => ["usr", "local", "bin"]
+    if (_absolutePath == "/")
+        return {"/", "/"};
     std::vector<std::string> dirList;
     std::string absoluteDir = _absolutePath;
     if (absoluteDir[0] == '/')
@@ -586,7 +588,7 @@ bool precompiled::recursiveBuildDir(
         newFileEntry.setField(FS_FIELD_OWNER, "");
         newFileEntry.setField(FS_FIELD_GID, "");
         newFileEntry.setField(FS_FIELD_EXTRA, "");
-        table->setRow(dir, newFileEntry);
+        table->setRow(dir, std::move(newFileEntry));
 
         _tableFactory->createTable(root + dir, FS_FIELD_COMBINED);
         root += dir;

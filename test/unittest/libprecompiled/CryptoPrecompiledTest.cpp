@@ -18,7 +18,7 @@
  * @date 2021-07-05
  */
 
-#include "libprecompiled/CryptoPrecompiled.h"
+#include "precompiled/CryptoPrecompiled.h"
 #include "PreCompiledFixture.h"
 #include <bcos-crypto/signature/key/KeyFactoryImpl.h>
 #include <bcos-crypto/signature/sm2/SM2Crypto.h>
@@ -52,7 +52,7 @@ public:
         bytesConstRef dataRef(stringData);
         bytes encodedData = codec->encodeWithSig("sm3(bytes)", dataRef.toBytes());
         auto callResult =
-            _cryptoPrecompiled->call(_precompiledContext, bytesConstRef(&encodedData), "", "", gas);
+            _cryptoPrecompiled->call(_precompiledContext, bytesConstRef(&encodedData), "", "");
         bytes out = callResult->execResult();
         string32 decodedHash;
         codec->decode(bytesConstRef(&out), decodedHash);
@@ -65,7 +65,7 @@ public:
 
         encodedData = codec->encodeWithSig("keccak256Hash(bytes)", dataRef.toBytes());
         callResult =
-            _cryptoPrecompiled->call(_precompiledContext, bytesConstRef(&encodedData), "", "", gas);
+            _cryptoPrecompiled->call(_precompiledContext, bytesConstRef(&encodedData), "", "");
         out = callResult->execResult();
         codec->decode(bytesConstRef(&out), decodedHash);
         hash = HashType("48bed44d1bcd124a28c27f343a817e5f5243190d3c52bf347daf876de1dbbf77");
@@ -98,7 +98,7 @@ BOOST_AUTO_TEST_CASE(testSM2Verify)
     auto signature = sm2Sign(keyPair, hash, true);
     // verify the signature
     bytes encodedData = codec->encodeWithSig("sm2Verify(bytes,bytes)", hash.asBytes(), *signature);
-    auto callResult = cryptoPrecompiled->call(context, bytesConstRef(&encodedData), "", "", gas);
+    auto callResult = cryptoPrecompiled->call(context, bytesConstRef(&encodedData), "", "");
     bytes out = callResult->execResult();
 
     bool verifySucc;
@@ -115,7 +115,7 @@ BOOST_AUTO_TEST_CASE(testSM2Verify)
     h256 mismatchHash = h256("c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470");
     encodedData =
         codec->encodeWithSig("sm2Verify(bytes,bytes)", mismatchHash.asBytes(), *signature);
-    callResult = cryptoPrecompiled->call(context, bytesConstRef(&encodedData), "", "", gas);
+    callResult = cryptoPrecompiled->call(context, bytesConstRef(&encodedData), "", "");
     out = callResult->execResult();
     codec->decode(bytesConstRef(&out), verifySucc, accountAddress);
     std::cout << "== testSM2Verify-mismatchHashCase, verifySucc: " << verifySucc << std::endl;

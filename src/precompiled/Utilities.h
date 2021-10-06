@@ -97,9 +97,9 @@ inline std::string getTableName(const std::string& _tableName)
     return USER_TABLE_PREFIX + _tableName;
 }
 
-void checkNameValidate(const std::string& tableName, std::vector<std::string>& keyFieldList,
+void checkNameValidate(std::string_view tableName, std::vector<std::string>& keyFieldList,
     std::vector<std::string>& valueFieldList);
-int checkLengthValidate(const std::string& field_value, int32_t max_length, int32_t errorCode);
+int checkLengthValidate(std::string_view field_value, int32_t max_length, int32_t errorCode);
 
 uint32_t getFuncSelector(std::string const& _functionName, const crypto::Hash::Ptr& _hashImpl);
 uint32_t getParamFunc(bytesConstRef _param);
@@ -111,7 +111,7 @@ bcos::precompiled::ContractStatus getContractStatus(
 
 bytesConstRef getParamData(bytesConstRef _param);
 
-uint64_t getEntriesCapacity(precompiled::EntriesConstPtr _entries);
+uint64_t getEntriesCapacity(precompiled::EntriesPtr _entries);
 
 void sortKeyValue(std::vector<std::string>& _v);
 

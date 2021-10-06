@@ -59,9 +59,9 @@ std::string HelloWorldPrecompiled::toString()
     return "HelloWorld";
 }
 
-PrecompiledExecResult::Ptr HelloWorldPrecompiled::call(
+std::shared_ptr<PrecompiledExecResult> HelloWorldPrecompiled::call(
     std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
-    const std::string& _origin, const std::string&, int64_t _remainGas)
+    const std::string&, const std::string&)
 {
     PRECOMPILED_LOG(TRACE) << LOG_BADGE("HelloWorldPrecompiled") << LOG_DESC("call")
                            << LOG_KV("param", toHexString(_param));
@@ -130,6 +130,6 @@ PrecompiledExecResult::Ptr HelloWorldPrecompiled::call(
         callResult->setExecResult(codec->encode(u256((int)CODE_UNKNOW_FUNCTION_CALL)));
     }
     gasPricer->updateMemUsed(callResult->m_execResult.size());
-    _remainGas -= gasPricer->calTotalGas();
+    callResult->setGas(gasPricer->calTotalGas());
     return callResult;
 }

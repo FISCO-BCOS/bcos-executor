@@ -18,11 +18,9 @@
  * @date 2021-06-20
  */
 
-#include "libprecompiled/FileSystemPrecompiled.h"
+#include "precompiled/FileSystemPrecompiled.h"
 #include "PreCompiledFixture.h"
-#include "libprecompiled/KVTableFactoryPrecompiled.h"
-#include "libprecompiled/extension/UserPrecompiled.h"
-#include <bcos-framework/interfaces/storage/TableInterface.h>
+#include "precompiled/KVTableFactoryPrecompiled.h"
 #include <bcos-framework/testutils/TestPromptFixture.h>
 #include <json/json.h>
 
@@ -42,16 +40,15 @@ public:
         kvTableFactoryPrecompiled = std::make_shared<KVTableFactoryPrecompiled>(hashImpl);
         fileSystemPrecompiled = std::make_shared<FileSystemPrecompiled>(hashImpl);
         setIsWasm(true);
-        kvTableFactoryPrecompiled->setMemoryTableFactory(context->getTableFactory());
+        kvTableFactoryPrecompiled->setMemoryTableFactory(context->storage());
 
         // create table test1 test2, there are two data files in /tables/
         bytes param = codec->encodeWithSig("createTable(string,string,string)",
-            std::string("/test1"), std::string("id"), std::string("item_name,item_id"));
-        kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas);
-        param = codec->encodeWithSig("createTable(string,string,string)", std::string("/test2"),
+            std::string("test1"), std::string("id"), std::string("item_name,item_id"));
+        kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "");
+        param = codec->encodeWithSig("createTable(string,string,string)", std::string("test2"),
             std::string("id"), std::string("item_name,item_id"));
-        kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas);
-        context->getTableFactory()->commit();
+        kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "");
     }
 
     virtual ~FileSystemPrecompiledFixture() {}
@@ -69,8 +66,8 @@ BOOST_AUTO_TEST_CASE(toString)
 BOOST_AUTO_TEST_CASE(lsTest)
 {
     // ls dir
-    bytes in = codec->encodeWithSig("list(string)", std::string(USER_TABLE_PREFIX));
-    auto callResult = fileSystemPrecompiled->call(context, bytesConstRef(&in), "test", "", gas);
+    bytes in = codec->encodeWithSig("list(string)", std::string("/tables"));
+    auto callResult = fileSystemPrecompiled->call(context, bytesConstRef(&in), "test", "");
     bytes out = callResult->execResult();
     std::string result;
     codec->decode(&out, result);
@@ -82,7 +79,7 @@ BOOST_AUTO_TEST_CASE(lsTest)
 
     // ls regular
     bytes in2 = codec->encodeWithSig("list(string)", std::string("/tables/test2"));
-    callResult = fileSystemPrecompiled->call(context, bytesConstRef(&in2), "", "", gas);
+    callResult = fileSystemPrecompiled->call(context, bytesConstRef(&in2), "", "");
     out = callResult->execResult();
     codec->decode(&out, result);
     std::cout << result << std::endl;
@@ -92,7 +89,7 @@ BOOST_AUTO_TEST_CASE(lsTest)
 
     // ls not exist
     bytes in3 = codec->encodeWithSig("list(string)", std::string("/data/test3"));
-    callResult = fileSystemPrecompiled->call(context, bytesConstRef(&in3), "", "", gas);
+    callResult = fileSystemPrecompiled->call(context, bytesConstRef(&in3), "", "");
     out = callResult->execResult();
     s256 errorCode;
     codec->decode(&out, errorCode);
@@ -100,7 +97,7 @@ BOOST_AUTO_TEST_CASE(lsTest)
 
     // ls /
     bytes in4 = codec->encodeWithSig("list(string)", std::string("/"));
-    callResult = fileSystemPrecompiled->call(context, bytesConstRef(&in4), "", "", gas);
+    callResult = fileSystemPrecompiled->call(context, bytesConstRef(&in4), "", "");
     out = callResult->execResult();
     codec->decode(&out, result);
     std::cout << result << std::endl;
@@ -112,7 +109,7 @@ BOOST_AUTO_TEST_CASE(lsTest)
 BOOST_AUTO_TEST_CASE(mkdirTest)
 {
     bytes in = codec->encodeWithSig("mkdir(string)", std::string("/tables/temp/test"));
-    auto callResult = fileSystemPrecompiled->call(context, bytesConstRef(&in), "", "", gas);
+    auto callResult = fileSystemPrecompiled->call(context, bytesConstRef(&in), "", "");
     bytes out = callResult->execResult();
     u256 result;
     codec->decode(&out, result);
@@ -120,7 +117,7 @@ BOOST_AUTO_TEST_CASE(mkdirTest)
 
     // mkdir /data/test1/test
     in = codec->encodeWithSig("mkdir(string)", std::string("/tables/test1/test"));
-    callResult = fileSystemPrecompiled->call(context, bytesConstRef(&in), "", "", gas);
+    callResult = fileSystemPrecompiled->call(context, bytesConstRef(&in), "", "");
     out = callResult->execResult();
     s256 errorCode;
     codec->decode(&out, errorCode);
@@ -128,14 +125,14 @@ BOOST_AUTO_TEST_CASE(mkdirTest)
 
     // mkdir /data/test1
     in = codec->encodeWithSig("mkdir(string)", std::string("/tables/test1"));
-    callResult = fileSystemPrecompiled->call(context, bytesConstRef(&in), "", "", gas);
+    callResult = fileSystemPrecompiled->call(context, bytesConstRef(&in), "", "");
     out = callResult->execResult();
     codec->decode(&out, errorCode);
     BOOST_TEST(errorCode == s256((int)CODE_FILE_ALREADY_EXIST));
 
     // mkdir /data
     in = codec->encodeWithSig("mkdir(string)", std::string("/tables"));
-    callResult = fileSystemPrecompiled->call(context, bytesConstRef(&in), "", "", gas);
+    callResult = fileSystemPrecompiled->call(context, bytesConstRef(&in), "", "");
     out = callResult->execResult();
     codec->decode(&out, errorCode);
     BOOST_TEST(errorCode == s256((int)CODE_FILE_ALREADY_EXIST));
@@ -144,7 +141,7 @@ BOOST_AUTO_TEST_CASE(mkdirTest)
 BOOST_AUTO_TEST_CASE(undefined_test)
 {
     bytes in = codec->encodeWithSig("take(string)");
-    fileSystemPrecompiled->call(context, bytesConstRef(&in), "", "", gas);
+    fileSystemPrecompiled->call(context, bytesConstRef(&in), "", "");
 }
 
 BOOST_AUTO_TEST_SUITE_END()

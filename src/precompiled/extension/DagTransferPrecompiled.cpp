@@ -162,9 +162,9 @@ std::optional<storage::Table> DagTransferPrecompiled::openTable(
     return table;
 }
 
-PrecompiledExecResult::Ptr DagTransferPrecompiled::call(
+std::shared_ptr<PrecompiledExecResult> DagTransferPrecompiled::call(
     std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
-    const std::string& _origin, const std::string&, int64_t _remainGas)
+    const std::string& _origin, const std::string&)
 {
     // parse function name
     uint32_t func = getParamFunc(_param);
@@ -199,12 +199,12 @@ PrecompiledExecResult::Ptr DagTransferPrecompiled::call(
                                << LOG_KV("func", func);
     }
     gasPricer->updateMemUsed(callResult->m_execResult.size());
-    _remainGas -= gasPricer->calTotalGas();
+    callResult->setGas(gasPricer->calTotalGas());
     return callResult;
 }
 
 void DagTransferPrecompiled::userAddCall(std::shared_ptr<executor::BlockContext> _context,
-    bytesConstRef _data, std::string const& _origin, bytes& _out)
+    bytesConstRef _data, std::string const&, bytes& _out)
 {
     // userAdd(string,uint256)
     std::string user;
@@ -252,7 +252,7 @@ void DagTransferPrecompiled::userAddCall(std::shared_ptr<executor::BlockContext>
 }
 
 void DagTransferPrecompiled::userSaveCall(std::shared_ptr<executor::BlockContext> _context,
-    bytesConstRef _data, std::string const& _origin, bytes& _out)
+    bytesConstRef _data, std::string const&, bytes& _out)
 {
     // userSave(string,uint256)
     std::string user;
@@ -326,7 +326,7 @@ void DagTransferPrecompiled::userSaveCall(std::shared_ptr<executor::BlockContext
 }
 
 void DagTransferPrecompiled::userDrawCall(std::shared_ptr<executor::BlockContext> _context,
-    bytesConstRef _data, std::string const& _origin, bytes& _out)
+    bytesConstRef _data, std::string const&, bytes& _out)
 {
     std::string user;
     u256 amount;
@@ -438,7 +438,7 @@ void DagTransferPrecompiled::userBalanceCall(
 }
 
 void DagTransferPrecompiled::userTransferCall(std::shared_ptr<executor::BlockContext> _context,
-    bytesConstRef _data, std::string const& _origin, bytes& _out)
+    bytesConstRef _data, std::string const&, bytes& _out)
 {
     auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     std::string fromUser, toUser;

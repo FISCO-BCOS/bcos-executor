@@ -25,6 +25,7 @@
 #include <bcos-framework/interfaces/protocol/CommonError.h>
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
+#include <utility>
 
 using namespace bcos;
 using namespace bcos::executor;
@@ -45,9 +46,9 @@ ConsensusPrecompiled::ConsensusPrecompiled(crypto::Hash::Ptr _hashImpl) : Precom
     name2Selector[CSS_METHOD_SET_WEIGHT] = getFuncSelector(CSS_METHOD_SET_WEIGHT, _hashImpl);
 }
 
-PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
-    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
-    const std::string& _origin, const std::string&, int64_t _remainGas)
+std::shared_ptr<PrecompiledExecResult> ConsensusPrecompiled::call(
+    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param, const std::string&,
+    const std::string&)
 {
     // parse function name
     uint32_t func = getParamFunc(_param);
@@ -62,22 +63,22 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
     if (func == name2Selector[CSS_METHOD_ADD_SEALER])
     {
         // addSealer(string, uint256)
-        result = addSealer(_context, data, _origin);
+        result = addSealer(_context, data);
     }
     else if (func == name2Selector[CSS_METHOD_ADD_SER])
     {
         // addObserver(string)
-        result = addObserver(_context, data, _origin);
+        result = addObserver(_context, data);
     }
     else if (func == name2Selector[CSS_METHOD_REMOVE])
     {
         // remove(string)
-        result = removeNode(_context, data, _origin);
+        result = removeNode(_context, data);
     }
     else if (func == name2Selector[CSS_METHOD_SET_WEIGHT])
     {
         // setWeight(string,uint256)
-        result = setWeight(_context, data, _origin);
+        result = setWeight(_context, data);
     }
     else
     {
@@ -87,12 +88,12 @@ PrecompiledExecResult::Ptr ConsensusPrecompiled::call(
     auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
     getErrorCodeOut(callResult->mutableExecResult(), result, codec);
     gasPricer->updateMemUsed(callResult->m_execResult.size());
-    _remainGas -= gasPricer->calTotalGas();
+    callResult->setGas(gasPricer->calTotalGas());
     return callResult;
 }
 
-int ConsensusPrecompiled::addSealer(const std::shared_ptr<executor::BlockContext>& _context,
-    bytesConstRef& _data, const std::string&)
+int ConsensusPrecompiled::addSealer(
+    const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& _data)
 {
     // addSealer(string, uint256)
     std::string nodeID;
@@ -124,15 +125,15 @@ int ConsensusPrecompiled::addSealer(const std::shared_ptr<executor::BlockContext
     newEntry.setField(
         NODE_ENABLE_NUMBER, boost::lexical_cast<std::string>(_context->currentNumber() + 1));
     newEntry.setField(NODE_WEIGHT, boost::lexical_cast<std::string>(weight));
-    table->setRow(nodeID, newEntry);
+    table->setRow(nodeID, std::move(newEntry));
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
                            << LOG_DESC("addSealer successfully insert") << LOG_KV("nodeID", nodeID)
                            << LOG_KV("weight", weight);
     return 0;
 }
 
-int ConsensusPrecompiled::addObserver(const std::shared_ptr<executor::BlockContext>& _context,
-    bytesConstRef& _data, const std::string& _origin)
+int ConsensusPrecompiled::addObserver(
+    const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& _data)
 {
     // addObserver(string)
     std::string nodeID;
@@ -164,14 +165,14 @@ int ConsensusPrecompiled::addObserver(const std::shared_ptr<executor::BlockConte
                                << LOG_DESC("addObserver failed, because last sealer");
         return CODE_LAST_SEALER;
     }
-    table->setRow(nodeID, newEntry);
+    table->setRow(nodeID, std::move(newEntry));
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
                            << LOG_DESC("addObserver successfully insert");
     return 0;
 }
 
-int ConsensusPrecompiled::removeNode(const std::shared_ptr<executor::BlockContext>& _context,
-    bytesConstRef& _data, const std::string& _origin)
+int ConsensusPrecompiled::removeNode(
+    const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& _data)
 {
     // remove(string)
     std::string nodeID;
@@ -201,8 +202,8 @@ int ConsensusPrecompiled::removeNode(const std::shared_ptr<executor::BlockContex
     return 0;
 }
 
-int ConsensusPrecompiled::setWeight(const std::shared_ptr<executor::BlockContext>& _context,
-    bytesConstRef& _data, const std::string&)
+int ConsensusPrecompiled::setWeight(
+    const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& _data)
 {
     // setWeight(string,uint256)
     std::string nodeID;
@@ -234,11 +235,10 @@ int ConsensusPrecompiled::setWeight(const std::shared_ptr<executor::BlockContext
                                << LOG_KV("nodeID", nodeID);
         return CODE_NODE_NOT_EXIST;
     }
-    auto newEntry = table->newEntry();
     entry->setField(NODE_WEIGHT, boost::lexical_cast<std::string>(weight));
     entry->setField(
         NODE_ENABLE_NUMBER, boost::lexical_cast<std::string>(_context->currentNumber() + 1));
-    table->setRow(nodeID, entry.value());
+    table->setRow(nodeID, std::move(entry.value()));
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
                            << LOG_DESC("setWeight successfully");
     return 0;
@@ -293,7 +293,7 @@ bool ConsensusPrecompiled::checkIsLastSealer(
     std::optional<storage::Table> _table, std::string const& nodeID)
 {
     // Check is last sealer or not.
-    auto entryMap = getRowsByNodeType(_table, ledger::CONSENSUS_SEALER);
+    auto entryMap = getRowsByNodeType(std::move(_table), ledger::CONSENSUS_SEALER);
     if (entryMap->size() == 1u && entryMap->cbegin()->first == nodeID)
     {
         // The nodeID in param is the last sealer, cannot be deleted.

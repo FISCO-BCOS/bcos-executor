@@ -13,15 +13,13 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  *
- * @file KVTableFactoryPrecompiledTest.cpp
+ * @file TableFactoryPrecompiledTest.cpp
  * @author: kyonRay
- * @date 2021-06-19
+ * @date 2021-06-21
  */
 
-#include "libprecompiled/KVTableFactoryPrecompiled.h"
+#include "precompiled/TableFactoryPrecompiled.h"
 #include "PreCompiledFixture.h"
-#include "libprecompiled/extension/UserPrecompiled.h"
-#include <bcos-framework/interfaces/storage/TableInterface.h>
 #include <bcos-framework/testutils/TestPromptFixture.h>
 
 using namespace bcos;
@@ -32,29 +30,29 @@ using namespace bcos::ledger;
 
 namespace bcos::test
 {
-class KVTableFactoryPrecompiledFixture : public PrecompiledFixture
+class TableFactoryPrecompiledFixture : public PrecompiledFixture
 {
 public:
-    KVTableFactoryPrecompiledFixture()
+    TableFactoryPrecompiledFixture()
     {
-        kvTableFactoryPrecompiled = std::make_shared<KVTableFactoryPrecompiled>(hashImpl);
+        tableFactoryPrecompiled = std::make_shared<TableFactoryPrecompiled>(hashImpl);
         setIsWasm(true);
-        kvTableFactoryPrecompiled->setMemoryTableFactory(context->getTableFactory());
+        tableFactoryPrecompiled->setMemoryTableFactory(context->storage());
     }
 
-    virtual ~KVTableFactoryPrecompiledFixture() {}
+    virtual ~TableFactoryPrecompiledFixture() {}
 
-    KVTableFactoryPrecompiled::Ptr kvTableFactoryPrecompiled;
+    TableFactoryPrecompiled::Ptr tableFactoryPrecompiled;
     int addressCount = 0x10000;
 };
-BOOST_FIXTURE_TEST_SUITE(precompiledKVTableFactoryTest, KVTableFactoryPrecompiledFixture)
+BOOST_FIXTURE_TEST_SUITE(precompiledTableFactoryTest, TableFactoryPrecompiledFixture)
 
 BOOST_AUTO_TEST_CASE(createTableTest)
 {
-    BOOST_TEST(kvTableFactoryPrecompiled->toString() == "KVTableFactory");
+    BOOST_TEST(tableFactoryPrecompiled->toString() == "StateStorage");
     bytes param = codec->encodeWithSig("createTable(string,string,string)", std::string("/t_test"),
         std::string("id"), std::string("item_name,item_id"));
-    auto callResult = kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas);
+    auto callResult = tableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "");
     bytes out = callResult->execResult();
     s256 errCode;
     codec->decode(&out, errCode);
@@ -64,7 +62,7 @@ BOOST_AUTO_TEST_CASE(createTableTest)
     // createTable exist
     param = codec->encodeWithSig("createTable(string,string,string)", std::string("/t_test"),
         std::string("id"), std::string("item_name,item_id"));
-    callResult = kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas);
+    callResult = tableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "");
     out = callResult->execResult();
     codec->decode(&out, errCode);
     BOOST_TEST(errCode == CODE_TABLE_NAME_ALREADY_EXIST);
@@ -75,44 +73,43 @@ BOOST_AUTO_TEST_CASE(createTableTest)
     {
         errorStr += std::to_string(9);
     }
-
     BOOST_CHECK(errorStr.size() > (size_t)SYS_TABLE_VALUE_FIELD_MAX_LENGTH);
     param = codec->encodeWithSig("createTable(string,string,string)", std::string("/" + errorStr),
         std::string("id"), std::string("item_name,item_id"));
-    BOOST_CHECK_THROW(kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas),
-        PrecompiledError);
+    BOOST_CHECK_THROW(
+        tableFactoryPrecompiled->call(context, bytesConstRef(&param), "", ""), PrecompiledError);
 
     param = codec->encodeWithSig("createTable(string,string,string)", std::string("/t_test"),
         errorStr, std::string("item_name,item_id"));
-    BOOST_CHECK_THROW(kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas),
-        PrecompiledError);
+    BOOST_CHECK_THROW(
+        tableFactoryPrecompiled->call(context, bytesConstRef(&param), "", ""), PrecompiledError);
 
     param = codec->encodeWithSig(
         "createTable(string,string,string)", std::string("/t_test"), std::string("id"), errorStr);
-    BOOST_CHECK_THROW(kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas),
-        PrecompiledError);
+    BOOST_CHECK_THROW(
+        tableFactoryPrecompiled->call(context, bytesConstRef(&param), "", ""), PrecompiledError);
 
     // createTable error key and filed
     std::string errorStr2 = "/test&";
     std::string rightStr = "test@1";
     param = codec->encodeWithSig("createTable(string,string,string)", errorStr2, std::string("id"),
         std::string("item_name,item_id"));
-    BOOST_CHECK_THROW(kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas),
-        PrecompiledError);
+    BOOST_CHECK_THROW(
+        tableFactoryPrecompiled->call(context, bytesConstRef(&param), "", ""), PrecompiledError);
 
     param = codec->encodeWithSig("createTable(string,string,string)", std::string("/t_test"),
         errorStr2, std::string("item_name,item_id"));
-    BOOST_CHECK_THROW(kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas),
-        PrecompiledError);
+    BOOST_CHECK_THROW(
+        tableFactoryPrecompiled->call(context, bytesConstRef(&param), "", ""), PrecompiledError);
 
     param = codec->encodeWithSig(
         "createTable(string,string,string)", std::string("/t_test"), std::string("id"), errorStr2);
-    BOOST_CHECK_THROW(kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas),
-        PrecompiledError);
+    BOOST_CHECK_THROW(
+        tableFactoryPrecompiled->call(context, bytesConstRef(&param), "", ""), PrecompiledError);
 
     param = codec->encodeWithSig("createTable(string,string,string)", std::string("/t_test2"),
         rightStr, std::string("item_name,item_id"));
-    callResult = kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas);
+    callResult = tableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "");
     out = callResult->execResult();
     codec->decode(&out, errCode);
     BOOST_TEST(errCode == 0);
@@ -120,13 +117,13 @@ BOOST_AUTO_TEST_CASE(createTableTest)
     // error table name in wasm
     param = codec->encodeWithSig("createTable(string,string,string)", std::string("t_test"),
         std::string("id"), std::string("item1,item2"));
-    BOOST_CHECK_THROW(kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas),
-        PrecompiledError);
+    BOOST_CHECK_THROW(
+        tableFactoryPrecompiled->call(context, bytesConstRef(&param), "", ""), PrecompiledError);
 
     param = codec->encodeWithSig("createTable(string,string,string)", std::string(""),
         std::string("id"), std::string("item1,item2"));
-    BOOST_CHECK_THROW(kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas),
-        PrecompiledError);
+    BOOST_CHECK_THROW(
+        tableFactoryPrecompiled->call(context, bytesConstRef(&param), "", ""), PrecompiledError);
 }
 
 BOOST_AUTO_TEST_CASE(openTableTest)
@@ -135,20 +132,18 @@ BOOST_AUTO_TEST_CASE(openTableTest)
     {
         bytes param = codec->encodeWithSig("createTable(string,string,string)",
             std::string("/data/t_test"), std::string("id"), std::string("item_name,item_id"));
-        auto callResult =
-            kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas);
+        auto callResult = tableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "");
         bytes out = callResult->execResult();
         s256 errCode;
         codec->decode(&out, errCode);
         BOOST_TEST(errCode == 0);
 
         param = codec->encodeWithSig("openTable(string)", std::string("/data/t_poor"));
-        BOOST_CHECK_THROW(
-            kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas),
+        BOOST_CHECK_THROW(tableFactoryPrecompiled->call(context, bytesConstRef(&param), "", ""),
             PrecompiledError);
 
         param = codec->encodeWithSig("openTable(string)", std::string("/data/t_test"));
-        callResult = kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas);
+        callResult = tableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "");
         out = callResult->execResult();
         std::string addressOut;
         codec->decode(&out, addressOut);
@@ -156,37 +151,27 @@ BOOST_AUTO_TEST_CASE(openTableTest)
     }
 
     setIsWasm(false);
-    kvTableFactoryPrecompiled->setMemoryTableFactory(context->getTableFactory());
+    tableFactoryPrecompiled->setMemoryTableFactory(context->storage());
     {
         bytes param = codec->encodeWithSig("createTable(string,string,string)",
             std::string("t_test"), std::string("id"), std::string("item_name,item_id"));
-        auto callResult =
-            kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas);
+        auto callResult = tableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "");
         bytes out = callResult->execResult();
         s256 errCode;
         codec->decode(&out, errCode);
         BOOST_TEST(errCode == 0);
         param = codec->encodeWithSig("openTable(string)", std::string("t_poor"));
-        BOOST_CHECK_THROW(
-            kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas),
+        BOOST_CHECK_THROW(tableFactoryPrecompiled->call(context, bytesConstRef(&param), "", ""),
             PrecompiledError);
 
         out.clear();
         param = codec->encodeWithSig("openTable(string)", std::string("t_test"));
-        callResult = kvTableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "", gas);
+        callResult = tableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "");
         out = callResult->execResult();
         Address addressOutAddress;
         codec->decode(&out, addressOutAddress);
-        auto o1 = addressOutAddress.hex();
-        BOOST_TEST(o1 == "0000000000000000000000000000000000010001");
+        BOOST_TEST(addressOutAddress.hex() == "0000000000000000000000000000000000010001");
     }
 }
-
-BOOST_AUTO_TEST_CASE(hash)
-{
-    auto h = kvTableFactoryPrecompiled->hash();
-    BOOST_TEST(h == HashType());
-}
-
 BOOST_AUTO_TEST_SUITE_END()
 }  // namespace bcos::test

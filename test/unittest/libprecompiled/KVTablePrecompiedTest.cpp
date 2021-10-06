@@ -19,11 +19,9 @@
  */
 
 #include "PreCompiledFixture.h"
-#include "libprecompiled/EntryPrecompiled.h"
-#include "libprecompiled/KVTableFactoryPrecompiled.h"
-#include "libprecompiled/KVTablePrecompiled.h"
-#include "libprecompiled/extension/UserPrecompiled.h"
-#include <bcos-framework/interfaces/storage/TableInterface.h>
+#include "precompiled/EntryPrecompiled.h"
+#include "precompiled/KVTableFactoryPrecompiled.h"
+#include "precompiled/KVTablePrecompiled.h"
 #include <bcos-framework/testutils/TestPromptFixture.h>
 
 using namespace bcos;
@@ -43,29 +41,27 @@ public:
     void initEvmEnv()
     {
         setIsWasm(false);
-        kvTableFactoryPrecompiled->setMemoryTableFactory(context->getTableFactory());
+        kvTableFactoryPrecompiled->setMemoryTableFactory(context->storage());
 
-        context->getTableFactory()->createTable("test", "id", "name,age");
-        context->getTableFactory()->commit();
+        context->storage()->createTable("test", "name,age");
 
-        auto table = context->getTableFactory()->openTable("test");
-        BOOST_CHECK(table != nullptr);
+        auto table = context->storage()->openTable("test");
+        BOOST_CHECK(table != std::nullopt);
         kvTablePrecompiled = std::make_shared<KVTablePrecompiled>(hashImpl);
-        kvTablePrecompiled->setTable(table);
+        kvTablePrecompiled->setTable(std::make_shared<Table>(table.value()));
     }
 
     void initWasmEnv()
     {
         setIsWasm(true);
-        kvTableFactoryPrecompiled->setMemoryTableFactory(context->getTableFactory());
+        kvTableFactoryPrecompiled->setMemoryTableFactory(context->storage());
 
-        context->getTableFactory()->createTable("/data/test", "id", "name,age");
-        context->getTableFactory()->commit();
+        context->storage()->createTable("/data/test", "name,age");
 
-        auto table = context->getTableFactory()->openTable("/data/test");
-        BOOST_CHECK(table != nullptr);
+        auto table = context->storage()->openTable("/data/test");
+        BOOST_CHECK(table != std::nullopt);
         kvTablePrecompiled = std::make_shared<KVTablePrecompiled>(hashImpl);
-        kvTablePrecompiled->setTable(table);
+        kvTablePrecompiled->setTable(std::make_shared<Table>(table.value()));
     }
 
     virtual ~KVTablePrecompiledFixture() {}
@@ -79,13 +75,6 @@ public:
 
 BOOST_FIXTURE_TEST_SUITE(precompiledKVTableTest, KVTablePrecompiledFixture)
 
-BOOST_AUTO_TEST_CASE(hash)
-{
-    initEvmEnv();
-    auto h = kvTablePrecompiled->hash();
-    BOOST_CHECK(h == HashType());
-}
-
 BOOST_AUTO_TEST_CASE(toString)
 {
     initEvmEnv();
@@ -98,7 +87,7 @@ BOOST_AUTO_TEST_CASE(get_set_evm)
 
     // get not exist key
     bytes in = codec->encodeWithSig("get(string)", std::string("kk"));
-    auto callResult = kvTablePrecompiled->call(context, bytesConstRef(&in), "", "", gas);
+    auto callResult = kvTablePrecompiled->call(context, bytesConstRef(&in), "", "");
     bytes out = callResult->execResult();
     bool status = true;
     Address entryAddress;
@@ -108,17 +97,17 @@ BOOST_AUTO_TEST_CASE(get_set_evm)
     // set a entry
     auto table = kvTablePrecompiled->getTable();
     auto newEntry = table->newEntry();
-    newEntry->setField("name", "kk");
-    newEntry->setField("age", "100");
+    newEntry.setField("name", "kk");
+    newEntry.setField("age", "100");
     auto entryPrecompiled = std::make_shared<EntryPrecompiled>(hashImpl);
-    entryPrecompiled->setEntry(newEntry);
+    entryPrecompiled->setEntry(std::make_shared<storage::Entry>(newEntry));
     auto entryAddress1 = context->registerPrecompiled(entryPrecompiled);
     BOOST_CHECK(Address(entryAddress1) == Address(addressCount + 1));
 
     // call set
     auto addr = Address(entryAddress1);
     bytes in2 = codec->encodeWithSig("set(string,address)", std::string("123"), addr);
-    callResult = kvTablePrecompiled->call(context, bytesConstRef(&in2), "0x00001", "", gas);
+    callResult = kvTablePrecompiled->call(context, bytesConstRef(&in2), "0x00001", "");
     bytes out1 = callResult->execResult();
     u256 num;
     codec->decode(bytesConstRef(&out1), num);
@@ -126,7 +115,7 @@ BOOST_AUTO_TEST_CASE(get_set_evm)
 
     // call get
     in = codec->encodeWithSig("get(string)", std::string("123"));
-    callResult = kvTablePrecompiled->call(context, bytesConstRef(&in), "", "", gas);
+    callResult = kvTablePrecompiled->call(context, bytesConstRef(&in), "", "");
     out = callResult->execResult();
     codec->decode(bytesConstRef(&out), status, entryAddress);
     BOOST_TEST(status == true);
@@ -144,7 +133,7 @@ BOOST_AUTO_TEST_CASE(get_set_wasm)
 
     // get not exist key
     bytes in = codec->encodeWithSig("get(string)", std::string("kk"));
-    auto callResult = kvTablePrecompiled->call(context, bytesConstRef(&in), "", "", gas);
+    auto callResult = kvTablePrecompiled->call(context, bytesConstRef(&in), "", "");
     bytes out = callResult->execResult();
     bool status = true;
     std::string entryAddress;
@@ -154,16 +143,16 @@ BOOST_AUTO_TEST_CASE(get_set_wasm)
     // set a entry
     auto table = kvTablePrecompiled->getTable();
     auto newEntry = table->newEntry();
-    newEntry->setField("name", "kk");
-    newEntry->setField("age", "100");
+    newEntry.setField("name", "kk");
+    newEntry.setField("age", "100");
     auto entryPrecompiled = std::make_shared<EntryPrecompiled>(hashImpl);
-    entryPrecompiled->setEntry(newEntry);
+    entryPrecompiled->setEntry(std::make_shared<storage::Entry>(newEntry));
     auto entryAddress1 = context->registerPrecompiled(entryPrecompiled);
     BOOST_CHECK(Address(entryAddress1) == Address(addressCount + 1));
 
     // call set
     bytes in2 = codec->encodeWithSig("set(string,string)", std::string("123"), entryAddress1);
-    callResult = kvTablePrecompiled->call(context, bytesConstRef(&in2), "0x00001", "", gas);
+    callResult = kvTablePrecompiled->call(context, bytesConstRef(&in2), "0x00001", "");
     bytes out1 = callResult->execResult();
     u256 num;
     codec->decode(bytesConstRef(&out1), num);
@@ -171,7 +160,7 @@ BOOST_AUTO_TEST_CASE(get_set_wasm)
 
     // call get
     in = codec->encodeWithSig("get(string)", std::string("123"));
-    callResult = kvTablePrecompiled->call(context, bytesConstRef(&in), "", "", gas);
+    callResult = kvTablePrecompiled->call(context, bytesConstRef(&in), "", "");
     out = callResult->execResult();
     codec->decode(bytesConstRef(&out), status, entryAddress);
     BOOST_TEST(status == true);
@@ -188,7 +177,7 @@ BOOST_AUTO_TEST_CASE(newEntryTest)
     {
         initEvmEnv();
         bytes in = codec->encodeWithSig("newEntry()");
-        auto callResult = kvTablePrecompiled->call(context, bytesConstRef(&in), "", "", gas);
+        auto callResult = kvTablePrecompiled->call(context, bytesConstRef(&in), "", "");
         bytes out1 = callResult->execResult();
         Address address;
         codec->decode(&out1, address);
@@ -197,7 +186,7 @@ BOOST_AUTO_TEST_CASE(newEntryTest)
     {
         initWasmEnv();
         bytes in = codec->encodeWithSig("newEntry()");
-        auto callResult = kvTablePrecompiled->call(context, bytesConstRef(&in), "", "", gas);
+        auto callResult = kvTablePrecompiled->call(context, bytesConstRef(&in), "", "");
         bytes out1 = callResult->execResult();
         std::string address;
         codec->decode(&out1, address);

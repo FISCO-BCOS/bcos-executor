@@ -48,9 +48,9 @@ SystemConfigPrecompiled::SystemConfigPrecompiled(crypto::Hash::Ptr _hashImpl)
         SYSTEM_KEY_TX_COUNT_LIMIT, [](int64_t _v) -> bool { return (_v >= TX_COUNT_LIMIT_MIN); }));
 }
 
-PrecompiledExecResult::Ptr SystemConfigPrecompiled::call(
-    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
-    const std::string& _origin, const std::string&, int64_t _remainGas)
+std::shared_ptr<PrecompiledExecResult> SystemConfigPrecompiled::call(
+    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param, const std::string&,
+    const std::string&)
 {
     // parse function name
     uint32_t func = getParamFunc(_param);
@@ -88,7 +88,7 @@ PrecompiledExecResult::Ptr SystemConfigPrecompiled::call(
         entry.setField(SYS_VALUE, configValue);
         entry.setField(SYS_CONFIG_ENABLE_BLOCK_NUMBER,
             boost::lexical_cast<std::string>(_context->currentNumber() + 1));
-        table->setRow(configKey, entry);
+        table->setRow(configKey, std::move(entry));
 
         PRECOMPILED_LOG(INFO) << LOG_BADGE("SystemConfigPrecompiled")
                               << LOG_DESC("set system config") << LOG_KV("configKey", configKey)
@@ -117,7 +117,7 @@ PrecompiledExecResult::Ptr SystemConfigPrecompiled::call(
                                << LOG_DESC("call undefined function") << LOG_KV("func", func);
     }
     gasPricer->updateMemUsed(callResult->m_execResult.size());
-    _remainGas -= gasPricer->calTotalGas();
+    callResult->setGas(gasPricer->calTotalGas());
     return callResult;
 }
 
@@ -126,7 +126,7 @@ std::string SystemConfigPrecompiled::toString()
     return "SystemConfig";
 }
 
-bool SystemConfigPrecompiled::checkValueValid(std::string const& key, std::string const& value)
+bool SystemConfigPrecompiled::checkValueValid(std::string_view key, std::string_view value)
 {
     int64_t configuredValue;
     if (value.empty())
@@ -136,7 +136,7 @@ bool SystemConfigPrecompiled::checkValueValid(std::string const& key, std::strin
     try
     {
         configuredValue = boost::lexical_cast<int64_t>(value);
-        auto cmp = m_sysValueCmp.at(key);
+        auto cmp = m_sysValueCmp.at(std::string(key));
         return cmp(configuredValue);
     }
     catch (std::exception const& e)

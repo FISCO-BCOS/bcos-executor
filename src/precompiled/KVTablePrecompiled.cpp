@@ -53,9 +53,9 @@ std::string KVTablePrecompiled::toString()
     return "KVTable";
 }
 
-PrecompiledExecResult::Ptr KVTablePrecompiled::call(
-    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
-    const std::string& _origin, const std::string& _sender, int64_t _remainGas)
+std::shared_ptr<PrecompiledExecResult> KVTablePrecompiled::call(
+    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param, const std::string&,
+    const std::string&)
 {
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
@@ -121,11 +121,10 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
             checkLengthValidate(
                 key, USER_TABLE_KEY_VALUE_MAX_LENGTH, CODE_TABLE_KEY_VALUE_LENGTH_OVERFLOW);
 
-            auto it = entry->begin();
-            for (; it != entry->end(); ++it)
+            for (auto const& entryValue : *entry)
             {
-                checkLengthValidate(static_cast<const std::string>(*it),
-                    USER_TABLE_FIELD_VALUE_MAX_LENGTH, CODE_TABLE_KEY_VALUE_LENGTH_OVERFLOW);
+                checkLengthValidate(entryValue, USER_TABLE_FIELD_VALUE_MAX_LENGTH,
+                    CODE_TABLE_KEY_VALUE_LENGTH_OVERFLOW);
             }
 
             m_table->setRow(key, *entry);
@@ -147,11 +146,10 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
         checkLengthValidate(
             key, USER_TABLE_KEY_VALUE_MAX_LENGTH, CODE_TABLE_KEY_VALUE_LENGTH_OVERFLOW);
 
-        auto it = entry->begin();
-        for (; it != entry->end(); ++it)
+        for (auto const& entryValue : *entry)
         {
-            checkLengthValidate(static_cast<const std::string>(*it),
-                USER_TABLE_FIELD_VALUE_MAX_LENGTH, CODE_TABLE_KEY_VALUE_LENGTH_OVERFLOW);
+            checkLengthValidate(entryValue, USER_TABLE_FIELD_VALUE_MAX_LENGTH,
+                CODE_TABLE_KEY_VALUE_LENGTH_OVERFLOW);
         }
 
         m_table->setRow(key, *entry);
@@ -182,6 +180,6 @@ PrecompiledExecResult::Ptr KVTablePrecompiled::call(
                                << LOG_DESC("call undefined function!");
     }
     gasPricer->updateMemUsed(callResult->m_execResult.size());
-    _remainGas -= gasPricer->calTotalGas();
+    callResult->setGas(gasPricer->calTotalGas());
     return callResult;
 }

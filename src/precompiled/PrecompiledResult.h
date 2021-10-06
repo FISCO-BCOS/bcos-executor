@@ -33,7 +33,9 @@ struct PrecompiledExecResult
     bytes const& execResult() const { return m_execResult; }
     bytes& mutableExecResult() { return m_execResult; }
     void setExecResult(bytes const& _execResult) { m_execResult = _execResult; }
+    void setGas(int64_t _gas) { m_gas = _gas; }
     bytes m_execResult;
+    int64_t m_gas;
 };
 }  // namespace precompiled
 }  // namespace bcos

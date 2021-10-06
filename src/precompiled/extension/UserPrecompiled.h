@@ -17,7 +17,7 @@
  * @author: kyonRay
  * @date 2021-05-30
  */
-
+#pragma once
 #include "DagTransferPrecompiled.h"
 #include "HelloWorldPrecompiled.h"
 #include "PermissionPrecompiledInterface.h"

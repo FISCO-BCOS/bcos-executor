@@ -38,28 +38,28 @@ public:
     std::string toString() override;
 
     std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::BlockContext> _context,
-        bytesConstRef _param, const std::string& _origin, const std::string& _sender,
-        int64_t _remainGas) override;
+        bytesConstRef _param, const std::string& _origin, const std::string& _sender) override;
 
 private:
-    void desc(std::shared_ptr<executor::BlockContext> _context, bytesConstRef _paramData,
-        std::shared_ptr<PrecompiledExecResult> _callResult,
-        std::shared_ptr<PrecompiledGas> _gasPricer);
-    void update(std::shared_ptr<executor::BlockContext> _context, bytesConstRef _paramData,
-        std::shared_ptr<PrecompiledExecResult> _callResult,
-        std::shared_ptr<PrecompiledGas> _gasPricer);
-    void insert(std::shared_ptr<executor::BlockContext> _context, bytesConstRef _paramData,
-        std::shared_ptr<PrecompiledExecResult> _callResult,
-        std::shared_ptr<PrecompiledGas> _gasPricer);
-    void remove(std::shared_ptr<executor::BlockContext> _context, bytesConstRef _paramData,
-        std::shared_ptr<PrecompiledExecResult> _callResult,
-        std::shared_ptr<PrecompiledGas> _gasPricer);
-    void select(std::shared_ptr<executor::BlockContext> _context, bytesConstRef _paramData,
-        std::shared_ptr<PrecompiledExecResult> _callResult,
-        std::shared_ptr<PrecompiledGas> _gasPricer);
-    int parseEntry(const std::string& entryStr, storage::Entry& entry);
+    void desc(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef _paramData,
+        const std::shared_ptr<PrecompiledExecResult>& _callResult,
+        const std::shared_ptr<PrecompiledGas>& _gasPricer);
+    void update(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef _paramData,
+        const std::shared_ptr<PrecompiledExecResult>& _callResult,
+        const std::shared_ptr<PrecompiledGas>& _gasPricer);
+    void insert(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef _paramData,
+        const std::shared_ptr<PrecompiledExecResult>& _callResult,
+        const std::shared_ptr<PrecompiledGas>& _gasPricer);
+    void remove(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef _paramData,
+        const std::shared_ptr<PrecompiledExecResult>& _callResult,
+        const std::shared_ptr<PrecompiledGas>& _gasPricer);
+    void select(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef _paramData,
+        const std::shared_ptr<PrecompiledExecResult>& _callResult,
+        const std::shared_ptr<PrecompiledGas>& _gasPricer);
+    int parseEntry(const std::string& entryStr, storage::Entry& entry, const std::string& keyField,
+        std::string& keyValue);
     int parseCondition(const std::string& conditionStr, precompiled::Condition::Ptr& condition,
-        std::shared_ptr<PrecompiledGas> _gasPricer);
+        const std::shared_ptr<PrecompiledGas>& _gasPricer);
     inline bool isHashField(const std::string_view& _key)
     {
         if (!_key.empty())
@@ -67,6 +67,17 @@ private:
             return ((_key.substr(0, 1) != "_" && _key.substr(_key.size() - 1, 1) != "_"));
         }
         return false;
+    }
+    std::string_view getKeyField(
+        const std::shared_ptr<executor::BlockContext>& _context, std::string_view tableName)
+    {
+        auto sysTable = _context->storage()->openTable(storage::StorageInterface::SYS_TABLES);
+        auto sysEntry = sysTable->getRow(tableName);
+        if (!sysEntry)
+            return "";
+        auto valueKeyCombined =
+            sysEntry->getField(storage::StorageInterface::SYS_TABLE_VALUE_FIELDS);
+        return valueKeyCombined.substr(valueKeyCombined.find_last_of(',') + 1);
     }
 };
 }  // namespace precompiled

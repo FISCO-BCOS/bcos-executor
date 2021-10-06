@@ -70,9 +70,9 @@ std::string ConditionPrecompiled::toString()
     return "Condition";
 }
 
-PrecompiledExecResult::Ptr ConditionPrecompiled::call(
+std::shared_ptr<PrecompiledExecResult> ConditionPrecompiled::call(
     std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param, const std::string&,
-    const std::string&, int64_t _remainGas)
+    const std::string&)
 {
     // parse function name
     uint32_t func = getParamFunc(_param);
@@ -201,6 +201,6 @@ PrecompiledExecResult::Ptr ConditionPrecompiled::call(
                            << LOG_DESC("call undefined function!");
     }
     gasPricer->updateMemUsed(callResult->m_execResult.size());
-    _remainGas -= gasPricer->calTotalGas();
+    callResult->setGas(gasPricer->calTotalGas());
     return callResult;
 }

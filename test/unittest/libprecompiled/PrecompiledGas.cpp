@@ -18,10 +18,7 @@
  * @date 2021-06-03
  */
 
-#include "libprecompiled/PrecompiledGas.h"
-#include "libprecompiled/Common.h"
-#include "libprecompiled/extension/UserPrecompiled.h"
-#include "vm/Precompiled.h"
+#include "precompiled/PrecompiledGas.h"
 #include <bcos-framework/testutils/TestPromptFixture.h>
 
 using namespace bcos;

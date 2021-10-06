@@ -44,7 +44,7 @@ std::string DeployWasmPrecompiled::toString()
 }
 std::shared_ptr<PrecompiledExecResult> DeployWasmPrecompiled::call(
     std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
-    const std::string& _origin, const std::string& _sender, int64_t _remainGas)
+    const std::string& _origin, const std::string&)
 {
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
@@ -141,7 +141,7 @@ std::shared_ptr<PrecompiledExecResult> DeployWasmPrecompiled::call(
                                << LOG_DESC("call undefined function!");
     }
     gasPricer->updateMemUsed(callResult->m_execResult.size());
-    _remainGas -= gasPricer->calTotalGas();
+    callResult->setGas(gasPricer->calTotalGas());
     return callResult;
 }
 

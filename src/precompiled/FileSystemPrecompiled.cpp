@@ -48,7 +48,7 @@ std::string FileSystemPrecompiled::toString()
 
 std::shared_ptr<PrecompiledExecResult> FileSystemPrecompiled::call(
     std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param, const std::string&,
-    const std::string&, int64_t _remainGas)
+    const std::string&)
 {
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
@@ -76,7 +76,7 @@ std::shared_ptr<PrecompiledExecResult> FileSystemPrecompiled::call(
     }
 
     gasPricer->updateMemUsed(callResult->m_execResult.size());
-    _remainGas -= gasPricer->calTotalGas();
+    callResult->setGas(gasPricer->calTotalGas());
     return callResult;
 }
 
@@ -157,11 +157,8 @@ void FileSystemPrecompiled::listDir(const std::shared_ptr<executor::BlockContext
             Json::Value subdirectory(Json::arrayValue);
             auto fileNameList = table->getPrimaryKeys({});
             auto fileInfoMap = table->getRows(fileNameList);
-            size_t i = 0;
             for (size_t i = 0; i < fileNameList.size(); ++i)
             {
-                //   for (auto &fileName : fileNameList) {
-                // FIXME: check whether getRows will return nullptr entry
                 auto fileName = fileNameList[i];
                 auto entry = fileInfoMap[i];
                 if (!entry)

@@ -51,9 +51,9 @@ std::string TableFactoryPrecompiled::toString()
     return "StateStorage";
 }
 
-PrecompiledExecResult::Ptr TableFactoryPrecompiled::call(
+std::shared_ptr<PrecompiledExecResult> TableFactoryPrecompiled::call(
     std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
-    const std::string& _origin, const std::string& _sender, int64_t _remainGas)
+    const std::string& _origin, const std::string& _sender)
 {
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
@@ -77,7 +77,7 @@ PrecompiledExecResult::Ptr TableFactoryPrecompiled::call(
                            << LOG_DESC("call undefined function!");
     }
     gasPricer->updateMemUsed(callResult->m_execResult.size());
-    _remainGas -= gasPricer->calTotalGas();
+    callResult->setGas(gasPricer->calTotalGas());
     return callResult;
 }
 
@@ -171,7 +171,8 @@ void TableFactoryPrecompiled::openTable(const std::shared_ptr<executor::BlockCon
                                  << LOG_KV("table name", tableName);
         BOOST_THROW_EXCEPTION(PrecompiledError() << errinfo_comment(tableName + " does not exist"));
     }
-    auto keyField = sysEntry->getField("key_field");
+    auto valueKey = sysEntry->getField(StorageInterface::SYS_TABLE_VALUE_FIELDS);
+    auto keyField = valueKey.substr(valueKey.find_last_of(',') + 1);
     auto tablePrecompiled = std::make_shared<TablePrecompiled>(m_hashImpl);
     tablePrecompiled->setTable(std::make_shared<Table>(table.value()));
     tablePrecompiled->setKeyField(keyField);
@@ -187,10 +188,9 @@ void TableFactoryPrecompiled::openTable(const std::shared_ptr<executor::BlockCon
     }
 }
 
-// FIXME: storage create table do not need key field
 void TableFactoryPrecompiled::createTable(const std::shared_ptr<executor::BlockContext>& _context,
     bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
-    const std::string& _origin, const std::string& _sender, const PrecompiledGas::Ptr& gasPricer)
+    const std::string& _origin, const std::string&, const PrecompiledGas::Ptr& gasPricer)
 {
     // createTable(string,string,string)
     std::string tableName;
@@ -232,17 +232,17 @@ void TableFactoryPrecompiled::createTable(const std::shared_ptr<executor::BlockC
         }
         else
         {
-            if (!m_memoryTableFactory->createTable(newTableName, valueField))
+            auto ret = m_memoryTableFactory->createTable(newTableName, valueField);
+            auto sysTable = _context->storage()->openTable(StorageInterface::SYS_TABLES);
+            auto sysEntry = sysTable->getRow(newTableName);
+            if (!ret || !sysEntry)
             {
                 result = CODE_TABLE_CREATE_ERROR;
                 getErrorCodeOut(callResult->mutableExecResult(), result, codec);
                 return;
             }
-
-            // set keyField in s_tables
-            auto sysTable = m_memoryTableFactory->openTable(storage::StorageInterface::SYS_TABLES);
-            auto sysEntry = sysTable->getRow(newTableName);
-            sysEntry->setField("key_field", keyField);
+            sysEntry->setField(
+                StorageInterface::SYS_TABLE_VALUE_FIELDS, valueField + "," + keyField);
             sysTable->setRow(newTableName, sysEntry.value());
             gasPricer->appendOperation(InterfaceOpcode::CreateTable);
 
@@ -255,7 +255,7 @@ void TableFactoryPrecompiled::createTable(const std::shared_ptr<executor::BlockC
             newEntry.setField(FS_FIELD_OWNER, _origin);
             newEntry.setField(FS_FIELD_GID, "");
             newEntry.setField(FS_FIELD_EXTRA, "");
-            parentTable->setRow(tableBaseName, newEntry);
+            parentTable->setRow(tableBaseName, std::move(newEntry));
         }
     }
     getErrorCodeOut(callResult->mutableExecResult(), result, codec);

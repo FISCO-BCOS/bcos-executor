@@ -24,7 +24,6 @@
 #include "EntriesPrecompiled.h"
 #include "EntryPrecompiled.h"
 #include "PrecompiledResult.h"
-#include <bcos-framework/interfaces/protocol/Exceptions.h>
 
 using namespace bcos;
 using namespace bcos::executor;
@@ -67,9 +66,9 @@ std::string TablePrecompiled::toString()
     return "Table";
 }
 
-PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::BlockContext> _context,
-    bytesConstRef _param, const std::string& _origin, const std::string& _sender,
-    int64_t _remainGas)
+std::shared_ptr<PrecompiledExecResult> TablePrecompiled::call(
+    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param, const std::string&,
+    const std::string&)
 {
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
@@ -79,12 +78,22 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->setMemUsed(_param.size());
+    if (m_keyField.empty())
+    {
+        auto sysTable = _context->storage()->openTable(StorageInterface::SYS_TABLES);
+        auto sysEntry = sysTable->getRow(m_table->tableInfo()->name());
+        if (sysEntry)
+        {
+            auto valueKey = sysEntry->getField(StorageInterface::SYS_TABLE_VALUE_FIELDS);
+            m_keyField = valueKey.substr(valueKey.find_last_of(',') + 1);
+        }
+    }
 
     if (func == name2Selector[TABLE_METHOD_SLT_STR_ADD] ||
         func == name2Selector[TABLE_METHOD_SLT_STR_WASM])
     {
         // select(address) || select(string)
-        ConditionPrecompiled::Ptr conditionPrecompiled = nullptr;
+        ConditionPrecompiled::Ptr conditionPrecompiled;
         if (_context->isWasm())
         {
             // wasm env
@@ -152,12 +161,9 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
             for (auto& key : tableKeySet)
             {
                 auto entry = m_table->getRow(key);
-                if (!entry)
-                    continue;
-                auto entryPtr = std::make_shared<storage::Entry>(entry.value());
                 if (entryCondition->filter(entry))
                 {
-                    entries->emplace_back(entryPtr);
+                    entries->emplace_back(std::move(entry.value()));
                 }
             }
             // update the memory gas and the computation gas
@@ -184,7 +190,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
              func == name2Selector[TABLE_METHOD_INS_STR_WASM])
     {
         // insert(address) || insert(string)
-        EntryPrecompiled::Ptr entryPrecompiled = nullptr;
+        EntryPrecompiled::Ptr entryPrecompiled;
         if (_context->isWasm())
         {
             // wasm env
@@ -203,23 +209,15 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
         }
 
         auto entry = entryPrecompiled->getEntry();
-        std::string findKeyValue;
+        auto keyValue = entry->getField(m_keyField);
         // check entry value validate
-        for (auto it = entry->begin(); it != entry->end(); ++it)
+        for (auto const& entryValue : *entry)
         {
-            checkLengthValidate(static_cast<const std::string>(*it),
-                USER_TABLE_FIELD_VALUE_MAX_LENGTH, CODE_TABLE_KEY_VALUE_LENGTH_OVERFLOW);
+            checkLengthValidate(entryValue, USER_TABLE_FIELD_VALUE_MAX_LENGTH,
+                CODE_TABLE_KEY_VALUE_LENGTH_OVERFLOW);
         }
-        // FIXME: entry not contains key field
-        //        for (auto it = entry->tableInfo()->fields().cbegin();
-        //             it != entry->tableInfo()->fields().cend(); it++)
-        //        {
-        //            if (*it == m_keyField)
-        //            {
-        //                findKeyValue = it->second;
-        //            }
-        //        }
-        if (findKeyValue.empty())
+        // FIXME: getField may return optional
+        if (keyValue.empty())
         {
             PRECOMPILED_LOG(ERROR) << LOG_BADGE("TablePrecompiled") << LOG_BADGE("INSERT")
                                    << LOG_DESC("can't get any primary key in entry string")
@@ -228,19 +226,19 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
         }
         else
         {
-            PRECOMPILED_LOG(DEBUG) << LOG_DESC("Table insert") << LOG_KV("key", findKeyValue);
-            auto checkExistEntry = m_table->getRow(findKeyValue);
+            PRECOMPILED_LOG(DEBUG) << LOG_DESC("Table insert") << LOG_KV("key", keyValue);
+            auto checkExistEntry = m_table->getRow(keyValue);
             if (checkExistEntry)
             {
                 PRECOMPILED_LOG(ERROR)
                     << LOG_BADGE("TablePrecompiled") << LOG_BADGE("INSERT")
                     << LOG_DESC("key already exist in table, please use UPDATE method")
-                    << LOG_KV("primaryKey", m_keyField) << LOG_KV("existKey", findKeyValue);
+                    << LOG_KV("primaryKey", m_keyField) << LOG_KV("existKey", keyValue);
                 getErrorCodeOut(callResult->mutableExecResult(), CODE_INSERT_KEY_EXIST, codec);
             }
             else
             {
-                m_table->setRow(findKeyValue, *entry);
+                m_table->setRow(keyValue, *entry);
                 gasPricer->appendOperation(InterfaceOpcode::Insert, 1);
                 gasPricer->updateMemUsed(entry->capacityOfHashField());
                 callResult->setExecResult(codec->encode(u256(1)));
@@ -291,7 +289,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
              func == name2Selector[TABLE_METHOD_RE_STR_WASM])
     {
         // remove(address) || remove(string)
-        ConditionPrecompiled::Ptr conditionPrecompiled = nullptr;
+        ConditionPrecompiled::Ptr conditionPrecompiled;
         if (_context->isWasm())
         {
             // wasm env
@@ -334,7 +332,7 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
             PRECOMPILED_LOG(ERROR) << LOG_BADGE("TablePrecompiled") << LOG_BADGE("REMOVE")
                                    << LOG_DESC("can't get any primary key in condition")
                                    << LOG_KV("primaryKey", m_keyField);
-            getErrorCodeOut(callResult->mutableExecResult(), CODE_KEY_NOT_EXIST_IN_ENTRY, codec);
+            getErrorCodeOut(callResult->mutableExecResult(), CODE_KEY_NOT_EXIST_IN_COND, codec);
         }
         else
         {
@@ -358,8 +356,8 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
              func == name2Selector[TABLE_METHOD_UP_STR_WASM])
     {
         // update(address,address) || update(string,string)
-        EntryPrecompiled::Ptr entryPrecompiled = nullptr;
-        ConditionPrecompiled::Ptr conditionPrecompiled = nullptr;
+        EntryPrecompiled::Ptr entryPrecompiled;
+        ConditionPrecompiled::Ptr conditionPrecompiled;
         if (_context->isWasm())
         {
             std::string entryAddress;
@@ -432,17 +430,26 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
                 auto tableKeyList = m_table->getPrimaryKeys(*keyCondition);
                 std::set<std::string> tableKeySet{tableKeyList.begin(), tableKeyList.end()};
                 tableKeySet.insert(eqKeyList.begin(), eqKeyList.end());
+                u256 updateCount = 0;
                 for (auto& tableKey : tableKeySet)
                 {
                     auto tableEntry = m_table->getRow(tableKey);
                     if (entryCondition->filter(tableEntry))
                     {
-                        m_table->setRow(tableKey, *entry);
+                        for (auto const& field : entry->tableInfo()->fields())
+                        {
+                            auto value = entry->getField(field);
+                            if (value.empty())
+                                continue;
+                            tableEntry->setField(field, std::string(entry->getField(field)));
+                        }
+                        m_table->setRow(tableKey, std::move(tableEntry.value()));
+                        updateCount++;
                     }
                 }
                 gasPricer->setMemUsed(entry->capacityOfHashField());
-                gasPricer->appendOperation(InterfaceOpcode::Update, tableKeySet.size());
-                callResult->setExecResult(codec->encode(u256(1)));
+                gasPricer->appendOperation(InterfaceOpcode::Update, (unsigned int)updateCount);
+                callResult->setExecResult(codec->encode(updateCount));
             }
         }
     }
@@ -452,6 +459,6 @@ PrecompiledExecResult::Ptr TablePrecompiled::call(std::shared_ptr<executor::Bloc
                                << LOG_DESC("call undefined function!");
     }
     gasPricer->updateMemUsed(callResult->m_execResult.size());
-    _remainGas -= gasPricer->calTotalGas();
+    callResult->setGas(gasPricer->calTotalGas());
     return callResult;
 }

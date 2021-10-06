@@ -37,8 +37,7 @@ public:
     std::string toString() override;
 
     std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::BlockContext> _context,
-        bytesConstRef _param, const std::string& _origin, const std::string& _sender,
-        int64_t _remainGas) override;
+        bytesConstRef _param, const std::string& _origin, const std::string& _sender) override;
 };
 }  // namespace precompiled
 }  // namespace bcos

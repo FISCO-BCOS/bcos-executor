@@ -114,8 +114,9 @@ int CNSPrecompiled::checkCNSParam(BlockContext::Ptr _context, Address const& _co
     return CODE_SUCCESS;
 }
 
-PrecompiledExecResult::Ptr CNSPrecompiled::call(std::shared_ptr<executor::BlockContext> _context,
-    bytesConstRef _param, const std::string& _origin, const std::string&, int64_t _remainGas)
+std::shared_ptr<PrecompiledExecResult> CNSPrecompiled::call(
+    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param, const std::string&,
+    const std::string&)
 {
     // parse function name
     uint32_t func = getParamFunc(_param);
@@ -131,7 +132,7 @@ PrecompiledExecResult::Ptr CNSPrecompiled::call(std::shared_ptr<executor::BlockC
     if (func == name2Selector[CNS_METHOD_INS_STR4])
     {
         // insert(name, version, address, abi), 4 fields in table, the key of table is name field
-        insert(_context, _origin, data, callResult, gasPricer);
+        insert(_context, data, callResult, gasPricer);
     }
     else if (func == name2Selector[CNS_METHOD_SLT_STR])
     {
@@ -154,13 +155,13 @@ PrecompiledExecResult::Ptr CNSPrecompiled::call(std::shared_ptr<executor::BlockC
                                << LOG_KV("func", func);
     }
     gasPricer->updateMemUsed(callResult->m_execResult.size());
-    _remainGas -= gasPricer->calTotalGas();
+    callResult->setGas(gasPricer->calTotalGas());
     return callResult;
 }
 
 void CNSPrecompiled::insert(const std::shared_ptr<executor::BlockContext>& _context,
-    const std::string& origin, bytesConstRef& data,
-    const std::shared_ptr<PrecompiledExecResult>& callResult, const PrecompiledGas::Ptr& gasPricer)
+    bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
+    const PrecompiledGas::Ptr& gasPricer)
 {
     // insert(name, version, address, abi), 4 fields in table, the key of table is name field
     std::string contractName, contractVersion, contractAbi;

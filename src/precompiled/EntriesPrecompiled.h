@@ -49,15 +49,13 @@ public:
     std::string toString() override;
 
     std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::BlockContext> _context,
-        bytesConstRef _param, const std::string& _origin, const std::string& _sender,
-        int64_t _remainGas) override;
+        bytesConstRef _param, const std::string& _origin, const std::string& _sender) override;
 
-    void setEntries(const EntriesPtr& entries) { m_entriesConst = entries; }
-    EntriesPtr getEntriesPtr() { return std::const_pointer_cast<Entries>(m_entriesConst); }
-    EntriesConstPtr getEntriesConstPtr() { return m_entriesConst; }
+    void setEntries(const EntriesPtr& entries) { m_entries = entries; }
+    EntriesPtr getEntriesPtr() { return m_entries; }
 
 private:
-    EntriesConstPtr m_entriesConst;
+    EntriesPtr m_entries;
 };
 }  // namespace precompiled
 }  // namespace bcos

@@ -42,9 +42,9 @@ std::string EntriesPrecompiled::toString()
 {
     return "Entries";
 }
-PrecompiledExecResult::Ptr EntriesPrecompiled::call(
+std::shared_ptr<PrecompiledExecResult> EntriesPrecompiled::call(
     std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param, const std::string&,
-    const std::string&, int64_t _remainGas)
+    const std::string&)
 {
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
@@ -58,10 +58,10 @@ PrecompiledExecResult::Ptr EntriesPrecompiled::call(
         // get(int256)
         u256 num;
         codec->decode(data, num);
-
-        std::shared_ptr<Entry> entry = getEntriesPtr()->at(num.convert_to<size_t>());
+        // FIXME: num out of range
+        auto entry = getEntriesPtr()->at(num.convert_to<size_t>());
         EntryPrecompiled::Ptr entryPrecompiled = std::make_shared<EntryPrecompiled>(m_hashImpl);
-        entryPrecompiled->setEntry(entry);
+        entryPrecompiled->setEntry(std::make_shared<storage::Entry>(entry));
         if (_context->isWasm())
         {
             std::string address = _context->registerPrecompiled(entryPrecompiled);
@@ -76,7 +76,7 @@ PrecompiledExecResult::Ptr EntriesPrecompiled::call(
     else if (func == name2Selector[ENTRIES_SIZE])
     {
         // size()
-        u256 c = getEntriesConstPtr()->size();
+        u256 c = getEntriesPtr()->size();
         callResult->setExecResult(codec->encode(c));
     }
     else
@@ -85,6 +85,6 @@ PrecompiledExecResult::Ptr EntriesPrecompiled::call(
                            << LOG_DESC("call undefined function!");
     }
     gasPricer->updateMemUsed(callResult->m_execResult.size());
-    _remainGas -= gasPricer->calTotalGas();
+    callResult->setGas(gasPricer->calTotalGas());
     return callResult;
 }

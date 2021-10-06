@@ -58,8 +58,9 @@ std::string EntryPrecompiled::toString()
     return "Entry";
 }
 
-PrecompiledExecResult::Ptr EntryPrecompiled::call(std::shared_ptr<executor::BlockContext> _context,
-    bytesConstRef _param, const std::string&, const std::string&, int64_t _remainGas)
+std::shared_ptr<PrecompiledExecResult> EntryPrecompiled::call(
+    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param, const std::string&,
+    const std::string&)
 {
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
@@ -112,7 +113,6 @@ PrecompiledExecResult::Ptr EntryPrecompiled::call(std::shared_ptr<executor::Bloc
         std::string str;
         std::string value;
         codec->decode(data, str, value);
-
         m_entry->setField(str, value);
         gasPricer->appendOperation(InterfaceOpcode::Set);
     }
@@ -189,6 +189,6 @@ PrecompiledExecResult::Ptr EntryPrecompiled::call(std::shared_ptr<executor::Bloc
         STORAGE_LOG(ERROR) << LOG_BADGE("EntryPrecompiled") << LOG_DESC("call undefined function!");
     }
     gasPricer->updateMemUsed(callResult->m_execResult.size());
-    _remainGas -= gasPricer->calTotalGas();
+    callResult->setGas(gasPricer->calTotalGas());
     return callResult;
 }

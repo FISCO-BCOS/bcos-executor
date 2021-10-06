@@ -75,9 +75,9 @@ std::string ParallelConfigPrecompiled::toString()
     return "ParallelConfig";
 }
 
-PrecompiledExecResult::Ptr ParallelConfigPrecompiled::call(
+std::shared_ptr<PrecompiledExecResult> ParallelConfigPrecompiled::call(
     std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
-    const std::string& _origin, const std::string&, int64_t _remainGas)
+    const std::string& _origin, const std::string&)
 {
     // parse function name
     uint32_t func = getParamFunc(_param);
@@ -103,7 +103,7 @@ PrecompiledExecResult::Ptr ParallelConfigPrecompiled::call(
                                << LOG_DESC("call undefined function") << LOG_KV("func", func);
     }
     gasPricer->updateMemUsed(callResult->m_execResult.size());
-    _remainGas -= gasPricer->calTotalGas();
+    callResult->setGas(gasPricer->calTotalGas());
     return callResult;
 }
 

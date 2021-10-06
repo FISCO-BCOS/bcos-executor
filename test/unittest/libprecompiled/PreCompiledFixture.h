@@ -19,18 +19,18 @@
  */
 
 #pragma once
-#include "../MemoryStorage.h"
-#include "bcos-executor/Executor.h"
+#include "../mock/MockExecutionMessage.h"
+#include "../mock/MockTransactionalStorage.h"
+#include "../mock/MockTxPool.h"
+#include "bcos-executor/TransactionExecutor.h"
 #include "bcos-framework/interfaces/ledger/LedgerTypeDef.h"
 #include "bcos-framework/testutils/protocol/FakeBlock.h"
 #include "bcos-framework/testutils/protocol/FakeBlockHeader.h"
-#include "libprecompiled/Utilities.h"
-#include "libprecompiled/extension/UserPrecompiled.h"
-#include "vm/BlockContext.h"
-#include "vm/TransactionExecutive.h"
-#include "mock/MockDispatcher.h"
-#include "mock/MockLedger.h"
-#include <bcos-framework/interfaces/storage/TableInterface.h>
+#include "executive/BlockContext.h"
+#include "executive/TransactionExecutive.h"
+#include "precompiled/Utilities.h"
+#include "precompiled/extension/UserPrecompiled.h"
+#include <bcos-framework/interfaces/storage/Table.h>
 #include <bcos-framework/testutils/TestPromptFixture.h>
 #include <bcos-framework/testutils/crypto/HashImpl.h>
 #include <bcos-framework/testutils/crypto/SignatureImpl.h>
@@ -58,36 +58,8 @@ public:
         cryptoSuite = std::make_shared<CryptoSuite>(hashImpl, signatureImpl, nullptr);
         assert(cryptoSuite);
         smCryptoSuite = std::make_shared<CryptoSuite>(smHashImpl, sm2Sign, nullptr);
-        dispatcher = std::make_shared<MockDispatcher>();
-        storage = std::make_shared<MemoryStorage>();
-
-        // create sys table
-        memoryTableFactory = std::make_shared<StateStorage>(storage, hashImpl, 0);
-        memoryTableFactory->createTable(ledger::SYS_CONFIG, SYS_KEY, "value,enable_number");
-        auto table = memoryTableFactory->openTable(ledger::SYS_CONFIG);
-        auto entry = table->newEntry();
-        entry->setField(SYS_VALUE, "3000000");
-        entry->setField(SYS_CONFIG_ENABLE_BLOCK_NUMBER, "0");
-        table->setRow(SYSTEM_KEY_TX_GAS_LIMIT, entry);
-
-
-        // create / table
-        memoryTableFactory->createTable("/", FS_KEY_NAME, FS_FIELD_COMBINED);
-
-        // create /tables table
-        memoryTableFactory->createTable("/tables", FS_KEY_NAME, FS_FIELD_COMBINED);
-        auto rootTable = memoryTableFactory->openTable("/");
-        assert(rootTable);
-        auto dirEntry = rootTable->newEntry();
-        dirEntry->setField(FS_FIELD_TYPE, FS_TYPE_DIR);
-        dirEntry->setField(FS_FIELD_ACCESS, "");
-        dirEntry->setField(FS_FIELD_OWNER, "root");
-        dirEntry->setField(FS_FIELD_GID, "/usr");
-        dirEntry->setField(FS_FIELD_EXTRA, "");
-        rootTable->setRow(getDirBaseName("/tables"), dirEntry);
-        rootTable->setRow("/", dirEntry);
-
-        memoryTableFactory->commit();
+        txpool = std::make_shared<MockTxPool>();
+        assert(DEFAULT_PERMISSION_ADDRESS);
     }
 
     virtual ~PrecompiledFixture() {}
@@ -96,30 +68,67 @@ public:
     void setIsWasm(bool _isWasm)
     {
         isWasm = _isWasm;
+        storage = std::make_shared<MockTransactionalStorage>(hashImpl);
+        memoryTableFactory = std::make_shared<StateStorage>(storage);
 
         blockFactory = createBlockFactory(cryptoSuite);
         auto header = blockFactory->blockHeaderFactory()->createBlockHeader(1);
         header->setNumber(1);
-        ledger = std::make_shared<MockLedger>(header, blockFactory);
 
-        executor = std::make_shared<Executor>(blockFactory, dispatcher, ledger, storage, isWasm);
-        auto tableFactory = std::make_shared<StateStorage>(storage, hashImpl, 1);
-        context = executor->createExecutiveContext(header, tableFactory);
+        auto executionResultFactory = std::make_shared<MockExecutionMessageFactory>();
+        executor = std::make_shared<TransactionExecutor>(
+            txpool, storage, executionResultFactory, hashImpl, _isWasm);
+        createSysTable();
+        context = std::make_shared<BlockContext>(
+            memoryTableFactory, hashImpl, header, executionResultFactory, EVMSchedule(), _isWasm);
         codec = std::make_shared<PrecompiledCodec>(hashImpl, context->isWasm());
     }
 
     void setSM(bool _isWasm)
     {
         isWasm = _isWasm;
+        storage = std::make_shared<MockTransactionalStorage>(smHashImpl);
+        memoryTableFactory = std::make_shared<StateStorage>(storage);
+
         blockFactory = createBlockFactory(smCryptoSuite);
         auto header = blockFactory->blockHeaderFactory()->createBlockHeader(1);
         header->setNumber(1);
-        ledger = std::make_shared<MockLedger>(header, blockFactory);
 
-        executor = std::make_shared<Executor>(blockFactory, dispatcher, ledger, storage, isWasm);
-        auto tableFactory = std::make_shared<StateStorage>(storage, smHashImpl, 1);
-        context = executor->createExecutiveContext(header, tableFactory);
+        auto executionResultFactory = std::make_shared<MockExecutionMessageFactory>();
+        executor = std::make_shared<TransactionExecutor>(
+            txpool, storage, executionResultFactory, smHashImpl, _isWasm);
+        createSysTable();
+        context = std::make_shared<BlockContext>(
+            memoryTableFactory, smHashImpl, header, executionResultFactory, EVMSchedule(), _isWasm);
         codec = std::make_shared<PrecompiledCodec>(smHashImpl, context->isWasm());
+    }
+
+    void createSysTable()
+    {
+        // create sys table
+        memoryTableFactory->createTable(ledger::SYS_CONFIG, "value,enable_number");
+        auto table = memoryTableFactory->openTable(ledger::SYS_CONFIG);
+        auto entry = table->newEntry();
+        entry.setField(SYS_VALUE, "3000000");
+        entry.setField(SYS_CONFIG_ENABLE_BLOCK_NUMBER, "0");
+        table->setRow(SYSTEM_KEY_TX_GAS_LIMIT, std::move(entry));
+
+
+        // create / table
+        memoryTableFactory->createTable("/", FS_FIELD_COMBINED);
+
+        // create /tables table
+        memoryTableFactory->createTable("/tables", FS_FIELD_COMBINED);
+        auto rootTable = memoryTableFactory->openTable("/");
+        assert(rootTable != std::nullopt);
+        auto dirEntry = rootTable->newEntry();
+        dirEntry.setField(FS_FIELD_TYPE, FS_TYPE_DIR);
+        dirEntry.setField(FS_FIELD_ACCESS, "");
+        dirEntry.setField(FS_FIELD_OWNER, "root");
+        dirEntry.setField(FS_FIELD_GID, "/usr");
+        dirEntry.setField(FS_FIELD_EXTRA, "");
+        rootTable->setRow(getDirBaseName("/tables"), dirEntry);
+        rootTable->setRow("/", dirEntry);
     }
 
 protected:
@@ -129,11 +138,12 @@ protected:
     protocol::BlockFactory::Ptr blockFactory;
     CryptoSuite::Ptr cryptoSuite = nullptr;
     CryptoSuite::Ptr smCryptoSuite = nullptr;
-    MemoryStorage::Ptr storage;
-    MockLedger::Ptr ledger;
-    TableFactoryInterface::Ptr memoryTableFactory;
-    MockDispatcher::Ptr dispatcher;
-    Executor::Ptr executor;
+
+    std::shared_ptr<MockTransactionalStorage> storage;
+    StateStorage::Ptr memoryTableFactory;
+    TransactionExecutor::Ptr executor;
+    std::shared_ptr<MockTxPool> txpool;
+
     PrecompiledCodec::Ptr codec;
     u256 gas = u256(300000000);
     bool isWasm = false;

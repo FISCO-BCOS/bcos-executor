@@ -54,12 +54,11 @@ public:
         std::string const& _contractAbi);
 
     std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::BlockContext> _context,
-        bytesConstRef _param, const std::string& _origin, const std::string& _sender,
-        int64_t _remainGas) override;
+        bytesConstRef _param, const std::string& _origin, const std::string& _sender) override;
 
 private:
-    void insert(const std::shared_ptr<executor::BlockContext>& _context, const std::string& _origin,
-        bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
+    void insert(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& data,
+        const std::shared_ptr<PrecompiledExecResult>& callResult,
         const PrecompiledGas::Ptr& gasPricer);
     void selectByName(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& data,
         const std::shared_ptr<PrecompiledExecResult>& callResult,
