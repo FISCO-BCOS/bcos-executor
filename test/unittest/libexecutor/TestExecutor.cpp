@@ -439,7 +439,7 @@ BOOST_AUTO_TEST_CASE(externalCall)
 
     BOOST_CHECK(result2);
     BOOST_CHECK_EQUAL(result2->type(), ExecutionMessage::MESSAGE);
-    BOOST_CHECK_GT(result2->data().size(), 0);
+    BOOST_CHECK_EQUAL(result2->data().size(), 313);
     BOOST_CHECK_EQUAL(result2->contextID(), 101);
     BOOST_CHECK_EQUAL(result2->seq(), 1001);
     BOOST_CHECK_EQUAL(result2->create(), true);
@@ -474,8 +474,9 @@ BOOST_AUTO_TEST_CASE(externalCall)
     BOOST_CHECK_EQUAL(result3->from(), addressString2);
     BOOST_CHECK_EQUAL(result3->to(), std::string(address));
     BOOST_CHECK_EQUAL(result3->newEVMContractAddress(), addressString2);
+    BOOST_CHECK_EQUAL(result3->create(), false);
 
-    // Return this message to seq 1001
+    // Return this create result to seq 1001
     result3->setSeq(1001);
     std::promise<ExecutionMessage::UniquePtr> executePromise4;
     executor->executeTransaction(std::move(result3),

@@ -81,9 +81,12 @@ CallParameters::UniquePtr TransactionExecutive::externalCall(CallParameters::Uni
     m_externalCallFunction(shared_from_this(), std::move(input),
         [this, threadID = std::this_thread::get_id(), value = &value](
             Error::UniquePtr error, CallParameters::UniquePtr response) {
+            EXECUTOR_LOG(TRACE) << "Invoke external call callback";
             (void)error;
 
-            if (std::this_thread::get_id() == threadID)
+            // TODO: ensure the logic common
+            // if (std::this_thread::get_id() == threadID)
+            if (false)
             {
                 *value = std::make_optional(std::move(response));
             }
@@ -388,15 +391,16 @@ CallParameters::UniquePtr TransactionExecutive::go(HostContext& hostContext)
                 }
             }
 
-            // Take callResults output, no need to return full code
-            hostContext.setCode(std::move(callResults->data));
-            // hostContext.setCode(callResults->data);
+            hostContext.setCode(outputRef.toBytes());  // nessacy?
 
             callResults->gas -= outputRef.size() * hostContext.evmSchedule().createDataGas;
             callResults->newEVMContractAddress = callResults->codeAddress;
 
             // Clear the create flag
-            // callResults->create = false;
+            callResults->create = false;
+
+            // Clear the data
+            callResults->data.clear();
 
             return callResults;
         }

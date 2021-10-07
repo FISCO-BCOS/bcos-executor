@@ -795,7 +795,9 @@ void TransactionExecutor::asyncExecute(bcos::protocol::ExecutionMessage::UniqueP
             externalCallFunc = std::move(callback);
 
             // Call callback
-            responseFunc(nullptr, std::move(callParameters));
+            EXECUTOR_LOG(TRACE) << "Entering responseFunc";
+            responseFunc(nullptr, TransactionExecutive::CallMessage(std::move(callParameters)));
+            EXECUTOR_LOG(TRACE) << "Exiting responseFunc";
 
             (void)executive;
         }
@@ -1103,6 +1105,7 @@ std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
     callParameters->data = input.data().toBytes();
     callParameters->staticCall = staticCall;
     callParameters->create = input.create();
+    callParameters->newEVMContractAddress = input.newEVMContractAddress();
 
     return callParameters;
 }
