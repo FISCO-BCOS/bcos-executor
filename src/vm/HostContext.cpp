@@ -126,6 +126,7 @@ evmc_result HostContext::externalRequest(const evmc_message* _msg)
 
     request->senderAddress = myAddress();
     request->origin = origin();
+    request->status = 0;
 
     switch (_msg->kind)
     {
@@ -162,6 +163,9 @@ evmc_result HostContext::externalRequest(const evmc_message* _msg)
     auto blockContext = m_executive->blockContext().lock();
     auto it = std::find(blockContext->getBuiltInPrecompiled()->begin(),
         blockContext->getBuiltInPrecompiled()->end(), request->receiveAddress);
+
+    request->gas = _msg->gas;
+
     if (it != blockContext->getBuiltInPrecompiled()->end())
     {
         auto callResults = std::make_unique<CallParameters>(CallParameters::FINISHED);
@@ -186,7 +190,6 @@ evmc_result HostContext::externalRequest(const evmc_message* _msg)
         return preResult;
     }
 
-    request->gas = _msg->gas;
     request->staticCall = m_callParameters->staticCall;
 
     auto response = m_executive->externalCall(std::move(request));

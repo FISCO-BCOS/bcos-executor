@@ -1117,6 +1117,7 @@ std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
     callParameters->staticCall = staticCall;
     callParameters->create = input.create();
     callParameters->newEVMContractAddress = input.newEVMContractAddress();
+    callParameters->status = 0;
 
     return callParameters;
 }

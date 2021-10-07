@@ -34,12 +34,12 @@ struct CallParameters
     std::string receiveAddress;  // common field, readable format
     std::string origin;          // common field, readable format
 
-    int64_t gas;       // common field
-    bcos::bytes data;  // common field, transaction data, binary format
-    bool staticCall;   // common field
-    bool create;       // by request, is create
+    int64_t gas = 0;          // common field
+    bcos::bytes data;         // common field, transaction data, binary format
+    bool staticCall = false;  // common field
+    bool create = false;      // by request, is create
 
-    int32_t status;                                    // by response
+    int32_t status = 0;                                // by response
     std::string message;                               // by response, readable format
     std::vector<bcos::protocol::LogEntry> logEntries;  // by response
     std::optional<u256> createSalt;                    // by response
