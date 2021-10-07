@@ -51,8 +51,8 @@ BlockContext::BlockContext(std::shared_ptr<storage::StateStorage> storage,
     // m_parallelConfigCache = make_shared<ParallelConfigCache>();
 }
 
-shared_ptr<PrecompiledExecResult> BlockContext::call(const string& address, bytesConstRef param,
-    const string& origin, const string& sender, int64_t& _remainGas)
+shared_ptr<PrecompiledExecResult> BlockContext::call(
+    const string& address, bytesConstRef param, const string& origin, const string& sender)
 {
     try
     {
