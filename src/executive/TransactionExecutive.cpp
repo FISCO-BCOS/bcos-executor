@@ -66,11 +66,9 @@ void TransactionExecutive::start(CallParameters::UniquePtr input)
         m_pullMessage = std::make_unique<Coroutine::pull_type>(std::move(source));
         auto callParameters = m_pullMessage->get();
 
-        auto response = execute(std::move(std::get<CallParameters::UniquePtr>(callParameters)));
+        execute(std::move(std::get<CallParameters::UniquePtr>(callParameters)));
 
-        m_externalCallFunction(shared_from_this(), std::move(response), {});
-
-        EXECUTOR_LOG(TRACE) << "End coroutine execution";
+        EXECUTOR_LOG(TRACE) << "Out coroutine execution";
     });
 
     pushMessage(std::move(input));
@@ -149,7 +147,11 @@ CallParameters::UniquePtr TransactionExecutive::execute(CallParameters::UniquePt
             hostContext->evmSchedule().suicideRefundGas * hostContext->sub().suicides.size();
     }
 
-    return callResults;
+    if (callResults->type == CallParameters::FINISHED)
+    {
+        m_externalCallFunction(shared_from_this(), std::move(callResults), {});
+    }
+    return nullptr;
 }
 
 std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionExecutive::call(
@@ -303,7 +305,7 @@ CallParameters::UniquePtr TransactionExecutive::go(HostContext& hostContext)
             uint32_t flags = hostContext.staticCall() ? EVMC_STATIC : 0;
             // this is ensured by solidity compiler
             assert(flags != EVMC_STATIC || kind == EVMC_CALL);  // STATIC implies a CALL.
-            auto leftGas = static_cast<int64_t>(hostContext.gas());
+            auto leftGas = hostContext.gas();
 
             evmc_message evmcMessage;
             evmcMessage.kind = kind;

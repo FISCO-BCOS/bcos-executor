@@ -124,11 +124,6 @@ evmc_result HostContext::externalRequest(const evmc_message* _msg)
     // Convert evmc_message to CallParameters
     auto request = std::make_unique<CallParameters>(CallParameters::MESSAGE);
 
-    if (_msg->input_size > 0)
-    {
-        request->data.assign(_msg->input_data, _msg->input_data + _msg->input_size);
-    }
-
     request->senderAddress = myAddress();
     request->origin = origin();
 
