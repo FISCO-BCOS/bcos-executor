@@ -499,7 +499,8 @@ void TransactionExecutor::executeTransaction(bcos::protocol::ExecutionMessage::U
     std::function<void(bcos::Error::UniquePtr&&, bcos::protocol::ExecutionMessage::UniquePtr&&)>
         callback) noexcept
 {
-    EXECUTOR_LOG(INFO) << "ExecuteTransaction request";
+    EXECUTOR_LOG(INFO) << "ExecuteTransaction request" << LOG_KV("ContextID", input->contextID())
+                       << LOG_KV("seq", input->seq()) << LOG_KV("Message type", input->type());
     asyncExecute(std::move(input), false,
         [callback = std::move(callback)](
             Error::UniquePtr&& error, bcos::protocol::ExecutionMessage::UniquePtr&& result) {
@@ -790,11 +791,10 @@ void TransactionExecutor::asyncExecute(bcos::protocol::ExecutionMessage::UniqueP
         if (it)
         {
             // REVERT or FINISHED
-            auto [executive, externalCallFunc, responseFunc] = *it;
-            externalCallFunc = callback;
+            auto& [executive, externalCallFunc, responseFunc] = *it;
+            externalCallFunc = std::move(callback);
 
             // Call callback
-            // executive->pushMessage(std::move(callParameters));
             responseFunc(nullptr, std::move(callParameters));
 
             (void)executive;
@@ -854,15 +854,24 @@ void TransactionExecutor::externalCall(TransactionExecutive::Ptr executive,
     switch (response->type)
     {
     case CallParameters::MESSAGE:
+        message->setFrom(std::move(response->senderAddress));
+        message->setTo(std::move(response->receiveAddress));
         message->setType(ExecutionMessage::MESSAGE);
         break;
     case CallParameters::WAIT_KEY:
+        // message->setTo()
         message->setType(ExecutionMessage::WAIT_KEY);
         break;
     case CallParameters::FINISHED:
+        // Response message, Swap the from and to
+        message->setFrom(std::move(response->receiveAddress));
+        message->setTo(std::move(response->senderAddress));
         message->setType(ExecutionMessage::FINISHED);
         break;
     case CallParameters::REVERT:
+        // Response message, Swap the from and to
+        message->setFrom(std::move(response->receiveAddress));
+        message->setTo(std::move(response->senderAddress));
         message->setType(ExecutionMessage::REVERT);
         break;
     }
@@ -870,14 +879,12 @@ void TransactionExecutor::externalCall(TransactionExecutive::Ptr executive,
     message->setContextID(executive->contextID());
     message->setSeq(executive->seq());
 
-    // Response message, swap the from and to
     message->setOrigin(std::move(response->origin));
-    message->setFrom(std::move(response->receiveAddress));
-    message->setTo(std::move(response->senderAddress));
 
     message->setGasAvailable(response->gas);
     message->setData(std::move(response->data));
     message->setStaticCall(response->staticCall);
+    message->setCreate(response->create);
     if (response->createSalt)
     {
         message->setCreateSalt(*response->createSalt);
@@ -886,7 +893,7 @@ void TransactionExecutor::externalCall(TransactionExecutive::Ptr executive,
     message->setStatus(response->status);
     message->setMessage(std::move(response->message));
     message->setLogEntries(std::move(response->logEntries));
-    message->setNewEVMContractAddress(response->newEVMContractAddress);
+    message->setNewEVMContractAddress(std::move(response->newEVMContractAddress));
 
     std::get<1> (*it)(nullptr, std::move(message));
 }

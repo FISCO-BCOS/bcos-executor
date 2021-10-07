@@ -68,7 +68,7 @@ void TransactionExecutive::start(CallParameters::UniquePtr input)
 
         execute(std::move(std::get<CallParameters::UniquePtr>(callParameters)));
 
-        EXECUTOR_LOG(TRACE) << "Out coroutine execution";
+        EXECUTOR_LOG(TRACE) << "Switching coroutine";
     });
 
     pushMessage(std::move(input));
@@ -124,6 +124,7 @@ CallParameters::UniquePtr TransactionExecutive::execute(CallParameters::UniquePt
 
     //     return callResults;
     // }
+    assert(!m_finished);
 
     m_storageWrapper->setRecoder(m_recoder);
 
@@ -147,10 +148,10 @@ CallParameters::UniquePtr TransactionExecutive::execute(CallParameters::UniquePt
             hostContext->evmSchedule().suicideRefundGas * hostContext->sub().suicides.size();
     }
 
-    if (callResults->type == CallParameters::FINISHED)
-    {
-        m_externalCallFunction(shared_from_this(), std::move(callResults), {});
-    }
+    // Current executive is finished
+    m_finished = true;
+    m_externalCallFunction(shared_from_this(), std::move(callResults), {});
+
     return nullptr;
 }
 
@@ -387,10 +388,15 @@ CallParameters::UniquePtr TransactionExecutive::go(HostContext& hostContext)
                 }
             }
 
-            hostContext.setCode(outputRef.toBytes());
+            // Take callResults output, no need to return full code
+            hostContext.setCode(std::move(callResults->data));
+            // hostContext.setCode(callResults->data);
 
             callResults->gas -= outputRef.size() * hostContext.evmSchedule().createDataGas;
             callResults->newEVMContractAddress = callResults->codeAddress;
+
+            // Clear the create flag
+            // callResults->create = false;
 
             return callResults;
         }

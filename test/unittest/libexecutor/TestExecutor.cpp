@@ -28,6 +28,7 @@
 #include "interfaces/crypto/CommonType.h"
 #include "interfaces/crypto/CryptoSuite.h"
 #include "interfaces/crypto/Hash.h"
+#include "interfaces/executor/ExecutionMessage.h"
 #include "interfaces/protocol/Transaction.h"
 #include "libprotocol/protobuf/PBBlockHeader.h"
 #include "libstorage/StateStorage.h"
@@ -37,6 +38,7 @@
 #include <bcos-framework/testutils/protocol/FakeBlockHeader.h>
 #include <bcos-framework/testutils/protocol/FakeTransaction.h>
 #include <boost/algorithm/hex.hpp>
+#include <boost/test/tools/old/interface.hpp>
 #include <boost/test/unit_test.hpp>
 #include <iostream>
 #include <iterator>
@@ -407,18 +409,21 @@ BOOST_AUTO_TEST_CASE(externalCall)
     auto result = executePromise.get_future().get();
 
     auto address = result->newEVMContractAddress();
+    BOOST_CHECK_EQUAL(result->type(), MockExecutionMessage::FINISHED);
+    BOOST_CHECK_EQUAL(result->status(), 0);
     BOOST_CHECK_GT(address.size(), 0);
 
     // call createAndCallB(int256) and check
     auto params2 = std::make_unique<MockExecutionMessage>();
     params2->setContextID(101);
-    params2->setSeq(1000);
+    params2->setSeq(1001);
     params2->setDepth(0);
     params2->setFrom(std::string(sender));
     params2->setTo(std::string(address));
     params2->setOrigin(std::string(sender));
     params2->setStaticCall(false);
     params2->setGasAvailable(gas);
+    params2->setCreate(false);
 
     bcos::u256 value(1000);
     params2->setData(codec->encodeWithSig("createAndCallB(int256)", value));
@@ -433,10 +438,62 @@ BOOST_AUTO_TEST_CASE(externalCall)
     auto result2 = executePromise2.get_future().get();
 
     BOOST_CHECK(result2);
-    BOOST_CHECK_EQUAL(result2->status(), 0);
-    BOOST_CHECK_EQUAL(result2->message(), "");
+    BOOST_CHECK_EQUAL(result2->type(), ExecutionMessage::MESSAGE);
+    BOOST_CHECK_GT(result2->data().size(), 0);
+    BOOST_CHECK_EQUAL(result2->contextID(), 101);
+    BOOST_CHECK_EQUAL(result2->seq(), 1001);
+    BOOST_CHECK_EQUAL(result2->create(), true);
     BOOST_CHECK_EQUAL(result2->newEVMContractAddress(), "");
+    BOOST_CHECK_EQUAL(result2->origin(), std::string(sender));
+    BOOST_CHECK_EQUAL(result2->from(), std::string(address));
+    BOOST_CHECK(result2->to().empty());
     BOOST_CHECK_LT(result2->gasAvailable(), gas);
+
+    // Get the create message, push to next coroutine， set new seq and address
+    result2->setSeq(1002);
+
+    h256 addressCreate2("ee6f30856ad3bae00b1169808488502786a13e3c174d85682135ffd51310310e");
+    std::string addressString2 = addressCreate2.hex().substr(0, 40);
+    toChecksumAddress(addressString2, hashImpl);
+    result2->setTo(addressString2);
+
+    std::promise<ExecutionMessage::UniquePtr> executePromise3;
+    executor->executeTransaction(std::move(result2),
+        [&](bcos::Error::UniquePtr&& error, bcos::protocol::ExecutionMessage::UniquePtr&& result) {
+            BOOST_CHECK(!error);
+            executePromise3.set_value(std::move(result));
+        });
+    auto result3 = executePromise3.get_future().get();
+
+    BOOST_CHECK(result3);
+    BOOST_CHECK_EQUAL(result3->type(), ExecutionMessage::FINISHED);
+    BOOST_CHECK_EQUAL(result3->data().size(), 0);
+    BOOST_CHECK_EQUAL(result3->contextID(), 101);
+    BOOST_CHECK_EQUAL(result3->seq(), 1002);
+    BOOST_CHECK_EQUAL(result3->origin(), std::string(sender));
+    BOOST_CHECK_EQUAL(result3->from(), addressString2);
+    BOOST_CHECK_EQUAL(result3->to(), std::string(address));
+    BOOST_CHECK_EQUAL(result3->newEVMContractAddress(), addressString2);
+
+    // Return this message to seq 1001
+    result3->setSeq(1001);
+    std::promise<ExecutionMessage::UniquePtr> executePromise4;
+    executor->executeTransaction(std::move(result3),
+        [&](bcos::Error::UniquePtr&& error, bcos::protocol::ExecutionMessage::UniquePtr&& result) {
+            BOOST_CHECK(!error);
+            executePromise4.set_value(std::move(result));
+        });
+    auto result4 = executePromise4.get_future().get();
+
+    BOOST_CHECK(result4);
+    BOOST_CHECK_EQUAL(result4->type(), ExecutionMessage::FINISHED);
+    BOOST_CHECK_GT(result4->data().size(), 0);
+    BOOST_CHECK_EQUAL(result4->contextID(), 101);
+    BOOST_CHECK_EQUAL(result4->seq(), 1001);
+    BOOST_CHECK_EQUAL(result4->from(), std::string(address));
+    BOOST_CHECK_EQUAL(result4->to(), std::string(sender));
+    BOOST_CHECK_EQUAL(result4->status(), 0);
+    BOOST_CHECK(result4->message().empty());
 }
 
 BOOST_AUTO_TEST_SUITE_END()

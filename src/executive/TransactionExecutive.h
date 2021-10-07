@@ -94,7 +94,6 @@ public:
     virtual ~TransactionExecutive() {}
 
     void start(CallParameters::UniquePtr input);  // start a new coroutine to execute
-                                                  // parameters
 
     void pushMessage(CoroutineMessage message)  // call by executor
     {
@@ -155,6 +154,7 @@ private:
     std::unique_ptr<Coroutine::pull_type> m_pullMessage;
     bcos::storage::StateStorage::Recoder::Ptr m_recoder;
     std::unique_ptr<CoroutineStorageWrapper<CoroutineMessage>> m_storageWrapper;
+    bool m_finished = false;
 };
 
 }  // namespace executor
