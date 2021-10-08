@@ -371,7 +371,7 @@ CallParameters::UniquePtr TransactionExecutive::go(HostContext& hostContext)
                 callResults->type = CallParameters::REVERT;
                 callResults->status = (int32_t)TransactionStatus::OutOfGas;
                 callResults->message =
-                    "Code is too log: " + boost::lexical_cast<std::string>(outputRef.size()) +
+                    "Code is too large: " + boost::lexical_cast<std::string>(outputRef.size()) +
                     " limit: " +
                     boost::lexical_cast<std::string>(hostContext.evmSchedule().maxCodeSize);
 
@@ -391,7 +391,7 @@ CallParameters::UniquePtr TransactionExecutive::go(HostContext& hostContext)
                 }
             }
 
-            hostContext.setCode(outputRef.toBytes());  // nessacy?
+            hostContext.setCode(outputRef.toBytes());
 
             callResults->gas -= outputRef.size() * hostContext.evmSchedule().createDataGas;
             callResults->newEVMContractAddress = callResults->codeAddress;

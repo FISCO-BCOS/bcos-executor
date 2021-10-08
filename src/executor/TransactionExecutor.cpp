@@ -836,7 +836,7 @@ void TransactionExecutor::asyncExecute(bcos::protocol::ExecutionMessage::UniqueP
 }
 
 void TransactionExecutor::externalCall(TransactionExecutive::Ptr executive,
-    std::unique_ptr<CallParameters> response,
+    std::unique_ptr<CallParameters> params,
     std::function<void(Error::UniquePtr, std::unique_ptr<CallParameters>)> callback)
 {
     auto it = m_blockContext->getExecutive(executive->contextID(), executive->seq());
@@ -853,27 +853,26 @@ void TransactionExecutor::externalCall(TransactionExecutive::Ptr executive,
     }
 
     auto message = m_executionMessageFactory->createExecutionMessage();
-    switch (response->type)
+    switch (params->type)
     {
     case CallParameters::MESSAGE:
-        message->setFrom(std::move(response->senderAddress));
-        message->setTo(std::move(response->receiveAddress));
+        message->setFrom(std::move(params->senderAddress));
+        message->setTo(std::move(params->receiveAddress));
         message->setType(ExecutionMessage::MESSAGE);
         break;
     case CallParameters::WAIT_KEY:
-        // message->setTo()
         message->setType(ExecutionMessage::WAIT_KEY);
         break;
     case CallParameters::FINISHED:
         // Response message, Swap the from and to
-        message->setFrom(std::move(response->receiveAddress));
-        message->setTo(std::move(response->senderAddress));
+        message->setFrom(std::move(params->receiveAddress));
+        message->setTo(std::move(params->senderAddress));
         message->setType(ExecutionMessage::FINISHED);
         break;
     case CallParameters::REVERT:
         // Response message, Swap the from and to
-        message->setFrom(std::move(response->receiveAddress));
-        message->setTo(std::move(response->senderAddress));
+        message->setFrom(std::move(params->receiveAddress));
+        message->setTo(std::move(params->senderAddress));
         message->setType(ExecutionMessage::REVERT);
         break;
     }
@@ -881,21 +880,21 @@ void TransactionExecutor::externalCall(TransactionExecutive::Ptr executive,
     message->setContextID(executive->contextID());
     message->setSeq(executive->seq());
 
-    message->setOrigin(std::move(response->origin));
+    message->setOrigin(std::move(params->origin));
 
-    message->setGasAvailable(response->gas);
-    message->setData(std::move(response->data));
-    message->setStaticCall(response->staticCall);
-    message->setCreate(response->create);
-    if (response->createSalt)
+    message->setGasAvailable(params->gas);
+    message->setData(std::move(params->data));
+    message->setStaticCall(params->staticCall);
+    message->setCreate(params->create);
+    if (params->createSalt)
     {
-        message->setCreateSalt(*response->createSalt);
+        message->setCreateSalt(*params->createSalt);
     }
 
-    message->setStatus(response->status);
-    message->setMessage(std::move(response->message));
-    message->setLogEntries(std::move(response->logEntries));
-    message->setNewEVMContractAddress(std::move(response->newEVMContractAddress));
+    message->setStatus(params->status);
+    message->setMessage(std::move(params->message));
+    message->setLogEntries(std::move(params->logEntries));
+    message->setNewEVMContractAddress(std::move(params->newEVMContractAddress));
 
     std::get<1> (*it)(nullptr, std::move(message));
 }

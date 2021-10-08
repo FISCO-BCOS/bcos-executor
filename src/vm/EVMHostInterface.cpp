@@ -69,14 +69,13 @@ evmc_storage_status setStorage(evmc_host_context* _context, const evmc_address* 
     auto& hostContext = static_cast<HostContext&>(*_context);
 
     assert(fromEvmC(*_addr) == boost::algorithm::unhex(std::string(hostContext.myAddress())));
-    
+
     u256 index = fromEvmC(*_key);
     u256 value = fromEvmC(*_value);
     u256 oldValue = hostContext.store(index);
 
-    // set the same value can update the version
-    // if (value == oldValue)
-    //     return EVMC_STORAGE_UNCHANGED;
+    if (value == oldValue)
+        return EVMC_STORAGE_UNCHANGED;
 
     auto status = EVMC_STORAGE_MODIFIED;
     if (oldValue == 0)
@@ -106,10 +105,10 @@ size_t getCodeSize(evmc_host_context* _context, const evmc_address* _addr)
     //   auto &hostContext = static_cast<HostContext &>(*_context);
     //   return hostContext.codeSizeAt(fromEvmC(*_addr));
 
-    // always return 1k
+    // always return 1
     (void)_context;
     (void)_addr;
-    return 1000;
+    return 1;
 }
 
 evmc_bytes32 getCodeHash(evmc_host_context* _context, const evmc_address* _addr)
@@ -117,10 +116,10 @@ evmc_bytes32 getCodeHash(evmc_host_context* _context, const evmc_address* _addr)
     //   auto &hostContext = static_cast<HostContext &>(*_context);
     //   return toEvmC(hostContext.codeHashAt(fromEvmC(*_addr)));
 
-    // always return 1000
+    // always return 0
     (void)_context;
     (void)_addr;
-    return toEvmC(h256(1000));
+    return toEvmC(h256());
 }
 
 /**

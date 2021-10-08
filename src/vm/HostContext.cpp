@@ -140,8 +140,10 @@ evmc_result HostContext::externalRequest(const evmc_message* _msg)
         else
         {
             auto receiveAddressBytes = fromEvmC(_msg->destination);
+            request->receiveAddress.reserve(receiveAddressBytes.size() * 2);
             boost::algorithm::hex_lower(receiveAddressBytes.begin(), receiveAddressBytes.end(),
                 std::back_inserter(request->receiveAddress));
+            // TODO: to checksum address
         }
 
         request->codeAddress = request->receiveAddress;
@@ -196,13 +198,13 @@ void HostContext::setCode(bytes code)
 size_t HostContext::codeSizeAt(const std::string_view& _a)
 {
     (void)_a;
-    return 10 * 1024;  // TODO: 10k code size ok?
+    return 1;  // TODO: 1 code size ok?
 }
 
 h256 HostContext::codeHashAt(const std::string_view& _a)
 {
     (void)_a;
-    return h256("0x1234567");  // TODO: ok?
+    return h256();  // TODO: ok?
 }
 
 u256 HostContext::store(const u256& _n)

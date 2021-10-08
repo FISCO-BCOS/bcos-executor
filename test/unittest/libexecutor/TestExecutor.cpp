@@ -399,6 +399,9 @@ BOOST_AUTO_TEST_CASE(externalCall)
     });
     nextPromise.get_future().get();
 
+    // --------------------------------
+    // Create contract A
+    // --------------------------------
     std::promise<bcos::protocol::ExecutionMessage::UniquePtr> executePromise;
     executor->executeTransaction(std::move(params),
         [&](bcos::Error::UniquePtr&& error, bcos::protocol::ExecutionMessage::UniquePtr&& result) {
@@ -413,7 +416,9 @@ BOOST_AUTO_TEST_CASE(externalCall)
     BOOST_CHECK_EQUAL(result->status(), 0);
     BOOST_CHECK_GT(address.size(), 0);
 
-    // call createAndCallB(int256) and check
+    // --------------------------------
+    // Call A createAndCallB(int256)
+    // --------------------------------
     auto params2 = std::make_unique<MockExecutionMessage>();
     params2->setContextID(101);
     params2->setSeq(1001);
@@ -449,10 +454,14 @@ BOOST_AUTO_TEST_CASE(externalCall)
     BOOST_CHECK(result2->to().empty());
     BOOST_CHECK_LT(result2->gasAvailable(), gas);
 
-    // Get the create message, push to next coroutine， set new seq and address
+    // --------------------------------
+    // Message 1: Create contract B, set new seq 1002
+    // A -> B
+    // --------------------------------
     result2->setSeq(1002);
 
-    h256 addressCreate2("ee6f30856ad3bae00b1169808488502786a13e3c174d85682135ffd51310310e");
+    h256 addressCreate2(
+        "ee6f30856ad3bae00b1169808488502786a13e3c174d85682135ffd51310310e");  // ee6f30856ad3bae00b1169808488502786a13e3c
     std::string addressString2 = addressCreate2.hex().substr(0, 40);
     toChecksumAddress(addressString2, hashImpl);
     result2->setTo(addressString2);
@@ -476,7 +485,10 @@ BOOST_AUTO_TEST_CASE(externalCall)
     BOOST_CHECK_EQUAL(result3->newEVMContractAddress(), addressString2);
     BOOST_CHECK_EQUAL(result3->create(), false);
 
-    // Return this create result to seq 1001
+    // --------------------------------
+    // Message 2: Create contract B success return, set previous seq 1001
+    // B -> A
+    // --------------------------------
     result3->setSeq(1001);
     std::promise<ExecutionMessage::UniquePtr> executePromise4;
     executor->executeTransaction(std::move(result3),
@@ -487,14 +499,67 @@ BOOST_AUTO_TEST_CASE(externalCall)
     auto result4 = executePromise4.get_future().get();
 
     BOOST_CHECK(result4);
-    BOOST_CHECK_EQUAL(result4->type(), ExecutionMessage::FINISHED);
+    BOOST_CHECK_EQUAL(result4->type(), ExecutionMessage::MESSAGE);
     BOOST_CHECK_GT(result4->data().size(), 0);
+    auto param = codec->encodeWithSig("value()");
+    // BOOST_CHECK_EQUAL(result4->data(), param);
     BOOST_CHECK_EQUAL(result4->contextID(), 101);
     BOOST_CHECK_EQUAL(result4->seq(), 1001);
     BOOST_CHECK_EQUAL(result4->from(), std::string(address));
-    BOOST_CHECK_EQUAL(result4->to(), std::string(sender));
+    BOOST_CHECK_EQUAL(result4->to(), std::string(addressString2));
     BOOST_CHECK_EQUAL(result4->status(), 0);
     BOOST_CHECK(result4->message().empty());
+    BOOST_CHECK(result4->newEVMContractAddress().empty());
+
+    // --------------------------------
+    // Message 3: A call B's value(), set new seq 1003
+    // A -> B
+    // --------------------------------
+    result4->setSeq(1003);
+    std::promise<ExecutionMessage::UniquePtr> executePromise5;
+    executor->executeTransaction(std::move(result4),
+        [&](bcos::Error::UniquePtr&& error, bcos::protocol::ExecutionMessage::UniquePtr&& result) {
+            BOOST_CHECK(!error);
+            executePromise5.set_value(std::move(result));
+        });
+    auto result5 = executePromise4.get_future().get();
+
+    BOOST_CHECK(result5);
+    BOOST_CHECK_EQUAL(result5->type(), ExecutionMessage::FINISHED);
+    BOOST_CHECK_GT(result5->data().size(), 0);
+    param = codec->encode(1000);
+    // BOOST_CHECK_EQUAL(result5->data(), param);
+    BOOST_CHECK_EQUAL(result5->contextID(), 101);
+    BOOST_CHECK_EQUAL(result5->seq(), 1003);
+    BOOST_CHECK_EQUAL(result5->from(), std::string(addressString2));
+    BOOST_CHECK_EQUAL(result5->to(), std::string(address));
+    BOOST_CHECK_EQUAL(result4->status(), 0);
+    BOOST_CHECK(result4->message().empty());
+
+    // --------------------------------
+    // Message 4: A call B's success return, set previous seq 1001
+    // B -> A
+    // --------------------------------
+    result5->setSeq(1001);
+    std::promise<ExecutionMessage::UniquePtr> executePromise6;
+    executor->executeTransaction(std::move(result5),
+        [&](bcos::Error::UniquePtr&& error, bcos::protocol::ExecutionMessage::UniquePtr&& result) {
+            BOOST_CHECK(!error);
+            executePromise6.set_value(std::move(result));
+        });
+    auto result6 = executePromise4.get_future().get();
+
+    BOOST_CHECK(result6);
+    BOOST_CHECK_EQUAL(result6->type(), ExecutionMessage::FINISHED);
+    BOOST_CHECK_GT(result6->data().size(), 0);
+    // BOOST_CHECK_EQUAL(result6->data(), param);
+    BOOST_CHECK_EQUAL(result6->contextID(), 101);
+    BOOST_CHECK_EQUAL(result6->seq(), 1001);
+    BOOST_CHECK_EQUAL(result6->from(), std::string(address));
+    BOOST_CHECK_EQUAL(result6->to(), std::string(sender));
+    BOOST_CHECK_EQUAL(result6->origin(), std::string(sender));
+    BOOST_CHECK_EQUAL(result6->status(), 0);
+    BOOST_CHECK(result6->message().empty());
 }
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -72,6 +72,8 @@ public:
     Result exec(HostContext& _hostContext, evmc_revision _rev, evmc_message* _msg,
         const uint8_t* _code, size_t _code_size);
 
+    void enableDebugOutput();
+
 private:
     /// The VM instance created with VMInstance-C <prefix>_create() function.
     evmc_vm* m_instance = nullptr;

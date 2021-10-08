@@ -59,6 +59,11 @@ Result VMInstance::exec(HostContext& _hostContext, evmc_revision _rev, evmc_mess
     return result;
 }
 
+void VMInstance::enableDebugOutput()
+{
+    // m_instance->set_option(m_instance, "histogram", "1");
+}
+
 evmc_revision toRevision(EVMSchedule const& _schedule)
 {
     if (_schedule.enableIstanbul)

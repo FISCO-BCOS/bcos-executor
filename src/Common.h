@@ -46,12 +46,12 @@ namespace executor
 const char STORAGE_VALUE[] = "value";
 const char ACCOUNT_CODE_HASH[] = "codeHash";
 const char ACCOUNT_CODE[] = "code";
- const char ACCOUNT_BALANCE[] = "balance";
- const char ACCOUNT_ABI[] = "abi";
- const char ACCOUNT_NONCE[] = "nonce";
- const char ACCOUNT_ALIVE[] = "alive";
- const char ACCOUNT_AUTHORITY[] = "authority";
- const char ACCOUNT_FROZEN[] = "frozen";
+const char ACCOUNT_BALANCE[] = "balance";
+const char ACCOUNT_ABI[] = "abi";
+const char ACCOUNT_NONCE[] = "nonce";
+const char ACCOUNT_ALIVE[] = "alive";
+const char ACCOUNT_AUTHORITY[] = "authority";
+const char ACCOUNT_FROZEN[] = "frozen";
 
 #define EXECUTIVE_LOG(LEVEL) BCOS_LOG(LEVEL) << "[EXECUTOR]"
 
@@ -117,16 +117,17 @@ struct EVMSchedule
         haveDelegateCall(_hdc),
         txCreateGas(_txCreateGas)
     {}
+
     std::array<unsigned, 8> tierStepGas;
     bool exceptionalFailedCodeDeposit = true;
-    bool haveDelegateCall = true;
-    bool eip150Mode = false;
-    bool eip158Mode = false;
+    bool haveDelegateCall = false;
+    bool eip150Mode = true;
+    bool eip158Mode = true;
     bool haveBitwiseShifting = false;
-    bool haveRevert = false;
-    bool haveReturnData = false;
-    bool haveStaticCall = false;
-    bool haveCreate2 = false;
+    bool haveRevert = true;
+    bool haveReturnData = true;
+    bool haveStaticCall = true;
+    bool haveCreate2 = true;
     bool haveExtcodehash = false;
     bool enableIstanbul = false;
     /// gas cost for specified calculation
