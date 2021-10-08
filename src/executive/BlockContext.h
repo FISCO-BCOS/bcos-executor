@@ -168,9 +168,12 @@ private:
     // only one request access the m_executives' value one time
     tbb::concurrent_unordered_map<std::tuple<int64_t, int64_t>,
         std::tuple<std::shared_ptr<TransactionExecutive>,
-            std::function<void(
-                bcos::Error::UniquePtr&&, bcos::protocol::ExecutionMessage::UniquePtr&&)>,
-            std::function<void(bcos::Error::UniquePtr&&, CallParameters::UniquePtr)>>,
+            std::function<void(bcos::Error::UniquePtr&&,
+                bcos::protocol::ExecutionMessage::UniquePtr&&)>,  // for external call request
+            std::function<void(bcos::Error::UniquePtr&&, CallParameters::UniquePtr)>>,  // for
+                                                                                        // external
+                                                                                        // call
+                                                                                        // response
         HashCombine>
         m_executives;
 

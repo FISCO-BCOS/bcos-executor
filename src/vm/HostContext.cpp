@@ -152,13 +152,16 @@ evmc_result HostContext::externalRequest(const evmc_message* _msg)
         break;
     case EVMC_DELEGATECALL:
     case EVMC_CALLCODE:
-        BOOST_THROW_EXCEPTION(BCOS_ERROR(-1, "Unspoort opcode EVM_DELEGATECALL or EVM_CALLCODE"));
+        BOOST_THROW_EXCEPTION(
+            BCOS_ERROR(-1, "Unsupported opcode EVM_DELEGATECALL or EVM_CALLCODE"));
         break;
     case EVMC_CREATE:
         request->data.assign(_msg->input_data, _msg->input_data + _msg->input_size);
         request->create = true;
         break;
     }
+
+    // TODO: 讨论一下是否要在此处实现
     // if (built in precompiled) then execute locally
     auto blockContext = m_executive->blockContext().lock();
     auto it = std::find(blockContext->getBuiltInPrecompiled()->begin(),

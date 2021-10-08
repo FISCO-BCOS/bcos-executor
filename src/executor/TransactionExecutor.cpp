@@ -303,7 +303,9 @@ void TransactionExecutor::dagExecuteTransactions(
                     std::bind(&TransactionExecutor::externalCall, this, std::placeholders::_1,
                         std::placeholders::_2, std::placeholders::_3));
 
-                auto response = executive->execute(std::move(callParameters));
+                auto response =
+                    executive->execute(std::move(callParameters));  // TODO: 用start()代替execute()
+
                 executionResults[i]->setNewEVMContractAddress(response->newEVMContractAddress);
                 executionResults[i]->setLogEntries(response->logEntries);
                 executionResults[i]->setStatus(response->status);
@@ -470,7 +472,8 @@ void TransactionExecutor::prepare(
         return;
     }
 
-    bcos::storage::TransactionalStorageInterface::TwoPCParams storageParams;
+    bcos::storage::TransactionalStorageInterface::TwoPCParams storageParams;  // TODO: add tikv
+                                                                              // params
     storageParams.number = params.number;
     m_backendStorage->asyncPrepare(
         storageParams, last->storage, [callback = std::move(callback)](auto&& error, uint64_t) {
@@ -514,7 +517,7 @@ void TransactionExecutor::commit(
         return;
     }
 
-    bcos::storage::TransactionalStorageInterface::TwoPCParams storageParams;
+    bcos::storage::TransactionalStorageInterface::TwoPCParams storageParams;  // Add tikv params
     storageParams.number = params.number;
     m_backendStorage->asyncCommit(storageParams,
         [this, callback = std::move(callback), it = m_stateStorages.begin()](Error::Ptr&& error) {
@@ -616,6 +619,7 @@ void TransactionExecutor::asyncExecute(bcos::protocol::ExecutionMessage::UniqueP
 
         std::shared_ptr<bcos::protocol::ExecutionMessage> sharedInput = std::move(input);
 
+        // 先遍历列表，批量取交易 TODO:
         m_txpool->asyncFillBlock(std::move(txHashes), [this, input = std::move(sharedInput),
                                                           blockContext = std::move(blockContext),
                                                           callback](Error::Ptr error,
@@ -844,6 +848,7 @@ void TransactionExecutor::externalCall(TransactionExecutive::Ptr executive,
                 "," + boost::lexical_cast<std::string>(executive->seq())));
     }
 
+    // TODO: 用结构体放
     if (callback)
     {
         std::get<2>(*it) = std::move(callback);
@@ -1130,16 +1135,20 @@ std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
     bool create = false;
     if (m_isWasm)
     {
-        callParameters->origin = tx->sender();
-        callParameters->senderAddress = tx->sender();
-        callParameters->receiveAddress = tx->to();
-        callParameters->codeAddress = callParameters->receiveAddress;
+        // TODO: 等龙哥的方案
+        callParameters->origin = tx->sender();  // TODO: 转成可见
+        // 转换成二级账户
+        // callParameters->account = ...
+
+        callParameters->senderAddress = tx->sender();                  // 路径 or 十六进制串
+        callParameters->receiveAddress = tx->to();                     // 路径
+        callParameters->codeAddress = callParameters->receiveAddress;  // 路径
     }
     else
     {
         callParameters->origin.reserve(tx->sender().size() * 2);
         boost::algorithm::hex_lower(tx->sender(), std::back_inserter(callParameters->origin));
-        toChecksumAddress(callParameters->origin, m_hashImpl);
+        toChecksumAddress(callParameters->origin, m_hashImpl);  // TODO: rpc check address
 
         callParameters->senderAddress = callParameters->origin;
         callParameters->receiveAddress = input.to();
