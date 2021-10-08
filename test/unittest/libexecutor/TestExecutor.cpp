@@ -485,6 +485,7 @@ BOOST_AUTO_TEST_CASE(externalCall)
     BOOST_CHECK_EQUAL(result3->to(), std::string(address));
     BOOST_CHECK_EQUAL(result3->newEVMContractAddress(), addressString2);
     BOOST_CHECK_EQUAL(result3->create(), false);
+    BOOST_CHECK_EQUAL(result3->status(), 0);
 
     // --------------------------------
     // Message 2: Create contract B success return, set previous seq 1001
@@ -508,7 +509,9 @@ BOOST_AUTO_TEST_CASE(externalCall)
     BOOST_CHECK_EQUAL(result4->seq(), 1001);
     BOOST_CHECK_EQUAL(result4->from(), std::string(address));
     BOOST_CHECK_EQUAL(result4->to(), std::string(addressString2));
-    BOOST_CHECK_EQUAL(result4->status(), 0);
+
+    // Request message without status
+    // BOOST_CHECK_EQUAL(result4->status(), 0);
     BOOST_CHECK(result4->message().empty());
     BOOST_CHECK(result4->newEVMContractAddress().empty());
 
