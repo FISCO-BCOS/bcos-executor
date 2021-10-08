@@ -407,6 +407,11 @@ CallParameters::UniquePtr TransactionExecutive::go(HostContext& hostContext)
         else
         {
             auto code = hostContext.code();
+            if (code.empty())
+            {
+                BOOST_THROW_EXCEPTION(BCOS_ERROR(-1, "Code not found!"));
+            }
+
             auto vmKind = VMKind::evmone;
             if (hasWasmPreamble(code))
             {

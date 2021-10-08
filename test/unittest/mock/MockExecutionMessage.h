@@ -47,9 +47,9 @@ public:
     int64_t gasAvailable() const override { return m_gasAvailable; }
     void setGasAvailable(int64_t gasAvailable) override { m_gasAvailable = gasAvailable; }
 
-    bcos::bytesConstRef data() const override { return ref(m_input); }
-    bcos::bytes&& takeData() override { return std::move(m_input); }
-    void setData(bcos::bytes input) override { m_input = std::move(input); }
+    bcos::bytesConstRef data() const override { return ref(m_data); }
+    bcos::bytes&& takeData() override { return std::move(m_data); }
+    void setData(bcos::bytes input) override { m_data = std::move(input); }
 
     bool staticCall() const override { return m_staticCall; }
     void setStaticCall(bool staticCall) override { m_staticCall = staticCall; }
@@ -111,7 +111,7 @@ public:
     std::string m_to;
 
     int64_t m_gasAvailable;
-    bcos::bytes m_input;
+    bcos::bytes m_data;
 
     std::optional<u256> m_createSalt;
 

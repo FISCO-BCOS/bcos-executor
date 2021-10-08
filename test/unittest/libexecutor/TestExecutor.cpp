@@ -38,6 +38,7 @@
 #include <bcos-framework/testutils/protocol/FakeBlockHeader.h>
 #include <bcos-framework/testutils/protocol/FakeTransaction.h>
 #include <boost/algorithm/hex.hpp>
+#include <boost/algorithm/string.hpp>
 #include <boost/test/tools/old/interface.hpp>
 #include <boost/test/unit_test.hpp>
 #include <iostream>
@@ -502,7 +503,7 @@ BOOST_AUTO_TEST_CASE(externalCall)
     BOOST_CHECK_EQUAL(result4->type(), ExecutionMessage::MESSAGE);
     BOOST_CHECK_GT(result4->data().size(), 0);
     auto param = codec->encodeWithSig("value()");
-    // BOOST_CHECK_EQUAL(result4->data(), param);
+    BOOST_CHECK(result4->data().toBytes() == param);
     BOOST_CHECK_EQUAL(result4->contextID(), 101);
     BOOST_CHECK_EQUAL(result4->seq(), 1001);
     BOOST_CHECK_EQUAL(result4->from(), std::string(address));
@@ -522,19 +523,19 @@ BOOST_AUTO_TEST_CASE(externalCall)
             BOOST_CHECK(!error);
             executePromise5.set_value(std::move(result));
         });
-    auto result5 = executePromise4.get_future().get();
+    auto result5 = executePromise5.get_future().get();
 
     BOOST_CHECK(result5);
     BOOST_CHECK_EQUAL(result5->type(), ExecutionMessage::FINISHED);
     BOOST_CHECK_GT(result5->data().size(), 0);
-    param = codec->encode(1000);
-    // BOOST_CHECK_EQUAL(result5->data(), param);
+    param = codec->encode(s256(1000));
+    BOOST_CHECK(result5->data().toBytes() == param);
     BOOST_CHECK_EQUAL(result5->contextID(), 101);
     BOOST_CHECK_EQUAL(result5->seq(), 1003);
     BOOST_CHECK_EQUAL(result5->from(), std::string(addressString2));
     BOOST_CHECK_EQUAL(result5->to(), std::string(address));
-    BOOST_CHECK_EQUAL(result4->status(), 0);
-    BOOST_CHECK(result4->message().empty());
+    BOOST_CHECK_EQUAL(result5->status(), 0);
+    BOOST_CHECK(result5->message().empty());
 
     // --------------------------------
     // Message 4: A call B's success return, set previous seq 1001
@@ -547,12 +548,12 @@ BOOST_AUTO_TEST_CASE(externalCall)
             BOOST_CHECK(!error);
             executePromise6.set_value(std::move(result));
         });
-    auto result6 = executePromise4.get_future().get();
+    auto result6 = executePromise6.get_future().get();
 
     BOOST_CHECK(result6);
     BOOST_CHECK_EQUAL(result6->type(), ExecutionMessage::FINISHED);
     BOOST_CHECK_GT(result6->data().size(), 0);
-    // BOOST_CHECK_EQUAL(result6->data(), param);
+    BOOST_CHECK(result6->data().toBytes() == param);
     BOOST_CHECK_EQUAL(result6->contextID(), 101);
     BOOST_CHECK_EQUAL(result6->seq(), 1001);
     BOOST_CHECK_EQUAL(result6->from(), std::string(address));

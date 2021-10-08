@@ -856,6 +856,9 @@ void TransactionExecutor::externalCall(TransactionExecutive::Ptr executive,
     switch (params->type)
     {
     case CallParameters::MESSAGE:
+        toChecksumAddress(params->senderAddress, m_hashImpl);
+        toChecksumAddress(params->receiveAddress, m_hashImpl);
+
         message->setFrom(std::move(params->senderAddress));
         message->setTo(std::move(params->receiveAddress));
         message->setType(ExecutionMessage::MESSAGE);
@@ -864,12 +867,18 @@ void TransactionExecutor::externalCall(TransactionExecutive::Ptr executive,
         message->setType(ExecutionMessage::WAIT_KEY);
         break;
     case CallParameters::FINISHED:
+        toChecksumAddress(params->senderAddress, m_hashImpl);
+        toChecksumAddress(params->receiveAddress, m_hashImpl);
+
         // Response message, Swap the from and to
         message->setFrom(std::move(params->receiveAddress));
         message->setTo(std::move(params->senderAddress));
         message->setType(ExecutionMessage::FINISHED);
         break;
     case CallParameters::REVERT:
+        toChecksumAddress(params->senderAddress, m_hashImpl);
+        toChecksumAddress(params->receiveAddress, m_hashImpl);
+
         // Response message, Swap the from and to
         message->setFrom(std::move(params->receiveAddress));
         message->setTo(std::move(params->senderAddress));
