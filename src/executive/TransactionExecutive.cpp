@@ -185,37 +185,50 @@ std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionE
 
         return {nullptr, std::move(callResults)};
     }
-    // else if (m_blockContext && m_blockContext->isPrecompiled(precompiledAddress))
-    // {
-    //     try
-    //     {
-    //         auto callResult = m_blockContext->call(precompiledAddress, m_callParameters.data,
-    //             m_callParameters.origin, m_callParameters.senderAddress, m_remainGas);
-    //         size_t outputSize = callResult->m_execResult.size();
-    //         m_output = owning_bytes_ref{std::move(callResult->m_execResult), 0, outputSize};
-    //     }
-    //     catch (protocol::PrecompiledError& e)
-    //     {
-    //         revert();
-    //         m_excepted = TransactionStatus::PrecompiledError;
-    //         writeErrInfoToOutput(e.what());
-    //     }
-    //     catch (Exception& e)
-    //     {
-    //         writeErrInfoToOutput(e.what());
-    //         revert();
-    //         m_excepted = executor::toTransactionStatus(e);
-    //     }
-    //     catch (std::exception& e)
-    //     {
-    //         writeErrInfoToOutput(e.what());
-    //         revert();
-    //         m_excepted = TransactionStatus::Unknown;
-    //     }
-    // }
+    else if (blockContext->isPrecompiled(precompiledAddress))
+    {
+        auto callResults = std::make_unique<CallParameters>(CallParameters::FINISHED);
+        try
+        {
+            auto precompiledResult = blockContext->call(precompiledAddress,
+                ref(callParameters->data), callParameters->origin, callParameters->senderAddress);
+            auto gas = precompiledResult->m_gas;
+            if (remainGas < gas)
+            {
+                callResults->type = CallParameters::REVERT;
+                callResults->status = (int32_t)TransactionStatus::OutOfGas;
+                return {nullptr, std::move(callResults)};
+            }
+            else
+            {
+                remainGas -= gas;
+            }
+            callResults->status = (int32_t)TransactionStatus::None;
+            callResults->data.swap(precompiledResult->m_execResult);
+        }
+        catch (protocol::PrecompiledError& e)
+        {
+            writeErrInfoToOutput(e.what(), callResults->data);
+            revert();
+            callResults->status = (int32_t)TransactionStatus::PrecompiledError;
+        }
+        catch (Exception& e)
+        {
+            writeErrInfoToOutput(e.what(), callResults->data);
+            revert();
+            callResults->status = (int32_t)executor::toTransactionStatus(e);
+        }
+        catch (std::exception& e)
+        {
+            writeErrInfoToOutput(e.what(), callResults->data);
+            revert();
+            callResults->status = (int32_t)TransactionStatus::Unknown;
+        }
+        return {nullptr, std::move(callResults)};
+    }
     else
     {
-        auto tableName = getContractTableName(callParameters->codeAddress, blockContext->isWasm());
+        auto tableName = getContractTableName(callParameters->codeAddress);
         auto hostContext = make_unique<HostContext>(
             std::move(callParameters), shared_from_this(), std::move(tableName));
 
@@ -270,7 +283,7 @@ std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionE
     auto& newAddress = callParameters->codeAddress;
 
     // Create the table first
-    auto tableName = getContractTableName(newAddress, blockContext->isWasm());
+    auto tableName = getContractTableName(newAddress);
     m_storageWrapper->createTable(tableName, STORAGE_VALUE);
 
     auto hostContext = std::make_unique<HostContext>(
@@ -617,17 +630,4 @@ CallParameters::UniquePtr TransactionExecutive::parseEVMCResult(
     }
 
     return callResults;
-}
-
-std::string TransactionExecutive::getContractTableName(
-    const std::string_view& _address, bool _isWasm)
-{
-    if (_isWasm)
-    {
-        return std::string(_address);
-    }
-
-    std::string address(_address);
-
-    return std::string("c_").append(address);
 }

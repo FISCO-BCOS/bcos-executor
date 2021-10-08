@@ -65,8 +65,7 @@ public:
     virtual ~BlockContext(){};
 
     virtual std::shared_ptr<precompiled::PrecompiledExecResult> call(const std::string& address,
-        bytesConstRef param, const std::string& origin, const std::string& sender,
-        int64_t& _remainGas);
+        bytesConstRef param, const std::string& origin, const std::string& sender);
 
     virtual std::string registerPrecompiled(std::shared_ptr<precompiled::Precompiled> p);
 
@@ -76,6 +75,16 @@ public:
 
     void setAddress2Precompiled(
         const std::string& _address, std::shared_ptr<precompiled::Precompiled> precompiled);
+
+    void setBuiltInPrecompiled(std::shared_ptr<const std::vector<std::string>> _builtInPrecompiled)
+    {
+        m_builtInPrecompiled = std::move(_builtInPrecompiled);
+    }
+
+    std::shared_ptr<const std::vector<std::string>> getBuiltInPrecompiled()
+    {
+        return m_builtInPrecompiled;
+    }
 
     virtual bool isEthereumPrecompiled(const std::string& _a) const;
 
@@ -172,6 +181,7 @@ private:
 
     std::shared_ptr<const std::map<std::string, std::shared_ptr<PrecompiledContract>>>
         m_precompiledContract;
+    std::shared_ptr<const std::vector<std::string>> m_builtInPrecompiled;
 
     uint64_t m_txGasLimit = 300000000;
     getTxCriticalsHandler m_getTxCriticals = nullptr;

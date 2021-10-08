@@ -158,6 +158,33 @@ evmc_result HostContext::externalRequest(const evmc_message* _msg)
         // nothing to do
         break;
     }
+    // if (built in precompiled) then execute locally
+    auto blockContext = m_executive->blockContext().lock();
+    auto it = std::find(blockContext->getBuiltInPrecompiled()->begin(),
+        blockContext->getBuiltInPrecompiled()->end(), request->receiveAddress);
+    if (it != blockContext->getBuiltInPrecompiled()->end())
+    {
+        auto callResults = std::make_unique<CallParameters>(CallParameters::FINISHED);
+        auto precompiledResponse = m_executive->blockContext().lock()->call(
+            request->receiveAddress, ref(request->data), request->origin, request->senderAddress);
+        evmc_result preResult;
+        preResult.gas_left = request->gas - precompiledResponse->m_gas;
+
+        callResults->status = (int32_t)TransactionStatus::None;
+        callResults->data.swap(precompiledResponse->m_execResult);
+        preResult.status_code = EVMC_SUCCESS;
+        preResult.output_data = callResults->data.data();
+        preResult.output_size = callResults->data.size();
+        preResult.release = nullptr;
+        if (preResult.gas_left < 0)
+        {
+            callResults->type = CallParameters::REVERT;
+            callResults->status = (int32_t)TransactionStatus::OutOfGas;
+            preResult.status_code = EVMC_OUT_OF_GAS;
+        }
+        m_responseStore.emplace_back(std::move(callResults));
+        return preResult;
+    }
 
     auto response = m_executive->externalCall(std::move(request));
 

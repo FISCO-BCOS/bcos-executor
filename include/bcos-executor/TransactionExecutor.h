@@ -67,6 +67,8 @@ struct CallParameters;
 using executionCallback = std::function<void(
     const Error::ConstPtr&, std::vector<protocol::ExecutionMessage::UniquePtr>&)>;
 
+using ConflictFields = std::vector<bytes>;
+
 class TransactionExecutor : public ParallelTransactionExecutorInterface,
                             public std::enable_shared_from_this<TransactionExecutor>
 {

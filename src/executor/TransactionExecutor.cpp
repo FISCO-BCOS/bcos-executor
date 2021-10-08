@@ -18,26 +18,26 @@
  * @author: xingqiangbai
  * @date: 2021-09-01
  */
-// #include "../precompiled/CNSPrecompiled.h"
-// #include "../precompiled/CRUDPrecompiled.h"
-// #include "../precompiled/ConsensusPrecompiled.h"
-// #include "../precompiled/CryptoPrecompiled.h"
-// #include "../precompiled/DeployWasmPrecompiled.h"
-// #include "../precompiled/FileSystemPrecompiled.h"
-// #include "../precompiled/KVTableFactoryPrecompiled.h"
-// #include "../precompiled/ParallelConfigPrecompiled.h"
-// #include "../precompiled/PrecompiledResult.h"
-// #include "../precompiled/SystemConfigPrecompiled.h"
-// #include "../precompiled/TableFactoryPrecompiled.h"
-// #include "../precompiled/Utilities.h"
-// #include "../precompiled/extension/DagTransferPrecompiled.h"
 
 #include "bcos-executor/TransactionExecutor.h"
 #include "../ChecksumAddress.h"
 #include "../Common.h"
 #include "../executive/BlockContext.h"
 #include "../executive/TransactionExecutive.h"
+#include "../precompiled/CNSPrecompiled.h"
+#include "../precompiled/CRUDPrecompiled.h"
 #include "../precompiled/Common.h"
+#include "../precompiled/ConsensusPrecompiled.h"
+#include "../precompiled/CryptoPrecompiled.h"
+#include "../precompiled/DeployWasmPrecompiled.h"
+#include "../precompiled/FileSystemPrecompiled.h"
+#include "../precompiled/KVTableFactoryPrecompiled.h"
+#include "../precompiled/ParallelConfigPrecompiled.h"
+#include "../precompiled/PrecompiledResult.h"
+#include "../precompiled/SystemConfigPrecompiled.h"
+#include "../precompiled/TableFactoryPrecompiled.h"
+#include "../precompiled/Utilities.h"
+#include "../precompiled/extension/DagTransferPrecompiled.h"
 #include "../vm/Precompiled.h"
 #include "Abi.h"
 #include "ClockCache.h"
@@ -45,6 +45,7 @@
 #include "TxDAG.h"
 #include "bcos-framework/interfaces/dispatcher/SchedulerInterface.h"
 #include "bcos-framework/interfaces/executor/PrecompiledTypeDef.h"
+#include "bcos-framework/interfaces/ledger/LedgerTypeDef.h"
 #include "bcos-framework/interfaces/protocol/TransactionReceipt.h"
 #include "bcos-framework/interfaces/storage/Table.h"
 #include "bcos-framework/libcodec/abi/ContractABIType.h"
@@ -147,8 +148,7 @@ void TransactionExecutor::nextBlockHeader(const bcos::protocol::BlockHeader::Con
             stateStorage = std::make_shared<bcos::storage::StateStorage>(prev.storage);
         }
 
-        m_blockContext = std::make_shared<BlockContext>(stateStorage, m_hashImpl, blockHeader,
-            m_executionMessageFactory, EVMSchedule(), m_isWasm);
+        m_blockContext = createBlockContext(blockHeader, stateStorage);
 
         m_blockContext->setPrecompiledContract(m_precompiledContract);
         m_stateStorages.push_back({blockHeader->number(), std::move(stateStorage)});
@@ -168,125 +168,6 @@ void TransactionExecutor::nextBlockHeader(const bcos::protocol::BlockHeader::Con
 
         callback(BCOS_ERROR_WITH_PREV_UNIQUE_PTR(-1, "nextBlockHeader unknown error", e));
     }
-}
-
-using ConflictFields = vector<bytes>;
-
-optional<ConflictFields> TransactionExecutor::decodeConflictFields(
-    const FunctionAbi& functionAbi, Transaction* transaction)
-{
-    if (functionAbi.conflictFields.empty())
-    {
-        return nullopt;
-    }
-
-    auto conflictFields = ConflictFields();
-    auto to = transaction->to();
-    auto hasher = boost::hash<string_view>();
-    auto toHash = hasher(to);
-
-    for (auto& conflictField : functionAbi.conflictFields)
-    {
-        auto key = bytes();
-        size_t slot = toHash + conflictField.slot;
-        auto slotBegin = (uint8_t*)static_cast<void*>(&slot);
-        key.insert(key.end(), slotBegin, slotBegin + sizeof(slot));
-
-        switch (conflictField.kind)
-        {
-        case All:
-        case Len:
-        {
-            break;
-        }
-        case Env:
-        {
-            assert(conflictField.accessPath.size() == 1);
-            auto envKind = conflictField.accessPath[0];
-            switch (envKind)
-            {
-            case Caller:
-            case Origin:
-            {
-                auto sender = transaction->sender();
-                key.insert(key.end(), sender.begin(), sender.end());
-                break;
-            }
-            case Now:
-            {
-                auto now = m_blockContext->timestamp();
-                auto bytes = static_cast<byte*>(static_cast<void*>(&now));
-                key.insert(key.end(), bytes, bytes + sizeof(now));
-                break;
-            }
-            case BlockNumber:
-            {
-                auto blockNumber = m_blockContext->currentNumber();
-                auto bytes = static_cast<byte*>(static_cast<void*>(&blockNumber));
-                key.insert(key.end(), bytes, bytes + sizeof(blockNumber));
-                break;
-            }
-            case Addr:
-            {
-                key.insert(key.end(), to.begin(), to.end());
-                break;
-            }
-            default:
-            {
-                EXECUTOR_LOG(ERROR) << LOG_BADGE("unknown env kind in conflict field")
-                                    << LOG_KV("envKind", envKind);
-                return nullopt;
-            }
-            }
-            break;
-        }
-        case Var:
-        {
-            assert(!conflictField.accessPath.empty());
-            const ParameterAbi* paramAbi = nullptr;
-            auto components = &functionAbi.inputs;
-            auto inputData = transaction->input().getCroppedData(4).toBytes();
-
-            auto startPos = 0u;
-            for (auto segment : conflictField.accessPath)
-            {
-                if (segment >= components->size())
-                {
-                    return nullopt;
-                }
-
-                for (auto i = 0u; i < segment; ++i)
-                {
-                    auto length = scaleEncodingLength(components->at(i), inputData, startPos);
-                    if (!length.has_value())
-                    {
-                        return nullopt;
-                    }
-                    startPos += length.value();
-                }
-                paramAbi = &components->at(segment);
-                components = &paramAbi->components;
-            }
-            auto length = scaleEncodingLength(*paramAbi, inputData, startPos);
-            if (!length.has_value())
-            {
-                return nullopt;
-            }
-            assert(startPos + length.value() <= inputData.size());
-            key.insert(key.end(), inputData.begin() + startPos,
-                inputData.begin() + startPos + length.value());
-            break;
-        }
-        default:
-        {
-            EXECUTOR_LOG(ERROR) << LOG_BADGE("unknown conflict field kind")
-                                << LOG_KV("conflictFieldKind", conflictField.kind);
-            return nullopt;
-        }
-        }
-        conflictFields.emplace_back(std::move(key));
-    }
-    return {conflictFields};
 }
 
 void TransactionExecutor::dagExecuteTransactions(
@@ -739,7 +620,7 @@ void TransactionExecutor::asyncExecute(bcos::protocol::ExecutionMessage::UniqueP
                                                           blockContext = std::move(blockContext),
                                                           callback](Error::Ptr error,
                                                           bcos::protocol::TransactionsPtr
-                                                              transactons) {
+                                                              transactions) {
             if (error)
             {
                 callback(
@@ -749,7 +630,7 @@ void TransactionExecutor::asyncExecute(bcos::protocol::ExecutionMessage::UniqueP
                 return;
             }
 
-            if (transactons->empty())
+            if (transactions->empty())
             {
                 callback(BCOS_ERROR_UNIQUE_PTR(
                              -1, "Transaction does not exists: " + input->transactionHash().hex()),
@@ -757,7 +638,7 @@ void TransactionExecutor::asyncExecute(bcos::protocol::ExecutionMessage::UniqueP
                 return;
             }
 
-            auto tx = (*transactons)[0];
+            auto tx = (*transactions)[0];
 
             auto callParameters = createCallParameters(*input, std::move(tx), *blockContext);
 
@@ -778,7 +659,6 @@ void TransactionExecutor::asyncExecute(bcos::protocol::ExecutionMessage::UniqueP
                 callback(BCOS_ERROR_WITH_PREV_UNIQUE_PTR(-1, "Execute error", e), nullptr);
             }
         });
-
         break;
     }
     case bcos::protocol::ExecutionMessage::MESSAGE:
@@ -827,6 +707,123 @@ void TransactionExecutor::asyncExecute(bcos::protocol::ExecutionMessage::UniqueP
     }
 }
 
+optional<ConflictFields> TransactionExecutor::decodeConflictFields(
+    const FunctionAbi& functionAbi, Transaction* transaction)
+{
+    if (functionAbi.conflictFields.empty())
+    {
+        return nullopt;
+    }
+
+    auto conflictFields = ConflictFields();
+    auto to = transaction->to();
+    auto hasher = boost::hash<string_view>();
+    auto toHash = hasher(to);
+
+    for (auto& conflictField : functionAbi.conflictFields)
+    {
+        auto key = bytes();
+        size_t slot = toHash + conflictField.slot;
+        auto slotBegin = (uint8_t*)static_cast<void*>(&slot);
+        key.insert(key.end(), slotBegin, slotBegin + sizeof(slot));
+
+        switch (conflictField.kind)
+        {
+        case All:
+        case Len:
+        {
+            break;
+        }
+        case Env:
+        {
+            assert(conflictField.accessPath.size() == 1);
+            auto envKind = conflictField.accessPath[0];
+            switch (envKind)
+            {
+            case Caller:
+            case Origin:
+            {
+                auto sender = transaction->sender();
+                key.insert(key.end(), sender.begin(), sender.end());
+                break;
+            }
+            case Now:
+            {
+                auto now = m_blockContext->timestamp();
+                auto bytes = static_cast<byte*>(static_cast<void*>(&now));
+                key.insert(key.end(), bytes, bytes + sizeof(now));
+                break;
+            }
+            case BlockNumber:
+            {
+                auto blockNumber = m_blockContext->currentNumber();
+                auto bytes = static_cast<byte*>(static_cast<void*>(&blockNumber));
+                key.insert(key.end(), bytes, bytes + sizeof(blockNumber));
+                break;
+            }
+            case Addr:
+            {
+                key.insert(key.end(), to.begin(), to.end());
+                break;
+            }
+            default:
+            {
+                EXECUTOR_LOG(ERROR) << LOG_BADGE("unknown env kind in conflict field")
+                                    << LOG_KV("envKind", envKind);
+                return nullopt;
+            }
+            }
+            break;
+        }
+        case Var:
+        {
+            assert(!conflictField.accessPath.empty());
+            const ParameterAbi* paramAbi = nullptr;
+            auto components = &functionAbi.inputs;
+            auto inputData = transaction->input().getCroppedData(4).toBytes();
+
+            auto startPos = 0u;
+            for (auto segment : conflictField.accessPath)
+            {
+                if (segment >= components->size())
+                {
+                    return nullopt;
+                }
+
+                for (auto i = 0u; i < segment; ++i)
+                {
+                    auto length = scaleEncodingLength(components->at(i), inputData, startPos);
+                    if (!length.has_value())
+                    {
+                        return nullopt;
+                    }
+                    startPos += length.value();
+                }
+                paramAbi = &components->at(segment);
+                components = &paramAbi->components;
+            }
+            auto length = scaleEncodingLength(*paramAbi, inputData, startPos);
+            if (!length.has_value())
+            {
+                return nullopt;
+            }
+            assert(startPos + length.value() <= inputData.size());
+            key.insert(key.end(), inputData.begin() + startPos,
+                inputData.begin() + startPos + length.value());
+            break;
+        }
+        default:
+        {
+            EXECUTOR_LOG(ERROR) << LOG_BADGE("unknown conflict field kind")
+                                << LOG_KV("conflictFieldKind", conflictField.kind);
+            return nullopt;
+        }
+        }
+        conflictFields.emplace_back(std::move(key));
+    }
+    return {conflictFields};
+}
+
 void TransactionExecutor::onCallResultsCallback(
     TransactionExecutive::Ptr executive, std::unique_ptr<CallParameters> response)
 {
@@ -867,41 +864,70 @@ BlockContext::Ptr TransactionExecutor::createBlockContext(
     const protocol::BlockHeader::ConstPtr& currentHeader, storage::StateStorage::Ptr tableFactory)
 {
     (void)m_version;  // TODO: accord to m_version to chose schedule
+
     BlockContext::Ptr context = make_shared<BlockContext>(tableFactory, m_hashImpl, currentHeader,
         m_executionMessageFactory, FiscoBcosScheduleV3, m_isWasm);
 
     // TODO: System contract need to redesign
-    // auto tableFactoryPrecompiled =
-    //     std::make_shared<precompiled::TableFactoryPrecompiled>(m_hashImpl);
-    // tableFactoryPrecompiled->setMemoryTableFactory(tableFactory);
-    // auto sysConfig = std::make_shared<precompiled::SystemConfigPrecompiled>(m_hashImpl);
-    // auto parallelConfigPrecompiled =
-    //     std::make_shared<precompiled::ParallelConfigPrecompiled>(m_hashImpl);
-    // auto consensusPrecompiled = std::make_shared<precompiled::ConsensusPrecompiled>(m_hashImpl);
-    // auto cnsPrecompiled = std::make_shared<precompiled::CNSPrecompiled>(m_hashImpl);
+    auto tableFactoryPrecompiled =
+        std::make_shared<precompiled::TableFactoryPrecompiled>(m_hashImpl);
+    tableFactoryPrecompiled->setMemoryTableFactory(tableFactory);
+    auto sysConfig = std::make_shared<precompiled::SystemConfigPrecompiled>(m_hashImpl);
+    auto parallelConfigPrecompiled =
+        std::make_shared<precompiled::ParallelConfigPrecompiled>(m_hashImpl);
+    auto consensusPrecompiled = std::make_shared<precompiled::ConsensusPrecompiled>(m_hashImpl);
+    auto cnsPrecompiled = std::make_shared<precompiled::CNSPrecompiled>(m_hashImpl);
+    auto kvTableFactoryPrecompiled =
+        std::make_shared<precompiled::KVTableFactoryPrecompiled>(m_hashImpl);
+    kvTableFactoryPrecompiled->setMemoryTableFactory(tableFactory);
 
-    // context->setAddress2Precompiled(SYS_CONFIG_ADDRESS, sysConfig);
-    // context->setAddress2Precompiled(TABLE_FACTORY_ADDRESS, tableFactoryPrecompiled);
-    // context->setAddress2Precompiled(CONSENSUS_ADDRESS, consensusPrecompiled);
-    // context->setAddress2Precompiled(CNS_ADDRESS, cnsPrecompiled);
-    // context->setAddress2Precompiled(PARALLEL_CONFIG_ADDRESS, parallelConfigPrecompiled);
-    // auto kvTableFactoryPrecompiled =
-    //     std::make_shared<precompiled::KVTableFactoryPrecompiled>(m_hashImpl);
-    // kvTableFactoryPrecompiled->setMemoryTableFactory(tableFactory);
-    // context->setAddress2Precompiled(KV_TABLE_FACTORY_ADDRESS, kvTableFactoryPrecompiled);
-    // context->setAddress2Precompiled(
-    //     CRYPTO_ADDRESS, std::make_shared<precompiled::CryptoPrecompiled>(m_hashImpl));
-    // context->setAddress2Precompiled(
-    //     DAG_TRANSFER_ADDRESS, std::make_shared<precompiled::DagTransferPrecompiled>(m_hashImpl));
-    // context->setAddress2Precompiled(
-    //     CRYPTO_ADDRESS, std::make_shared<CryptoPrecompiled>(m_hashImpl));
-    // context->setAddress2Precompiled(
-    //     DEPLOY_WASM_ADDRESS, std::make_shared<DeployWasmPrecompiled>(m_hashImpl));
-    // context->setAddress2Precompiled(
-    //     CRUD_ADDRESS, std::make_shared<precompiled::CRUDPrecompiled>(m_hashImpl));
-    // context->setAddress2Precompiled(
-    //     BFS_ADDRESS, std::make_shared<precompiled::FileSystemPrecompiled>(m_hashImpl));
-
+    // FIXME: use more elegant way to switch wasm env
+    if (m_isWasm)
+    {
+        context->setAddress2Precompiled(SYS_CONFIG_NAME, sysConfig);
+        context->setAddress2Precompiled(TABLE_FACTORY_NAME, tableFactoryPrecompiled);
+        context->setAddress2Precompiled(CONSENSUS_NAME, consensusPrecompiled);
+        context->setAddress2Precompiled(CNS_NAME, cnsPrecompiled);
+        context->setAddress2Precompiled(PARALLEL_CONFIG_NAME, parallelConfigPrecompiled);
+        context->setAddress2Precompiled(KV_TABLE_FACTORY_NAME, kvTableFactoryPrecompiled);
+        context->setAddress2Precompiled(
+            CRYPTO_NAME, std::make_shared<precompiled::CryptoPrecompiled>(m_hashImpl));
+        context->setAddress2Precompiled(
+            DAG_TRANSFER_NAME, std::make_shared<precompiled::DagTransferPrecompiled>(m_hashImpl));
+        context->setAddress2Precompiled(
+            CRYPTO_NAME, std::make_shared<CryptoPrecompiled>(m_hashImpl));
+        context->setAddress2Precompiled(
+            DEPLOY_WASM_NAME, std::make_shared<DeployWasmPrecompiled>(m_hashImpl));
+        context->setAddress2Precompiled(
+            CRUD_NAME, std::make_shared<precompiled::CRUDPrecompiled>(m_hashImpl));
+        context->setAddress2Precompiled(
+            BFS_NAME, std::make_shared<precompiled::FileSystemPrecompiled>(m_hashImpl));
+        vector<string> builtIn = {CRYPTO_NAME};
+        context->setBuiltInPrecompiled(make_shared<vector<string>>(builtIn));
+    }
+    else
+    {
+        context->setAddress2Precompiled(SYS_CONFIG_ADDRESS, sysConfig);
+        context->setAddress2Precompiled(TABLE_FACTORY_ADDRESS, tableFactoryPrecompiled);
+        context->setAddress2Precompiled(CONSENSUS_ADDRESS, consensusPrecompiled);
+        context->setAddress2Precompiled(CNS_ADDRESS, cnsPrecompiled);
+        context->setAddress2Precompiled(PARALLEL_CONFIG_ADDRESS, parallelConfigPrecompiled);
+        context->setAddress2Precompiled(KV_TABLE_FACTORY_ADDRESS, kvTableFactoryPrecompiled);
+        context->setAddress2Precompiled(
+            CRYPTO_ADDRESS, std::make_shared<precompiled::CryptoPrecompiled>(m_hashImpl));
+        context->setAddress2Precompiled(DAG_TRANSFER_ADDRESS,
+            std::make_shared<precompiled::DagTransferPrecompiled>(m_hashImpl));
+        context->setAddress2Precompiled(
+            CRYPTO_ADDRESS, std::make_shared<CryptoPrecompiled>(m_hashImpl));
+        context->setAddress2Precompiled(
+            DEPLOY_WASM_ADDRESS, std::make_shared<DeployWasmPrecompiled>(m_hashImpl));
+        context->setAddress2Precompiled(
+            CRUD_ADDRESS, std::make_shared<precompiled::CRUDPrecompiled>(m_hashImpl));
+        context->setAddress2Precompiled(
+            BFS_ADDRESS, std::make_shared<precompiled::FileSystemPrecompiled>(m_hashImpl));
+        vector<string> builtIn = {CRYPTO_ADDRESS};
+        context->setBuiltInPrecompiled(make_shared<vector<string>>(builtIn));
+    }
     // context->setAddress2Precompiled(
     //     PERMISSION_ADDRESS, std::make_shared<precompiled::PermissionPrecompiled>());
     // context->setAddress2Precompiled(
@@ -916,111 +942,88 @@ BlockContext::Ptr TransactionExecutor::createBlockContext(
 
     context->setPrecompiledContract(m_precompiledContract);
 
-    // getTxGasLimitToContext from precompiled and set to context
-    // auto ret = sysConfig->getSysConfigByKey(ledger::SYSTEM_KEY_TX_GAS_LIMIT, tableFactory);
-    // context->setTxGasLimit(boost::lexical_cast<uint64_t>(ret.first));
-    // context->setTxCriticalsHandler([&](const protocol::Transaction::ConstPtr& _tx)
-    //                                    -> std::shared_ptr<std::vector<std::string>> {
-    //     if (_tx->type() == protocol::TransactionType::ContractCreation)
-    //     {
-    //         // Not to parallel contract creation transaction
-    //         return nullptr;
-    //     }
+    // TODO: getTxGasLimitToContext from precompiled and set to context
+    context->setTxCriticalsHandler([&](const protocol::Transaction::ConstPtr& _tx)
+                                       -> std::shared_ptr<std::vector<std::string>> {
+        if (_tx->type() == protocol::TransactionType::ContractCreation)
+        {
+            // Not to parallel contract creation transaction
+            return nullptr;
+        }
 
-    //     auto p = context->getPrecompiled(string(_tx->to()));
-    //     if (p)
-    //     {
-    //         // Precompile transaction
-    //         if (p->isParallelPrecompiled())
-    //         {
-    //             auto ret = make_shared<vector<string>>(p->getParallelTag(_tx->input()));
-    //             for (string& critical : *ret)
-    //             {
-    //                 critical += _tx->to();
-    //             }
-    //             return ret;
-    //         }
-    //         else
-    //         {
-    //             return nullptr;
-    //         }
-    //     }
-    //     else
-    //     {
-    //         uint32_t selector = precompiled::getParamFunc(_tx->input());
+        auto p = context->getPrecompiled(string(_tx->to()));
+        if (p)
+        {
+            // Precompile transaction
+            if (p->isParallelPrecompiled())
+            {
+                auto ret = make_shared<vector<string>>(p->getParallelTag(_tx->input()));
+                for (string& critical : *ret)
+                {
+                    critical += _tx->to();
+                }
+                return ret;
+            }
+            return nullptr;
+        }
+        uint32_t selector = precompiled::getParamFunc(_tx->input());
 
-    //         auto receiveAddress = _tx->to();
-    //         std::shared_ptr<precompiled::ParallelConfig> config = nullptr;
-    //         // hit the cache, fetch ParallelConfig from the cache directly
-    //         // Note: Only when initializing DAG, get ParallelConfig, will not get
-    //         ParallelConfig
-    //         // during transaction execution
-    //         auto parallelKey = std::make_pair(string(receiveAddress), selector);
-    //         if (context->getParallelConfigCache()->count(parallelKey))
-    //         {
-    //             config = context->getParallelConfigCache()->at(parallelKey);
-    //         }
-    //         else
-    //         {
-    //             config = parallelConfigPrecompiled->getParallelConfig(
-    //                 context, receiveAddress, selector, _tx->sender());
-    //             context->getParallelConfigCache()->insert(std::make_pair(parallelKey,
-    //             config));
-    //         }
+        auto receiveAddress = _tx->to();
+        std::shared_ptr<precompiled::ParallelConfig> config = nullptr;
+        // hit the cache, fetch ParallelConfig from the cache directly
+        // Note: Only when initializing DAG, get ParallelConfig, will not get
+        // during transaction execution
+        // TODO: add parallel config cache
+        // auto parallelKey = std::make_pair(string(receiveAddress), selector);
+        config = parallelConfigPrecompiled->getParallelConfig(
+            context, receiveAddress, selector, _tx->sender());
 
-    //         if (config == nullptr)
-    //         {
-    //             return nullptr;
-    //         }
-    //         else
-    //         {
-    //             // Testing code
-    //             auto res = make_shared<vector<string>>();
+        if (config == nullptr)
+        {
+            return nullptr;
+        }
+        // Testing code
+        auto res = make_shared<vector<string>>();
 
-    //             codec::abi::ABIFunc af;
-    //             bool isOk = af.parser(config->functionName);
-    //             if (!isOk)
-    //             {
-    //                 EXECUTOR_LOG(DEBUG)
-    //                     << LOG_DESC("[getTxCriticals] parser function signature failed, ")
-    //                     << LOG_KV("func signature", config->functionName);
+        codec::abi::ABIFunc af;
+        bool isOk = af.parser(config->functionName);
+        if (!isOk)
+        {
+            EXECUTOR_LOG(DEBUG) << LOG_DESC("[getTxCriticals] parser function signature failed, ")
+                                << LOG_KV("func signature", config->functionName);
 
-    //                 return nullptr;
-    //             }
+            return nullptr;
+        }
 
-    //             auto paramTypes = af.getParamsType();
-    //             if (paramTypes.size() < (size_t)config->criticalSize)
-    //             {
-    //                 EXECUTOR_LOG(DEBUG)
-    //                     << LOG_DESC("[getTxCriticals] params type less than  criticalSize")
-    //                     << LOG_KV("func signature", config->functionName)
-    //                     << LOG_KV("func criticalSize", config->criticalSize);
+        auto paramTypes = af.getParamsType();
+        if (paramTypes.size() < (size_t)config->criticalSize)
+        {
+            EXECUTOR_LOG(DEBUG) << LOG_DESC("[getTxCriticals] params type less than  criticalSize")
+                                << LOG_KV("func signature", config->functionName)
+                                << LOG_KV("func criticalSize", config->criticalSize);
 
-    //                 return nullptr;
-    //             }
+            return nullptr;
+        }
 
-    //             paramTypes.resize((size_t)config->criticalSize);
+        paramTypes.resize((size_t)config->criticalSize);
 
-    //             codec::abi::ContractABICodec abi(m_hashImpl);
-    //             isOk = abi.abiOutByFuncSelector(_tx->input().getCroppedData(4), paramTypes,
-    //             *res); if (!isOk)
-    //             {
-    //                 EXECUTOR_LOG(DEBUG) << LOG_DESC("[getTxCriticals] abiout failed, ")
-    //                                     << LOG_KV("func signature", config->functionName);
+        codec::abi::ContractABICodec abi(m_hashImpl);
+        isOk = abi.abiOutByFuncSelector(_tx->input().getCroppedData(4), paramTypes, *res);
+        if (!isOk)
+        {
+            EXECUTOR_LOG(DEBUG) << LOG_DESC("[getTxCriticals] abiout failed, ")
+                                << LOG_KV("func signature", config->functionName);
 
-    //                 return nullptr;
-    //             }
+            return nullptr;
+        }
 
-    //             for (string& critical : *res)
-    //             {
-    //                 critical += _tx->to();
-    //             }
+        for (string& critical : *res)
+        {
+            critical += _tx->to();
+        }
 
-    //             return res;
-    //         }
-    //     }
-    // });
-
+        return res;
+    });
     return context;
 }
 

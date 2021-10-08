@@ -31,6 +31,7 @@
 #include "bcos-framework/interfaces/protocol/BlockHeader.h"
 #include "bcos-framework/interfaces/protocol/Transaction.h"
 #include "bcos-framework/libprotocol/TransactionStatus.h"
+#include <bcos-framework/libcodec/abi/ContractABICodec.h>
 #include <boost/coroutine2/all.hpp>
 #include <boost/coroutine2/coroutine.hpp>
 #include <functional>
@@ -128,10 +129,20 @@ private:
 
     CallParameters::UniquePtr parseEVMCResult(bool isCreate, const Result& _result);
 
-    void writeErrInfoToOutput(std::string const& errInfo);
+    void writeErrInfoToOutput(std::string const& errInfo, bytes& output)
+    {
+        bcos::codec::abi::ContractABICodec abi(m_hashImpl);
+        auto codecOutput = abi.abiIn("Error(string)", errInfo);
+        output = std::move(codecOutput);
+    }
     void updateGas(std::shared_ptr<precompiled::PrecompiledExecResult> _callResult);
 
-    std::string getContractTableName(const std::string_view& _address, bool _isWasm);
+    inline std::string getContractTableName(const std::string_view& _address)
+    {
+        std::string address =
+            (_address[0] == '/') ? std::string(_address.substr(1)) : std::string(_address);
+        return std::string("/apps/").append(address);
+    }
 
     std::weak_ptr<BlockContext> m_blockContext;  ///< Information on the runtime environment.
     std::string m_contractAddress;

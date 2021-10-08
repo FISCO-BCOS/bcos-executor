@@ -191,8 +191,7 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
         commitPromise.set_value();
     });
     commitPromise.get_future().get();
-
-    auto tableName = std::string("c_") +
+    auto tableName = std::string("/apps/") +
                      std::string(result->newEVMContractAddress());  // TODO: ensure the contract
                                                                     // address is hex
 
