@@ -459,7 +459,6 @@ BOOST_AUTO_TEST_CASE(externalCall)
     h256 addressCreate2(
         "ee6f30856ad3bae00b1169808488502786a13e3c174d85682135ffd51310310e");  // ee6f30856ad3bae00b1169808488502786a13e3c
     std::string addressString2 = addressCreate2.hex().substr(0, 40);
-    // toChecksumAddress(addressString2, hashImpl);
     result2->setTo(addressString2);
 
     std::promise<ExecutionMessage::UniquePtr> executePromise3;
