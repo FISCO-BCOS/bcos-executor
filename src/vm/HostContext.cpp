@@ -20,7 +20,6 @@
  */
 
 #include "HostContext.h"
-#include "../ChecksumAddress.h"
 #include "../Common.h"
 #include "../executive/TransactionExecutive.h"
 #include "EVMHostInterface.h"

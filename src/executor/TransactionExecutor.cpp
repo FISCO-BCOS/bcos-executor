@@ -20,7 +20,6 @@
  */
 
 #include "bcos-executor/TransactionExecutor.h"
-#include "../ChecksumAddress.h"
 #include "../Common.h"
 #include "../executive/BlockContext.h"
 #include "../executive/TransactionExecutive.h"
@@ -619,7 +618,6 @@ void TransactionExecutor::asyncExecute(bcos::protocol::ExecutionMessage::UniqueP
 
         std::shared_ptr<bcos::protocol::ExecutionMessage> sharedInput = std::move(input);
 
-        // 先遍历列表，批量取交易 TODO:
         m_txpool->asyncFillBlock(std::move(txHashes), [this, input = std::move(sharedInput),
                                                           blockContext = std::move(blockContext),
                                                           callback](Error::Ptr error,
@@ -858,9 +856,6 @@ void TransactionExecutor::externalCall(TransactionExecutive::Ptr executive,
     switch (params->type)
     {
     case CallParameters::MESSAGE:
-        toChecksumAddress(params->senderAddress, m_hashImpl);
-        toChecksumAddress(params->receiveAddress, m_hashImpl);
-
         message->setFrom(std::move(params->senderAddress));
         message->setTo(std::move(params->receiveAddress));
         message->setType(ExecutionMessage::MESSAGE);
@@ -869,18 +864,12 @@ void TransactionExecutor::externalCall(TransactionExecutive::Ptr executive,
         message->setType(ExecutionMessage::WAIT_KEY);
         break;
     case CallParameters::FINISHED:
-        toChecksumAddress(params->senderAddress, m_hashImpl);
-        toChecksumAddress(params->receiveAddress, m_hashImpl);
-
         // Response message, Swap the from and to
         message->setFrom(std::move(params->receiveAddress));
         message->setTo(std::move(params->senderAddress));
         message->setType(ExecutionMessage::FINISHED);
         break;
     case CallParameters::REVERT:
-        toChecksumAddress(params->senderAddress, m_hashImpl);
-        toChecksumAddress(params->receiveAddress, m_hashImpl);
-
         // Response message, Swap the from and to
         message->setFrom(std::move(params->receiveAddress));
         message->setTo(std::move(params->senderAddress));
@@ -1077,37 +1066,6 @@ BlockContext::Ptr TransactionExecutor::createBlockContext(
     return context;
 }
 
-std::string TransactionExecutor::newEVMAddress(
-    const std::string_view& sender, int64_t blockNumber, int64_t contextID)
-{
-    auto hash =
-        m_hashImpl->hash(std::string(sender) + boost::lexical_cast<std::string>(blockNumber) +
-                         boost::lexical_cast<std::string>(contextID));
-
-    std::string hexAddress;
-    hexAddress.reserve(40);
-    boost::algorithm::hex(hash.data(), hash.data() + 20, std::back_inserter(hexAddress));
-
-    toChecksumAddress(hexAddress, m_hashImpl);
-
-    return hexAddress;
-}
-
-std::string TransactionExecutor::newEVMAddress(
-    const std::string_view& _sender, bytesConstRef _init, u256 const& _salt)
-{
-    auto hash = m_hashImpl->hash(
-        bytes{0xff} + toBytes(_sender) + toBigEndian(_salt) + m_hashImpl->hash(_init));
-
-    std::string hexAddress;
-    hexAddress.reserve(40);
-    boost::algorithm::hex(hash.data(), hash.data() + 20, std::back_inserter(hexAddress));
-
-    toChecksumAddress(hexAddress, m_hashImpl);
-
-    return hexAddress;
-}
-
 std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
     const bcos::protocol::ExecutionMessage& input, bool staticCall)
 {
@@ -1132,30 +1090,13 @@ std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
 {
     auto callParameters = std::make_unique<CallParameters>(CallParameters::MESSAGE);
 
-    bool create = false;
-    if (m_isWasm)
-    {
-        // TODO: 等龙哥的方案
-        callParameters->origin = tx->sender();  // TODO: 转成可见
-        // 转换成二级账户
-        // callParameters->account = ...
+    callParameters->origin.reserve(tx->sender().size() * 2);
+    boost::algorithm::hex_lower(tx->sender(), std::back_inserter(callParameters->origin));
 
-        callParameters->senderAddress = tx->sender();                  // 路径 or 十六进制串
-        callParameters->receiveAddress = tx->to();                     // 路径
-        callParameters->codeAddress = callParameters->receiveAddress;  // 路径
-    }
-    else
-    {
-        callParameters->origin.reserve(tx->sender().size() * 2);
-        boost::algorithm::hex_lower(tx->sender(), std::back_inserter(callParameters->origin));
-        toChecksumAddress(callParameters->origin, m_hashImpl);  // TODO: rpc check address
+    callParameters->senderAddress = callParameters->origin;
+    callParameters->receiveAddress = input.to();
+    callParameters->codeAddress = callParameters->receiveAddress;
 
-        callParameters->senderAddress = callParameters->origin;
-        callParameters->receiveAddress = input.to();
-        callParameters->codeAddress = callParameters->receiveAddress;
-    }
-
-    callParameters->create = create;
     callParameters->gas = input.gasAvailable();
     callParameters->data = tx->input().toBytes();
     callParameters->staticCall = false;

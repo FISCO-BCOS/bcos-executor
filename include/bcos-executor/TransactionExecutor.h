@@ -140,11 +140,6 @@ private:
         std::unique_ptr<CallParameters> callResults,
         std::function<void(Error::UniquePtr, std::unique_ptr<CallParameters>)> callback);
 
-    std::string newEVMAddress(
-        const std::string_view& sender, int64_t blockNumber, int64_t contextID);
-    std::string newEVMAddress(
-        const std::string_view& _sender, bytesConstRef _init, u256 const& _salt);
-
     std::unique_ptr<CallParameters> createCallParameters(
         const bcos::protocol::ExecutionMessage& inputs, bool staticCall);
 

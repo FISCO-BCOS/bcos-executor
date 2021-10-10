@@ -22,7 +22,6 @@
 #include "../mock/MockExecutionMessage.h"
 #include "../mock/MockTransactionalStorage.h"
 #include "../mock/MockTxPool.h"
-#include "ChecksumAddress.h"
 #include "Common.h"
 #include "bcos-executor/TransactionExecutor.h"
 #include "interfaces/crypto/CommonType.h"
@@ -144,7 +143,6 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
     boost::algorithm::unhex(helloworld, std::back_inserter(input));
     auto tx = fakeTransaction(cryptoSuite, keyPair, "", input, 101, 100001, "1", "1");
     auto sender = *toHexString(string_view((char*)tx->sender().data(), tx->sender().size()));
-    toChecksumAddress(sender, hashImpl);
 
     auto hash = tx->hash();
     txpool->hash2Transaction.emplace(hash, tx);
@@ -160,7 +158,6 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
     // The contract address
     h256 addressCreate("ff6f30856ad3bae00b1169808488502786a13e3c174d85682135ffd51310310e");
     std::string addressString = addressCreate.hex().substr(0, 40);
-    toChecksumAddress(addressString, hashImpl);
     params->setTo(std::move(addressString));
 
     params->setStaticCall(false);
@@ -361,7 +358,6 @@ BOOST_AUTO_TEST_CASE(externalCall)
     boost::algorithm::unhex(ABin, std::back_inserter(input));
     auto tx = fakeTransaction(cryptoSuite, keyPair, "", input, 101, 100001, "1", "1");
     auto sender = boost::algorithm::hex_lower(std::string(tx->sender()));
-    toChecksumAddress(sender, hashImpl);
 
     auto hash = tx->hash();
     txpool->hash2Transaction.emplace(hash, tx);
@@ -377,7 +373,7 @@ BOOST_AUTO_TEST_CASE(externalCall)
     // The contract address
     h256 addressCreate("ff6f30856ad3bae00b1169808488502786a13e3c174d85682135ffd51310310e");
     std::string addressString = addressCreate.hex().substr(0, 40);
-    toChecksumAddress(addressString, hashImpl);
+    // toChecksumAddress(addressString, hashImpl);
     params->setTo(std::move(addressString));
 
     params->setStaticCall(false);
@@ -463,7 +459,7 @@ BOOST_AUTO_TEST_CASE(externalCall)
     h256 addressCreate2(
         "ee6f30856ad3bae00b1169808488502786a13e3c174d85682135ffd51310310e");  // ee6f30856ad3bae00b1169808488502786a13e3c
     std::string addressString2 = addressCreate2.hex().substr(0, 40);
-    toChecksumAddress(addressString2, hashImpl);
+    // toChecksumAddress(addressString2, hashImpl);
     result2->setTo(addressString2);
 
     std::promise<ExecutionMessage::UniquePtr> executePromise3;
@@ -507,7 +503,7 @@ BOOST_AUTO_TEST_CASE(externalCall)
     BOOST_CHECK_EQUAL(result4->contextID(), 101);
     BOOST_CHECK_EQUAL(result4->seq(), 1001);
     BOOST_CHECK_EQUAL(result4->from(), std::string(address));
-    BOOST_CHECK_EQUAL(result4->to(), std::string(addressString2));
+    BOOST_CHECK_EQUAL(result4->to(), boost::algorithm::to_lower_copy(std::string(addressString2)));
 
     // Request message without status
     // BOOST_CHECK_EQUAL(result4->status(), 0);
@@ -534,7 +530,8 @@ BOOST_AUTO_TEST_CASE(externalCall)
     BOOST_CHECK(result5->data().toBytes() == param);
     BOOST_CHECK_EQUAL(result5->contextID(), 101);
     BOOST_CHECK_EQUAL(result5->seq(), 1003);
-    BOOST_CHECK_EQUAL(result5->from(), std::string(addressString2));
+    BOOST_CHECK_EQUAL(
+        result5->from(), boost::algorithm::to_lower_copy(std::string(addressString2)));
     BOOST_CHECK_EQUAL(result5->to(), std::string(address));
     BOOST_CHECK_EQUAL(result5->status(), 0);
     BOOST_CHECK(result5->message().empty());

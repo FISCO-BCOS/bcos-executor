@@ -32,6 +32,7 @@
 #include "bcos-framework/interfaces/protocol/Transaction.h"
 #include "bcos-framework/libprotocol/TransactionStatus.h"
 #include <bcos-framework/libcodec/abi/ContractABICodec.h>
+#include <boost/algorithm/string/case_conv.hpp>
 #include <boost/coroutine2/all.hpp>
 #include <boost/coroutine2/coroutine.hpp>
 #include <functional>
@@ -140,8 +141,11 @@ private:
 
     inline std::string getContractTableName(const std::string_view& _address)
     {
-        std::string address =
-            (_address[0] == '/') ? std::string(_address.substr(1)) : std::string(_address);
+        std::string addressLower(_address);
+        boost::algorithm::to_lower(addressLower);
+
+        std::string address = (_address[0] == '/') ? addressLower.substr(1) : addressLower;
+
         return std::string("/apps/").append(address);
     }
 
