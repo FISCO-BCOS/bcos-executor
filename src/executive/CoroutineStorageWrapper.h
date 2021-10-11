@@ -19,8 +19,7 @@ using GetRowsResponse = std::tuple<Error::UniquePtr, std::vector<std::optional<s
 using SetRowResponse = std::tuple<Error::UniquePtr>;
 using OpenTableResponse = std::tuple<Error::UniquePtr, std::optional<storage::Table>>;
 using KeyLockResponse = SetRowResponse;
-using AcquireKeyLockResponse =
-    std::tuple<Error::UniquePtr, boost::any_range<std::string_view, boost::forward_traversal_tag>>;
+using AcquireKeyLockResponse = std::tuple<Error::UniquePtr, std::vector<std::string>>;
 
 template <class T>
 class CoroutineStorageWrapper
@@ -95,7 +94,7 @@ public:
             value = std::make_optional(std::get<GetRowResponse>(m_pull.get()));
         }
 
-        auto [error, entry] = std::move(*value);
+        auto&& [error, entry] = std::move(*value);
 
         if (error)
         {

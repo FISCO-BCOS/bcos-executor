@@ -19,7 +19,6 @@
  * @date: 2021-09-14
  */
 
-#include "../mock/MockExecutionMessage.h"
 #include "../mock/MockTransactionalStorage.h"
 #include "../mock/MockTxPool.h"
 #include "Common.h"
@@ -32,6 +31,7 @@
 #include "libprotocol/protobuf/PBBlockHeader.h"
 #include "libstorage/StateStorage.h"
 #include "precompiled/PrecompiledCodec.h"
+#include <bcos-framework/libexecutor/NativeExecutionMessage.h>
 #include <bcos-framework/testutils/crypto/HashImpl.h>
 #include <bcos-framework/testutils/crypto/SignatureImpl.h>
 #include <bcos-framework/testutils/protocol/FakeBlockHeader.h>
@@ -66,7 +66,7 @@ struct TransactionExecutorFixture
 
         txpool = std::make_shared<MockTxPool>();
         backend = std::make_shared<MockTransactionalStorage>(hashImpl);
-        auto executionResultFactory = std::make_shared<MockExecutionMessageFactory>();
+        auto executionResultFactory = std::make_shared<NativeExecutionMessageFactory>();
 
         executor = std::make_shared<TransactionExecutor>(
             txpool, backend, executionResultFactory, hashImpl, false);
@@ -147,7 +147,7 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
     auto hash = tx->hash();
     txpool->hash2Transaction.emplace(hash, tx);
 
-    auto params = std::make_unique<MockExecutionMessage>();
+    auto params = std::make_unique<NativeExecutionMessage>();
     params->setContextID(100);
     params->setSeq(1000);
     params->setDepth(0);
@@ -163,11 +163,11 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
     params->setStaticCall(false);
     params->setGasAvailable(gas);
     params->setData(input);
-    params->setType(MockExecutionMessage::TXHASH);
+    params->setType(ExecutionMessage::TXHASH);
     params->setTransactionHash(hash);
     params->setCreate(true);
 
-    MockExecutionMessage paramsBak = *params;
+    NativeExecutionMessage paramsBak = *params;
 
     auto blockHeader = std::make_shared<bcos::protocol::PBBlockHeader>(cryptoSuite);
     blockHeader->setNumber(1);
@@ -253,7 +253,7 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
         "00000000000000000000";
     boost::algorithm::unhex(
         &inputBytes[0], inputBytes + sizeof(inputBytes) - 1, std::back_inserter(txInput));
-    auto params2 = std::make_unique<MockExecutionMessage>();
+    auto params2 = std::make_unique<NativeExecutionMessage>();
     params2->setContextID(101);
     params2->setSeq(1000);
     params2->setDepth(0);
@@ -263,11 +263,11 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
     params2->setStaticCall(false);
     params2->setGasAvailable(gas);
     params2->setData(std::move(txInput));
-    params2->setType(MockExecutionMessage::MESSAGE);
+    params2->setType(NativeExecutionMessage::MESSAGE);
 
     std::promise<ExecutionMessage::UniquePtr> executePromise2;
     executor->executeTransaction(std::move(params2),
-        [&](bcos::Error::UniquePtr&& error, MockExecutionMessage::UniquePtr&& result) {
+        [&](bcos::Error::UniquePtr&& error, ExecutionMessage::UniquePtr&& result) {
             BOOST_CHECK(!error);
             executePromise2.set_value(std::move(result));
         });
@@ -285,7 +285,7 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
     boost::algorithm::unhex(
         &inputBytes2[0], inputBytes2 + sizeof(inputBytes2) - 1, std::back_inserter(queryBytes));
 
-    auto params3 = std::make_unique<MockExecutionMessage>();
+    auto params3 = std::make_unique<NativeExecutionMessage>();
     params3->setContextID(102);
     params3->setSeq(1000);
     params3->setDepth(0);
@@ -362,7 +362,7 @@ BOOST_AUTO_TEST_CASE(externalCall)
     auto hash = tx->hash();
     txpool->hash2Transaction.emplace(hash, tx);
 
-    auto params = std::make_unique<MockExecutionMessage>();
+    auto params = std::make_unique<NativeExecutionMessage>();
     params->setContextID(100);
     params->setSeq(1000);
     params->setDepth(0);
@@ -379,11 +379,11 @@ BOOST_AUTO_TEST_CASE(externalCall)
     params->setStaticCall(false);
     params->setGasAvailable(gas);
     params->setData(input);
-    params->setType(MockExecutionMessage::TXHASH);
+    params->setType(NativeExecutionMessage::TXHASH);
     params->setTransactionHash(hash);
     params->setCreate(true);
 
-    MockExecutionMessage paramsBak = *params;
+    NativeExecutionMessage paramsBak = *params;
 
     auto blockHeader = std::make_shared<bcos::protocol::PBBlockHeader>(cryptoSuite);
     blockHeader->setNumber(1);
@@ -408,14 +408,14 @@ BOOST_AUTO_TEST_CASE(externalCall)
     auto result = executePromise.get_future().get();
 
     auto address = result->newEVMContractAddress();
-    BOOST_CHECK_EQUAL(result->type(), MockExecutionMessage::FINISHED);
+    BOOST_CHECK_EQUAL(result->type(), NativeExecutionMessage::FINISHED);
     BOOST_CHECK_EQUAL(result->status(), 0);
     BOOST_CHECK_GT(address.size(), 0);
 
     // --------------------------------
     // Call A createAndCallB(int256)
     // --------------------------------
-    auto params2 = std::make_unique<MockExecutionMessage>();
+    auto params2 = std::make_unique<NativeExecutionMessage>();
     params2->setContextID(101);
     params2->setSeq(1001);
     params2->setDepth(0);
@@ -428,11 +428,11 @@ BOOST_AUTO_TEST_CASE(externalCall)
 
     bcos::u256 value(1000);
     params2->setData(codec->encodeWithSig("createAndCallB(int256)", value));
-    params2->setType(MockExecutionMessage::MESSAGE);
+    params2->setType(NativeExecutionMessage::MESSAGE);
 
     std::promise<ExecutionMessage::UniquePtr> executePromise2;
     executor->executeTransaction(std::move(params2),
-        [&](bcos::Error::UniquePtr&& error, MockExecutionMessage::UniquePtr&& result) {
+        [&](bcos::Error::UniquePtr&& error, NativeExecutionMessage::UniquePtr&& result) {
             BOOST_CHECK(!error);
             executePromise2.set_value(std::move(result));
         });

@@ -1,16 +1,16 @@
-hunter_config(bcos-framework VERSION 3.0.0-2d5c7118
-	URL https://${URL_BASE}/FISCO-BCOS/bcos-framework/archive/52bcdb5f45b2cd1ebed6ed87a38d3d6a5ad01cfd.tar.gz
-    SHA1 2d861560a3a22aab90e440af429307c9ed95774d
+hunter_config(bcos-framework VERSION 3.0.0-2d5c7119
+	URL https://${URL_BASE}/FISCO-BCOS/bcos-framework/archive/9e1ec45e5a7ff0082e6a94815341ac45c26a6b9a.tar.gz
+    SHA1 78c2fbdd56698cd16df481e57fa7fd80a7da84ab
 	CMAKE_ARGS HUNTER_PACKAGE_LOG_BUILD=ON HUNTER_PACKAGE_LOG_INSTALL=ON #DEBUG=ON
 )
 
-hunter_config(wedpr-crypto VERSION 1.1.0-20f314de
+hunter_config(wedpr-crypto VERSION 1.1.0-20f314df
 	URL https://${URL_BASE}/WeBankBlockchain/WeDPR-Lab-Crypto/archive/10f314de45ec31ce9e330922b522ce173662ed33.tar.gz
 	SHA1 626df59f87ea2c6bb5128f7d104588179809910b
 	CMAKE_ARGS HUNTER_PACKAGE_LOG_BUILD=OFF HUNTER_PACKAGE_LOG_INSTALL=ON
 )
 
-hunter_config(bcos-crypto VERSION 3.0.0-local
+hunter_config(bcos-crypto VERSION 3.0.1-local
 	URL https://${URL_BASE}/FISCO-BCOS/bcos-crypto/archive/25c8edb7d5cbadb514bbce9733573c8ffdb3600d.tar.gz
 	SHA1 4a1649e7095f5db58a5ae0671b2278bcccc25f1d
 	CMAKE_ARGS HUNTER_PACKAGE_LOG_BUILD=OFF HUNTER_PACKAGE_LOG_INSTALL=ON

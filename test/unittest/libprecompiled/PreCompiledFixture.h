@@ -19,7 +19,6 @@
  */
 
 #pragma once
-#include "../mock/MockExecutionMessage.h"
 #include "../mock/MockTransactionalStorage.h"
 #include "../mock/MockTxPool.h"
 #include "bcos-executor/TransactionExecutor.h"
@@ -31,6 +30,7 @@
 #include "precompiled/Utilities.h"
 #include "precompiled/extension/UserPrecompiled.h"
 #include <bcos-framework/interfaces/storage/Table.h>
+#include <bcos-framework/libexecutor/NativeExecutionMessage.h>
 #include <bcos-framework/testutils/TestPromptFixture.h>
 #include <bcos-framework/testutils/crypto/HashImpl.h>
 #include <bcos-framework/testutils/crypto/SignatureImpl.h>
@@ -75,7 +75,7 @@ public:
         auto header = blockFactory->blockHeaderFactory()->createBlockHeader(1);
         header->setNumber(1);
 
-        auto executionResultFactory = std::make_shared<MockExecutionMessageFactory>();
+        auto executionResultFactory = std::make_shared<NativeExecutionMessageFactory>();
         executor = std::make_shared<TransactionExecutor>(
             txpool, storage, executionResultFactory, hashImpl, _isWasm);
         createSysTable();
@@ -94,7 +94,7 @@ public:
         auto header = blockFactory->blockHeaderFactory()->createBlockHeader(1);
         header->setNumber(1);
 
-        auto executionResultFactory = std::make_shared<MockExecutionMessageFactory>();
+        auto executionResultFactory = std::make_shared<NativeExecutionMessageFactory>();
         executor = std::make_shared<TransactionExecutor>(
             txpool, storage, executionResultFactory, smHashImpl, _isWasm);
         createSysTable();
