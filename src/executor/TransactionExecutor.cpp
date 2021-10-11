@@ -38,6 +38,7 @@
 #include "../precompiled/TableFactoryPrecompiled.h"
 #include "../precompiled/Utilities.h"
 #include "../precompiled/extension/DagTransferPrecompiled.h"
+#include "../precompiled/extension/ContractAuthPrecompiled.h"
 #include "../vm/Precompiled.h"
 #include "Abi.h"
 #include "ClockCache.h"
@@ -149,8 +150,6 @@ void TransactionExecutor::nextBlockHeader(const bcos::protocol::BlockHeader::Con
         }
 
         m_blockContext = createBlockContext(blockHeader, stateStorage);
-
-        m_blockContext->setPrecompiledContract(m_precompiledContract);
         m_stateStorages.push_back({blockHeader->number(), std::move(stateStorage)});
 
         if (m_lastUncommittedIterator == m_stateStorages.end())
@@ -913,7 +912,6 @@ BlockContext::Ptr TransactionExecutor::createBlockContext(
     BlockContext::Ptr context = make_shared<BlockContext>(tableFactory, m_hashImpl, currentHeader,
         m_executionMessageFactory, FiscoBcosScheduleV3, m_isWasm);
 
-    // TODO: System contract need to redesign
     auto tableFactoryPrecompiled =
         std::make_shared<precompiled::TableFactoryPrecompiled>(m_hashImpl);
     tableFactoryPrecompiled->setMemoryTableFactory(tableFactory);
@@ -947,6 +945,9 @@ BlockContext::Ptr TransactionExecutor::createBlockContext(
             CRUD_NAME, std::make_shared<precompiled::CRUDPrecompiled>(m_hashImpl));
         context->setAddress2Precompiled(
             BFS_NAME, std::make_shared<precompiled::FileSystemPrecompiled>(m_hashImpl));
+        // TODO: use unique address for ContractAuthPrecompiled
+        context->setAddress2Precompiled(
+            PERMISSION_NAME, std::make_shared<precompiled::ContractAuthPrecompiled>(m_hashImpl));
         vector<string> builtIn = {CRYPTO_NAME};
         context->setBuiltInPrecompiled(make_shared<vector<string>>(builtIn));
     }
@@ -970,6 +971,9 @@ BlockContext::Ptr TransactionExecutor::createBlockContext(
             CRUD_ADDRESS, std::make_shared<precompiled::CRUDPrecompiled>(m_hashImpl));
         context->setAddress2Precompiled(
             BFS_ADDRESS, std::make_shared<precompiled::FileSystemPrecompiled>(m_hashImpl));
+        // TODO: use unique address for ContractAuthPrecompiled
+         context->setAddress2Precompiled(
+             PERMISSION_ADDRESS, std::make_shared<precompiled::ContractAuthPrecompiled>(m_hashImpl));
         vector<string> builtIn = {CRYPTO_ADDRESS};
         context->setBuiltInPrecompiled(make_shared<vector<string>>(builtIn));
     }

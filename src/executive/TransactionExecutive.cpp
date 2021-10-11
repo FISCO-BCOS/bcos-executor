@@ -161,8 +161,6 @@ CallParameters::UniquePtr TransactionExecutive::execute(CallParameters::UniquePt
 std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionExecutive::call(
     CallParameters::UniquePtr callParameters)
 {
-    auto remainGas = callParameters->gas;
-
     auto blockContext = m_blockContext.lock();
     if (!blockContext)
     {
@@ -170,36 +168,7 @@ std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionE
     }
 
     auto precompiledAddress = callParameters->codeAddress;
-    if (blockContext->isEthereumPrecompiled(precompiledAddress))
-    {
-        auto callResults = std::move(callParameters);
-        auto gas = blockContext->costOfPrecompiled(precompiledAddress, ref(callParameters->data));
-        if (remainGas < gas)
-        {
-            callResults->type = CallParameters::REVERT;
-            callResults->status = (int32_t)TransactionStatus::OutOfGas;
-            return {nullptr, std::move(callResults)};
-        }
-        else
-        {
-            remainGas = remainGas - gas;
-        }
-
-        auto [success, output] =
-            blockContext->executeOriginPrecompiled(precompiledAddress, ref(callParameters->data));
-        if (!success)
-        {
-            callResults->type = CallParameters::REVERT;
-            callResults->status = (int32_t)TransactionStatus::RevertInstruction;
-            return {nullptr, std::move(callResults)};
-        }
-
-        callResults->status = (int32_t)TransactionStatus::None;
-        callResults->data.swap(output);
-
-        return {nullptr, std::move(callResults)};
-    }
-    else if (blockContext->isPrecompiled(precompiledAddress))
+    if (blockContext->isPrecompiled(precompiledAddress))
     {
         auto callResults = std::make_unique<CallParameters>(CallParameters::FINISHED);
         try
@@ -207,16 +176,13 @@ std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionE
             auto precompiledResult = blockContext->call(precompiledAddress,
                 ref(callParameters->data), callParameters->origin, callParameters->senderAddress);
             auto gas = precompiledResult->m_gas;
-            if (remainGas < gas)
+            if (callParameters->gas < gas)
             {
                 callResults->type = CallParameters::REVERT;
                 callResults->status = (int32_t)TransactionStatus::OutOfGas;
                 return {nullptr, std::move(callResults)};
             }
-            else
-            {
-                remainGas -= gas;
-            }
+            callParameters->gas -= gas;
             callResults->status = (int32_t)TransactionStatus::None;
             callResults->data.swap(precompiledResult->m_execResult);
         }
@@ -301,6 +267,8 @@ std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionE
     // Create the table first
     auto tableName = getContractTableName(newAddress);
     m_storageWrapper->createTable(tableName, STORAGE_VALUE);
+    // Create auth table
+    creatAuthTable(tableName, callParameters->origin, callParameters->senderAddress);
 
     auto hostContext = std::make_unique<HostContext>(
         std::move(callParameters), shared_from_this(), std::move(tableName));
@@ -656,4 +624,28 @@ CallParameters::UniquePtr TransactionExecutive::parseEVMCResult(
     }
 
     return callResults;
+}
+
+void TransactionExecutive::creatAuthTable(
+    std::string_view _tableName, std::string_view _origin, std::string_view _sender)
+{
+    // Create the access table
+    // TODO: use global variant,
+    //  /sys/ not create
+    if (_tableName.substr(0, 4) == "/sys/")
+        return;
+    auto authTableName = std::string(_tableName).append("_accessAuth");
+    // if contract external create contract, then inheritance agent
+    std::string_view agent;
+    if (_sender != _origin)
+    {
+        auto senderAuthTable = getContractTableName(_sender).append("_accessAuth");
+        auto entry = m_storageWrapper->getRow(std::move(senderAuthTable), "agent");
+        agent = entry->getField(STORAGE_VALUE);
+    }
+    auto table = m_storageWrapper->createTable(authTableName, STORAGE_VALUE);
+    auto agentEntry = table->newEntry();
+    agentEntry.setField(STORAGE_VALUE, std::string(agent));
+    m_storageWrapper->setRow(authTableName, "agent", std::move(agentEntry));
+    m_storageWrapper->setRow(authTableName, "interface_auth", table->newEntry());
 }

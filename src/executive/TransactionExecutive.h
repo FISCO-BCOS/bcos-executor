@@ -136,7 +136,6 @@ private:
         auto codecOutput = abi.abiIn("Error(string)", errInfo);
         output = std::move(codecOutput);
     }
-    void updateGas(std::shared_ptr<precompiled::PrecompiledExecResult> _callResult);
 
     inline std::string getContractTableName(const std::string_view& _address)
     {
@@ -144,6 +143,9 @@ private:
             (_address[0] == '/') ? std::string(_address.substr(1)) : std::string(_address);
         return std::string("/apps/").append(address);
     }
+
+    void creatAuthTable(
+        std::string_view _tableName, std::string_view _origin, std::string_view _sender);
 
     std::weak_ptr<BlockContext> m_blockContext;  ///< Information on the runtime environment.
     std::string m_contractAddress;
