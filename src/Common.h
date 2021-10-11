@@ -43,6 +43,15 @@ namespace executor
 #define EXECUTOR_LOG(LEVEL) BCOS_LOG(LEVEL) << LOG_BADGE("EXECUTOR")
 #define PARA_LOG(LEVEL) BCOS_LOG(LEVEL) << LOG_BADGE("PARA") << LOG_BADGE(utcTime())
 
+enum ExecuteError
+{
+    SUCCESS = 0,
+    EXECUTE_ERROR,
+    PREPARE_ERROR,
+    COMMIT_ERROR,
+    ROLLBACK_ERROR,
+};
+
 const char STORAGE_VALUE[] = "value";
 const char ACCOUNT_CODE_HASH[] = "codeHash";
 const char ACCOUNT_CODE[] = "code";

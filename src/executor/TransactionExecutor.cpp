@@ -466,7 +466,7 @@ void TransactionExecutor::prepare(
             " not equal to last blockNumber: " + boost::lexical_cast<std::string>(last->number);
 
         EXECUTOR_LOG(ERROR) << errorMessage;
-        callback(BCOS_ERROR_PTR(-1, errorMessage));
+        callback(BCOS_ERROR_PTR(ExecuteError::PREPARE_ERROR, errorMessage));
 
         return;
     }
@@ -481,7 +481,8 @@ void TransactionExecutor::prepare(
                 auto errorMessage = "Prepare error: " + boost::diagnostic_information(*error);
 
                 EXECUTOR_LOG(ERROR) << errorMessage;
-                callback(BCOS_ERROR_WITH_PREV_PTR(-1, errorMessage, *error));
+                callback(
+                    BCOS_ERROR_WITH_PREV_PTR(ExecuteError::PREPARE_ERROR, errorMessage, *error));
                 return;
             }
 
@@ -498,7 +499,7 @@ void TransactionExecutor::commit(
     if (m_lastUncommittedIterator == m_stateStorages.end())
     {
         EXECUTOR_LOG(ERROR) << "Commit error: No uncommited state in executor";
-        callback(BCOS_ERROR_PTR(-1, "No uncommited state in executor"));
+        callback(BCOS_ERROR_PTR(ExecuteError::COMMIT_ERROR, "No uncommited state in executor"));
         return;
     }
 
@@ -533,6 +534,8 @@ void TransactionExecutor::commit(
 
             ++m_lastUncommittedIterator;
             m_blockContext = nullptr;
+
+            // TODO: add clear cache
 
             callback(nullptr);
         });
@@ -583,6 +586,9 @@ void TransactionExecutor::rollback(
 
 void TransactionExecutor::reset(std::function<void(bcos::Error::Ptr&&)> callback) noexcept
 {
+    m_stateStorages.clear();
+    m_lastUncommittedIterator = m_stateStorages.end();
+    
     callback(nullptr);
 }
 

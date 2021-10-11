@@ -75,7 +75,6 @@ class TransactionExecutor : public ParallelTransactionExecutorInterface,
 public:
     using Ptr = std::shared_ptr<TransactionExecutor>;
     using ConstPtr = std::shared_ptr<const TransactionExecutor>;
-    using CallBackFunction = std::function<crypto::HashType(protocol::BlockNumber x)>;
 
     TransactionExecutor(txpool::TxPoolInterface::Ptr txpool,
         storage::TransactionalStorageInterface::Ptr backendStorage,
@@ -164,8 +163,7 @@ private:
         bcos::storage::StateStorage::Ptr storage;
     };
 
-    std::list<State> m_stateStorages;  // TODO: need lock to deal with
-                                       // nextBlock and prepare?
+    std::list<State> m_stateStorages;
 
     std::list<State>::const_iterator m_lastUncommittedIterator;  // last uncommitted storage
 
