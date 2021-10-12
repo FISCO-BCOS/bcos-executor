@@ -54,14 +54,15 @@ std::string KVTablePrecompiled::toString()
 }
 
 std::shared_ptr<PrecompiledExecResult> KVTablePrecompiled::call(
-    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param, const std::string&,
-    const std::string&)
+    std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _param,
+    const std::string&, const std::string&)
 {
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("KVTable") << LOG_DESC("call") << LOG_KV("func", func);
-    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
-    codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto blockContext = _executive->blockContext().lock();
+    auto codec =
+        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
 
@@ -78,7 +79,7 @@ std::shared_ptr<PrecompiledExecResult> KVTablePrecompiled::call(
         gasPricer->appendOperation(InterfaceOpcode::Select, 1);
         if (!entry)
         {
-            if (_context->isWasm())
+            if (blockContext->isWasm())
             {
                 callResult->setExecResult(codec->encode(false, std::string("")));
             }
@@ -93,14 +94,14 @@ std::shared_ptr<PrecompiledExecResult> KVTablePrecompiled::call(
             auto entryPrecompiled = std::make_shared<EntryPrecompiled>(m_hashImpl);
             // CachedStorage return entry use copy from
             entryPrecompiled->setEntry(std::make_shared<Entry>(entry.value()));
-            if (_context->isWasm())
+            if (blockContext->isWasm())
             {
-                std::string newAddress = _context->registerPrecompiled(entryPrecompiled);
+                std::string newAddress = _executive->registerPrecompiled(entryPrecompiled);
                 callResult->setExecResult(codec->encode(true, newAddress));
             }
             else
             {
-                Address newAddress = Address(_context->registerPrecompiled(entryPrecompiled));
+                Address newAddress = Address(_executive->registerPrecompiled(entryPrecompiled));
                 callResult->setExecResult(codec->encode(true, newAddress));
             }
         }
@@ -109,14 +110,14 @@ std::shared_ptr<PrecompiledExecResult> KVTablePrecompiled::call(
     {
         // set(string,string)
         // WARNING: this method just for wasm
-        if (_context->isWasm())
+        if (blockContext->isWasm())
         {
             std::string key;
             std::string entryAddress;
             codec->decode(data, key, entryAddress);
             PRECOMPILED_LOG(DEBUG) << LOG_BADGE("KVTable") << LOG_KV("set", key);
-            EntryPrecompiled::Ptr entryPrecompiled =
-                std::dynamic_pointer_cast<EntryPrecompiled>(_context->getPrecompiled(entryAddress));
+            EntryPrecompiled::Ptr entryPrecompiled = std::dynamic_pointer_cast<EntryPrecompiled>(
+                _executive->getPrecompiled(entryAddress));
             auto entry = entryPrecompiled->getEntry();
             checkLengthValidate(
                 key, USER_TABLE_KEY_VALUE_MAX_LENGTH, CODE_TABLE_KEY_VALUE_LENGTH_OVERFLOW);
@@ -141,7 +142,7 @@ std::shared_ptr<PrecompiledExecResult> KVTablePrecompiled::call(
         codec->decode(data, key, entryAddress);
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("KVTable") << LOG_KV("set", key);
         EntryPrecompiled::Ptr entryPrecompiled = std::dynamic_pointer_cast<EntryPrecompiled>(
-            _context->getPrecompiled(entryAddress.hex()));
+            _executive->getPrecompiled(entryAddress.hex()));
         auto entry = entryPrecompiled->getEntry();
         checkLengthValidate(
             key, USER_TABLE_KEY_VALUE_MAX_LENGTH, CODE_TABLE_KEY_VALUE_LENGTH_OVERFLOW);
@@ -163,14 +164,14 @@ std::shared_ptr<PrecompiledExecResult> KVTablePrecompiled::call(
         auto entryPrecompiled = std::make_shared<EntryPrecompiled>(m_hashImpl);
         entryPrecompiled->setEntry(std::make_shared<Entry>(entry));
 
-        if (_context->isWasm())
+        if (blockContext->isWasm())
         {
-            auto address = _context->registerPrecompiled(entryPrecompiled);
+            auto address = _executive->registerPrecompiled(entryPrecompiled);
             callResult->setExecResult(codec->encode(address));
         }
         else
         {
-            auto newAddress = Address(_context->registerPrecompiled(entryPrecompiled));
+            auto newAddress = Address(_executive->registerPrecompiled(entryPrecompiled));
             callResult->setExecResult(codec->encode(newAddress));
         }
     }

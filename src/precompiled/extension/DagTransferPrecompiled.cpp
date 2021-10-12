@@ -137,18 +137,17 @@ std::string DagTransferPrecompiled::toString()
 }
 
 std::optional<storage::Table> DagTransferPrecompiled::openTable(
-    std::shared_ptr<executor::BlockContext> _context)
+    std::shared_ptr<executor::TransactionExecutive> _executive)
 {
     std::string dagTableName = precompiled::getTableName(DAG_TRANSFER);
-    auto table = _context->storage()->openTable(dagTableName);
+    auto table = _executive->storage().openTable(dagTableName);
     if (!table)
     {
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("DagTransferPrecompiled")
                                << LOG_DESC("openTable: ready to create table")
                                << LOG_KV("tableName", dagTableName);
         //__dag_transfer__ is not exist, then create it first.
-        table = createTable(_context->storage(), dagTableName,
-            DAG_TRANSFER_FIELD_BALANCE);
+        table = _executive->storage().createTable(dagTableName, DAG_TRANSFER_FIELD_BALANCE);
         // table already exists
         if (!table)
         {
@@ -156,14 +155,14 @@ std::optional<storage::Table> DagTransferPrecompiled::openTable(
                 << LOG_BADGE("DagTransferPrecompiled") << LOG_DESC("table already exist")
                 << LOG_KV("tableName", dagTableName);
             // try to openTable and get the table again
-            table = _context->storage()->openTable(dagTableName);
+            table = _executive->storage().openTable(dagTableName);
         }
     }
     return table;
 }
 
 std::shared_ptr<PrecompiledExecResult> DagTransferPrecompiled::call(
-    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
+    std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _param,
     const std::string& _origin, const std::string&)
 {
     // parse function name
@@ -175,23 +174,23 @@ std::shared_ptr<PrecompiledExecResult> DagTransferPrecompiled::call(
     // user_name user_balance 2 fields in table, the key of table is user_name field
     if (func == name2Selector[DAG_TRANSFER_METHOD_ADD_STR_UINT])
     {  // userAdd(string,uint256)
-        userAddCall(_context, data, _origin, callResult->mutableExecResult());
+        userAddCall(_executive, data, _origin, callResult->mutableExecResult());
     }
     else if (func == name2Selector[DAG_TRANSFER_METHOD_SAV_STR_UINT])
     {  // userSave(string,uint256)
-        userSaveCall(_context, data, _origin, callResult->mutableExecResult());
+        userSaveCall(_executive, data, _origin, callResult->mutableExecResult());
     }
     else if (func == name2Selector[DAG_TRANSFER_METHOD_DRAW_STR_UINT])
     {  // userDraw(string,uint256)
-        userDrawCall(_context, data, _origin, callResult->mutableExecResult());
+        userDrawCall(_executive, data, _origin, callResult->mutableExecResult());
     }
     else if (func == name2Selector[DAG_TRANSFER_METHOD_TRS_STR2_UINT])
     {  // userTransfer(string,string,uint256)
-        userTransferCall(_context, data, _origin, callResult->mutableExecResult());
+        userTransferCall(_executive, data, _origin, callResult->mutableExecResult());
     }
     else if (func == name2Selector[DAG_TRANSFER_METHOD_BAL_STR])
     {  // userBalance(string user)
-        userBalanceCall(_context, data, callResult->mutableExecResult());
+        userBalanceCall(_executive, data, callResult->mutableExecResult());
     }
     else
     {
@@ -203,13 +202,14 @@ std::shared_ptr<PrecompiledExecResult> DagTransferPrecompiled::call(
     return callResult;
 }
 
-void DagTransferPrecompiled::userAddCall(std::shared_ptr<executor::BlockContext> _context,
+void DagTransferPrecompiled::userAddCall(std::shared_ptr<executor::TransactionExecutive> _executive,
     bytesConstRef _data, std::string const&, bytes& _out)
 {
     // userAdd(string,uint256)
     std::string user;
     u256 amount;
-    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto blockContext = _executive->blockContext().lock();
+    auto codec = std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     codec->decode(_data, user, amount);
 
     int ret;
@@ -222,7 +222,7 @@ void DagTransferPrecompiled::userAddCall(std::shared_ptr<executor::BlockContext>
             ret = CODE_INVALID_USER_NAME;
             break;
         }
-        auto table = openTable(_context);
+        auto table = openTable(_executive);
         if (!table)
         {
             strErrorMsg = "openTable failed.";
@@ -251,13 +251,14 @@ void DagTransferPrecompiled::userAddCall(std::shared_ptr<executor::BlockContext>
     _out = codec->encode(u256(ret));
 }
 
-void DagTransferPrecompiled::userSaveCall(std::shared_ptr<executor::BlockContext> _context,
+void DagTransferPrecompiled::userSaveCall(std::shared_ptr<executor::TransactionExecutive> _executive,
     bytesConstRef _data, std::string const&, bytes& _out)
 {
     // userSave(string,uint256)
     std::string user;
     u256 amount;
-    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto blockContext = _executive->blockContext().lock();
+    auto codec = std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     codec->decode(_data, user, amount);
 
     int ret;
@@ -280,7 +281,7 @@ void DagTransferPrecompiled::userSaveCall(std::shared_ptr<executor::BlockContext
             break;
         }
 
-        auto table = openTable(_context);
+        auto table = openTable(_executive);
         if (!table)
         {
             strErrorMsg = "openTable failed.";
@@ -325,12 +326,13 @@ void DagTransferPrecompiled::userSaveCall(std::shared_ptr<executor::BlockContext
     _out = codec->encode(u256(ret));
 }
 
-void DagTransferPrecompiled::userDrawCall(std::shared_ptr<executor::BlockContext> _context,
+void DagTransferPrecompiled::userDrawCall(std::shared_ptr<executor::TransactionExecutive> _executive,
     bytesConstRef _data, std::string const&, bytes& _out)
 {
     std::string user;
     u256 amount;
-    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto blockContext = _executive->blockContext().lock();
+    auto codec = std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     codec->decode(_data, user, amount);
 
     u256 balance;
@@ -350,7 +352,7 @@ void DagTransferPrecompiled::userDrawCall(std::shared_ptr<executor::BlockContext
             ret = CODE_INVALID_AMOUNT;
             break;
         }
-        auto table = openTable(_context);
+        auto table = openTable(_executive);
         if (!table)
         {
             strErrorMsg = "openTable failed.";
@@ -390,10 +392,11 @@ void DagTransferPrecompiled::userDrawCall(std::shared_ptr<executor::BlockContext
 }
 
 void DagTransferPrecompiled::userBalanceCall(
-    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _data, bytes& _out)
+    std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _data, bytes& _out)
 {
     std::string user;
-    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto blockContext = _executive->blockContext().lock();
+    auto codec = std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     codec->decode(_data, user);
 
     u256 balance;
@@ -409,7 +412,7 @@ void DagTransferPrecompiled::userBalanceCall(
             break;
         }
 
-        auto table = openTable(_context);
+        auto table = openTable(_executive);
         if (!table)
         {
             strErrorMsg = "openTable failed.";
@@ -437,10 +440,11 @@ void DagTransferPrecompiled::userBalanceCall(
     _out = codec->encode(u256(ret), balance);
 }
 
-void DagTransferPrecompiled::userTransferCall(std::shared_ptr<executor::BlockContext> _context,
+void DagTransferPrecompiled::userTransferCall(std::shared_ptr<executor::TransactionExecutive> _executive,
     bytesConstRef _data, std::string const&, bytes& _out)
 {
-    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto blockContext = _executive->blockContext().lock();
+    auto codec = std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     std::string fromUser, toUser;
     u256 amount;
     codec->decode(_data, fromUser, toUser, amount);
@@ -471,7 +475,7 @@ void DagTransferPrecompiled::userTransferCall(std::shared_ptr<executor::BlockCon
             ret = 0;
             break;
         }
-        auto table = openTable(_context);
+        auto table = openTable(_executive);
         if (!table)
         {
             strErrorMsg = "openTable failed.";

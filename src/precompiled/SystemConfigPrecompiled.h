@@ -39,11 +39,13 @@ public:
     using Ptr = std::shared_ptr<SystemConfigPrecompiled>;
     SystemConfigPrecompiled(crypto::Hash::Ptr _hashImpl);
     virtual ~SystemConfigPrecompiled(){};
-    std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::BlockContext> _context,
-        bytesConstRef _param, const std::string& _origin, const std::string& _sender) override;
+    std::shared_ptr<PrecompiledExecResult> call(
+        std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _param,
+        const std::string& _origin, const std::string& _sender) override;
     std::string toString() override;
     std::pair<std::string, protocol::BlockNumber> getSysConfigByKey(
-        const std::string& _key, const storage::StateStorage::Ptr& _tableFactory) const;
+        const std::shared_ptr<executor::TransactionExecutive>& _executive,
+        const std::string& _key) const;
 
 private:
     bool checkValueValid(std::string_view key, std::string_view value);

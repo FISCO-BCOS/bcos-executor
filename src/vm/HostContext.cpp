@@ -159,37 +159,19 @@ evmc_result HostContext::externalRequest(const evmc_message* _msg)
         request->create = true;
         break;
     }
-
-    // TODO: 讨论一下是否要在此处实现
+    request->gas = _msg->gas;
     // if (built in precompiled) then execute locally
     auto blockContext = m_executive->blockContext().lock();
-    auto it = std::find(blockContext->getBuiltInPrecompiled()->begin(),
-        blockContext->getBuiltInPrecompiled()->end(), request->receiveAddress);
 
-    request->gas = _msg->gas;
-
-    if (it != blockContext->getBuiltInPrecompiled()->end())
+    if (std::find(m_executive->getBuiltInPrecompiled()->begin(),
+            m_executive->getBuiltInPrecompiled()->end(),
+            request->receiveAddress) != m_executive->getBuiltInPrecompiled()->end())
     {
-        auto callResults = std::make_unique<CallParameters>(CallParameters::FINISHED);
-        auto precompiledResponse = m_executive->blockContext().lock()->call(
-            request->receiveAddress, ref(request->data), request->origin, request->senderAddress);
-        evmc_result preResult;
-        preResult.gas_left = request->gas - precompiledResponse->m_gas;
-
-        callResults->status = (int32_t)TransactionStatus::None;
-        callResults->data.swap(precompiledResponse->m_execResult);
-        preResult.status_code = EVMC_SUCCESS;
-        preResult.output_data = callResults->data.data();
-        preResult.output_size = callResults->data.size();
-        preResult.release = nullptr;
-        if (preResult.gas_left < 0)
-        {
-            callResults->type = CallParameters::REVERT;
-            callResults->status = (int32_t)TransactionStatus::OutOfGas;
-            preResult.status_code = EVMC_OUT_OF_GAS;
-        }
-        m_responseStore.emplace_back(std::move(callResults));
-        return preResult;
+        return callBuiltInPrecompiled(request, false);
+    }
+    if (m_executive->isEthereumPrecompiled(request->receiveAddress))
+    {
+        return callBuiltInPrecompiled(request, true);
     }
 
     request->staticCall = m_callParameters->staticCall;
@@ -213,6 +195,72 @@ evmc_result HostContext::externalRequest(const evmc_message* _msg)
     m_responseStore.emplace_back(std::move(response));
 
     return result;
+}
+
+evmc_result HostContext::callBuiltInPrecompiled(
+    std::unique_ptr<CallParameters> const& _request, bool _isEvmPrecompiled)
+{
+    auto callResults = std::make_unique<CallParameters>(CallParameters::FINISHED);
+    evmc_result preResult{};
+    int32_t resultCode;
+    bytes resultData;
+
+    if (_isEvmPrecompiled)
+    {
+        callResults->gas =
+            m_executive->costOfPrecompiled(_request->receiveAddress, ref(_request->data));
+        auto [success, output] =
+            m_executive->executeOriginPrecompiled(_request->receiveAddress, ref(_request->data));
+        resultCode =
+            (int32_t)(success ? TransactionStatus::None : TransactionStatus::RevertInstruction);
+        resultData.swap(output);
+    }
+    else
+    {
+        try
+        {
+            auto precompiledResponse = m_executive->callPrecompiled(_request->receiveAddress,
+                ref(_request->data), _request->origin, _request->senderAddress);
+            callResults->gas = precompiledResponse->m_gas;
+            resultCode = (int32_t)TransactionStatus::None;
+            resultData.swap(precompiledResponse->m_execResult);
+        }
+        catch (protocol::PrecompiledError& e)
+        {
+            resultCode = (int32_t)TransactionStatus::PrecompiledError;
+        }
+        catch (std::exception& e)
+        {
+            resultCode = (int32_t)TransactionStatus::Unknown;
+        }
+    }
+
+    if (resultCode != (int32_t)TransactionStatus::None)
+    {
+        callResults->type = CallParameters::REVERT;
+        callResults->status = resultCode;
+        preResult.status_code = EVMC_INTERNAL_ERROR;
+        preResult.gas_left = 0;
+        m_responseStore.emplace_back(std::move(callResults));
+        return preResult;
+    }
+
+    preResult.gas_left = _request->gas - callResults->gas;
+    if (preResult.gas_left < 0)
+    {
+        callResults->type = CallParameters::REVERT;
+        callResults->status = (int32_t)TransactionStatus::OutOfGas;
+        preResult.status_code = EVMC_OUT_OF_GAS;
+        preResult.gas_left = 0;
+        return preResult;
+    }
+    callResults->status = (int32_t)TransactionStatus::None;
+    callResults->data.swap(resultData);
+    preResult.output_size = callResults->data.size();
+    preResult.output_data = callResults->data.data();
+    preResult.release = nullptr;
+    m_responseStore.emplace_back(std::move(callResults));
+    return preResult;
 }
 
 void HostContext::setCode(bytes code)

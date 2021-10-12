@@ -37,24 +37,25 @@ public:
 
     std::string toString() override;
 
-    std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::BlockContext> _context,
-        bytesConstRef _param, const std::string& _origin, const std::string& _sender) override;
+    std::shared_ptr<PrecompiledExecResult> call(
+        std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _param,
+        const std::string& _origin, const std::string& _sender) override;
 
 private:
-    void desc(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef _paramData,
-        const std::shared_ptr<PrecompiledExecResult>& _callResult,
+    void desc(const std::shared_ptr<executor::TransactionExecutive>& _executive,
+        bytesConstRef _paramData, const std::shared_ptr<PrecompiledExecResult>& _callResult,
         const std::shared_ptr<PrecompiledGas>& _gasPricer);
-    void update(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef _paramData,
-        const std::shared_ptr<PrecompiledExecResult>& _callResult,
+    void update(const std::shared_ptr<executor::TransactionExecutive>& _executive,
+        bytesConstRef _paramData, const std::shared_ptr<PrecompiledExecResult>& _callResult,
         const std::shared_ptr<PrecompiledGas>& _gasPricer);
-    void insert(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef _paramData,
-        const std::shared_ptr<PrecompiledExecResult>& _callResult,
+    void insert(const std::shared_ptr<executor::TransactionExecutive>& _executive,
+        bytesConstRef _paramData, const std::shared_ptr<PrecompiledExecResult>& _callResult,
         const std::shared_ptr<PrecompiledGas>& _gasPricer);
-    void remove(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef _paramData,
-        const std::shared_ptr<PrecompiledExecResult>& _callResult,
+    void remove(const std::shared_ptr<executor::TransactionExecutive>& _executive,
+        bytesConstRef _paramData, const std::shared_ptr<PrecompiledExecResult>& _callResult,
         const std::shared_ptr<PrecompiledGas>& _gasPricer);
-    void select(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef _paramData,
-        const std::shared_ptr<PrecompiledExecResult>& _callResult,
+    void select(const std::shared_ptr<executor::TransactionExecutive>& _executive,
+        bytesConstRef _paramData, const std::shared_ptr<PrecompiledExecResult>& _callResult,
         const std::shared_ptr<PrecompiledGas>& _gasPricer);
     int parseEntry(const std::string& entryStr, storage::Entry& entry, const std::string& keyField,
         std::string& keyValue);
@@ -68,10 +69,10 @@ private:
         }
         return false;
     }
-    std::string_view getKeyField(
-        const std::shared_ptr<executor::BlockContext>& _context, std::string_view tableName)
+    std::string_view getKeyField(const std::shared_ptr<executor::TransactionExecutive>& _executive,
+        std::string_view tableName)
     {
-        auto sysTable = _context->storage()->openTable(storage::StorageInterface::SYS_TABLES);
+        auto sysTable = _executive->storage().openTable(storage::StorageInterface::SYS_TABLES);
         auto sysEntry = sysTable->getRow(tableName);
         if (!sysEntry)
             return "";

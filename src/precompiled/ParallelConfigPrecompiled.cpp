@@ -76,26 +76,28 @@ std::string ParallelConfigPrecompiled::toString()
 }
 
 std::shared_ptr<PrecompiledExecResult> ParallelConfigPrecompiled::call(
-    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
+    std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _param,
     const std::string& _origin, const std::string&)
 {
     // parse function name
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
-
-    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto blockContext = _executive->blockContext().lock();
+    auto codec =
+        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
 
     if (func == name2Selector[PARA_CONFIG_REGISTER_METHOD_ADDR_STR_UINT] ||
         func == name2Selector[PARA_CONFIG_REGISTER_METHOD_STR_STR_UINT])
     {
-        registerParallelFunction(codec, _context, data, _origin, callResult->mutableExecResult());
+        registerParallelFunction(codec, _executive, data, _origin, callResult->mutableExecResult());
     }
     else if (func == name2Selector[PARA_CONFIG_UNREGISTER_METHOD_ADDR_STR] ||
              func == name2Selector[PARA_CONFIG_UNREGISTER_METHOD_STR_STR])
     {
-        unregisterParallelFunction(codec, _context, data, _origin, callResult->mutableExecResult());
+        unregisterParallelFunction(
+            codec, _executive, data, _origin, callResult->mutableExecResult());
     }
     else
     {
@@ -120,22 +122,22 @@ std::string ParallelConfigPrecompiled::getTableName(
 
 // TODO: use origin to check authority
 std::shared_ptr<Table> ParallelConfigPrecompiled::openTable(
-    std::shared_ptr<executor::BlockContext> _context, std::string const& _contractName,
+    std::shared_ptr<executor::TransactionExecutive> _executive, std::string const& _contractName,
     std::string const&, bool _needCreate)
 {
-    std::string tableName = getTableName(_contractName, _context->isWasm());
-    auto tableFactory = _context->storage();
-    auto table = tableFactory->openTable(tableName);
+    auto blockContext = _executive->blockContext().lock();
+    std::string tableName = getTableName(_contractName, blockContext->isWasm());
+    auto table = _executive->storage().openTable(tableName);
 
     if (!table && _needCreate)
     {  //__dat_transfer__ is not exist, then create it first.
-        auto ret = tableFactory->createTable(tableName, PARA_VALUE_NAMES);
+        auto ret = _executive->storage().createTable(tableName, PARA_VALUE_NAMES);
         if (ret)
         {
             PRECOMPILED_LOG(DEBUG)
                 << LOG_BADGE("ParallelConfigPrecompiled") << LOG_DESC("open table")
                 << LOG_DESC(" create parallel config table. ") << LOG_KV("tableName", tableName);
-            table = tableFactory->openTable(tableName);
+            table = _executive->storage().openTable(tableName);
         }
         else
         {
@@ -149,23 +151,25 @@ std::shared_ptr<Table> ParallelConfigPrecompiled::openTable(
 }
 
 void ParallelConfigPrecompiled::registerParallelFunction(PrecompiledCodec::Ptr _codec,
-    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _data,
+    std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _data,
     std::string const& _origin, bytes& _out)
 {
     std::shared_ptr<Table> table = nullptr;
     std::string functionName;
     u256 criticalSize;
-    if (_context->isWasm())
+    auto blockContext = _executive->blockContext().lock();
+
+    if (blockContext->isWasm())
     {
         std::string contractName;
         _codec->decode(_data, contractName, functionName, criticalSize);
-        table = openTable(_context, contractName, _origin);
+        table = openTable(_executive, contractName, _origin);
     }
     else
     {
         Address contractName;
         _codec->decode(_data, contractName, functionName, criticalSize);
-        table = openTable(_context, contractName.hex(), _origin);
+        table = openTable(_executive, contractName.hex(), _origin);
     }
     uint32_t selector = getFuncSelector(functionName, m_hashImpl);
     if (table)
@@ -185,22 +189,24 @@ void ParallelConfigPrecompiled::registerParallelFunction(PrecompiledCodec::Ptr _
 }
 
 void ParallelConfigPrecompiled::unregisterParallelFunction(PrecompiledCodec::Ptr _codec,
-    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _data, std::string const&,
-    bytes& _out)
+    std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _data,
+    std::string const&, bytes& _out)
 {
     std::string functionName;
     std::optional<Table> table = nullopt;
-    if (_context->isWasm())
+    auto blockContext = _executive->blockContext().lock();
+    if (blockContext->isWasm())
     {
         std::string contractAddress;
         _codec->decode(_data, contractAddress, functionName);
-        table = _context->storage()->openTable(getTableName(contractAddress, _context->isWasm()));
+        table =
+            _executive->storage().openTable(getTableName(contractAddress, blockContext->isWasm()));
     }
     else
     {
         Address contractAddress;
         _codec->decode(_data, contractAddress, functionName);
-        table = _context->storage()->openTable(contractAddress.hex());
+        table = _executive->storage().openTable(contractAddress.hex());
     }
 
     uint32_t selector = getFuncSelector(functionName, m_hashImpl);
@@ -215,10 +221,12 @@ void ParallelConfigPrecompiled::unregisterParallelFunction(PrecompiledCodec::Ptr
 }
 
 ParallelConfig::Ptr ParallelConfigPrecompiled::getParallelConfig(
-    std::shared_ptr<executor::BlockContext> _context, const std::string_view& _contractAddress,
-    uint32_t _selector, const std::string_view&)
+    std::shared_ptr<executor::TransactionExecutive> _executive,
+    const std::string_view& _contractAddress, uint32_t _selector, const std::string_view&)
 {
-    auto table = _context->storage()->openTable(getTableName(_contractAddress, _context->isWasm()));
+    auto blockContext = _executive->blockContext().lock();
+    auto table =
+        _executive->storage().openTable(getTableName(_contractAddress, blockContext->isWasm()));
     if (!table)
     {
         return nullptr;

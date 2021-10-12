@@ -47,8 +47,8 @@ std::string FileSystemPrecompiled::toString()
 }
 
 std::shared_ptr<PrecompiledExecResult> FileSystemPrecompiled::call(
-    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param, const std::string&,
-    const std::string&)
+    std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _param,
+    const std::string&, const std::string&)
 {
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
@@ -62,12 +62,12 @@ std::shared_ptr<PrecompiledExecResult> FileSystemPrecompiled::call(
     if (func == name2Selector[FILE_SYSTEM_METHOD_LIST])
     {
         // list(string)
-        listDir(_context, data, callResult, gasPricer);
+        listDir(_executive, data, callResult, gasPricer);
     }
     else if (func == name2Selector[FILE_SYSTEM_METHOD_MKDIR])
     {
         // mkdir(string)
-        makeDir(_context, data, callResult, gasPricer);
+        makeDir(_executive, data, callResult, gasPricer);
     }
     else
     {
@@ -80,13 +80,15 @@ std::shared_ptr<PrecompiledExecResult> FileSystemPrecompiled::call(
     return callResult;
 }
 
-void FileSystemPrecompiled::makeDir(const std::shared_ptr<executor::BlockContext>& _context,
-    bytesConstRef& data, std::shared_ptr<PrecompiledExecResult> callResult,
-    const PrecompiledGas::Ptr& gasPricer)
+void FileSystemPrecompiled::makeDir(
+    const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& data,
+    std::shared_ptr<PrecompiledExecResult> callResult, const PrecompiledGas::Ptr& gasPricer)
 {
     // mkdir(string)
     std::string absolutePath;
-    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto blockContext = _executive->blockContext().lock();
+    auto codec =
+        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     codec->decode(data, absolutePath);
     if (!checkPathValid(absolutePath))
     {
@@ -95,7 +97,7 @@ void FileSystemPrecompiled::makeDir(const std::shared_ptr<executor::BlockContext
         callResult->setExecResult(codec->encode(s256((int)CODE_FILE_INVALID_PATH)));
         return;
     }
-    auto table = _context->storage()->openTable(absolutePath);
+    auto table = _executive->storage().openTable(absolutePath);
     gasPricer->appendOperation(InterfaceOpcode::OpenTable);
     if (table)
     {
@@ -108,19 +110,21 @@ void FileSystemPrecompiled::makeDir(const std::shared_ptr<executor::BlockContext
         PRECOMPILED_LOG(TRACE) << LOG_BADGE("FileSystemPrecompiled")
                                << LOG_DESC("directory not exists, recursive build dir")
                                << LOG_KV("path", absolutePath);
-        auto buildResult = recursiveBuildDir(_context->storage(), absolutePath);
+        auto buildResult = recursiveBuildDir(_executive, absolutePath);
         auto result = buildResult ? CODE_SUCCESS : CODE_FILE_BUILD_DIR_FAILED;
         getErrorCodeOut(callResult->mutableExecResult(), result, codec);
     }
 }
 
-void FileSystemPrecompiled::listDir(const std::shared_ptr<executor::BlockContext>& _context,
-    bytesConstRef& data, std::shared_ptr<PrecompiledExecResult> callResult,
-    const PrecompiledGas::Ptr& gasPricer)
+void FileSystemPrecompiled::listDir(
+    const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& data,
+    std::shared_ptr<PrecompiledExecResult> callResult, const PrecompiledGas::Ptr& gasPricer)
 {
     // list(string)
     std::string absolutePath;
-    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto blockContext = _executive->blockContext().lock();
+    auto codec =
+        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     codec->decode(data, absolutePath);
     if (!checkPathValid(absolutePath))
     {
@@ -129,7 +133,7 @@ void FileSystemPrecompiled::listDir(const std::shared_ptr<executor::BlockContext
         callResult->setExecResult(codec->encode(s256((int)CODE_FILE_INVALID_PATH)));
         return;
     }
-    auto table = _context->storage()->openTable(absolutePath);
+    auto table = _executive->storage().openTable(absolutePath);
     gasPricer->appendOperation(InterfaceOpcode::OpenTable);
 
     if (table)
@@ -138,7 +142,7 @@ void FileSystemPrecompiled::listDir(const std::shared_ptr<executor::BlockContext
         auto parentDirAndBaseName = getParentDirAndBaseName(absolutePath);
         auto parentDir = parentDirAndBaseName.first;
         auto baseName = parentDirAndBaseName.second;
-        auto parentTable = _context->storage()->openTable(parentDir);
+        auto parentTable = _executive->storage().openTable(parentDir);
         assert(parentTable);
         auto baseEntry = parentTable->getRow(baseName);
         if (!baseEntry)

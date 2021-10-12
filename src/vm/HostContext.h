@@ -81,6 +81,9 @@ public:
     /// Create a new contract.
     evmc_result externalRequest(const evmc_message* _msg);
 
+    evmc_result callBuiltInPrecompiled(
+        std::unique_ptr<CallParameters> const& _request, bool _isEvmPrecompiled);
+
     void setCode(bytes code);
 
     size_t codeSizeAt(const std::string_view& _a);

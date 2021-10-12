@@ -179,9 +179,9 @@ uint32_t bcos::precompiled::getFuncSelectorByFunctionName(
 }
 
 bcos::precompiled::ContractStatus bcos::precompiled::getContractStatus(
-    std::shared_ptr<bcos::executor::BlockContext> _context, const std::string& _tableName)
+    std::shared_ptr<bcos::executor::TransactionExecutive> _executive, const std::string& _tableName)
 {
-    auto table = _context->storage()->openTable(_tableName);
+    auto table = _executive->storage().openTable(_tableName);
     if (!table)
     {
         return ContractStatus::AddressNonExistent;
@@ -530,7 +530,8 @@ std::string precompiled::getDirBaseName(const std::string& _absolutePath)
 }
 
 bool precompiled::recursiveBuildDir(
-    const storage::StateStorage::Ptr& _tableFactory, const std::string& _absoluteDir)
+    const std::shared_ptr<executor::TransactionExecutive>& _executive,
+    const std::string& _absoluteDir)
 {
     if (_absoluteDir.empty())
     {
@@ -551,7 +552,7 @@ bool precompiled::recursiveBuildDir(
     std::string root = "/";
     for (auto& dir : *dirList)
     {
-        auto table = _tableFactory->openTable(root);
+        auto table = _executive->storage().openTable(root);
         if (!table)
         {
             PRECOMPILED_LOG(ERROR)
@@ -590,7 +591,7 @@ bool precompiled::recursiveBuildDir(
         newFileEntry.setField(FS_FIELD_EXTRA, "");
         table->setRow(dir, std::move(newFileEntry));
 
-        _tableFactory->createTable(root + dir, FS_FIELD_COMBINED);
+        _executive->storage().createTable(root + dir, FS_FIELD_COMBINED);
         root += dir;
     }
     return true;

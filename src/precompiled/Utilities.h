@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "../executive/BlockContext.h"
+#include "../executive/TransactionExecutive.h"
 #include "Common.h"
 #include "PrecompiledCodec.h"
 #include <bcos-framework/interfaces/storage/Table.h>
@@ -107,7 +107,8 @@ uint32_t getFuncSelectorByFunctionName(
     std::string const& _functionName, const crypto::Hash::Ptr& _hashImpl);
 
 bcos::precompiled::ContractStatus getContractStatus(
-    std::shared_ptr<bcos::executor::BlockContext> _context, std::string const& _tableName);
+    std::shared_ptr<bcos::executor::TransactionExecutive> _executive,
+    std::string const& _tableName);
 
 bytesConstRef getParamData(bytesConstRef _param);
 
@@ -123,7 +124,7 @@ std::string getParentDir(const std::string& _absolutePath);
 
 std::string getDirBaseName(const std::string& _absolutePath);
 
-bool recursiveBuildDir(
-    const storage::StateStorage::Ptr& _tableFactory, const std::string& _absoluteDir);
+bool recursiveBuildDir(const std::shared_ptr<executor::TransactionExecutive>& _executive,
+    const std::string& _absoluteDir);
 }  // namespace precompiled
 }  // namespace bcos

@@ -25,6 +25,7 @@
 #include "../vm/HostContext.h"
 #include "../vm/VMFactory.h"
 #include "../vm/VMInstance.h"
+#include "../vm/Precompiled.h"
 #include "BlockContext.h"
 #include "bcos-executor/TransactionExecutor.h"
 #include "bcos-framework/interfaces/protocol/Exceptions.h"
@@ -46,6 +47,7 @@ using namespace bcos::executor;
 using namespace bcos::storage;
 using namespace bcos::protocol;
 using namespace bcos::codec;
+using namespace bcos::precompiled;
 
 /// Error info for VMInstance status code.
 using errinfo_evmcStatusCode = boost::error_info<struct tag_evmcStatusCode, evmc_status_code>;
@@ -160,8 +162,6 @@ CallParameters::UniquePtr TransactionExecutive::execute(CallParameters::UniquePt
 std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionExecutive::call(
     CallParameters::UniquePtr callParameters)
 {
-    auto remainGas = callParameters->gas;
-
     auto blockContext = m_blockContext.lock();
     if (!blockContext)
     {
@@ -170,53 +170,21 @@ std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionE
 
     // TODO: 考虑提取函数
     auto precompiledAddress = callParameters->codeAddress;
-    if (blockContext->isEthereumPrecompiled(precompiledAddress))
-    {
-        auto callResults = std::move(callParameters);
-        auto gas = blockContext->costOfPrecompiled(precompiledAddress, ref(callParameters->data));
-        if (remainGas < gas)
-        {
-            callResults->type = CallParameters::REVERT;
-            callResults->status = (int32_t)TransactionStatus::OutOfGas;
-            return {nullptr, std::move(callResults)};
-        }
-        else
-        {
-            remainGas = remainGas - gas;
-        }
-
-        auto [success, output] =
-            blockContext->executeOriginPrecompiled(precompiledAddress, ref(callParameters->data));
-        if (!success)
-        {
-            callResults->type = CallParameters::REVERT;
-            callResults->status = (int32_t)TransactionStatus::RevertInstruction;
-            return {nullptr, std::move(callResults)};
-        }
-
-        callResults->status = (int32_t)TransactionStatus::None;
-        callResults->data.swap(output);
-
-        return {nullptr, std::move(callResults)};
-    }
-    else if (blockContext->isPrecompiled(precompiledAddress))
+    if (isPrecompiled(precompiledAddress))
     {
         auto callResults = std::make_unique<CallParameters>(CallParameters::FINISHED);
         try
         {
-            auto precompiledResult = blockContext->call(precompiledAddress,
+            auto precompiledResult = callPrecompiled(precompiledAddress,
                 ref(callParameters->data), callParameters->origin, callParameters->senderAddress);
             auto gas = precompiledResult->m_gas;
-            if (remainGas < gas)
+            if (callParameters->gas < gas)
             {
                 callResults->type = CallParameters::REVERT;
                 callResults->status = (int32_t)TransactionStatus::OutOfGas;
                 return {nullptr, std::move(callResults)};
             }
-            else
-            {
-                remainGas -= gas;
-            }
+            callParameters->gas -= gas;
             callResults->status = (int32_t)TransactionStatus::None;
             callResults->data.swap(precompiledResult->m_execResult);
         }
@@ -301,6 +269,8 @@ std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionE
     // Create the table first
     auto tableName = getContractTableName(newAddress);
     m_storageWrapper->createTable(tableName, STORAGE_VALUE);
+    // Create auth table
+    creatAuthTable(tableName, callParameters->origin, callParameters->senderAddress);
 
     auto hostContext = std::make_unique<HostContext>(
         std::move(callParameters), shared_from_this(), std::move(tableName));
@@ -520,6 +490,104 @@ CallParameters::UniquePtr TransactionExecutive::go(HostContext& hostContext)
     return nullptr;
 }
 
+std::shared_ptr<precompiled::PrecompiledExecResult> TransactionExecutive::callPrecompiled(
+    const std::string& address, bytesConstRef param, const std::string& origin,
+    const std::string& sender)
+{
+    try
+    {
+        auto blockContext = this->blockContext().lock();
+        auto p = getPrecompiled(address);
+
+        if (p)
+        {
+            auto execResult = p->call(shared_from_this(), param, origin, sender);
+            return execResult;
+        }
+        else
+        {
+            EXECUTIVE_LOG(DEBUG) << LOG_DESC("[call]Can't find address")
+                                 << LOG_KV("address", address);
+            return nullptr;
+        }
+    }
+    catch (protocol::PrecompiledError& e)
+    {
+        EXECUTIVE_LOG(ERROR) << "PrecompiledError" << LOG_KV("address", address)
+                             << LOG_KV("message:", e.what());
+        BOOST_THROW_EXCEPTION(e);
+    }
+    catch (std::exception& e)
+    {
+        EXECUTIVE_LOG(ERROR) << LOG_DESC("[call]Precompiled call error")
+                             << LOG_KV("EINFO", boost::diagnostic_information(e));
+
+        throw PrecompiledError();
+    }
+}
+
+string TransactionExecutive::registerPrecompiled(std::shared_ptr<precompiled::Precompiled> p)
+{
+    auto count = ++m_addressCount;
+    std::stringstream stream;
+    stream << std::setfill('0') << std::setw(40) << std::hex << count;
+    auto address = stream.str();
+    m_dynamicPrecompiled.insert(std::make_pair(address, p));
+    return address;
+}
+
+bool TransactionExecutive::isPrecompiled(const std::string& address) const
+{
+    return (m_constantPrecompiled.count(address) > 0 || m_dynamicPrecompiled.count(address) > 0);
+}
+
+std::shared_ptr<Precompiled> TransactionExecutive::getPrecompiled(const std::string& address) const
+{
+    auto constantPrecompiled = m_constantPrecompiled.find(address);
+    auto dynamicPrecompiled = m_dynamicPrecompiled.find(address);
+
+    if (constantPrecompiled != m_constantPrecompiled.end())
+    {
+        return constantPrecompiled->second;
+    }
+    if (dynamicPrecompiled != m_dynamicPrecompiled.end())
+    {
+        return dynamicPrecompiled->second;
+    }
+    return std::shared_ptr<precompiled::Precompiled>();
+}
+
+bool TransactionExecutive::isEthereumPrecompiled(const string& _a) const
+{
+    return m_evmPrecompiled->find(_a) != m_evmPrecompiled->end();
+}
+
+std::pair<bool, bcos::bytes> TransactionExecutive::executeOriginPrecompiled(
+    const string& _a, bytesConstRef _in) const
+{
+    return m_evmPrecompiled->at(_a)->execute(_in);
+}
+
+int64_t TransactionExecutive::costOfPrecompiled(const string& _a, bytesConstRef _in) const
+{
+    return m_evmPrecompiled->at(_a)->cost(_in).convert_to<int64_t>();
+}
+
+void TransactionExecutive::setEVMPrecompiled(
+    std::shared_ptr<const std::map<std::string, PrecompiledContract::Ptr>> precompiledContract)
+{
+    m_evmPrecompiled = std::move(precompiledContract);
+}
+void TransactionExecutive::setConstantPrecompiled(
+    const string& address, std::shared_ptr<precompiled::Precompiled> precompiled)
+{
+    m_constantPrecompiled.insert(std::make_pair(address, precompiled));
+}
+void TransactionExecutive::setConstantPrecompiled(std::map<std::string, std::shared_ptr<precompiled::Precompiled>> _constantPrecompiled)
+{
+    m_constantPrecompiled = std::move(_constantPrecompiled);
+}
+
 void TransactionExecutive::revert()
 {
     auto blockContext = m_blockContext.lock();
@@ -656,4 +724,28 @@ CallParameters::UniquePtr TransactionExecutive::parseEVMCResult(
     }
 
     return callResults;
+}
+
+void TransactionExecutive::creatAuthTable(
+    std::string_view _tableName, std::string_view _origin, std::string_view _sender)
+{
+    // Create the access table
+    // TODO: use global variant,
+    //  /sys/ not create
+    if (_tableName.substr(0, 4) == "/sys/")
+        return;
+    auto authTableName = std::string(_tableName).append("_accessAuth");
+    // if contract external create contract, then inheritance agent
+    std::string_view agent;
+    if (_sender != _origin)
+    {
+        auto senderAuthTable = getContractTableName(_sender).append("_accessAuth");
+        auto entry = m_storageWrapper->getRow(std::move(senderAuthTable), "agent");
+        agent = entry->getField(STORAGE_VALUE);
+    }
+    auto table = m_storageWrapper->createTable(authTableName, STORAGE_VALUE);
+    auto agentEntry = table->newEntry();
+    agentEntry.setField(STORAGE_VALUE, std::string(agent));
+    m_storageWrapper->setRow(authTableName, "agent", std::move(agentEntry));
+    m_storageWrapper->setRow(authTableName, "interface_auth", table->newEntry());
 }

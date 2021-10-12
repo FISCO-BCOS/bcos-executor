@@ -56,12 +56,14 @@ CryptoPrecompiled::CryptoPrecompiled(crypto::Hash::Ptr _hashImpl) : Precompiled(
 }
 
 std::shared_ptr<PrecompiledExecResult> CryptoPrecompiled::call(
-    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param, const std::string&,
-    const std::string&)
+    std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _param,
+    const std::string&, const std::string&)
 {
     auto funcSelector = getParamFunc(_param);
     auto paramData = getParamData(_param);
-    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto blockContext = _executive->blockContext().lock();
+    auto codec =
+        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->setMemUsed(_param.size());

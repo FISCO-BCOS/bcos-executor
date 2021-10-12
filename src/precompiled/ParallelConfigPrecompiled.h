@@ -46,25 +46,27 @@ public:
 
     std::string toString() override;
 
-    std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::BlockContext> _context,
-        bytesConstRef _param, const std::string& _origin, const std::string& _sender) override;
+    std::shared_ptr<PrecompiledExecResult> call(
+        std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _param,
+        const std::string& _origin, const std::string& _sender) override;
 
     std::shared_ptr<bcos::storage::Table> openTable(
-        std::shared_ptr<executor::BlockContext> _context, std::string const& _contractAddress,
-        std::string const& _origin, bool _needCreate = true);
+        std::shared_ptr<executor::TransactionExecutive> _executive,
+        std::string const& _contractAddress, std::string const& _origin, bool _needCreate = true);
 
 private:
     void registerParallelFunction(PrecompiledCodec::Ptr _codec,
-        std::shared_ptr<executor::BlockContext> _context, bytesConstRef _data,
+        std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _data,
         std::string const& _origin, bytes& _out);
     void unregisterParallelFunction(PrecompiledCodec::Ptr _codec,
-        std::shared_ptr<executor::BlockContext> _context, bytesConstRef _data,
+        std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _data,
         std::string const& _origin, bytes& _out);
     std::string getTableName(std::string_view const& _contractName, bool _isWasm);
 
 public:
     /// get parallel config, return nullptr if not found
-    ParallelConfig::Ptr getParallelConfig(std::shared_ptr<executor::BlockContext> _context,
+    ParallelConfig::Ptr getParallelConfig(
+        std::shared_ptr<executor::TransactionExecutive> _executive,
         const std::string_view& _contractAddress, uint32_t _selector,
         const std::string_view& _origin);
 };

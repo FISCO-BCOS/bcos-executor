@@ -44,7 +44,6 @@ public:
         tableFactoryPrecompiled = std::make_shared<TableFactoryPrecompiled>(hashImpl);
         crudPrecompiled = std::make_shared<CRUDPrecompiled>(hashImpl);
         setIsWasm(false);
-        tableFactoryPrecompiled->setMemoryTableFactory(context->storage());
     }
 
     virtual ~CRUDPrecompiledTest() {}
@@ -66,7 +65,7 @@ BOOST_AUTO_TEST_CASE(CRUD_simple_evm)
                 valueField = "item_id,item_name";
     bytes param =
         codec->encodeWithSig("createTable(string,string,string)", tableName, key, valueField);
-    auto callResult = tableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "");
+    auto callResult = tableFactoryPrecompiled->call(tempExecutive, bytesConstRef(&param), "", "");
     bytes out = callResult->execResult();
     s256 createResult = 0;
     codec->decode(&out, createResult);
@@ -76,7 +75,7 @@ BOOST_AUTO_TEST_CASE(CRUD_simple_evm)
     param.clear();
     out.clear();
     param = codec->encodeWithSig("desc(string)", tableName);
-    callResult = crudPrecompiled->call(context, bytesConstRef(&param), "", "");
+    callResult = crudPrecompiled->call(tempExecutive, bytesConstRef(&param), "", "");
     out = callResult->execResult();
     string keyField, valueField2;
     codec->decode(&out, keyField, valueField2);
@@ -87,7 +86,7 @@ BOOST_AUTO_TEST_CASE(CRUD_simple_evm)
     param.clear();
     out.clear();
     param = codec->encodeWithSig("desc(string)", std::string("error"));
-    callResult = crudPrecompiled->call(context, bytesConstRef(&param), "", "");
+    callResult = crudPrecompiled->call(tempExecutive, bytesConstRef(&param), "", "");
     out = callResult->execResult();
     codec->decode(&out, keyField, valueField);
     BOOST_TEST(keyField == "");
@@ -98,7 +97,7 @@ BOOST_AUTO_TEST_CASE(CRUD_simple_evm)
     param.clear();
     out.clear();
     param = codec->encodeWithSig(insertFunc, tableName, entryStr, std::string(""));
-    callResult = crudPrecompiled->call(context, bytesConstRef(&param), "", "");
+    callResult = crudPrecompiled->call(tempExecutive, bytesConstRef(&param), "", "");
     out = callResult->execResult();
     s256 insertResult = 0;
     codec->decode(&out, insertResult);
@@ -109,7 +108,7 @@ BOOST_AUTO_TEST_CASE(CRUD_simple_evm)
     param.clear();
     out.clear();
     param = codec->encodeWithSig(insertFunc, tableName2, entryStr, std::string(""));
-    callResult = crudPrecompiled->call(context, bytesConstRef(&param), "", "");
+    callResult = crudPrecompiled->call(tempExecutive, bytesConstRef(&param), "", "");
     out = callResult->execResult();
     insertResult = 0;
     codec->decode(&out, insertResult);
@@ -120,7 +119,7 @@ BOOST_AUTO_TEST_CASE(CRUD_simple_evm)
     param.clear();
     out.clear();
     param = codec->encodeWithSig(insertFunc, tableName, entryStr, std::string(""));
-    callResult = crudPrecompiled->call(context, bytesConstRef(&param), "", "");
+    callResult = crudPrecompiled->call(tempExecutive, bytesConstRef(&param), "", "");
     out = callResult->execResult();
     insertResult = 0;
     codec->decode(&out, insertResult);
@@ -132,7 +131,7 @@ BOOST_AUTO_TEST_CASE(CRUD_simple_evm)
     param.clear();
     out.clear();
     param = codec->encodeWithSig(selectFunc, tableName, conditionStr, std::string(""));
-    callResult = crudPrecompiled->call(context, bytesConstRef(&param), "", "");
+    callResult = crudPrecompiled->call(tempExecutive, bytesConstRef(&param), "", "");
     out = callResult->execResult();
     std::string selectResult;
     codec->decode(&out, selectResult);
@@ -145,7 +144,7 @@ BOOST_AUTO_TEST_CASE(CRUD_simple_evm)
     param.clear();
     out.clear();
     param = codec->encodeWithSig(selectFunc, tableName2, conditionStr, std::string(""));
-    callResult = crudPrecompiled->call(context, bytesConstRef(&param), "", "");
+    callResult = crudPrecompiled->call(tempExecutive, bytesConstRef(&param), "", "");
     out = callResult->execResult();
     s256 selectResult2 = 0;
     codec->decode(&out, selectResult2);
@@ -156,7 +155,7 @@ BOOST_AUTO_TEST_CASE(CRUD_simple_evm)
     param.clear();
     out.clear();
     param = codec->encodeWithSig(selectFunc, tableName, conditionStr, std::string(""));
-    callResult = crudPrecompiled->call(context, bytesConstRef(&param), "", "");
+    callResult = crudPrecompiled->call(tempExecutive, bytesConstRef(&param), "", "");
     out = callResult->execResult();
     selectResult2 = 0;
     codec->decode(&out, selectResult2);
@@ -168,7 +167,7 @@ BOOST_AUTO_TEST_CASE(CRUD_simple_evm)
     param.clear();
     out.clear();
     param = codec->encodeWithSig(updateFunc, tableName, entryStr, conditionStr, std::string(""));
-    callResult = crudPrecompiled->call(context, bytesConstRef(&param), "", "");
+    callResult = crudPrecompiled->call(tempExecutive, bytesConstRef(&param), "", "");
     out = callResult->execResult();
     s256 updateResult = 0;
     codec->decode(&out, updateResult);
@@ -180,7 +179,7 @@ BOOST_AUTO_TEST_CASE(CRUD_simple_evm)
     param.clear();
     out.clear();
     param = codec->encodeWithSig(updateFunc, tableName2, entryStr, conditionStr, std::string(""));
-    callResult = crudPrecompiled->call(context, bytesConstRef(&param), "", "");
+    callResult = crudPrecompiled->call(tempExecutive, bytesConstRef(&param), "", "");
     out = callResult->execResult();
     updateResult = 0;
     codec->decode(&out, updateResult);
@@ -192,7 +191,7 @@ BOOST_AUTO_TEST_CASE(CRUD_simple_evm)
     param.clear();
     out.clear();
     param = codec->encodeWithSig(updateFunc, tableName, entryStr, conditionStr, std::string(""));
-    callResult = crudPrecompiled->call(context, bytesConstRef(&param), "", "");
+    callResult = crudPrecompiled->call(tempExecutive, bytesConstRef(&param), "", "");
     out = callResult->execResult();
     updateResult = 0;
     codec->decode(&out, updateResult);
@@ -204,7 +203,7 @@ BOOST_AUTO_TEST_CASE(CRUD_simple_evm)
     param.clear();
     out.clear();
     param = codec->encodeWithSig(updateFunc, tableName, entryStr, conditionStr, std::string(""));
-    callResult = crudPrecompiled->call(context, bytesConstRef(&param), "", "");
+    callResult = crudPrecompiled->call(tempExecutive, bytesConstRef(&param), "", "");
     out = callResult->execResult();
     updateResult = 0;
     codec->decode(&out, updateResult);
@@ -215,7 +214,7 @@ BOOST_AUTO_TEST_CASE(CRUD_simple_evm)
     param.clear();
     out.clear();
     param = codec->encodeWithSig(removeFunc, tableName, conditionStr, std::string(""));
-    callResult = crudPrecompiled->call(context, bytesConstRef(&param), "", "");
+    callResult = crudPrecompiled->call(tempExecutive, bytesConstRef(&param), "", "");
     out = callResult->execResult();
     s256 removeResult = 0;
     codec->decode(&out, removeResult);
@@ -226,7 +225,7 @@ BOOST_AUTO_TEST_CASE(CRUD_simple_evm)
     param.clear();
     out.clear();
     param = codec->encodeWithSig(removeFunc, tableName2, conditionStr, std::string(""));
-    callResult = crudPrecompiled->call(context, bytesConstRef(&param), "", "");
+    callResult = crudPrecompiled->call(tempExecutive, bytesConstRef(&param), "", "");
     out = callResult->execResult();
     removeResult = 0;
     codec->decode(&out, removeResult);
@@ -237,7 +236,7 @@ BOOST_AUTO_TEST_CASE(CRUD_simple_evm)
     param.clear();
     out.clear();
     param = codec->encodeWithSig(removeFunc, tableName, conditionStr, std::string(""));
-    callResult = crudPrecompiled->call(context, bytesConstRef(&param), "", "");
+    callResult = crudPrecompiled->call(tempExecutive, bytesConstRef(&param), "", "");
     out = callResult->execResult();
     removeResult = 0;
     codec->decode(&out, removeResult);
@@ -248,7 +247,7 @@ BOOST_AUTO_TEST_CASE(CRUD_simple_evm)
     param.clear();
     out.clear();
     param = codec->encodeWithSig(removeFunc, tableName, conditionStr, std::string(""));
-    callResult = crudPrecompiled->call(context, bytesConstRef(&param), "", "");
+    callResult = crudPrecompiled->call(tempExecutive, bytesConstRef(&param), "", "");
     out = callResult->execResult();
     removeResult = 0;
     codec->decode(&out, removeResult);
@@ -257,7 +256,7 @@ BOOST_AUTO_TEST_CASE(CRUD_simple_evm)
     // function not exist
     std::string errorFunc = "errorFunc(string,string,string,string)";
     param = codec->encodeWithSig(errorFunc, tableName, key, conditionStr, std::string(""));
-    callResult = crudPrecompiled->call(context, bytesConstRef(&param), "", "");
+    callResult = crudPrecompiled->call(tempExecutive, bytesConstRef(&param), "", "");
     out = callResult->execResult();
     s256 funcResult = 0;
     codec->decode(&out, funcResult);
@@ -270,7 +269,7 @@ BOOST_AUTO_TEST_CASE(CRUD_boundary_evm)
         std::string key = "name", valueField = "item_id,item_name";
         bytes param =
             codec->encodeWithSig("createTable(string,string,string)", tableName, key, valueField);
-        auto callResult = tableFactoryPrecompiled->call(context, bytesConstRef(&param), "", "");
+        auto callResult = tableFactoryPrecompiled->call(tempExecutive, bytesConstRef(&param), "", "");
         bytes out = callResult->execResult();
         s256 createResult = 0;
         codec->decode(&out, createResult);
@@ -286,7 +285,7 @@ BOOST_AUTO_TEST_CASE(CRUD_boundary_evm)
         // insert
         std::string entryStr = "{\"item_id\":\"1\",\"name\":\"fruit\",\"item_name\":\"apple\"}";
         param = codec->encodeWithSig(insertFunc, tableName, entryStr, std::string(""));
-        auto callResult = crudPrecompiled->call(context, bytesConstRef(&param), "", "");
+        auto callResult = crudPrecompiled->call(tempExecutive, bytesConstRef(&param), "", "");
         out = callResult->execResult();
         s256 insertResult = 0;
         codec->decode(&out, insertResult);
@@ -295,7 +294,7 @@ BOOST_AUTO_TEST_CASE(CRUD_boundary_evm)
         // insert exist entry
         entryStr = "{\"item_id\":\"1\",\"name\":\"fruit\",\"item_name\":\"apple\"}";
         param = codec->encodeWithSig(insertFunc, tableName, entryStr, std::string(""));
-        callResult = crudPrecompiled->call(context, bytesConstRef(&param), "", "");
+        callResult = crudPrecompiled->call(tempExecutive, bytesConstRef(&param), "", "");
         out = callResult->execResult();
         insertResult = 0;
         codec->decode(&out, insertResult);
@@ -304,7 +303,7 @@ BOOST_AUTO_TEST_CASE(CRUD_boundary_evm)
         // insert part entry
         entryStr = "{\"name\":\"fruit2\",\"item_name\":\"apple\"}";
         param = codec->encodeWithSig(insertFunc, tableName, entryStr, std::string(""));
-        callResult = crudPrecompiled->call(context, bytesConstRef(&param), "", "");
+        callResult = crudPrecompiled->call(tempExecutive, bytesConstRef(&param), "", "");
         out = callResult->execResult();
         insertResult = 0;
         codec->decode(&out, insertResult);
@@ -315,7 +314,7 @@ BOOST_AUTO_TEST_CASE(CRUD_boundary_evm)
         param.clear();
         out.clear();
         param = codec->encodeWithSig(selectFunc, tableName, conditionStr, std::string(""));
-        callResult = crudPrecompiled->call(context, bytesConstRef(&param), "", "");
+        callResult = crudPrecompiled->call(tempExecutive, bytesConstRef(&param), "", "");
         out = callResult->execResult();
         std::string selectResult;
         codec->decode(&out, selectResult);
@@ -329,7 +328,7 @@ BOOST_AUTO_TEST_CASE(CRUD_boundary_evm)
         param.clear();
         out.clear();
         param = codec->encodeWithSig(selectFunc, tableName, conditionStr, std::string(""));
-        callResult = crudPrecompiled->call(context, bytesConstRef(&param), "", "");
+        callResult = crudPrecompiled->call(tempExecutive, bytesConstRef(&param), "", "");
         out = callResult->execResult();
         codec->decode(&out, selectResult);
         reader.parse(selectResult, entryJson);
@@ -347,7 +346,7 @@ BOOST_AUTO_TEST_CASE(CRUD_boundary_evm)
         // insert
         std::string entryStr = "{\"item_id\":\"1\",\"name\":\"fruit\",\"item_name\":\"apple\"}";
         param = codec->encodeWithSig(insertFunc, tableName, entryStr, std::string(""));
-        auto callResult = crudPrecompiled->call(context, bytesConstRef(&param), "", "");
+        auto callResult = crudPrecompiled->call(tempExecutive, bytesConstRef(&param), "", "");
         out = callResult->execResult();
         s256 insertResult = 0;
         codec->decode(&out, insertResult);
@@ -358,7 +357,7 @@ BOOST_AUTO_TEST_CASE(CRUD_boundary_evm)
         param.clear();
         out.clear();
         param = codec->encodeWithSig(selectFunc, tableName, conditionStr, std::string(""));
-        callResult = crudPrecompiled->call(context, bytesConstRef(&param), "", "");
+        callResult = crudPrecompiled->call(tempExecutive, bytesConstRef(&param), "", "");
         out = callResult->execResult();
         std::string selectResult;
         codec->decode(&out, selectResult);
@@ -374,7 +373,7 @@ BOOST_AUTO_TEST_CASE(CRUD_boundary_evm)
         out.clear();
         param =
             codec->encodeWithSig(updateFunc, tableName, entryStr, conditionStr, std::string(""));
-        callResult = crudPrecompiled->call(context, bytesConstRef(&param), "", "");
+        callResult = crudPrecompiled->call(tempExecutive, bytesConstRef(&param), "", "");
         out = callResult->execResult();
         s256 updateResult = 0;
         codec->decode(&out, updateResult);
@@ -387,7 +386,7 @@ BOOST_AUTO_TEST_CASE(CRUD_boundary_evm)
         out.clear();
         param =
             codec->encodeWithSig(updateFunc, tableName, entryStr, conditionStr, std::string(""));
-        callResult = crudPrecompiled->call(context, bytesConstRef(&param), "", "");
+        callResult = crudPrecompiled->call(tempExecutive, bytesConstRef(&param), "", "");
         out = callResult->execResult();
         updateResult = 0;
         codec->decode(&out, updateResult);
@@ -397,7 +396,7 @@ BOOST_AUTO_TEST_CASE(CRUD_boundary_evm)
         param.clear();
         out.clear();
         param = codec->encodeWithSig(selectFunc, tableName, conditionStr, std::string(""));
-        callResult = crudPrecompiled->call(context, bytesConstRef(&param), "", "");
+        callResult = crudPrecompiled->call(tempExecutive, bytesConstRef(&param), "", "");
         out = callResult->execResult();
         codec->decode(&out, selectResult);
         reader.parse(selectResult, entryJson);
@@ -416,7 +415,7 @@ BOOST_AUTO_TEST_CASE(CRUD_boundary_evm)
         param.clear();
         out.clear();
         param = codec->encodeWithSig(insertFunc, tableName, entryStr, std::string(""));
-        auto callResult = crudPrecompiled->call(context, bytesConstRef(&param), "", "");
+        auto callResult = crudPrecompiled->call(tempExecutive, bytesConstRef(&param), "", "");
         out = callResult->execResult();
         s256 insertResult = 0;
         codec->decode(&out, insertResult);
@@ -427,7 +426,7 @@ BOOST_AUTO_TEST_CASE(CRUD_boundary_evm)
         param.clear();
         out.clear();
         param = codec->encodeWithSig(selectFunc, tableName, conditionStr, std::string(""));
-        callResult = crudPrecompiled->call(context, bytesConstRef(&param), "", "");
+        callResult = crudPrecompiled->call(tempExecutive, bytesConstRef(&param), "", "");
         out = callResult->execResult();
         std::string selectResult;
         codec->decode(&out, selectResult);
@@ -443,7 +442,7 @@ BOOST_AUTO_TEST_CASE(CRUD_boundary_evm)
         out.clear();
         param =
             codec->encodeWithSig(updateFunc, tableName, entryStr, conditionStr, std::string(""));
-        callResult = crudPrecompiled->call(context, bytesConstRef(&param), "", "");
+        callResult = crudPrecompiled->call(tempExecutive, bytesConstRef(&param), "", "");
         out = callResult->execResult();
         s256 updateResult = 0;
         codec->decode(&out, updateResult);
@@ -454,7 +453,7 @@ BOOST_AUTO_TEST_CASE(CRUD_boundary_evm)
         param.clear();
         out.clear();
         param = codec->encodeWithSig(removeFunc, tableName, conditionStr, std::string(""));
-        callResult = crudPrecompiled->call(context, bytesConstRef(&param), "", "");
+        callResult = crudPrecompiled->call(tempExecutive, bytesConstRef(&param), "", "");
         out = callResult->execResult();
         s256 removeResult = 0;
         codec->decode(&out, removeResult);
@@ -465,7 +464,7 @@ BOOST_AUTO_TEST_CASE(CRUD_boundary_evm)
         param.clear();
         out.clear();
         param = codec->encodeWithSig(removeFunc, tableName, conditionStr, std::string(""));
-        callResult = crudPrecompiled->call(context, bytesConstRef(&param), "", "");
+        callResult = crudPrecompiled->call(tempExecutive, bytesConstRef(&param), "", "");
         out = callResult->execResult();
         removeResult = 0;
         codec->decode(&out, removeResult);

@@ -59,12 +59,14 @@ std::string EntryPrecompiled::toString()
 }
 
 std::shared_ptr<PrecompiledExecResult> EntryPrecompiled::call(
-    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param, const std::string&,
-    const std::string&)
+    std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _param,
+    const std::string&, const std::string&)
 {
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
-    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto blockContext = _executive->blockContext().lock();
+    auto codec =
+        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->setMemUsed(_param.size());
@@ -133,7 +135,7 @@ std::shared_ptr<PrecompiledExecResult> EntryPrecompiled::call(
         codec->decode(data, str);
 
         auto value = m_entry->getField(str);
-        if (_context->isWasm())
+        if (blockContext->isWasm())
         {
             callResult->setExecResult(codec->encode(std::string(value)));
         }
