@@ -103,7 +103,8 @@ BOOST_AUTO_TEST_CASE(insertTest)
 
     bytes in = codec->encodeWithSig("insert(string,string,address,string)", contractName,
         contractVersion, contractAddress, contractAbi);
-    auto callResult = cnsPrecompiled->call(context, bytesConstRef(&in), "", "");
+
+    auto callResult = cnsPrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
     bytes out = callResult->execResult();
     // query
     auto table = memoryTableFactory->openTable(SYS_CNS);
@@ -111,7 +112,7 @@ BOOST_AUTO_TEST_CASE(insertTest)
     BOOST_TEST(entry.has_value());
 
     // insert again with same item
-    callResult = cnsPrecompiled->call(context, bytesConstRef(&in), "", "");
+    callResult = cnsPrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
     out = callResult->execResult();
     s256 errCode;
     codec->decode(ref(out), errCode);
@@ -119,7 +120,7 @@ BOOST_AUTO_TEST_CASE(insertTest)
 
     bytes in2 = codec->encodeWithSig("insert(string,string,address,string)", contractName,
         overflowVersion130, contractAddress, contractAbi);
-    callResult = (cnsPrecompiled->call(context, bytesConstRef(&in2), "", ""));
+    callResult = (cnsPrecompiled->call(tempExecutive, bytesConstRef(&in2), "", ""));
     bytes out2 = callResult->execResult();
     codec->decode(ref(out2), errCode);
     BOOST_TEST(errCode == s256((int)CODE_VERSION_LENGTH_OVERFLOW));
@@ -128,7 +129,7 @@ BOOST_AUTO_TEST_CASE(insertTest)
     contractVersion = "2.0";
     in2 = codec->encodeWithSig("insert(string,string,address,string)", contractName,
         contractVersion, contractAddress, contractAbi);
-    callResult = cnsPrecompiled->call(context, bytesConstRef(&in2), "", "");
+    callResult = cnsPrecompiled->call(tempExecutive, bytesConstRef(&in2), "", "");
     out = callResult->execResult();
     // query
     auto table2 = memoryTableFactory->openTable(SYS_CNS);
@@ -139,21 +140,21 @@ BOOST_AUTO_TEST_CASE(insertTest)
     contractVersion = "3.0";
     in2 = codec->encodeWithSig("insert(string,string,address,string)", contractName,
         contractVersion, contractAddress, contractAbi);
-    callResult = cnsPrecompiled->call(context, bytesConstRef(&in2), "", "");
+    callResult = cnsPrecompiled->call(tempExecutive, bytesConstRef(&in2), "", "");
     out = callResult->execResult();
 
     initContractCodeHash();
     contractVersion = "4.0";
     in2 = codec->encodeWithSig("insert(string,string,address,string)", contractName,
         contractVersion, contractAddress, contractAbi);
-    callResult = cnsPrecompiled->call(context, bytesConstRef(&in2), "", "");
+    callResult = cnsPrecompiled->call(tempExecutive, bytesConstRef(&in2), "", "");
     out = callResult->execResult();
 
     initContractFrozen();
     contractVersion = "5.0";
     in2 = codec->encodeWithSig("insert(string,string,address,string)", contractName,
         contractVersion, contractAddress, contractAbi);
-    callResult = cnsPrecompiled->call(context, bytesConstRef(&in2), "", "");
+    callResult = cnsPrecompiled->call(tempExecutive, bytesConstRef(&in2), "", "");
     out = callResult->execResult();
 }
 
@@ -176,7 +177,7 @@ BOOST_AUTO_TEST_CASE(selectTest)
 
     // select not exist keys
     bytes in = codec->encodeWithSig("selectByName(string)", contractName);
-    auto callResult = cnsPrecompiled->call(context, bytesConstRef(&in), "", "");
+    auto callResult = cnsPrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
     bytes out = callResult->execResult();
     std::string retStr;
     codec->decode(&out, retStr);
@@ -184,19 +185,19 @@ BOOST_AUTO_TEST_CASE(selectTest)
 
     in = codec->encodeWithSig("insert(string,string,address,string)", contractName, contractVersion,
         contractAddress, contractAbi);
-    callResult = cnsPrecompiled->call(context, bytesConstRef(&in), "", "");
+    callResult = cnsPrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
     out = callResult->execResult();
 
     // insert new item with same name, address and abi
     contractVersion = "2.0";
     in = codec->encodeWithSig("insert(string,string,address,string)", contractName, contractVersion,
         contractAddress, contractAbi);
-    callResult = cnsPrecompiled->call(context, bytesConstRef(&in), "", "");
+    callResult = cnsPrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
     out = callResult->execResult();
 
     // select existing keys
     in = codec->encodeWithSig("selectByName(string)", contractName);
-    callResult = cnsPrecompiled->call(context, bytesConstRef(&in), "", "");
+    callResult = cnsPrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
     out = callResult->execResult();
     codec->decode(&out, retStr);
 
@@ -208,7 +209,7 @@ BOOST_AUTO_TEST_CASE(selectTest)
 
     // getContractAddress
     in = codec->encodeWithSig("getContractAddress(string,string)", contractName, contractVersion);
-    callResult = cnsPrecompiled->call(context, bytesConstRef(&in), "", "");
+    callResult = cnsPrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
     out = callResult->execResult();
     Address ret;
     codec->decode(&out, ret);
@@ -217,14 +218,14 @@ BOOST_AUTO_TEST_CASE(selectTest)
     // get no existing key
     in = codec->encodeWithSig(
         "getContractAddress(string,string)", std::string("Ok2"), contractVersion);
-    callResult = cnsPrecompiled->call(context, bytesConstRef(&in), "", "");
+    callResult = cnsPrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
     out = callResult->execResult();
     codec->decode(&out, ret);
     BOOST_TEST(ret != contractAddress);
 
     // select no existing keys
     in = codec->encodeWithSig("selectByName(string)", std::string("Ok2"));
-    callResult = cnsPrecompiled->call(context, bytesConstRef(&in), "", "");
+    callResult = cnsPrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
     out = callResult->execResult();
     codec->decode(&out, retStr);
     BCOS_LOG(TRACE) << "select result:" << retStr;
@@ -234,7 +235,7 @@ BOOST_AUTO_TEST_CASE(selectTest)
     // select existing keys and version
     in = codec->encodeWithSig(
         "selectByNameAndVersion(string,string)", contractName, contractVersion);
-    callResult = cnsPrecompiled->call(context, bytesConstRef(&in), "", "");
+    callResult = cnsPrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
     out = callResult->execResult();
     std::string abi;
 
@@ -246,7 +247,7 @@ BOOST_AUTO_TEST_CASE(selectTest)
     // select no existing keys and version
     in = codec->encodeWithSig(
         "selectByNameAndVersion(string,string)", contractName, std::string("3.0"));
-    callResult = cnsPrecompiled->call(context, bytesConstRef(&in), "", "");
+    callResult = cnsPrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
     out = callResult->execResult();
     abi = "";
     codec->decode(&out, ret, abi);
@@ -256,7 +257,7 @@ BOOST_AUTO_TEST_CASE(selectTest)
 
     in = codec->encodeWithSig(
         "selectByNameAndVersion(string,string)", std::string("Ok2"), contractVersion);
-    callResult = cnsPrecompiled->call(context, bytesConstRef(&in), "", "");
+    callResult = cnsPrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
     out = callResult->execResult();
     codec->decode(&out, ret, abi);
     BCOS_LOG(TRACE) << "select result: address:" << ret.hex() << " abi:" << abi;
@@ -269,7 +270,7 @@ BOOST_AUTO_TEST_CASE(errFunc)
     BOOST_TEST(cnsPrecompiled->toString() == "CNS");
 
     bytes in = codec->encodeWithSig("insert(string)", std::string("test"));
-    auto callResult = cnsPrecompiled->call(context, bytesConstRef(&in), "", "");
+    auto callResult = cnsPrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
     bytes out = callResult->execResult();
     s256 errorCode;
     codec->decode(&out, errorCode);

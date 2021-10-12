@@ -78,6 +78,7 @@ public:
             std::function<void(Error::UniquePtr, std::unique_ptr<CallParameters>)> callback)>
             externalCallCallback)
       : m_blockContext(std::move(blockContext)),
+        m_addressCount(0x10000),
         m_contractAddress(std::move(contractAddress)),
         m_contextID(contextID),
         m_seq(seq),
@@ -118,6 +119,43 @@ public:
         CallParameters::UniquePtr callParameters);  // execute parameters in
                                                     // current corouitine
 
+    std::string registerPrecompiled(std::shared_ptr<precompiled::Precompiled> p);
+
+    bool isPrecompiled(const std::string& _address) const;
+
+    std::shared_ptr<precompiled::Precompiled> getPrecompiled(const std::string& _address) const;
+
+    void setConstantPrecompiled(
+        const std::string& _address, std::shared_ptr<precompiled::Precompiled> precompiled);
+
+    void setBuiltInPrecompiled(std::shared_ptr<const std::vector<std::string>> _builtInPrecompiled)
+    {
+        m_builtInPrecompiled = std::move(_builtInPrecompiled);
+    }
+
+    std::shared_ptr<const std::vector<std::string>> getBuiltInPrecompiled()
+    {
+        return m_builtInPrecompiled;
+    }
+
+    bool isEthereumPrecompiled(const std::string& _a) const;
+
+    std::pair<bool, bytes> executeOriginPrecompiled(
+        const std::string& _a, bytesConstRef _in) const;
+
+    int64_t costOfPrecompiled(const std::string& _a, bytesConstRef _in) const;
+
+    void setEVMPrecompiled(
+        std::shared_ptr<const std::map<std::string, std::shared_ptr<PrecompiledContract>>>
+            precompiledContract);
+
+    void setConstantPrecompiled(
+        const std::map<std::string, std::shared_ptr<precompiled::Precompiled>>
+            _constantPrecompiled);
+
+    std::shared_ptr<precompiled::PrecompiledExecResult> callPrecompiled(const std::string& address,
+        bytesConstRef param, const std::string& origin, const std::string& sender);
+
 private:
     std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> call(
         CallParameters::UniquePtr callParameters);
@@ -148,6 +186,15 @@ private:
         std::string_view _tableName, std::string_view _origin, std::string_view _sender);
 
     std::weak_ptr<BlockContext> m_blockContext;  ///< Information on the runtime environment.
+    tbb::concurrent_unordered_map<std::string, std::shared_ptr<precompiled::Precompiled>,
+        std::hash<std::string>>
+        m_dynamicPrecompiled;
+    std::map<std::string, std::shared_ptr<precompiled::Precompiled>> m_constantPrecompiled;
+    std::shared_ptr<const std::map<std::string, std::shared_ptr<PrecompiledContract>>>
+        m_evmPrecompiled;
+    std::shared_ptr<const std::vector<std::string>> m_builtInPrecompiled;
+    std::atomic<int> m_addressCount;
+
     std::string m_contractAddress;
     int64_t m_contextID;
     int64_t m_seq;

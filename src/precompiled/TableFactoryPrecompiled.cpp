@@ -52,7 +52,7 @@ std::string TableFactoryPrecompiled::toString()
 }
 
 std::shared_ptr<PrecompiledExecResult> TableFactoryPrecompiled::call(
-    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
+    std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _param,
     const std::string& _origin, const std::string& _sender)
 {
     uint32_t func = getParamFunc(_param);
@@ -64,12 +64,12 @@ std::shared_ptr<PrecompiledExecResult> TableFactoryPrecompiled::call(
     if (func == name2Selector[TABLE_METHOD_OPT_STR])
     {
         // openTable(string)
-        openTable(_context, data, callResult, gasPricer);
+        openTable(_executive, data, callResult, gasPricer);
     }
     else if (func == name2Selector[TABLE_METHOD_CRT_STR_STR])
     {
         // createTable(string,string,string)
-        createTable(_context, data, callResult, _origin, _sender, gasPricer);
+        createTable(_executive, data, callResult, _origin, _sender, gasPricer);
     }
     else
     {
@@ -151,18 +151,20 @@ void TableFactoryPrecompiled::checkCreateTableParam(
     }
 }
 
-void TableFactoryPrecompiled::openTable(const std::shared_ptr<executor::BlockContext>& _context,
-    bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
-    const PrecompiledGas::Ptr& gasPricer)
+void TableFactoryPrecompiled::openTable(
+    const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& data,
+    const std::shared_ptr<PrecompiledExecResult>& callResult, const PrecompiledGas::Ptr& gasPricer)
 {
     // openTable(string)
     std::string tableName;
-    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto blockContext = _executive->blockContext().lock();
+    auto codec =
+        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     codec->decode(data, tableName);
     tableName = getTableName(tableName);
-    auto table = m_memoryTableFactory->openTable(tableName);
+    auto table = _executive->storage().openTable(tableName);
     gasPricer->appendOperation(InterfaceOpcode::OpenTable);
-    auto sysTable = m_memoryTableFactory->openTable(storage::StorageInterface::SYS_TABLES);
+    auto sysTable = _executive->storage().openTable(storage::StorageInterface::SYS_TABLES);
     auto sysEntry = sysTable->getRow(tableName);
     if (!table || !sysEntry)
     {
@@ -176,30 +178,33 @@ void TableFactoryPrecompiled::openTable(const std::shared_ptr<executor::BlockCon
     auto tablePrecompiled = std::make_shared<TablePrecompiled>(m_hashImpl);
     tablePrecompiled->setTable(std::make_shared<Table>(table.value()));
     tablePrecompiled->setKeyField(keyField);
-    if (_context->isWasm())
+    if (blockContext->isWasm())
     {
-        auto address = _context->registerPrecompiled(tablePrecompiled);
+        auto address = _executive->registerPrecompiled(tablePrecompiled);
         callResult->setExecResult(codec->encode(address));
     }
     else
     {
-        auto address = Address(_context->registerPrecompiled(tablePrecompiled));
+        auto address = Address(_executive->registerPrecompiled(tablePrecompiled));
         callResult->setExecResult(codec->encode(address));
     }
 }
 
-void TableFactoryPrecompiled::createTable(const std::shared_ptr<executor::BlockContext>& _context,
-    bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
-    const std::string& _origin, const std::string&, const PrecompiledGas::Ptr& gasPricer)
+void TableFactoryPrecompiled::createTable(
+    const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& data,
+    const std::shared_ptr<PrecompiledExecResult>& callResult, const std::string& _origin,
+    const std::string&, const PrecompiledGas::Ptr& gasPricer)
 {
     // createTable(string,string,string)
     std::string tableName;
     std::string keyField;
     std::string valueField;
-    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto blockContext = _executive->blockContext().lock();
+    auto codec =
+        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     codec->decode(data, tableName, keyField, valueField);
 
-    if (_context->isWasm() && (tableName.empty() || tableName.at(0) != '/'))
+    if (blockContext->isWasm() && (tableName.empty() || tableName.at(0) != '/'))
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("TableFactoryPrecompiled")
                                << LOG_DESC("create table in wasm env: error tableName")
@@ -213,7 +218,7 @@ void TableFactoryPrecompiled::createTable(const std::shared_ptr<executor::BlockC
     // /tables + tableName
     auto newTableName = getTableName(tableName);
     int result = CODE_SUCCESS;
-    auto table = m_memoryTableFactory->openTable(newTableName);
+    auto table = _executive->storage().openTable(newTableName);
     if (table)
     {
         // table already exist
@@ -226,14 +231,14 @@ void TableFactoryPrecompiled::createTable(const std::shared_ptr<executor::BlockC
         auto parentDirAndBaseName = getParentDirAndBaseName(newTableName);
         auto parentDir = parentDirAndBaseName.first;
         auto tableBaseName = parentDirAndBaseName.second;
-        if (!recursiveBuildDir(m_memoryTableFactory, parentDir))
+        if (!recursiveBuildDir(_executive, parentDir))
         {
             result = CODE_FILE_BUILD_DIR_FAILED;
         }
         else
         {
-            auto ret = m_memoryTableFactory->createTable(newTableName, valueField);
-            auto sysTable = _context->storage()->openTable(StorageInterface::SYS_TABLES);
+            auto ret = _executive->storage().createTable(newTableName, valueField);
+            auto sysTable = _executive->storage().openTable(StorageInterface::SYS_TABLES);
             auto sysEntry = sysTable->getRow(newTableName);
             if (!ret || !sysEntry)
             {
@@ -248,7 +253,7 @@ void TableFactoryPrecompiled::createTable(const std::shared_ptr<executor::BlockC
 
             // parentPath table must exist
             // update parentDir
-            auto parentTable = m_memoryTableFactory->openTable(parentDir);
+            auto parentTable = _executive->storage().openTable(parentDir);
             auto newEntry = parentTable->newEntry();
             newEntry.setField(FS_FIELD_TYPE, FS_TYPE_CONTRACT);
             newEntry.setField(FS_FIELD_ACCESS, "");

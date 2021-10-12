@@ -41,8 +41,6 @@ public:
     void initEvmEnv()
     {
         setIsWasm(false);
-        kvTableFactoryPrecompiled->setMemoryTableFactory(context->storage());
-
         context->storage()->createTable("test", "name,age");
 
         auto table = context->storage()->openTable("test");
@@ -54,8 +52,6 @@ public:
     void initWasmEnv()
     {
         setIsWasm(true);
-        kvTableFactoryPrecompiled->setMemoryTableFactory(context->storage());
-
         context->storage()->createTable("/data/test", "name,age");
 
         auto table = context->storage()->openTable("/data/test");
@@ -87,7 +83,7 @@ BOOST_AUTO_TEST_CASE(get_set_evm)
 
     // get not exist key
     bytes in = codec->encodeWithSig("get(string)", std::string("kk"));
-    auto callResult = kvTablePrecompiled->call(context, bytesConstRef(&in), "", "");
+    auto callResult = kvTablePrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
     bytes out = callResult->execResult();
     bool status = true;
     Address entryAddress;
@@ -101,13 +97,13 @@ BOOST_AUTO_TEST_CASE(get_set_evm)
     newEntry.setField("age", "100");
     auto entryPrecompiled = std::make_shared<EntryPrecompiled>(hashImpl);
     entryPrecompiled->setEntry(std::make_shared<storage::Entry>(newEntry));
-    auto entryAddress1 = context->registerPrecompiled(entryPrecompiled);
+    auto entryAddress1 = tempExecutive->registerPrecompiled(entryPrecompiled);
     BOOST_CHECK(Address(entryAddress1) == Address(addressCount + 1));
 
     // call set
     auto addr = Address(entryAddress1);
     bytes in2 = codec->encodeWithSig("set(string,address)", std::string("123"), addr);
-    callResult = kvTablePrecompiled->call(context, bytesConstRef(&in2), "0x00001", "");
+    callResult = kvTablePrecompiled->call(tempExecutive, bytesConstRef(&in2), "0x00001", "");
     bytes out1 = callResult->execResult();
     u256 num;
     codec->decode(bytesConstRef(&out1), num);
@@ -115,14 +111,14 @@ BOOST_AUTO_TEST_CASE(get_set_evm)
 
     // call get
     in = codec->encodeWithSig("get(string)", std::string("123"));
-    callResult = kvTablePrecompiled->call(context, bytesConstRef(&in), "", "");
+    callResult = kvTablePrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
     out = callResult->execResult();
     codec->decode(bytesConstRef(&out), status, entryAddress);
     BOOST_TEST(status == true);
 
     // get field in entry
     auto entryPrecompiled2 =
-        std::dynamic_pointer_cast<EntryPrecompiled>(context->getPrecompiled(entryAddress1));
+        std::dynamic_pointer_cast<EntryPrecompiled>(tempExecutive->getPrecompiled(entryAddress1));
     auto entry = entryPrecompiled2->getEntry();
     BOOST_TEST(entry->getField("name") == "kk");
 }
@@ -133,7 +129,7 @@ BOOST_AUTO_TEST_CASE(get_set_wasm)
 
     // get not exist key
     bytes in = codec->encodeWithSig("get(string)", std::string("kk"));
-    auto callResult = kvTablePrecompiled->call(context, bytesConstRef(&in), "", "");
+    auto callResult = kvTablePrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
     bytes out = callResult->execResult();
     bool status = true;
     std::string entryAddress;
@@ -147,12 +143,12 @@ BOOST_AUTO_TEST_CASE(get_set_wasm)
     newEntry.setField("age", "100");
     auto entryPrecompiled = std::make_shared<EntryPrecompiled>(hashImpl);
     entryPrecompiled->setEntry(std::make_shared<storage::Entry>(newEntry));
-    auto entryAddress1 = context->registerPrecompiled(entryPrecompiled);
+    auto entryAddress1 = tempExecutive->registerPrecompiled(entryPrecompiled);
     BOOST_CHECK(Address(entryAddress1) == Address(addressCount + 1));
 
     // call set
     bytes in2 = codec->encodeWithSig("set(string,string)", std::string("123"), entryAddress1);
-    callResult = kvTablePrecompiled->call(context, bytesConstRef(&in2), "0x00001", "");
+    callResult = kvTablePrecompiled->call(tempExecutive, bytesConstRef(&in2), "0x00001", "");
     bytes out1 = callResult->execResult();
     u256 num;
     codec->decode(bytesConstRef(&out1), num);
@@ -160,14 +156,14 @@ BOOST_AUTO_TEST_CASE(get_set_wasm)
 
     // call get
     in = codec->encodeWithSig("get(string)", std::string("123"));
-    callResult = kvTablePrecompiled->call(context, bytesConstRef(&in), "", "");
+    callResult = kvTablePrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
     out = callResult->execResult();
     codec->decode(bytesConstRef(&out), status, entryAddress);
     BOOST_TEST(status == true);
 
     // get field in entry
     auto entryPrecompiled2 =
-        std::dynamic_pointer_cast<EntryPrecompiled>(context->getPrecompiled(entryAddress1));
+        std::dynamic_pointer_cast<EntryPrecompiled>(tempExecutive->getPrecompiled(entryAddress1));
     auto entry = entryPrecompiled2->getEntry();
     BOOST_TEST(entry->getField("name") == "kk");
 }
@@ -177,7 +173,7 @@ BOOST_AUTO_TEST_CASE(newEntryTest)
     {
         initEvmEnv();
         bytes in = codec->encodeWithSig("newEntry()");
-        auto callResult = kvTablePrecompiled->call(context, bytesConstRef(&in), "", "");
+        auto callResult = kvTablePrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
         bytes out1 = callResult->execResult();
         Address address;
         codec->decode(&out1, address);
@@ -186,7 +182,7 @@ BOOST_AUTO_TEST_CASE(newEntryTest)
     {
         initWasmEnv();
         bytes in = codec->encodeWithSig("newEntry()");
-        auto callResult = kvTablePrecompiled->call(context, bytesConstRef(&in), "", "");
+        auto callResult = kvTablePrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
         bytes out1 = callResult->execResult();
         std::string address;
         codec->decode(&out1, address);

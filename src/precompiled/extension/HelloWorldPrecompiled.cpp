@@ -60,7 +60,7 @@ std::string HelloWorldPrecompiled::toString()
 }
 
 std::shared_ptr<PrecompiledExecResult> HelloWorldPrecompiled::call(
-    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
+    std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _param,
     const std::string&, const std::string&)
 {
     PRECOMPILED_LOG(TRACE) << LOG_BADGE("HelloWorldPrecompiled") << LOG_DESC("call")
@@ -69,19 +69,19 @@ std::shared_ptr<PrecompiledExecResult> HelloWorldPrecompiled::call(
     // parse function name
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
-    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto blockContext = _executive->blockContext().lock();
+    auto codec = std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->setMemUsed(_param.size());
 
     auto table =
-        _context->storage()->openTable(precompiled::getTableName(HELLO_WORLD_TABLE_NAME));
+        _executive->storage().openTable(precompiled::getTableName(HELLO_WORLD_TABLE_NAME));
     gasPricer->appendOperation(InterfaceOpcode::OpenTable);
     if (!table)
     {
         // table is not exist, create it.
-        table = createTable(_context->storage(), precompiled::getTableName(HELLO_WORLD_TABLE_NAME),
-            HELLO_WORLD_VALUE_FIELD);
+        table = _executive->storage().createTable(precompiled::getTableName(HELLO_WORLD_TABLE_NAME), HELLO_WORLD_VALUE_FIELD);
         gasPricer->appendOperation(InterfaceOpcode::CreateTable);
         if (!table)
         {

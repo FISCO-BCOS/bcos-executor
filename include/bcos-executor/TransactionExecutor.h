@@ -49,6 +49,13 @@ namespace protocol
 class TransactionReceipt;
 }  // namespace protocol
 
+namespace precompiled
+{
+class Precompiled;
+struct ParallelConfig;
+struct PrecompiledExecResult;
+}  // namespace precompiled
+
 namespace executor
 {
 enum ExecutorVersion : int32_t
@@ -132,6 +139,10 @@ private:
         const protocol::BlockHeader::ConstPtr& currentHeader,
         storage::StateStorage::Ptr tableFactory);
 
+    std::shared_ptr<TransactionExecutive> createExecutive(
+        const std::shared_ptr<BlockContext>& _blockContext, const std::string& _contractAddress,
+        int64_t contextID, int64_t seq);
+
     void asyncExecute(bcos::protocol::ExecutionMessage::UniquePtr input, bool staticCall,
         std::function<void(bcos::Error::UniquePtr&&, bcos::protocol::ExecutionMessage::UniquePtr&&)>
             callback);
@@ -153,6 +164,8 @@ private:
 
     std::optional<std::vector<bcos::bytes>> decodeConflictFields(
         const FunctionAbi& functionAbi, bcos::protocol::Transaction* transaction);
+
+    void initPrecompiled();
 
     txpool::TxPoolInterface::Ptr m_txpool;
     std::shared_ptr<storage::TransactionalStorageInterface> m_backendStorage;
@@ -176,6 +189,8 @@ private:
 
     std::shared_ptr<std::map<std::string, std::shared_ptr<PrecompiledContract>>>
         m_precompiledContract;
+    std::map<std::string, std::shared_ptr<precompiled::Precompiled>> m_constantPrecompiled;
+    std::shared_ptr<const std::vector<std::string>> m_builtInPrecompiled;
 };
 
 enum ConflictFieldKind : std::uint8_t

@@ -42,8 +42,9 @@ public:
     using Ptr = std::shared_ptr<CryptoPrecompiled>;
     CryptoPrecompiled(crypto::Hash::Ptr _hashImpl);
     virtual ~CryptoPrecompiled() {}
-    std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::BlockContext> _context,
-        bytesConstRef _param, const std::string& _origin, const std::string& _sender) override;
+    std::shared_ptr<PrecompiledExecResult> call(
+        std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _param,
+        const std::string& _origin, const std::string& _sender) override;
 
 private:
     void sm2Verify(bytesConstRef _paramData, PrecompiledExecResult::Ptr _callResult,

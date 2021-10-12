@@ -43,12 +43,14 @@ std::string EntriesPrecompiled::toString()
     return "Entries";
 }
 std::shared_ptr<PrecompiledExecResult> EntriesPrecompiled::call(
-    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param, const std::string&,
-    const std::string&)
+    std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _param,
+    const std::string&, const std::string&)
 {
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
-    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto blockContext = _executive->blockContext().lock();
+    auto codec =
+        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->setMemUsed(_param.size());
@@ -62,14 +64,14 @@ std::shared_ptr<PrecompiledExecResult> EntriesPrecompiled::call(
         auto entry = getEntriesPtr()->at(num.convert_to<size_t>());
         EntryPrecompiled::Ptr entryPrecompiled = std::make_shared<EntryPrecompiled>(m_hashImpl);
         entryPrecompiled->setEntry(std::make_shared<storage::Entry>(entry));
-        if (_context->isWasm())
+        if (blockContext->isWasm())
         {
-            std::string address = _context->registerPrecompiled(entryPrecompiled);
+            std::string address = _executive->registerPrecompiled(entryPrecompiled);
             callResult->setExecResult(codec->encode(address));
         }
         else
         {
-            Address address = Address(_context->registerPrecompiled(entryPrecompiled));
+            Address address = Address(_executive->registerPrecompiled(entryPrecompiled));
             callResult->setExecResult(codec->encode(address));
         }
     }

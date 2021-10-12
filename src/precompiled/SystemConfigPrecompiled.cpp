@@ -49,15 +49,16 @@ SystemConfigPrecompiled::SystemConfigPrecompiled(crypto::Hash::Ptr _hashImpl)
 }
 
 std::shared_ptr<PrecompiledExecResult> SystemConfigPrecompiled::call(
-    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param, const std::string&,
-    const std::string&)
+    std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _param,
+    const std::string&, const std::string&)
 {
     // parse function name
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
+    auto blockContext = _executive->blockContext().lock();
 
-    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
-    codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto codec =
+        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     if (func == name2Selector[SYSCONFIG_METHOD_SET_STR])
@@ -82,12 +83,12 @@ std::shared_ptr<PrecompiledExecResult> SystemConfigPrecompiled::call(
             return callResult;
         }
 
-        auto table = _context->storage()->openTable(ledger::SYS_CONFIG);
+        auto table = _executive->storage().openTable(ledger::SYS_CONFIG);
 
         auto entry = table->newEntry();
         entry.setField(SYS_VALUE, configValue);
         entry.setField(SYS_CONFIG_ENABLE_BLOCK_NUMBER,
-            boost::lexical_cast<std::string>(_context->currentNumber() + 1));
+            boost::lexical_cast<std::string>(blockContext->currentNumber() + 1));
         table->setRow(configKey, std::move(entry));
 
         PRECOMPILED_LOG(INFO) << LOG_BADGE("SystemConfigPrecompiled")
@@ -106,8 +107,7 @@ std::shared_ptr<PrecompiledExecResult> SystemConfigPrecompiled::call(
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("SystemConfigPrecompiled")
                                << LOG_DESC("getValueByKey func") << LOG_KV("configKey", configKey);
 
-        auto valueNumberPair = getSysConfigByKey(configKey, _context->storage());
-
+        auto valueNumberPair = getSysConfigByKey(_executive, configKey);
         callResult->setExecResult(
             codec->encode(valueNumberPair.first, u256(valueNumberPair.second)));
     }
@@ -150,9 +150,10 @@ bool SystemConfigPrecompiled::checkValueValid(std::string_view key, std::string_
 }
 
 std::pair<std::string, protocol::BlockNumber> SystemConfigPrecompiled::getSysConfigByKey(
-    const std::string& _key, const storage::StateStorage::Ptr& _tableFactory) const
+    const std::shared_ptr<executor::TransactionExecutive>& _executive,
+    const std::string& _key) const
 {
-    auto table = _tableFactory->openTable(ledger::SYS_CONFIG);
+    auto table = _executive->storage().openTable(ledger::SYS_CONFIG);
     auto entry = table->getRow(_key);
     if (entry)
     {

@@ -49,7 +49,7 @@ std::string PermissionPrecompiled::toString()
 }
 
 std::shared_ptr<PrecompiledExecResult> PermissionPrecompiled::call(
-    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param, const std::string&,
+    std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _param, const std::string&,
     const std::string&)
 {
     // parse function name
@@ -60,13 +60,14 @@ std::shared_ptr<PrecompiledExecResult> PermissionPrecompiled::call(
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->setMemUsed(_param.size());
+    auto blockContext = _executive->blockContext().lock();
     if (func == name2Selector[PER_METHOD_LOGIN])
     {
         // login(string nonce, string[] params) => <s256 code, string message, string path>
         std::string nonce;
         std::vector<std::string> params;
         auto codec =
-            std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+            std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
         codec->decode(data, nonce, params);
 
         auto ret = login(nonce, params);
@@ -79,7 +80,7 @@ std::shared_ptr<PrecompiledExecResult> PermissionPrecompiled::call(
         std::string path;
         std::vector<std::string> params;
         auto codec =
-            std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+            std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
         codec->decode(data, path, params);
 
         auto ret = logout(path, params);
@@ -92,7 +93,7 @@ std::shared_ptr<PrecompiledExecResult> PermissionPrecompiled::call(
         std::string userPath, origin, to;
         bytes params;
         auto codec =
-            std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+            std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
         codec->decode(data, userPath, origin, to, params);
 
         auto ret = create(userPath, origin, to, ref(params));
@@ -105,7 +106,7 @@ std::shared_ptr<PrecompiledExecResult> PermissionPrecompiled::call(
         std::string userPath, origin, to;
         bytes params;
         auto codec =
-            std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+            std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
         codec->decode(data, userPath, origin, to, params);
 
         auto ret = call(userPath, origin, to, ref(params));
@@ -118,7 +119,7 @@ std::shared_ptr<PrecompiledExecResult> PermissionPrecompiled::call(
         std::string userPath, origin, to;
         bytes params;
         auto codec =
-            std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+            std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
         codec->decode(data, userPath, origin, to, params);
 
         auto ret = sendTransaction(userPath, origin, to, ref(params));

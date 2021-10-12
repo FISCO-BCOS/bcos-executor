@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include "../executive/TransactionExecutive.h"
 #include "../vm/Precompiled.h"
 #include "Common.h"
 #include <bcos-framework/interfaces/crypto/CommonType.h>
@@ -49,26 +50,20 @@ public:
 
     std::string toString() override;
 
-    std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::BlockContext> _context,
-        bytesConstRef _param, const std::string& _origin, const std::string& _sender) override;
-
-    void setMemoryTableFactory(bcos::storage::StateStorage::Ptr memoryTableFactory)
-    {
-        m_memoryTableFactory = memoryTableFactory;
-    }
-
-    bcos::storage::StateStorage::Ptr getMemoryTableFactory() { return m_memoryTableFactory; }
+    std::shared_ptr<PrecompiledExecResult> call(
+        std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _param,
+        const std::string& _origin, const std::string& _sender) override;
 
 private:
-    void openTable(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& data,
-        const std::shared_ptr<PrecompiledExecResult>& callResult,
+    void openTable(const std::shared_ptr<executor::TransactionExecutive>& _executive,
+        bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
         const PrecompiledGas::Ptr& gasPricer);
-    void createTable(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& data,
-        const std::shared_ptr<PrecompiledExecResult>& callResult, const std::string& _origin,
-        const std::string& _sender, const PrecompiledGas::Ptr& gasPricer);
+    void createTable(const std::shared_ptr<executor::TransactionExecutive>& _executive,
+        bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
+        const std::string& _origin, const std::string& _sender,
+        const PrecompiledGas::Ptr& gasPricer);
     void checkCreateTableParam(
         const std::string& _tableName, std::string& _keyFiled, std::string& _valueField);
-    bcos::storage::StateStorage::Ptr m_memoryTableFactory;
 };
 }  // namespace precompiled
 }  // namespace bcos

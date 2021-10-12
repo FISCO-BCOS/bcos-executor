@@ -36,12 +36,6 @@
 
 namespace bcos
 {
-namespace precompiled
-{
-class Precompiled;
-struct ParallelConfig;
-struct PrecompiledExecResult;
-}  // namespace precompiled
 
 namespace executor
 {
@@ -63,44 +57,6 @@ public:
     using getTxCriticalsHandler = std::function<std::shared_ptr<std::vector<std::string>>(
         const protocol::Transaction::ConstPtr& _tx)>;
     virtual ~BlockContext(){};
-
-    virtual std::shared_ptr<precompiled::PrecompiledExecResult> call(const std::string& address,
-        bytesConstRef param, const std::string& origin, const std::string& sender);
-
-    virtual std::string registerPrecompiled(std::shared_ptr<precompiled::Precompiled> p);
-
-    virtual bool isPrecompiled(const std::string& _address) const;
-
-    std::shared_ptr<precompiled::Precompiled> getPrecompiled(const std::string& _address) const;
-
-    void setAddress2Precompiled(
-        const std::string& _address, std::shared_ptr<precompiled::Precompiled> precompiled);
-
-    void setBuiltInPrecompiled(std::shared_ptr<const std::vector<std::string>> _builtInPrecompiled)
-    {
-        m_builtInPrecompiled = std::move(_builtInPrecompiled);
-    }
-
-    std::shared_ptr<const std::vector<std::string>> getBuiltInPrecompiled()
-    {
-        return m_builtInPrecompiled;
-    }
-
-    virtual bool isEthereumPrecompiled(const std::string& _a) const;
-
-    virtual std::pair<bool, bytes> executeOriginPrecompiled(
-        const std::string& _a, bytesConstRef _in) const;
-
-    virtual int64_t costOfPrecompiled(const std::string& _a, bytesConstRef _in) const;
-
-    // virtual std::shared_ptr<ParallelConfigCache> getParallelConfigCache()
-    // {
-    //     return m_parallelConfigCache;
-    // }
-
-    void setPrecompiledContract(
-        std::shared_ptr<const std::map<std::string, std::shared_ptr<PrecompiledContract>>>
-            precompiledContract);
 
     std::shared_ptr<storage::StateStorage> storage() { return m_storage; }
 
@@ -148,9 +104,6 @@ public:
     void clear() { m_executives.clear(); }
 
 private:
-    tbb::concurrent_unordered_map<std::string, std::shared_ptr<precompiled::Precompiled>,
-        std::hash<std::string>>
-        m_address2Precompiled;
 
     struct HashCombine
     {
@@ -174,16 +127,11 @@ private:
         HashCombine>
         m_executives;
 
-    std::atomic<int> m_addressCount;
     protocol::BlockHeader::ConstPtr m_currentHeader;
     protocol::ExecutionMessageFactory::Ptr m_executionMessageFactory;
     EVMSchedule m_schedule;
     u256 m_gasLimit;
     bool m_isWasm = false;
-
-    std::shared_ptr<const std::map<std::string, std::shared_ptr<PrecompiledContract>>>
-        m_precompiledContract;
-    std::shared_ptr<const std::vector<std::string>> m_builtInPrecompiled;
 
     uint64_t m_txGasLimit = 300000000;
     getTxCriticalsHandler m_getTxCriticals = nullptr;

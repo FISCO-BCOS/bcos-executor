@@ -43,7 +43,7 @@ ContractAuthPrecompiled::ContractAuthPrecompiled(crypto::Hash::Ptr _hashImpl)
 }
 
 std::shared_ptr<PrecompiledExecResult> ContractAuthPrecompiled::call(
-    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param,
+    std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _param,
     const std::string& _origin, const std::string& _sender)
 {
     // parse function name
@@ -58,19 +58,19 @@ std::shared_ptr<PrecompiledExecResult> ContractAuthPrecompiled::call(
 
     if (func == name2Selector[AUTH_METHOD_GET_AGENT])
     {
-        agent(_context, data, callResult, gasPricer);
+        agent(_executive, data, callResult, gasPricer);
     }
     else if (func == name2Selector[AUTH_METHOD_SET_AGENT])
     {
-        setAgent(_context, data, callResult, _origin, _sender, gasPricer);
+        setAgent(_executive, data, callResult, _origin, _sender, gasPricer);
     }
     else if (func == name2Selector[AUTH_METHOD_SET_AUTH])
     {
-        setAuth(_context, data, callResult, _origin, _sender, gasPricer);
+        setAuth(_executive, data, callResult, _origin, _sender, gasPricer);
     }
     else if (func == name2Selector[AUTH_METHOD_CHECK_AUTH])
     {
-        checkAuth(_context, data, callResult, gasPricer);
+        checkAuth(_executive, data, callResult, gasPricer);
     }
     else
     {
@@ -82,14 +82,15 @@ std::shared_ptr<PrecompiledExecResult> ContractAuthPrecompiled::call(
     return callResult;
 }
 
-void ContractAuthPrecompiled::agent(const std::shared_ptr<executor::BlockContext>& _context,
+void ContractAuthPrecompiled::agent(const std::shared_ptr<executor::TransactionExecutive>& _executive,
     bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
     const PrecompiledGas::Ptr& gasPricer)
 {
     std::string path, agent;
-    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto blockContext = _executive->blockContext().lock();
+    auto codec = std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     codec->decode(data, path);
-    auto table = _context->storage()->openTable(path);
+    auto table = _executive->storage().openTable(path);
     if (!table)
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled") << LOG_DESC("path not found")
@@ -110,12 +111,13 @@ void ContractAuthPrecompiled::agent(const std::shared_ptr<executor::BlockContext
     callResult->setExecResult(codec->encode(std::move(agent)));
 }
 
-void ContractAuthPrecompiled::setAgent(const std::shared_ptr<executor::BlockContext>& _context,
+void ContractAuthPrecompiled::setAgent(const std::shared_ptr<executor::TransactionExecutive>& _executive,
     bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
     const std::string&, const std::string& _sender, const PrecompiledGas::Ptr& gasPricer)
 {
     std::string path, agent;
-    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto blockContext = _executive->blockContext().lock();
+    auto codec = std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     codec->decode(data, path, agent);
     // check _sender from /sys/
     if(!checkSender(_sender))
@@ -123,7 +125,7 @@ void ContractAuthPrecompiled::setAgent(const std::shared_ptr<executor::BlockCont
         getErrorCodeOut(callResult->mutableExecResult(), CODE_NO_AUTHORIZED, codec);
         return;
     }
-    auto table = _context->storage()->openTable(path);
+    auto table = _executive->storage().openTable(path);
     if (!table || !table->getRow(AGENT_FILED))
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled") << LOG_DESC("path not found")
@@ -140,14 +142,15 @@ void ContractAuthPrecompiled::setAgent(const std::shared_ptr<executor::BlockCont
     getErrorCodeOut(callResult->mutableExecResult(), CODE_SUCCESS, codec);
 }
 
-void ContractAuthPrecompiled::setAuth(const std::shared_ptr<executor::BlockContext>& _context,
+void ContractAuthPrecompiled::setAuth(const std::shared_ptr<executor::TransactionExecutive>& _executive,
     bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
     const std::string&, const std::string& _sender, const PrecompiledGas::Ptr& gasPricer)
 {
     std::string path, user;
     bytes func;
     bool access;
-    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto blockContext = _executive->blockContext().lock();
+    auto codec = std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     codec->decode(data, path, func, user, access);
     PRECOMPILED_LOG(INFO) << LOG_BADGE("ContractAuthPrecompiled") << LOG_DESC("setAuth")
                           << LOG_KV("path", path) << LOG_KV("func", asString(func))
@@ -158,7 +161,7 @@ void ContractAuthPrecompiled::setAuth(const std::shared_ptr<executor::BlockConte
         getErrorCodeOut(callResult->mutableExecResult(), CODE_NO_AUTHORIZED, codec);
         return;
     }
-    auto table = _context->storage()->openTable(path);
+    auto table = _executive->storage().openTable(path);
     if (!table)
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled") << LOG_DESC("path not found")
@@ -199,17 +202,18 @@ void ContractAuthPrecompiled::setAuth(const std::shared_ptr<executor::BlockConte
     getErrorCodeOut(callResult->mutableExecResult(), CODE_SUCCESS, codec);
 }
 
-void ContractAuthPrecompiled::checkAuth(const std::shared_ptr<executor::BlockContext>& _context,
+void ContractAuthPrecompiled::checkAuth(const std::shared_ptr<executor::TransactionExecutive>& _executive,
     bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
-    const PrecompiledGas::Ptr& gasPricer)
+    const PrecompiledGas::Ptr&)
 {
     std::string path, user;
     bytes func;
-    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto blockContext = _executive->blockContext().lock();
+    auto codec = std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     codec->decode(data, path, func, user);
     bool result = false;
 
-    auto table = _context->storage()->openTable(path);
+    auto table = _executive->storage().openTable(path);
     if (!table)
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled") << LOG_DESC("path not found")

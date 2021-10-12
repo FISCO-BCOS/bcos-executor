@@ -39,14 +39,17 @@ public:
     FileSystemPrecompiled(crypto::Hash::Ptr _hashImpl);
     virtual ~FileSystemPrecompiled() = default;
     std::string toString() override;
-    std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::BlockContext> _context,
-        bytesConstRef _param, const std::string& _origin, const std::string& _sender) override;
+    std::shared_ptr<PrecompiledExecResult> call(
+        std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _param,
+        const std::string& _origin, const std::string& _sender) override;
 
 private:
-    void listDir(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& data,
-        std::shared_ptr<PrecompiledExecResult> callResult, const PrecompiledGas::Ptr& gasPricer);
-    void makeDir(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& data,
-        std::shared_ptr<PrecompiledExecResult> callResult, const PrecompiledGas::Ptr& gasPricer);
+    void listDir(const std::shared_ptr<executor::TransactionExecutive>& _executive,
+        bytesConstRef& data, std::shared_ptr<PrecompiledExecResult> callResult,
+        const PrecompiledGas::Ptr& gasPricer);
+    void makeDir(const std::shared_ptr<executor::TransactionExecutive>& _executive,
+        bytesConstRef& data, std::shared_ptr<PrecompiledExecResult> callResult,
+        const PrecompiledGas::Ptr& gasPricer);
 };
 }  // namespace precompiled
 }  // namespace bcos

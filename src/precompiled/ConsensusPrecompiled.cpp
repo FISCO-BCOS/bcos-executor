@@ -47,8 +47,8 @@ ConsensusPrecompiled::ConsensusPrecompiled(crypto::Hash::Ptr _hashImpl) : Precom
 }
 
 std::shared_ptr<PrecompiledExecResult> ConsensusPrecompiled::call(
-    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param, const std::string&,
-    const std::string&)
+    std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _param,
+    const std::string&, const std::string&)
 {
     // parse function name
     uint32_t func = getParamFunc(_param);
@@ -57,35 +57,37 @@ std::shared_ptr<PrecompiledExecResult> ConsensusPrecompiled::call(
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
 
-    showConsensusTable(_context);
+    showConsensusTable(_executive);
 
     int result = 0;
     if (func == name2Selector[CSS_METHOD_ADD_SEALER])
     {
         // addSealer(string, uint256)
-        result = addSealer(_context, data);
+        result = addSealer(_executive, data);
     }
     else if (func == name2Selector[CSS_METHOD_ADD_SER])
     {
         // addObserver(string)
-        result = addObserver(_context, data);
+        result = addObserver(_executive, data);
     }
     else if (func == name2Selector[CSS_METHOD_REMOVE])
     {
         // remove(string)
-        result = removeNode(_context, data);
+        result = removeNode(_executive, data);
     }
     else if (func == name2Selector[CSS_METHOD_SET_WEIGHT])
     {
         // setWeight(string,uint256)
-        result = setWeight(_context, data);
+        result = setWeight(_executive, data);
     }
     else
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("ConsensusPrecompiled")
                                << LOG_DESC("call undefined function") << LOG_KV("func", func);
     }
-    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto blockContext = _executive->blockContext().lock();
+    auto codec =
+        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     getErrorCodeOut(callResult->mutableExecResult(), result, codec);
     gasPricer->updateMemUsed(callResult->m_execResult.size());
     callResult->setGas(gasPricer->calTotalGas());
@@ -93,12 +95,14 @@ std::shared_ptr<PrecompiledExecResult> ConsensusPrecompiled::call(
 }
 
 int ConsensusPrecompiled::addSealer(
-    const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& _data)
+    const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& _data)
 {
     // addSealer(string, uint256)
     std::string nodeID;
     u256 weight;
-    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto blockContext = _executive->blockContext().lock();
+    auto codec =
+        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     codec->decode(_data, nodeID, weight);
     // Uniform lowercase nodeID
     boost::to_lower(nodeID);
@@ -119,11 +123,11 @@ int ConsensusPrecompiled::addSealer(
         return CODE_INVALID_WEIGHT;
     }
 
-    auto table = _context->storage()->openTable(SYS_CONSENSUS);
+    auto table = _executive->storage().openTable(SYS_CONSENSUS);
     auto newEntry = table->newEntry();
     newEntry.setField(NODE_TYPE, ledger::CONSENSUS_SEALER);
     newEntry.setField(
-        NODE_ENABLE_NUMBER, boost::lexical_cast<std::string>(_context->currentNumber() + 1));
+        NODE_ENABLE_NUMBER, boost::lexical_cast<std::string>(blockContext->currentNumber() + 1));
     newEntry.setField(NODE_WEIGHT, boost::lexical_cast<std::string>(weight));
     table->setRow(nodeID, std::move(newEntry));
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
@@ -133,11 +137,13 @@ int ConsensusPrecompiled::addSealer(
 }
 
 int ConsensusPrecompiled::addObserver(
-    const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& _data)
+    const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& _data)
 {
     // addObserver(string)
     std::string nodeID;
-    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto blockContext = _executive->blockContext().lock();
+    auto codec =
+        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     codec->decode(_data, nodeID);
     // Uniform lowercase nodeID
     boost::to_lower(nodeID);
@@ -150,14 +156,14 @@ int ConsensusPrecompiled::addObserver(
         return CODE_INVALID_NODE_ID;
     }
 
-    auto table = _context->storage()->openTable(SYS_CONSENSUS);
+    auto table = _executive->storage().openTable(SYS_CONSENSUS);
 
     auto nodeIdList = table->getPrimaryKeys(std::nullopt);
 
     auto newEntry = table->newEntry();
     newEntry.setField(NODE_TYPE, ledger::CONSENSUS_OBSERVER);
     newEntry.setField(
-        NODE_ENABLE_NUMBER, boost::lexical_cast<std::string>(_context->currentNumber() + 1));
+        NODE_ENABLE_NUMBER, boost::lexical_cast<std::string>(blockContext->currentNumber() + 1));
     newEntry.setField(NODE_WEIGHT, "0");
     if (checkIsLastSealer(table, nodeID))
     {
@@ -172,11 +178,13 @@ int ConsensusPrecompiled::addObserver(
 }
 
 int ConsensusPrecompiled::removeNode(
-    const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& _data)
+    const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& _data)
 {
     // remove(string)
     std::string nodeID;
-    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto blockContext = _executive->blockContext().lock();
+    auto codec =
+        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     codec->decode(_data, nodeID);
     // Uniform lowercase nodeID
     boost::to_lower(nodeID);
@@ -189,7 +197,7 @@ int ConsensusPrecompiled::removeNode(
         return CODE_INVALID_NODE_ID;
     }
 
-    auto table = _context->storage()->openTable(ledger::SYS_CONSENSUS);
+    auto table = _executive->storage().openTable(ledger::SYS_CONSENSUS);
     if (checkIsLastSealer(table, nodeID))
     {
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
@@ -203,12 +211,14 @@ int ConsensusPrecompiled::removeNode(
 }
 
 int ConsensusPrecompiled::setWeight(
-    const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& _data)
+    const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& _data)
 {
     // setWeight(string,uint256)
     std::string nodeID;
     u256 weight;
-    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto blockContext = _executive->blockContext().lock();
+    auto codec =
+        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     codec->decode(_data, nodeID, weight);
     // Uniform lowercase nodeID
     boost::to_lower(nodeID);
@@ -227,7 +237,7 @@ int ConsensusPrecompiled::setWeight(
                                << LOG_KV("nodeID", nodeID);
         return CODE_INVALID_WEIGHT;
     }
-    auto table = _context->storage()->openTable(ledger::SYS_CONSENSUS);
+    auto table = _executive->storage().openTable(ledger::SYS_CONSENSUS);
     auto entry = table->getRow(nodeID);
     if (!entry)
     {
@@ -237,16 +247,17 @@ int ConsensusPrecompiled::setWeight(
     }
     entry->setField(NODE_WEIGHT, boost::lexical_cast<std::string>(weight));
     entry->setField(
-        NODE_ENABLE_NUMBER, boost::lexical_cast<std::string>(_context->currentNumber() + 1));
+        NODE_ENABLE_NUMBER, boost::lexical_cast<std::string>(blockContext->currentNumber() + 1));
     table->setRow(nodeID, std::move(entry.value()));
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
                            << LOG_DESC("setWeight successfully");
     return 0;
 }
 
-void ConsensusPrecompiled::showConsensusTable(std::shared_ptr<executor::BlockContext> _context)
+void ConsensusPrecompiled::showConsensusTable(
+    std::shared_ptr<executor::TransactionExecutive> _executive)
 {
-    auto table = _context->storage()->openTable(ledger::SYS_CONSENSUS);
+    auto table = _executive->storage().openTable(ledger::SYS_CONSENSUS);
     auto nodeIdList = table->getPrimaryKeys(std::nullopt);
 
     std::stringstream s;

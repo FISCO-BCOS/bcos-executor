@@ -43,7 +43,6 @@ public:
     void initEvmEnv()
     {
         setIsWasm(false);
-        tableFactoryPrecompiled->setMemoryTableFactory(context->storage());
 
         context->storage()->createTable("test", "name,age");
         auto sysTable = context->storage()->openTable(StorageInterface::SYS_TABLES);
@@ -61,7 +60,6 @@ public:
     void initWasmEnv()
     {
         setIsWasm(true);
-        tableFactoryPrecompiled->setMemoryTableFactory(context->storage());
 
         context->storage()->createTable("/tables/test", "name,age");
         auto sysTable = context->storage()->openTable(StorageInterface::SYS_TABLES);
@@ -114,7 +112,7 @@ BOOST_AUTO_TEST_CASE(newEntryTest)
     {
         initEvmEnv();
         bytes in = codec->encodeWithSig("newEntry()");
-        auto callResult = tablePrecompiled->call(context, bytesConstRef(&in), "", "");
+        auto callResult = tablePrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
         bytes out1 = callResult->execResult();
         Address address;
         codec->decode(&out1, address);
@@ -123,7 +121,7 @@ BOOST_AUTO_TEST_CASE(newEntryTest)
     {
         initWasmEnv();
         bytes in = codec->encodeWithSig("newEntry()");
-        auto callResult = tablePrecompiled->call(context, bytesConstRef(&in), "", "");
+        auto callResult = tablePrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
         bytes out1 = callResult->execResult();
         std::string address;
         codec->decode(&out1, address);
@@ -136,7 +134,7 @@ BOOST_AUTO_TEST_CASE(newConditionTest)
     {
         initEvmEnv();
         bytes in = codec->encodeWithSig("newCondition()");
-        auto callResult = tablePrecompiled->call(context, bytesConstRef(&in), "", "");
+        auto callResult = tablePrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
         bytes out1 = callResult->execResult();
         Address address;
         codec->decode(&out1, address);
@@ -145,7 +143,7 @@ BOOST_AUTO_TEST_CASE(newConditionTest)
     {
         initWasmEnv();
         bytes in = codec->encodeWithSig("newCondition()");
-        auto callResult = tablePrecompiled->call(context, bytesConstRef(&in), "", "");
+        auto callResult = tablePrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
         bytes out1 = callResult->execResult();
         std::string address;
         codec->decode(&out1, address);
@@ -171,15 +169,15 @@ BOOST_AUTO_TEST_CASE(select_evm)
         auto conditionPrecompiled = std::make_shared<ConditionPrecompiled>(hashImpl);
         conditionPrecompiled->setCondition(condition);
 
-        Address conditionAddress = Address(context->registerPrecompiled(conditionPrecompiled));
+        Address conditionAddress = Address(tempExecutive->registerPrecompiled(conditionPrecompiled));
 
         bytes in = codec->encodeWithSig("select(address)", conditionAddress);
-        auto callResult = tablePrecompiled->call(context, bytesConstRef(&in), "", "");
+        auto callResult = tablePrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
         bytes out = callResult->execResult();
         Address entriesAddress;
         codec->decode(bytesConstRef(&out), entriesAddress);
         auto entriesPrecompiled = std::dynamic_pointer_cast<EntriesPrecompiled>(
-            context->getPrecompiled(entriesAddress.hex()));
+            tempExecutive->getPrecompiled(entriesAddress.hex()));
 
         EntriesPtr entries = entriesPrecompiled->getEntriesPtr();
         BOOST_TEST(entries->size() == 1u);
@@ -193,15 +191,15 @@ BOOST_AUTO_TEST_CASE(select_evm)
         auto conditionPrecompiled = std::make_shared<ConditionPrecompiled>(hashImpl);
         conditionPrecompiled->setCondition(condition);
 
-        Address conditionAddress = Address(context->registerPrecompiled(conditionPrecompiled));
+        Address conditionAddress = Address(tempExecutive->registerPrecompiled(conditionPrecompiled));
 
         bytes in = codec->encodeWithSig("select(address)", conditionAddress);
-        auto callResult = tablePrecompiled->call(context, bytesConstRef(&in), "", "");
+        auto callResult = tablePrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
         bytes out = callResult->execResult();
         Address entriesAddress;
         codec->decode(bytesConstRef(&out), entriesAddress);
         auto entriesPrecompiled = std::dynamic_pointer_cast<EntriesPrecompiled>(
-            context->getPrecompiled(entriesAddress.hex()));
+            tempExecutive->getPrecompiled(entriesAddress.hex()));
 
         EntriesPtr entries = entriesPrecompiled->getEntriesPtr();
         BOOST_TEST(entries->size() == 0u);
@@ -214,15 +212,15 @@ BOOST_AUTO_TEST_CASE(select_evm)
         auto conditionPrecompiled = std::make_shared<ConditionPrecompiled>(hashImpl);
         conditionPrecompiled->setCondition(condition);
 
-        Address conditionAddress = Address(context->registerPrecompiled(conditionPrecompiled));
+        Address conditionAddress = Address(tempExecutive->registerPrecompiled(conditionPrecompiled));
 
         bytes in = codec->encodeWithSig("select(address)", conditionAddress);
-        auto callResult = tablePrecompiled->call(context, bytesConstRef(&in), "", "");
+        auto callResult = tablePrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
         bytes out = callResult->execResult();
         Address entriesAddress;
         codec->decode(bytesConstRef(&out), entriesAddress);
         auto entriesPrecompiled = std::dynamic_pointer_cast<EntriesPrecompiled>(
-            context->getPrecompiled(entriesAddress.hex()));
+            tempExecutive->getPrecompiled(entriesAddress.hex()));
 
         EntriesPtr entries = entriesPrecompiled->getEntriesPtr();
         BOOST_TEST(entries->size() == 0u);
@@ -235,36 +233,36 @@ BOOST_AUTO_TEST_CASE(select_evm)
         auto conditionPrecompiled = std::make_shared<ConditionPrecompiled>(hashImpl);
         conditionPrecompiled->setCondition(condition);
 
-        Address conditionAddress = Address(context->registerPrecompiled(conditionPrecompiled));
+        Address conditionAddress = Address(tempExecutive->registerPrecompiled(conditionPrecompiled));
 
         bytes in = codec->encodeWithSig("select(address)", conditionAddress);
-        auto callResult = tablePrecompiled->call(context, bytesConstRef(&in), "", "");
+        auto callResult = tablePrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
         bytes out = callResult->execResult();
         Address entriesAddress;
         codec->decode(bytesConstRef(&out), entriesAddress);
         auto entriesPrecompiled = std::dynamic_pointer_cast<EntriesPrecompiled>(
-            context->getPrecompiled(entriesAddress.hex()));
+            tempExecutive->getPrecompiled(entriesAddress.hex()));
         EntriesPtr entries = entriesPrecompiled->getEntriesPtr();
         BOOST_TEST(entries->size() == 2u);
 
         BOOST_CHECK(entriesPrecompiled->toString() == "Entries");
 
         bytes in2 = codec->encodeWithSig("size()");
-        callResult = entriesPrecompiled->call(context, bytesConstRef(&in2), "", "");
+        callResult = entriesPrecompiled->call(tempExecutive, bytesConstRef(&in2), "", "");
         out = callResult->execResult();
         u256 c;
         codec->decode(bytesConstRef(&out), c);
         BOOST_CHECK(c == 2u);
 
         bytes in3 = codec->encodeWithSig("get(int256)", u256(1));
-        callResult = entriesPrecompiled->call(context, bytesConstRef(&in3), "", "");
+        callResult = entriesPrecompiled->call(tempExecutive, bytesConstRef(&in3), "", "");
         out = callResult->execResult();
         Address entryAddress;
         codec->decode(bytesConstRef(&out), entryAddress);
         BOOST_CHECK(entryAddress != Address());
 
         bytes in4 = codec->encodeWithSig("gets(int256)", u256(1));
-        callResult = entriesPrecompiled->call(context, bytesConstRef(&in4), "", "");
+        callResult = entriesPrecompiled->call(tempExecutive, bytesConstRef(&in4), "", "");
         out = callResult->execResult();
     }
 }
@@ -287,21 +285,21 @@ BOOST_AUTO_TEST_CASE(select_wasm)
         auto conditionPrecompiled = std::make_shared<ConditionPrecompiled>(hashImpl);
         conditionPrecompiled->setCondition(condition);
 
-        std::string conditionAddress = context->registerPrecompiled(conditionPrecompiled);
+        std::string conditionAddress = tempExecutive->registerPrecompiled(conditionPrecompiled);
 
         bytes in = codec->encodeWithSig("select(string)", conditionAddress);
-        auto callResult = tablePrecompiled->call(context, bytesConstRef(&in), "", "");
+        auto callResult = tablePrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
         bytes out = callResult->execResult();
         std::string entriesAddress;
         codec->decode(bytesConstRef(&out), entriesAddress);
         auto entriesPrecompiled =
-            std::dynamic_pointer_cast<EntriesPrecompiled>(context->getPrecompiled(entriesAddress));
+            std::dynamic_pointer_cast<EntriesPrecompiled>(tempExecutive->getPrecompiled(entriesAddress));
 
         EntriesPtr entries = entriesPrecompiled->getEntriesPtr();
         BOOST_TEST(entries->size() == 1u);
 
         bytes in3 = codec->encodeWithSig("get(int256)", u256(0));
-        callResult = entriesPrecompiled->call(context, bytesConstRef(&in3), "", "");
+        callResult = entriesPrecompiled->call(tempExecutive, bytesConstRef(&in3), "", "");
         out = callResult->execResult();
         std::string entryAddress;
         codec->decode(bytesConstRef(&out), entryAddress);
@@ -316,15 +314,15 @@ BOOST_AUTO_TEST_CASE(select_wasm)
         auto conditionPrecompiled = std::make_shared<ConditionPrecompiled>(hashImpl);
         conditionPrecompiled->setCondition(condition);
 
-        std::string conditionAddress = context->registerPrecompiled(conditionPrecompiled);
+        std::string conditionAddress = tempExecutive->registerPrecompiled(conditionPrecompiled);
 
         bytes in = codec->encodeWithSig("select(string)", conditionAddress);
-        auto callResult = tablePrecompiled->call(context, bytesConstRef(&in), "", "");
+        auto callResult = tablePrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
         bytes out = callResult->execResult();
         std::string entriesAddress;
         codec->decode(bytesConstRef(&out), entriesAddress);
         auto entriesPrecompiled =
-            std::dynamic_pointer_cast<EntriesPrecompiled>(context->getPrecompiled(entriesAddress));
+            std::dynamic_pointer_cast<EntriesPrecompiled>(tempExecutive->getPrecompiled(entriesAddress));
 
         EntriesPtr entries = entriesPrecompiled->getEntriesPtr();
         BOOST_TEST(entries->size() == 0u);
@@ -337,15 +335,15 @@ BOOST_AUTO_TEST_CASE(select_wasm)
         auto conditionPrecompiled = std::make_shared<ConditionPrecompiled>(hashImpl);
         conditionPrecompiled->setCondition(condition);
 
-        std::string conditionAddress = context->registerPrecompiled(conditionPrecompiled);
+        std::string conditionAddress = tempExecutive->registerPrecompiled(conditionPrecompiled);
 
         bytes in = codec->encodeWithSig("select(string)", conditionAddress);
-        auto callResult = tablePrecompiled->call(context, bytesConstRef(&in), "", "");
+        auto callResult = tablePrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
         bytes out = callResult->execResult();
         std::string entriesAddress;
         codec->decode(bytesConstRef(&out), entriesAddress);
         auto entriesPrecompiled =
-            std::dynamic_pointer_cast<EntriesPrecompiled>(context->getPrecompiled(entriesAddress));
+            std::dynamic_pointer_cast<EntriesPrecompiled>(tempExecutive->getPrecompiled(entriesAddress));
 
         EntriesPtr entries = entriesPrecompiled->getEntriesPtr();
         BOOST_TEST(entries->size() == 0u);
@@ -364,10 +362,10 @@ BOOST_AUTO_TEST_CASE(insert_evm)
         entry.setField("name", "bcos");
         auto entryPrecompiled = std::make_shared<EntryPrecompiled>(hashImpl);
         entryPrecompiled->setEntry(std::make_shared<storage::Entry>(entry));
-        auto entryAddress = Address(context->registerPrecompiled(entryPrecompiled));
+        auto entryAddress = Address(tempExecutive->registerPrecompiled(entryPrecompiled));
 
         bytes in = codec->encodeWithSig("insert(address)", entryAddress);
-        auto callResult = tablePrecompiled->call(context, bytesConstRef(&in), "", "");
+        auto callResult = tablePrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
         bytes out = callResult->execResult();
         s256 num;
         codec->decode(bytesConstRef(&out), num);
@@ -381,10 +379,10 @@ BOOST_AUTO_TEST_CASE(insert_evm)
         entry.setField("name", "bcos");
         auto entryPrecompiled = std::make_shared<EntryPrecompiled>(hashImpl);
         entryPrecompiled->setEntry(std::make_shared<storage::Entry>(entry));
-        auto entryAddress = Address(context->registerPrecompiled(entryPrecompiled));
+        auto entryAddress = Address(tempExecutive->registerPrecompiled(entryPrecompiled));
 
         bytes in = codec->encodeWithSig("insert(address)", entryAddress);
-        auto callResult = tablePrecompiled->call(context, bytesConstRef(&in), "", "");
+        auto callResult = tablePrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
         bytes out = callResult->execResult();
         s256 num;
         codec->decode(bytesConstRef(&out), num);
@@ -397,10 +395,10 @@ BOOST_AUTO_TEST_CASE(insert_evm)
         entry.setField("name", "bcos");
         auto entryPrecompiled = std::make_shared<EntryPrecompiled>(hashImpl);
         entryPrecompiled->setEntry(std::make_shared<storage::Entry>(entry));
-        auto entryAddress = Address(context->registerPrecompiled(entryPrecompiled));
+        auto entryAddress = Address(tempExecutive->registerPrecompiled(entryPrecompiled));
 
         bytes in = codec->encodeWithSig("insert(address)", entryAddress);
-        auto callResult = tablePrecompiled->call(context, bytesConstRef(&in), "", "");
+        auto callResult = tablePrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
         bytes out = callResult->execResult();
         s256 num;
         codec->decode(bytesConstRef(&out), num);
@@ -420,10 +418,10 @@ BOOST_AUTO_TEST_CASE(insert_wasm)
         entry.setField("name", "bcos");
         auto entryPrecompiled = std::make_shared<EntryPrecompiled>(hashImpl);
         entryPrecompiled->setEntry(std::make_shared<storage::Entry>(entry));
-        auto entryAddress = context->registerPrecompiled(entryPrecompiled);
+        auto entryAddress = tempExecutive->registerPrecompiled(entryPrecompiled);
 
         bytes in = codec->encodeWithSig("insert(string)", entryAddress);
-        auto callResult = tablePrecompiled->call(context, bytesConstRef(&in), "", "");
+        auto callResult = tablePrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
         bytes out = callResult->execResult();
         u256 num;
         codec->decode(bytesConstRef(&out), num);
@@ -442,9 +440,9 @@ BOOST_AUTO_TEST_CASE(remove_evm)
         condition->GE("id", "1");
         auto conditionPrecompiled = std::make_shared<ConditionPrecompiled>(hashImpl);
         conditionPrecompiled->setCondition(condition);
-        Address conditionAddress = Address(context->registerPrecompiled(conditionPrecompiled));
+        Address conditionAddress = Address(tempExecutive->registerPrecompiled(conditionPrecompiled));
         bytes in = codec->encodeWithSig("remove(address)", conditionAddress);
-        auto callResult = tablePrecompiled->call(context, bytesConstRef(&in), "", "");
+        auto callResult = tablePrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
         bytes out = callResult->execResult();
         u256 num;
         codec->decode(bytesConstRef(&out), num);
@@ -463,9 +461,9 @@ BOOST_AUTO_TEST_CASE(remove_evm)
         condition->GE("id", "3");
         auto conditionPrecompiled = std::make_shared<ConditionPrecompiled>(hashImpl);
         conditionPrecompiled->setCondition(condition);
-        Address conditionAddress = Address(context->registerPrecompiled(conditionPrecompiled));
+        Address conditionAddress = Address(tempExecutive->registerPrecompiled(conditionPrecompiled));
         bytes in = codec->encodeWithSig("remove(address)", conditionAddress);
-        auto callResult = tablePrecompiled->call(context, bytesConstRef(&in), "", "");
+        auto callResult = tablePrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
         bytes out = callResult->execResult();
         u256 num;
         codec->decode(bytesConstRef(&out), num);
@@ -478,9 +476,9 @@ BOOST_AUTO_TEST_CASE(remove_evm)
         condition->GE("name", "kk");
         auto conditionPrecompiled = std::make_shared<ConditionPrecompiled>(hashImpl);
         conditionPrecompiled->setCondition(condition);
-        Address conditionAddress = Address(context->registerPrecompiled(conditionPrecompiled));
+        Address conditionAddress = Address(tempExecutive->registerPrecompiled(conditionPrecompiled));
         bytes in = codec->encodeWithSig("remove(address)", conditionAddress);
-        auto callResult = tablePrecompiled->call(context, bytesConstRef(&in), "", "");
+        auto callResult = tablePrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
         bytes out = callResult->execResult();
         s256 num;
         codec->decode(bytesConstRef(&out), num);
@@ -499,9 +497,9 @@ BOOST_AUTO_TEST_CASE(remove_wasm)
         condition->GE("id", "1");
         auto conditionPrecompiled = std::make_shared<ConditionPrecompiled>(hashImpl);
         conditionPrecompiled->setCondition(condition);
-        std::string conditionAddress = context->registerPrecompiled(conditionPrecompiled);
+        std::string conditionAddress = tempExecutive->registerPrecompiled(conditionPrecompiled);
         bytes in = codec->encodeWithSig("remove(string)", conditionAddress);
-        auto callResult = tablePrecompiled->call(context, bytesConstRef(&in), "", "");
+        auto callResult = tablePrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
         bytes out = callResult->execResult();
         u256 num;
         codec->decode(bytesConstRef(&out), num);
@@ -524,16 +522,16 @@ BOOST_AUTO_TEST_CASE(update_evm)
         condition->GE("id", "1");
         auto conditionPrecompiled = std::make_shared<ConditionPrecompiled>(hashImpl);
         conditionPrecompiled->setCondition(condition);
-        Address conditionAddress = Address(context->registerPrecompiled(conditionPrecompiled));
+        Address conditionAddress = Address(tempExecutive->registerPrecompiled(conditionPrecompiled));
 
         auto entry = tablePrecompiled->getTable()->newEntry();
         entry.setField("age", "100");
         auto entryPrecompiled = std::make_shared<EntryPrecompiled>(hashImpl);
         entryPrecompiled->setEntry(std::make_shared<storage::Entry>(entry));
-        auto entryAddress = Address(context->registerPrecompiled(entryPrecompiled));
+        auto entryAddress = Address(tempExecutive->registerPrecompiled(entryPrecompiled));
 
         bytes in = codec->encodeWithSig("update(address,address)", entryAddress, conditionAddress);
-        auto callResult = tablePrecompiled->call(context, bytesConstRef(&in), "", "");
+        auto callResult = tablePrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
         bytes out = callResult->execResult();
         u256 num;
         codec->decode(bytesConstRef(&out), num);
@@ -550,16 +548,16 @@ BOOST_AUTO_TEST_CASE(update_evm)
         condition->EQ("name", "ll");
         auto conditionPrecompiled = std::make_shared<ConditionPrecompiled>(hashImpl);
         conditionPrecompiled->setCondition(condition);
-        Address conditionAddress = Address(context->registerPrecompiled(conditionPrecompiled));
+        Address conditionAddress = Address(tempExecutive->registerPrecompiled(conditionPrecompiled));
 
         auto entry = tablePrecompiled->getTable()->newEntry();
         entry.setField("age", "100");
         auto entryPrecompiled = std::make_shared<EntryPrecompiled>(hashImpl);
         entryPrecompiled->setEntry(std::make_shared<storage::Entry>(entry));
-        Address entryAddress = Address(context->registerPrecompiled(entryPrecompiled));
+        Address entryAddress = Address(tempExecutive->registerPrecompiled(entryPrecompiled));
 
         bytes in = codec->encodeWithSig("update(address,address)", entryAddress, conditionAddress);
-        auto callResult = tablePrecompiled->call(context, bytesConstRef(&in), "", "");
+        auto callResult = tablePrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
         bytes out = callResult->execResult();
         s256 num;
         codec->decode(bytesConstRef(&out), num);
@@ -572,16 +570,16 @@ BOOST_AUTO_TEST_CASE(update_evm)
         condition->EQ("id", "3");
         auto conditionPrecompiled = std::make_shared<ConditionPrecompiled>(hashImpl);
         conditionPrecompiled->setCondition(condition);
-        Address conditionAddress = Address(context->registerPrecompiled(conditionPrecompiled));
+        Address conditionAddress = Address(tempExecutive->registerPrecompiled(conditionPrecompiled));
 
         auto entry = tablePrecompiled->getTable()->newEntry();
         entry.setField("age", "100");
         auto entryPrecompiled = std::make_shared<EntryPrecompiled>(hashImpl);
         entryPrecompiled->setEntry(std::make_shared<storage::Entry>(entry));
-        Address entryAddress = Address(context->registerPrecompiled(entryPrecompiled));
+        Address entryAddress = Address(tempExecutive->registerPrecompiled(entryPrecompiled));
 
         bytes in = codec->encodeWithSig("update(address,address)", entryAddress, conditionAddress);
-        auto callResult = tablePrecompiled->call(context, bytesConstRef(&in), "", "");
+        auto callResult = tablePrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
         bytes out = callResult->execResult();
         s256 num;
         codec->decode(bytesConstRef(&out), num);
@@ -600,16 +598,16 @@ BOOST_AUTO_TEST_CASE(update_wasm)
         condition->GE("id", "1");
         auto conditionPrecompiled = std::make_shared<ConditionPrecompiled>(hashImpl);
         conditionPrecompiled->setCondition(condition);
-        auto conditionAddress = context->registerPrecompiled(conditionPrecompiled);
+        auto conditionAddress = tempExecutive->registerPrecompiled(conditionPrecompiled);
 
         auto entry = tablePrecompiled->getTable()->newEntry();
         entry.setField("age", "100");
         auto entryPrecompiled = std::make_shared<EntryPrecompiled>(hashImpl);
         entryPrecompiled->setEntry(std::make_shared<storage::Entry>(entry));
-        auto entryAddress = context->registerPrecompiled(entryPrecompiled);
+        auto entryAddress = tempExecutive->registerPrecompiled(entryPrecompiled);
 
         bytes in = codec->encodeWithSig("update(string,string)", entryAddress, conditionAddress);
-        auto callResult = tablePrecompiled->call(context, bytesConstRef(&in), "", "");
+        auto callResult = tablePrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
         bytes out = callResult->execResult();
         u256 num;
         codec->decode(bytesConstRef(&out), num);
@@ -639,20 +637,20 @@ BOOST_AUTO_TEST_CASE(entry_test)
     BOOST_CHECK(entryPrecompiled->toString() == "Entry");
 
     bytes in = codec->encodeWithSig("set(string,int256)", std::string("int"), s256(-1));
-    entryPrecompiled->call(context, bytesConstRef(&in), "", "");
+    entryPrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
 
     in = codec->encodeWithSig("set(string,uint256)", std::string("uint"), u256(1));
-    entryPrecompiled->call(context, bytesConstRef(&in), "", "");
+    entryPrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
 
     in = codec->encodeWithSig("set(string,address)", std::string("address"), Address(123));
-    entryPrecompiled->call(context, bytesConstRef(&in), "", "");
+    entryPrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
 
     in = codec->encodeWithSig("set(string,string)", std::string("string"), std::string("string"));
-    entryPrecompiled->call(context, bytesConstRef(&in), "", "");
+    entryPrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
 
     // cover undefined method
     in = codec->encodeWithSig("null(string,string)");
-    entryPrecompiled->call(context, bytesConstRef(&in), "", "");
+    entryPrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
 
     std::string bytes64;
     for (int i = 0; i < 64; ++i)
@@ -660,7 +658,7 @@ BOOST_AUTO_TEST_CASE(entry_test)
         bytes64 += "1";
     }
     in = codec->encodeWithSig("set(string,string)", std::string("bytes64"), bytes64);
-    entryPrecompiled->call(context, bytesConstRef(&in), "", "");
+    entryPrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
 
     std::string bytes32;
     for (int i = 0; i < 32; ++i)
@@ -668,41 +666,41 @@ BOOST_AUTO_TEST_CASE(entry_test)
         bytes32 += "1";
     }
     in = codec->encodeWithSig("set(string,string)", std::string("bytes32"), bytes32);
-    entryPrecompiled->call(context, bytesConstRef(&in), "", "");
+    entryPrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
 
     in = codec->encodeWithSig("set(string,string)", std::string("key"), std::string("keyValue"));
-    entryPrecompiled->call(context, bytesConstRef(&in), "", "");
+    entryPrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
 
     in = codec->encodeWithSig("getInt(string)", std::string("int"));
-    auto callResult = entryPrecompiled->call(context, bytesConstRef(&in), "", "");
+    auto callResult = entryPrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
     bytes out = callResult->execResult();
     s256 s;
     codec->decode(&out, s);
     BOOST_CHECK(s == s256(-1));
 
     in = codec->encodeWithSig("getUInt(string)", std::string("uint"));
-    callResult = entryPrecompiled->call(context, bytesConstRef(&in), "", "");
+    callResult = entryPrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
     out = callResult->execResult();
     u256 u;
     codec->decode(&out, u);
     BOOST_CHECK(u == u256(1));
 
     in = codec->encodeWithSig("getAddress(string)", std::string("address"));
-    callResult = entryPrecompiled->call(context, bytesConstRef(&in), "", "");
+    callResult = entryPrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
     out = callResult->execResult();
     Address a;
     codec->decode(&out, a);
     BOOST_CHECK(a == Address(123));
 
     in = codec->encodeWithSig("getString(string)", std::string("string"));
-    callResult = entryPrecompiled->call(context, bytesConstRef(&in), "", "");
+    callResult = entryPrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
     out = callResult->execResult();
     std::string as;
     codec->decode(&out, as);
     BOOST_CHECK(as == "string");
 
     in = codec->encodeWithSig("getBytes64(string)", std::string("bytes64"));
-    callResult = entryPrecompiled->call(context, bytesConstRef(&in), "", "");
+    callResult = entryPrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
     out = callResult->execResult();
     bcos::string32 a32;
     bcos::string32 b32;
@@ -711,7 +709,7 @@ BOOST_AUTO_TEST_CASE(entry_test)
     BOOST_CHECK(b32 == bcos::codec::toString32(bytes32));
 
     in = codec->encodeWithSig("getBytes32(string)", std::string("bytes32"));
-    callResult = entryPrecompiled->call(context, bytesConstRef(&in), "", "");
+    callResult = entryPrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
     out = callResult->execResult();
     codec->decode(&out, a32);
     BOOST_CHECK(a32 == bcos::codec::toString32(bytes32));
@@ -737,17 +735,17 @@ BOOST_AUTO_TEST_CASE(condition_test)
         codec->encodeWithSig("NE(string,string)", std::string("test1"), std::string("123"));
     bytes limit = codec->encodeWithSig("limit(int256)", s256(-1));
     bytes limit2 = codec->encodeWithSig("limit(int256,int256)", s256(-1), s256(1));
-    conditionPrecompiled->call(context, &eqInt, "", "");
-    conditionPrecompiled->call(context, &eqString, "", "");
-    conditionPrecompiled->call(context, &eqAddress, "", "");
-    conditionPrecompiled->call(context, &ge, "", "");
-    conditionPrecompiled->call(context, &gt, "", "");
-    conditionPrecompiled->call(context, &le, "", "");
-    conditionPrecompiled->call(context, &lt, "", "");
-    conditionPrecompiled->call(context, &ne, "", "");
-    conditionPrecompiled->call(context, &neString, "", "");
-    conditionPrecompiled->call(context, &limit, "", "");
-    conditionPrecompiled->call(context, &limit2, "", "");
+    conditionPrecompiled->call(tempExecutive, &eqInt, "", "");
+    conditionPrecompiled->call(tempExecutive, &eqString, "", "");
+    conditionPrecompiled->call(tempExecutive, &eqAddress, "", "");
+    conditionPrecompiled->call(tempExecutive, &ge, "", "");
+    conditionPrecompiled->call(tempExecutive, &gt, "", "");
+    conditionPrecompiled->call(tempExecutive, &le, "", "");
+    conditionPrecompiled->call(tempExecutive, &lt, "", "");
+    conditionPrecompiled->call(tempExecutive, &ne, "", "");
+    conditionPrecompiled->call(tempExecutive, &neString, "", "");
+    conditionPrecompiled->call(tempExecutive, &limit, "", "");
+    conditionPrecompiled->call(tempExecutive, &limit2, "", "");
     BOOST_CHECK(conditionPrecompiled->toString() == "Condition");
     BOOST_CHECK(conditionPrecompiled->getCondition()->m_conditions.size() == 9);
 }
@@ -758,7 +756,7 @@ BOOST_AUTO_TEST_CASE(undifined_method)
     initTableData();
 
     bytes in = codec->encodeWithSig("undefined(string)", std::string("1"));
-    auto callResult = tablePrecompiled->call(context, bytesConstRef(&in), "", "");
+    auto callResult = tablePrecompiled->call(tempExecutive, bytesConstRef(&in), "", "");
     bytes out = callResult->execResult();
     u256 num;
     codec->decode(bytesConstRef(&out), num);

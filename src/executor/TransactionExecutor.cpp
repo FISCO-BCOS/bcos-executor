@@ -29,7 +29,6 @@
 #include "../precompiled/Common.h"
 #include "../precompiled/ConsensusPrecompiled.h"
 #include "../precompiled/CryptoPrecompiled.h"
-#include "../precompiled/DeployWasmPrecompiled.h"
 #include "../precompiled/FileSystemPrecompiled.h"
 #include "../precompiled/KVTableFactoryPrecompiled.h"
 #include "../precompiled/ParallelConfigPrecompiled.h"
@@ -92,40 +91,12 @@ TransactionExecutor::TransactionExecutor(txpool::TxPoolInterface::Ptr txpool,
     m_version(Version_3_0_0)  // current executor version, will set as new block's version
 {
     assert(m_backendStorage);
-    auto fillZero = [](int _num) -> std::string {
-        std::stringstream stream;
-        stream << std::setfill('0') << std::setw(40) << std::hex << _num;
-        return stream.str();
-    };
 
     m_lastUncommittedIterator = m_stateStorages.begin();
-
-    m_precompiledContract =
-        std::make_shared<std::map<std::string, std::shared_ptr<PrecompiledContract>>>();
-    m_precompiledContract->insert(std::make_pair(fillZero(1),
-        make_shared<PrecompiledContract>(3000, 0, PrecompiledRegistrar::executor("ecrecover"))));
-    m_precompiledContract->insert(std::make_pair(fillZero(2),
-        make_shared<PrecompiledContract>(60, 12, PrecompiledRegistrar::executor("sha256"))));
-    m_precompiledContract->insert(std::make_pair(fillZero(3),
-        make_shared<PrecompiledContract>(600, 120, PrecompiledRegistrar::executor("ripemd160"))));
-    m_precompiledContract->insert(std::make_pair(fillZero(4),
-        make_shared<PrecompiledContract>(15, 3, PrecompiledRegistrar::executor("identity"))));
-    m_precompiledContract->insert(
-        {fillZero(5), make_shared<PrecompiledContract>(PrecompiledRegistrar::pricer("modexp"),
-                          PrecompiledRegistrar::executor("modexp"))});
-    m_precompiledContract->insert(
-        {fillZero(6), make_shared<PrecompiledContract>(
-                          150, 0, PrecompiledRegistrar::executor("alt_bn128_G1_add"))});
-    m_precompiledContract->insert(
-        {fillZero(7), make_shared<PrecompiledContract>(
-                          6000, 0, PrecompiledRegistrar::executor("alt_bn128_G1_mul"))});
-    m_precompiledContract->insert({fillZero(8),
-        make_shared<PrecompiledContract>(PrecompiledRegistrar::pricer("alt_bn128_pairing_product"),
-            PrecompiledRegistrar::executor("alt_bn128_pairing_product"))});
-    m_precompiledContract->insert({fillZero(9),
-        make_shared<PrecompiledContract>(PrecompiledRegistrar::pricer("blake2_compression"),
-            PrecompiledRegistrar::executor("blake2_compression"))});
-
+    initPrecompiled();
+    assert(m_precompiledContract);
+    assert(m_constantPrecompiled.size()>0);
+    assert(m_builtInPrecompiled);
     GlobalHashImpl::g_hashImpl = m_hashImpl;
     m_abiCache = make_shared<ClockCache<bcos::bytes, FunctionAbi>>(32);
 }
@@ -297,10 +268,8 @@ void TransactionExecutor::dagExecuteTransactions(
                 auto& input = inputs[i];
                 auto callParameters = createCallParameters(*input, std::move(transactions->at(i)));
 
-                auto executive = std::make_shared<TransactionExecutive>(m_blockContext,
-                    callParameters->codeAddress, input->contextID(), input->seq(),
-                    std::bind(&TransactionExecutor::externalCall, this, std::placeholders::_1,
-                        std::placeholders::_2, std::placeholders::_3));
+                auto executive = createExecutive(
+                    m_blockContext, callParameters->codeAddress, input->contextID(), input->seq());
 
                 auto response = executive->execute(std::move(callParameters));
                 executionResults[i]->setNewEVMContractAddress(response->newEVMContractAddress);
@@ -641,10 +610,8 @@ void TransactionExecutor::asyncExecute(bcos::protocol::ExecutionMessage::UniqueP
 
             auto callParameters = createCallParameters(*input, std::move(tx));
 
-            auto executive = std::make_shared<TransactionExecutive>(blockContext,
-                callParameters->codeAddress, input->contextID(), input->seq(),
-                std::bind(&TransactionExecutor::externalCall, this, std::placeholders::_1,
-                    std::placeholders::_2, std::placeholders::_3));
+            auto executive = createExecutive(
+                blockContext, callParameters->codeAddress, input->contextID(), input->seq());
 
             blockContext->insertExecutive(input->contextID(), input->seq(), {executive, callback});
 
@@ -683,10 +650,8 @@ void TransactionExecutor::asyncExecute(bcos::protocol::ExecutionMessage::UniqueP
         else
         {
             // new external call MESSAGE
-            auto executive = std::make_shared<TransactionExecutive>(blockContext,
-                callParameters->codeAddress, input->contextID(), input->seq(),
-                std::bind(&TransactionExecutor::externalCall, this, std::placeholders::_1,
-                    std::placeholders::_2, std::placeholders::_3));
+            auto executive = createExecutive(
+                blockContext, callParameters->codeAddress, input->contextID(), input->seq());
 
             blockContext->insertExecutive(input->contextID(), input->seq(), {executive, callback});
 
@@ -907,89 +872,8 @@ void TransactionExecutor::externalCall(TransactionExecutive::Ptr executive,
 BlockContext::Ptr TransactionExecutor::createBlockContext(
     const protocol::BlockHeader::ConstPtr& currentHeader, storage::StateStorage::Ptr tableFactory)
 {
-    (void)m_version;  // TODO: accord to m_version to chose schedule
-
     BlockContext::Ptr context = make_shared<BlockContext>(tableFactory, m_hashImpl, currentHeader,
         m_executionMessageFactory, FiscoBcosScheduleV3, m_isWasm);
-
-    auto tableFactoryPrecompiled =
-        std::make_shared<precompiled::TableFactoryPrecompiled>(m_hashImpl);
-    tableFactoryPrecompiled->setMemoryTableFactory(tableFactory);
-    auto sysConfig = std::make_shared<precompiled::SystemConfigPrecompiled>(m_hashImpl);
-    auto parallelConfigPrecompiled =
-        std::make_shared<precompiled::ParallelConfigPrecompiled>(m_hashImpl);
-    auto consensusPrecompiled = std::make_shared<precompiled::ConsensusPrecompiled>(m_hashImpl);
-    auto cnsPrecompiled = std::make_shared<precompiled::CNSPrecompiled>(m_hashImpl);
-    auto kvTableFactoryPrecompiled =
-        std::make_shared<precompiled::KVTableFactoryPrecompiled>(m_hashImpl);
-    kvTableFactoryPrecompiled->setMemoryTableFactory(tableFactory);
-
-    // FIXME: use more elegant way to switch wasm env
-    if (m_isWasm)
-    {
-        context->setAddress2Precompiled(SYS_CONFIG_NAME, sysConfig);
-        context->setAddress2Precompiled(TABLE_FACTORY_NAME, tableFactoryPrecompiled);
-        context->setAddress2Precompiled(CONSENSUS_NAME, consensusPrecompiled);
-        context->setAddress2Precompiled(CNS_NAME, cnsPrecompiled);
-        context->setAddress2Precompiled(PARALLEL_CONFIG_NAME, parallelConfigPrecompiled);
-        context->setAddress2Precompiled(KV_TABLE_FACTORY_NAME, kvTableFactoryPrecompiled);
-        context->setAddress2Precompiled(
-            CRYPTO_NAME, std::make_shared<precompiled::CryptoPrecompiled>(m_hashImpl));
-        context->setAddress2Precompiled(
-            DAG_TRANSFER_NAME, std::make_shared<precompiled::DagTransferPrecompiled>(m_hashImpl));
-        context->setAddress2Precompiled(
-            CRYPTO_NAME, std::make_shared<CryptoPrecompiled>(m_hashImpl));
-        context->setAddress2Precompiled(
-            DEPLOY_WASM_NAME, std::make_shared<DeployWasmPrecompiled>(m_hashImpl));
-        context->setAddress2Precompiled(
-            CRUD_NAME, std::make_shared<precompiled::CRUDPrecompiled>(m_hashImpl));
-        context->setAddress2Precompiled(
-            BFS_NAME, std::make_shared<precompiled::FileSystemPrecompiled>(m_hashImpl));
-        // TODO: use unique address for ContractAuthPrecompiled
-        context->setAddress2Precompiled(
-            PERMISSION_NAME, std::make_shared<precompiled::ContractAuthPrecompiled>(m_hashImpl));
-        vector<string> builtIn = {CRYPTO_NAME};
-        context->setBuiltInPrecompiled(make_shared<vector<string>>(builtIn));
-    }
-    else
-    {
-        context->setAddress2Precompiled(SYS_CONFIG_ADDRESS, sysConfig);
-        context->setAddress2Precompiled(TABLE_FACTORY_ADDRESS, tableFactoryPrecompiled);
-        context->setAddress2Precompiled(CONSENSUS_ADDRESS, consensusPrecompiled);
-        context->setAddress2Precompiled(CNS_ADDRESS, cnsPrecompiled);
-        context->setAddress2Precompiled(PARALLEL_CONFIG_ADDRESS, parallelConfigPrecompiled);
-        context->setAddress2Precompiled(KV_TABLE_FACTORY_ADDRESS, kvTableFactoryPrecompiled);
-        context->setAddress2Precompiled(
-            CRYPTO_ADDRESS, std::make_shared<precompiled::CryptoPrecompiled>(m_hashImpl));
-        context->setAddress2Precompiled(DAG_TRANSFER_ADDRESS,
-            std::make_shared<precompiled::DagTransferPrecompiled>(m_hashImpl));
-        context->setAddress2Precompiled(
-            CRYPTO_ADDRESS, std::make_shared<CryptoPrecompiled>(m_hashImpl));
-        context->setAddress2Precompiled(
-            DEPLOY_WASM_ADDRESS, std::make_shared<DeployWasmPrecompiled>(m_hashImpl));
-        context->setAddress2Precompiled(
-            CRUD_ADDRESS, std::make_shared<precompiled::CRUDPrecompiled>(m_hashImpl));
-        context->setAddress2Precompiled(
-            BFS_ADDRESS, std::make_shared<precompiled::FileSystemPrecompiled>(m_hashImpl));
-        // TODO: use unique address for ContractAuthPrecompiled
-         context->setAddress2Precompiled(
-             PERMISSION_ADDRESS, std::make_shared<precompiled::ContractAuthPrecompiled>(m_hashImpl));
-        vector<string> builtIn = {CRYPTO_ADDRESS};
-        context->setBuiltInPrecompiled(make_shared<vector<string>>(builtIn));
-    }
-    // context->setAddress2Precompiled(
-    //     PERMISSION_ADDRESS, std::make_shared<precompiled::PermissionPrecompiled>());
-    // context->setAddress2Precompiled(
-    // CONTRACT_LIFECYCLE_ADDRESS,
-    // std::make_shared<precompiled::ContractLifeCyclePrecompiled>());
-    // context->setAddress2Precompiled(
-    //     CHAINGOVERNANCE_ADDRESS,
-    //     std::make_shared<precompiled::ChainGovernancePrecompiled>());
-
-    // TODO: register User developed Precompiled contract
-    // registerUserPrecompiled(context);
-
-    context->setPrecompiledContract(m_precompiledContract);
 
     // TODO: getTxGasLimitToContext from precompiled and set to context
     context->setTxCriticalsHandler([&](const protocol::Transaction::ConstPtr& _tx)
@@ -999,8 +883,10 @@ BlockContext::Ptr TransactionExecutor::createBlockContext(
             // Not to parallel contract creation transaction
             return nullptr;
         }
+        // temp executive
+        auto executive = createExecutive(context, std::string(_tx->to()), 0, 0);
 
-        auto p = context->getPrecompiled(string(_tx->to()));
+        auto p = executive->getPrecompiled(string(_tx->to()));
         if (p)
         {
             // Precompile transaction
@@ -1024,8 +910,10 @@ BlockContext::Ptr TransactionExecutor::createBlockContext(
         // during transaction execution
         // TODO: add parallel config cache
         // auto parallelKey = std::make_pair(string(receiveAddress), selector);
+        auto parallelConfigPrecompiled =
+            std::make_shared<precompiled::ParallelConfigPrecompiled>(m_hashImpl);
         config = parallelConfigPrecompiled->getParallelConfig(
-            context, receiveAddress, selector, _tx->sender());
+            executive, receiveAddress, selector, _tx->sender());
 
         if (config == nullptr)
         {
@@ -1074,6 +962,106 @@ BlockContext::Ptr TransactionExecutor::createBlockContext(
         return res;
     });
     return context;
+}
+
+TransactionExecutive::Ptr TransactionExecutor::createExecutive(
+    const std::shared_ptr<BlockContext>& _blockContext, const std::string& _contractAddress,
+    int64_t contextID, int64_t seq)
+{
+    auto executive =
+        std::make_shared<TransactionExecutive>(_blockContext, _contractAddress, contextID, seq,
+            std::bind(&TransactionExecutor::externalCall, this, std::placeholders::_1,
+                std::placeholders::_2, std::placeholders::_3));
+
+    executive->setConstantPrecompiled(m_constantPrecompiled);
+    executive->setEVMPrecompiled(m_precompiledContract);
+    executive->setBuiltInPrecompiled(m_builtInPrecompiled);
+
+    // TODO: register User developed Precompiled contract
+    // registerUserPrecompiled(context);
+    return executive;
+}
+
+void TransactionExecutor::initPrecompiled()
+{
+    auto fillZero = [](int _num) -> std::string {
+        std::stringstream stream;
+        stream << std::setfill('0') << std::setw(40) << std::hex << _num;
+        return stream.str();
+    };
+    m_precompiledContract =
+        std::make_shared<std::map<std::string, std::shared_ptr<PrecompiledContract>>>();
+     m_builtInPrecompiled = std::make_shared<std::vector<std::string>>();
+
+    m_precompiledContract->insert(std::make_pair(fillZero(1),
+        make_shared<PrecompiledContract>(3000, 0, PrecompiledRegistrar::executor("ecrecover"))));
+    m_precompiledContract->insert(std::make_pair(fillZero(2),
+        make_shared<PrecompiledContract>(60, 12, PrecompiledRegistrar::executor("sha256"))));
+    m_precompiledContract->insert(std::make_pair(fillZero(3),
+        make_shared<PrecompiledContract>(600, 120, PrecompiledRegistrar::executor("ripemd160"))));
+    m_precompiledContract->insert(std::make_pair(fillZero(4),
+        make_shared<PrecompiledContract>(15, 3, PrecompiledRegistrar::executor("identity"))));
+    m_precompiledContract->insert(
+        {fillZero(5), make_shared<PrecompiledContract>(PrecompiledRegistrar::pricer("modexp"),
+                          PrecompiledRegistrar::executor("modexp"))});
+    m_precompiledContract->insert(
+        {fillZero(6), make_shared<PrecompiledContract>(
+                          150, 0, PrecompiledRegistrar::executor("alt_bn128_G1_add"))});
+    m_precompiledContract->insert(
+        {fillZero(7), make_shared<PrecompiledContract>(
+                          6000, 0, PrecompiledRegistrar::executor("alt_bn128_G1_mul"))});
+    m_precompiledContract->insert({fillZero(8),
+        make_shared<PrecompiledContract>(PrecompiledRegistrar::pricer("alt_bn128_pairing_product"),
+            PrecompiledRegistrar::executor("alt_bn128_pairing_product"))});
+    m_precompiledContract->insert({fillZero(9),
+        make_shared<PrecompiledContract>(PrecompiledRegistrar::pricer("blake2_compression"),
+            PrecompiledRegistrar::executor("blake2_compression"))});
+
+    auto sysConfig = std::make_shared<precompiled::SystemConfigPrecompiled>(m_hashImpl);
+    auto parallelConfigPrecompiled =
+        std::make_shared<precompiled::ParallelConfigPrecompiled>(m_hashImpl);
+    auto consensusPrecompiled = std::make_shared<precompiled::ConsensusPrecompiled>(m_hashImpl);
+    auto cnsPrecompiled = std::make_shared<precompiled::CNSPrecompiled>(m_hashImpl);
+    auto tableFactoryPrecompiled =
+        std::make_shared<precompiled::TableFactoryPrecompiled>(m_hashImpl);
+    auto kvTableFactoryPrecompiled =
+        std::make_shared<precompiled::KVTableFactoryPrecompiled>(m_hashImpl);
+
+    if (m_isWasm)
+    {
+        m_constantPrecompiled.insert({SYS_CONFIG_NAME, sysConfig});
+        m_constantPrecompiled.insert({CONSENSUS_NAME, consensusPrecompiled});
+        m_constantPrecompiled.insert({CNS_NAME, cnsPrecompiled});
+        m_constantPrecompiled.insert({PARALLEL_CONFIG_NAME, parallelConfigPrecompiled});
+        m_constantPrecompiled.insert({TABLE_FACTORY_NAME, tableFactoryPrecompiled});
+        m_constantPrecompiled.insert({KV_TABLE_FACTORY_NAME, kvTableFactoryPrecompiled});
+        m_constantPrecompiled.insert({DAG_TRANSFER_NAME, std::make_shared<precompiled::DagTransferPrecompiled>(m_hashImpl)});
+        m_constantPrecompiled.insert({CRYPTO_NAME, std::make_shared<CryptoPrecompiled>(m_hashImpl)});
+        m_constantPrecompiled.insert({CRUD_NAME, std::make_shared<precompiled::CRUDPrecompiled>(m_hashImpl)});
+        m_constantPrecompiled.insert({BFS_NAME, std::make_shared<precompiled::FileSystemPrecompiled>(m_hashImpl)});
+        // TODO: use unique address for ContractAuthPrecompiled
+        m_constantPrecompiled.insert({PERMISSION_NAME, std::make_shared<precompiled::ContractAuthPrecompiled>(m_hashImpl)});
+
+        vector<string> builtIn = {CRYPTO_NAME};
+        m_builtInPrecompiled = make_shared<vector<string>>(builtIn);
+    }
+    else
+    {
+        m_constantPrecompiled.insert({SYS_CONFIG_ADDRESS, sysConfig});
+        m_constantPrecompiled.insert({CONSENSUS_ADDRESS, consensusPrecompiled});
+        m_constantPrecompiled.insert({CNS_ADDRESS, cnsPrecompiled});
+        m_constantPrecompiled.insert({PARALLEL_CONFIG_ADDRESS, parallelConfigPrecompiled});
+        m_constantPrecompiled.insert({TABLE_FACTORY_ADDRESS, tableFactoryPrecompiled});
+        m_constantPrecompiled.insert({KV_TABLE_FACTORY_ADDRESS, kvTableFactoryPrecompiled});
+        m_constantPrecompiled.insert({DAG_TRANSFER_ADDRESS,std::make_shared<precompiled::DagTransferPrecompiled>(m_hashImpl)});
+        m_constantPrecompiled.insert({CRYPTO_ADDRESS, std::make_shared<CryptoPrecompiled>(m_hashImpl)});
+        m_constantPrecompiled.insert({CRUD_ADDRESS, std::make_shared<precompiled::CRUDPrecompiled>(m_hashImpl)});
+        m_constantPrecompiled.insert({BFS_ADDRESS, std::make_shared<precompiled::FileSystemPrecompiled>(m_hashImpl)});
+        // TODO: use unique address for ContractAuthPrecompiled
+        m_constantPrecompiled.insert({PERMISSION_ADDRESS, std::make_shared<precompiled::ContractAuthPrecompiled>(m_hashImpl)});
+        vector<string> builtIn = {CRYPTO_ADDRESS};
+        m_builtInPrecompiled = make_shared<vector<string>>(builtIn);
+    }
 }
 
 std::string TransactionExecutor::newEVMAddress(

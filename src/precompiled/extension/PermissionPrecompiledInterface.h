@@ -45,7 +45,7 @@ public:
     PermissionPrecompiledInterface(crypto::Hash::Ptr _hashImpl): Precompiled(_hashImpl){};
     virtual ~PermissionPrecompiledInterface(){};
 
-    std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::BlockContext>,
+    std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::TransactionExecutive>,
         bytesConstRef, const std::string&, const std::string&) override { return nullptr; }
 
     virtual PermissionRet::Ptr login(const std::string& nonce, const std::vector<std::string>& params) = 0;

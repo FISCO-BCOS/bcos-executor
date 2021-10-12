@@ -19,15 +19,15 @@
  */
 
 #pragma once
-#include "../mock/MockExecutionMessage.h"
-#include "../mock/MockTransactionalStorage.h"
-#include "../mock/MockTxPool.h"
 #include "bcos-executor/TransactionExecutor.h"
 #include "bcos-framework/interfaces/ledger/LedgerTypeDef.h"
 #include "bcos-framework/testutils/protocol/FakeBlock.h"
 #include "bcos-framework/testutils/protocol/FakeBlockHeader.h"
 #include "executive/BlockContext.h"
 #include "executive/TransactionExecutive.h"
+#include "mock/MockExecutionMessage.h"
+#include "mock/MockTransactionalStorage.h"
+#include "mock/MockTxPool.h"
 #include "precompiled/Utilities.h"
 #include "precompiled/extension/UserPrecompiled.h"
 #include <bcos-framework/interfaces/storage/Table.h>
@@ -82,6 +82,17 @@ public:
         context = std::make_shared<BlockContext>(
             memoryTableFactory, hashImpl, header, executionResultFactory, EVMSchedule(), _isWasm);
         codec = std::make_shared<PrecompiledCodec>(hashImpl, context->isWasm());
+        keyPair = cryptoSuite->signatureImpl()->generateKeyPair();
+        memcpy(keyPair->secretKey()->mutableData(),
+            fromHexString("ff6f30856ad3bae00b1169808488502786a13e3c174d85682135ffd51310310e")
+                ->data(),
+            32);
+        memcpy(keyPair->publicKey()->mutableData(),
+            fromHexString(
+                "ccd8de502ac45462767e649b462b5f4ca7eadd69c7e1f1b410bdf754359be29b1b88ffd79744"
+                "03f56e250af52b25682014554f7b3297d6152401e85d426a06ae")
+                ->data(),
+            64);
     }
 
     void setSM(bool _isWasm)
@@ -101,6 +112,18 @@ public:
         context = std::make_shared<BlockContext>(
             memoryTableFactory, smHashImpl, header, executionResultFactory, EVMSchedule(), _isWasm);
         codec = std::make_shared<PrecompiledCodec>(smHashImpl, context->isWasm());
+
+        keyPair = smCryptoSuite->signatureImpl()->generateKeyPair();
+        memcpy(keyPair->secretKey()->mutableData(),
+            fromHexString("ff6f30856ad3bae00b1169808488502786a13e3c174d85682135ffd51310310e")
+                ->data(),
+            32);
+        memcpy(keyPair->publicKey()->mutableData(),
+            fromHexString(
+                "ccd8de502ac45462767e649b462b5f4ca7eadd69c7e1f1b410bdf754359be29b1b88ffd79744"
+                "03f56e250af52b25682014554f7b3297d6152401e85d426a06ae")
+                ->data(),
+            64);
     }
 
     void createSysTable()
@@ -131,6 +154,19 @@ public:
         rootTable->setRow("/", dirEntry);
     }
 
+    void nextBlock(int64_t blockNumber)
+    {
+        auto blockHeader = std::make_shared<bcos::protocol::PBBlockHeader>(cryptoSuite);
+        blockHeader->setNumber(blockNumber);
+
+        std::promise<void> nextPromise;
+        executor->nextBlockHeader(blockHeader, [&](bcos::Error::Ptr&& error) {
+            BOOST_CHECK(!error);
+            nextPromise.set_value();
+        });
+        nextPromise.get_future().get();
+    }
+
 protected:
     crypto::Hash::Ptr hashImpl;
     crypto::Hash::Ptr smHashImpl;
@@ -143,6 +179,7 @@ protected:
     StateStorage::Ptr memoryTableFactory;
     TransactionExecutor::Ptr executor;
     std::shared_ptr<MockTxPool> txpool;
+    KeyPairInterface::Ptr keyPair;
 
     PrecompiledCodec::Ptr codec;
     u256 gas = u256(300000000);

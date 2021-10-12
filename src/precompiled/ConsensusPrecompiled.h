@@ -43,20 +43,25 @@ public:
     ConsensusPrecompiled(crypto::Hash::Ptr _hashImpl);
     virtual ~ConsensusPrecompiled(){};
 
-    std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::BlockContext> _context,
-        bytesConstRef _param, const std::string& _origin, const std::string& _sender) override;
+    std::shared_ptr<PrecompiledExecResult> call(
+        std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _param,
+        const std::string& _origin, const std::string& _sender) override;
 
 private:
-    int addSealer(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& _data);
+    int addSealer(
+        const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& _data);
 
-    int addObserver(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& _data);
+    int addObserver(
+        const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& _data);
 
-    int removeNode(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& _data);
+    int removeNode(
+        const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& _data);
 
-    int setWeight(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& _data);
+    int setWeight(
+        const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& _data);
 
 private:
-    void showConsensusTable(std::shared_ptr<executor::BlockContext> context);
+    void showConsensusTable(std::shared_ptr<executor::TransactionExecutive> _executive);
     bool checkIsLastSealer(std::optional<bcos::storage::Table> table, std::string const& nodeID);
     std::shared_ptr<std::map<std::string, std::optional<storage::Entry>>> getRowsByNodeType(
         std::optional<bcos::storage::Table> _table, std::string const& _nodeType);

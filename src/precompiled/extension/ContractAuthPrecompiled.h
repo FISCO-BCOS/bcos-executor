@@ -40,23 +40,23 @@ public:
     ContractAuthPrecompiled(crypto::Hash::Ptr _hashImpl);
     virtual ~ContractAuthPrecompiled(){};
 
-    std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::BlockContext> _context,
+    std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::TransactionExecutive> _executive,
         bytesConstRef _param, const std::string& _origin, const std::string& _sender) override;
 
 private:
-    void agent(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& data,
+    void agent(const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& data,
         const std::shared_ptr<PrecompiledExecResult>& callResult,
         const PrecompiledGas::Ptr& gasPricer);
 
-    void setAgent(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& data,
+    void setAgent(const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& data,
         const std::shared_ptr<PrecompiledExecResult>& callResult,const std::string& _origin, const std::string& _sender,
         const PrecompiledGas::Ptr& gasPricer);
 
-    void setAuth(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& data,
+    void setAuth(const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& data,
         const std::shared_ptr<PrecompiledExecResult>& callResult,const std::string& _origin, const std::string& _sender,
         const PrecompiledGas::Ptr& gasPricer);
 
-    void checkAuth(const std::shared_ptr<executor::BlockContext>& _context, bytesConstRef& data,
+    void checkAuth(const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& data,
         const std::shared_ptr<PrecompiledExecResult>& callResult,
         const PrecompiledGas::Ptr& gasPricer);
 

@@ -63,8 +63,8 @@ std::string CRUDPrecompiled::toString()
 }
 
 std::shared_ptr<PrecompiledExecResult> CRUDPrecompiled::call(
-    std::shared_ptr<executor::BlockContext> _context, bytesConstRef _param, const std::string&,
-    const std::string&)
+    std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _param,
+    const std::string&, const std::string&)
 {
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
@@ -74,26 +74,26 @@ std::shared_ptr<PrecompiledExecResult> CRUDPrecompiled::call(
     gasPricer->setMemUsed(_param.size());
     if (func == name2Selector[CRUD_METHOD_DESC_STR])
     {  // desc(string)
-        desc(_context, data, callResult, gasPricer);
+        desc(_executive, data, callResult, gasPricer);
     }
     else if (func == name2Selector[CRUD_METHOD_INSERT_STR])
     {
         // insert(string tableName, string entry, string optional)
-        insert(_context, data, callResult, gasPricer);
+        insert(_executive, data, callResult, gasPricer);
     }
     else if (func == name2Selector[CRUD_METHOD_UPDATE_STR])
     {
         // update(string tableName, string entry, string condition, string optional)
-        update(_context, data, callResult, gasPricer);
+        update(_executive, data, callResult, gasPricer);
     }
     else if (func == name2Selector[CRUD_METHOD_REMOVE_STR])
     {
         // remove(string tableName, string condition, string optional)
-        remove(_context, data, callResult, gasPricer);
+        remove(_executive, data, callResult, gasPricer);
     }
     else if (func == name2Selector[CRUD_METHOD_SELECT_STR])
     {
-        select(_context, data, callResult, gasPricer);
+        select(_executive, data, callResult, gasPricer);
     }
     else
     {
@@ -107,17 +107,19 @@ std::shared_ptr<PrecompiledExecResult> CRUDPrecompiled::call(
     return callResult;
 }
 
-void CRUDPrecompiled::desc(const std::shared_ptr<executor::BlockContext>& _context,
+void CRUDPrecompiled::desc(const std::shared_ptr<executor::TransactionExecutive>& _executive,
     bytesConstRef _paramData, const PrecompiledExecResult::Ptr& _callResult,
     const std::shared_ptr<PrecompiledGas>& _gasPricer)
 {
-    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto blockContext = _executive->blockContext().lock();
+    auto codec =
+        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     std::string tableName;
     codec->decode(_paramData, tableName);
     tableName = precompiled::getTableName(tableName);
 
     // s_tables must exist
-    auto table = _context->storage()->openTable(StorageInterface::SYS_TABLES);
+    auto table = _executive->storage().openTable(StorageInterface::SYS_TABLES);
     _gasPricer->appendOperation(InterfaceOpcode::OpenTable);
 
     auto entry = table->getRow(tableName);
@@ -137,18 +139,20 @@ void CRUDPrecompiled::desc(const std::shared_ptr<executor::BlockContext>& _conte
     _callResult->setExecResult(codec->encode(keyField, valueField));
 }
 
-void CRUDPrecompiled::update(const std::shared_ptr<executor::BlockContext>& _context,
+void CRUDPrecompiled::update(const std::shared_ptr<executor::TransactionExecutive>& _executive,
     bytesConstRef _paramData, const PrecompiledExecResult::Ptr& _callResult,
     const std::shared_ptr<PrecompiledGas>& _gasPricer)
 {
-    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto blockContext = _executive->blockContext().lock();
+    auto codec =
+        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     std::string tableName, entryStr, conditionStr, optional;
     codec->decode(_paramData, tableName, entryStr, conditionStr, optional);
     tableName = precompiled::getTableName(tableName);
-    auto table = _context->storage()->openTable(tableName);
+    auto table = _executive->storage().openTable(tableName);
     _gasPricer->appendOperation(InterfaceOpcode::OpenTable);
     // get key field name from s_tables
-    auto sysTable = _context->storage()->openTable(StorageInterface::SYS_TABLES);
+    auto sysTable = _executive->storage().openTable(StorageInterface::SYS_TABLES);
     auto sysEntry = sysTable->getRow(tableName);
     if (table && sysEntry)
     {
@@ -262,20 +266,22 @@ void CRUDPrecompiled::update(const std::shared_ptr<executor::BlockContext>& _con
     }
 }
 
-void CRUDPrecompiled::insert(const std::shared_ptr<executor::BlockContext>& _context,
+void CRUDPrecompiled::insert(const std::shared_ptr<executor::TransactionExecutive>& _executive,
     bytesConstRef _paramData, const PrecompiledExecResult::Ptr& _callResult,
     const std::shared_ptr<PrecompiledGas>& _gasPricer)
 {
-    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto blockContext = _executive->blockContext().lock();
+    auto codec =
+        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     std::string tableName, entryStr, optional;
     codec->decode(_paramData, tableName, entryStr, optional);
 
     tableName = precompiled::getTableName(tableName);
-    auto table = _context->storage()->openTable(tableName);
+    auto table = _executive->storage().openTable(tableName);
     _gasPricer->appendOperation(InterfaceOpcode::OpenTable);
 
     // get key field name from s_tables
-    auto keyField = getKeyField(_context, tableName);
+    auto keyField = getKeyField(_executive, tableName);
     if (table && !keyField.empty())
     {
         std::string keyValue;
@@ -324,17 +330,19 @@ void CRUDPrecompiled::insert(const std::shared_ptr<executor::BlockContext>& _con
     }
 }
 
-void CRUDPrecompiled::remove(const std::shared_ptr<executor::BlockContext>& _context,
+void CRUDPrecompiled::remove(const std::shared_ptr<executor::TransactionExecutive>& _executive,
     bytesConstRef _paramData, const PrecompiledExecResult::Ptr& _callResult,
     const std::shared_ptr<PrecompiledGas>& _gasPricer)
 {
-    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto blockContext = _executive->blockContext().lock();
+    auto codec =
+        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     std::string tableName, conditionStr, optional;
     codec->decode(_paramData, tableName, conditionStr, optional);
     tableName = precompiled::getTableName(tableName);
-    auto table = _context->storage()->openTable(tableName);
+    auto table = _executive->storage().openTable(tableName);
     _gasPricer->appendOperation(InterfaceOpcode::OpenTable);
-    auto keyField = getKeyField(_context, tableName);
+    auto keyField = getKeyField(_executive, tableName);
     if (table && !keyField.empty())
     {
         auto condition = std::make_shared<precompiled::Condition>();
@@ -397,22 +405,24 @@ void CRUDPrecompiled::remove(const std::shared_ptr<executor::BlockContext>& _con
     }
 }
 
-void CRUDPrecompiled::select(const std::shared_ptr<executor::BlockContext>& _context,
+void CRUDPrecompiled::select(const std::shared_ptr<executor::TransactionExecutive>& _executive,
     bytesConstRef _paramData, const PrecompiledExecResult::Ptr& _callResult,
     const std::shared_ptr<PrecompiledGas>& _gasPricer)
 {
     // select(string tableName, string condition, string optional)
-    auto codec = std::make_shared<PrecompiledCodec>(_context->hashHandler(), _context->isWasm());
+    auto blockContext = _executive->blockContext().lock();
+    auto codec =
+        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     std::string tableName, conditionStr, optional;
     codec->decode(_paramData, tableName, conditionStr, optional);
     if (tableName != StorageInterface::SYS_TABLES)
     {
         tableName = precompiled::getTableName(tableName);
     }
-    auto table = _context->storage()->openTable(tableName);
+    auto table = _executive->storage().openTable(tableName);
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->appendOperation(InterfaceOpcode::OpenTable);
-    auto keyField = getKeyField(_context, tableName);
+    auto keyField = getKeyField(_executive, tableName);
     if (table && !keyField.empty())
     {
         auto condition = std::make_shared<precompiled::Condition>();
