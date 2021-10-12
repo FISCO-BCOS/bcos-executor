@@ -67,7 +67,7 @@ void TransactionExecutive::start(CallParameters::UniquePtr input)
 
         execute(std::move(std::get<CallParameters::UniquePtr>(callParameters)));
 
-        EXECUTOR_LOG(TRACE) << "Switching coroutine";
+        // EXECUTOR_LOG(TRACE) << "Switching coroutine";
     });
 
     pushMessage(std::move(input));

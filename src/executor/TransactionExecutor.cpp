@@ -381,8 +381,8 @@ void TransactionExecutor::executeTransaction(bcos::protocol::ExecutionMessage::U
     std::function<void(bcos::Error::UniquePtr&&, bcos::protocol::ExecutionMessage::UniquePtr&&)>
         callback) noexcept
 {
-    EXECUTOR_LOG(INFO) << "ExecuteTransaction request" << LOG_KV("ContextID", input->contextID())
-                       << LOG_KV("seq", input->seq()) << LOG_KV("Message type", input->type());
+    // EXECUTOR_LOG(INFO) << "ExecuteTransaction request" << LOG_KV("ContextID", input->contextID())
+    //                    << LOG_KV("seq", input->seq()) << LOG_KV("Message type", input->type());
     asyncExecute(std::move(input), false,
         [callback = std::move(callback)](
             Error::UniquePtr&& error, bcos::protocol::ExecutionMessage::UniquePtr&& result) {
@@ -395,7 +395,7 @@ void TransactionExecutor::executeTransaction(bcos::protocol::ExecutionMessage::U
                 return;
             }
 
-            EXECUTOR_LOG(INFO) << "ExecuteTransaction success";
+            // EXECUTOR_LOG(INFO) << "ExecuteTransaction success";
             callback(std::move(error), std::move(result));
         });
 }
