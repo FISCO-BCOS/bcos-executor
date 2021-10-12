@@ -400,41 +400,38 @@ void TransactionExecutor::executeTransaction(bcos::protocol::ExecutionMessage::U
         });
 }
 
-void TransactionExecutor::getTableHashes(bcos::protocol::BlockNumber number,
-    std::function<void(
-        bcos::Error::UniquePtr&&, std::vector<std::tuple<std::string, crypto::HashType>>&&)>
-        callback) noexcept
+void TransactionExecutor::getHash(bcos::protocol::BlockNumber number,
+    std::function<void(bcos::Error::UniquePtr&&, crypto::HashType&&)> callback) noexcept
 {
     (void)callback;
 
     EXECUTOR_LOG(INFO) << "GetTableHashes" << LOG_KV("number", number);
-    // if (m_stateStorages.empty())
-    // {
-    //     EXECUTOR_LOG(ERROR) << "GetTableHashes error: No uncommited state in executor";
-    //     callback(BCOS_ERROR_PTR(-1, "No uncommited state in executor"),
-    //         std::vector<std::tuple<std::string, crypto::HashType>>());
-    //     return;
-    // }
 
-    // auto last = m_stateStorages.front();
-    // if (last->blockNumber() != number)
-    // {
-    //     auto errorMessage = "GetTableHashes error: Request block number: " +
-    //                         boost::lexical_cast<std::string>(number) +
-    //                         " not equal to last blockNumber: " +
-    //                         boost::lexical_cast<std::string>(last->blockNumber());
+    if (m_stateStorages.empty())
+    {
+        EXECUTOR_LOG(ERROR) << "GetTableHashes error: No uncommitted state";
+        callback(BCOS_ERROR_UNIQUE_PTR(-1, "No uncommitted state"), crypto::HashType());
+        return;
+    }
 
-    //     EXECUTOR_LOG(ERROR) << errorMessage;
-    //     callback(BCOS_ERROR_PTR(-1, errorMessage),
-    //         std::vector<std::tuple<std::string, crypto::HashType>>());
+    auto last = m_stateStorages.front();
+    if (last.number != number)
+    {
+        auto errorMessage =
+            "GetTableHashes error: Request block number: " +
+            boost::lexical_cast<std::string>(number) +
+            " not equal to last blockNumber: " + boost::lexical_cast<std::string>(last.number);
 
-    //     return;
-    // }
+        EXECUTOR_LOG(ERROR) << errorMessage;
+        callback(BCOS_ERROR_UNIQUE_PTR(-1, errorMessage), crypto::HashType());
 
-    // auto tableHashes = last->tableHashes();
-    // EXECUTOR_LOG(INFO) << "GetTableHashes success" << LOG_KV("size", tableHashes.size());
+        return;
+    }
 
-    // callback(nullptr, std::move(tableHashes));
+    auto hash = last.storage->hash(m_hashImpl);
+    EXECUTOR_LOG(INFO) << "GetTableHashes success" << LOG_KV("hash", hash.hex());
+
+    callback(nullptr, std::move(hash));
 }
 
 void TransactionExecutor::prepare(
@@ -588,7 +585,7 @@ void TransactionExecutor::reset(std::function<void(bcos::Error::Ptr&&)> callback
 {
     m_stateStorages.clear();
     m_lastUncommittedIterator = m_stateStorages.end();
-    
+
     callback(nullptr);
 }
 

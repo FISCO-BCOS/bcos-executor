@@ -100,10 +100,9 @@ public:
         std::function<void(bcos::Error::UniquePtr&&, bcos::protocol::ExecutionMessage::UniquePtr&&)>
             callback) noexcept override;
 
-    void getTableHashes(bcos::protocol::BlockNumber number,
-        std::function<void(
-            bcos::Error::UniquePtr&&, std::vector<std::tuple<std::string, crypto::HashType>>&&)>
-            callback) noexcept override;
+    void getHash(bcos::protocol::BlockNumber number,
+        std::function<void(bcos::Error::UniquePtr&&, crypto::HashType&&)> callback) noexcept
+        override;
 
     /* ----- XA Transaction interface Start ----- */
 

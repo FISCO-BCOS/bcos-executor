@@ -561,6 +561,11 @@ BOOST_AUTO_TEST_CASE(externalCall)
     BOOST_CHECK_EQUAL(result6->origin(), std::string(sender));
     BOOST_CHECK_EQUAL(result6->status(), 0);
     BOOST_CHECK(result6->message().empty());
+
+    executor->getHash(1, [&](bcos::Error::UniquePtr&& error, crypto::HashType&& hash) {
+        BOOST_CHECK(!error);
+        BOOST_CHECK_NE(hash.hex(), h256().hex());
+    });
 }
 
 BOOST_AUTO_TEST_CASE(performance)
@@ -708,7 +713,7 @@ BOOST_AUTO_TEST_CASE(performance)
         params->setCreate(false);
 
         std::string from = "user" + boost::lexical_cast<std::string>(i);
-        std::string to = "user" + boost::lexical_cast<std::string>(count - i - 1);
+        std::string to = "user" + boost::lexical_cast<std::string>(count - 1);
         bcos::u256 value(10);
         params->setData(codec->encodeWithSig("transfer(string,string,uint256)", from, to, value));
         params->setType(NativeExecutionMessage::MESSAGE);
@@ -717,23 +722,75 @@ BOOST_AUTO_TEST_CASE(performance)
     }
 
     auto now = std::chrono::system_clock::now();
+
     for (auto& it : requests)
     {
-        std::promise<ExecutionMessage::UniquePtr> executePromise2;
+        std::optional<ExecutionMessage::UniquePtr> output;
         executor->executeTransaction(std::move(it),
-            [&](bcos::Error::UniquePtr&& error, NativeExecutionMessage::UniquePtr&& result) {
+            [&output](bcos::Error::UniquePtr&& error, NativeExecutionMessage::UniquePtr&& result) {
                 if (error)
                 {
                     std::cout << "Error!" << boost::diagnostic_information(*error);
                 }
                 // BOOST_CHECK(!error);
-                executePromise2.set_value(std::move(result));
+                output = std::move(result);
             });
-        auto result2 = executePromise2.get_future().get();
-        // BOOST_CHECK_EQUAL(result->status(), 0);
+        auto& result = *output;
+        if (result->status() != 0)
+        {
+            std::cout << "Error: " << result->status() << std::endl;
+        }
     }
-    std::cout << "Execute elasped: "
+
+    std::cout << "Execute elapsed: "
               << (std::chrono::system_clock::now() - now).count() / 1000 / 1000 << std::endl;
+
+    now = std::chrono::system_clock::now();
+    // Check the result
+    for (size_t i = 0; i < count; ++i)
+    {
+        auto params = std::make_unique<NativeExecutionMessage>();
+        params->setContextID(i);
+        params->setSeq(7000);
+        params->setDepth(0);
+        params->setFrom(std::string(sender));
+        params->setTo(std::string(address));
+        params->setOrigin(std::string(sender));
+        params->setStaticCall(false);
+        params->setGasAvailable(gas);
+        params->setCreate(false);
+
+        std::string account = "user" + boost::lexical_cast<std::string>(i);
+        params->setData(codec->encodeWithSig("balanceOf(string)", account));
+        params->setType(NativeExecutionMessage::MESSAGE);
+
+        std::optional<ExecutionMessage::UniquePtr> output;
+        executor->executeTransaction(std::move(params),
+            [&output](bcos::Error::UniquePtr&& error, NativeExecutionMessage::UniquePtr&& result) {
+                if (error)
+                {
+                    std::cout << "Error!" << boost::diagnostic_information(*error);
+                }
+                // BOOST_CHECK(!error);
+                output = std::move(result);
+            });
+        auto& result = *output;
+
+        bcos::u256 value(0);
+        codec->decode(result->data(), value);
+
+        if (i < count - 1)
+        {
+            BOOST_CHECK_EQUAL(value, u256(1000000 - 10));
+        }
+        else
+        {
+            BOOST_CHECK_EQUAL(value, u256(1000000 + 10 * (count - 1)));
+        }
+    }
+
+    std::cout << "Check elapsed: " << (std::chrono::system_clock::now() - now).count() / 1000 / 1000
+              << std::endl;
 }
 
 BOOST_AUTO_TEST_SUITE_END()
