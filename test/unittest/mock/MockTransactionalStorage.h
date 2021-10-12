@@ -61,9 +61,11 @@ public:
         BOOST_CHECK_GT(params.number, 0);
         BOOST_CHECK(storage);
 
+        std::mutex mutex;
         storage->parallelTraverse(
             true, [&](const std::string_view& table, const std::string_view& key,
                       const storage::Entry& entry) {
+                std::unique_lock<std::mutex> lock(mutex);
                 std::string fields;
                 for (auto it : entry)
                 {
