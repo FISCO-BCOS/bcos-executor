@@ -382,7 +382,7 @@ void TransactionExecutor::getHash(bcos::protocol::BlockNumber number,
         return;
     }
 
-    auto last = m_stateStorages.front();
+    auto last = m_stateStorages.back();
     if (last.number != number)
     {
         auto errorMessage =
