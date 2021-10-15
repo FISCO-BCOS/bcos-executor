@@ -23,9 +23,9 @@
 #include "../Common.h"
 #include "../vm/EVMHostInterface.h"
 #include "../vm/HostContext.h"
+#include "../vm/Precompiled.h"
 #include "../vm/VMFactory.h"
 #include "../vm/VMInstance.h"
-#include "../vm/Precompiled.h"
 #include "BlockContext.h"
 #include "bcos-executor/TransactionExecutor.h"
 #include "bcos-framework/interfaces/protocol/Exceptions.h"
@@ -175,8 +175,8 @@ std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionE
         auto callResults = std::make_unique<CallParameters>(CallParameters::FINISHED);
         try
         {
-            auto precompiledResult = callPrecompiled(precompiledAddress,
-                ref(callParameters->data), callParameters->origin, callParameters->senderAddress);
+            auto precompiledResult = callPrecompiled(precompiledAddress, ref(callParameters->data),
+                callParameters->origin, callParameters->senderAddress);
             auto gas = precompiledResult->m_gas;
             if (callParameters->gas < gas)
             {
@@ -392,7 +392,7 @@ CallParameters::UniquePtr TransactionExecutive::go(HostContext& hostContext)
             auto code = hostContext.code();
             if (code.empty())
             {
-                BOOST_THROW_EXCEPTION(BCOS_ERROR(-1, "Code not found!"));
+                BOOST_THROW_EXCEPTION(BCOS_ERROR(-1, "Code not found! " + m_contractAddress));
             }
 
             auto vmKind = VMKind::evmone;
@@ -583,7 +583,8 @@ void TransactionExecutive::setConstantPrecompiled(
 {
     m_constantPrecompiled.insert(std::make_pair(address, precompiled));
 }
-void TransactionExecutive::setConstantPrecompiled(std::map<std::string, std::shared_ptr<precompiled::Precompiled>> _constantPrecompiled)
+void TransactionExecutive::setConstantPrecompiled(
+    std::map<std::string, std::shared_ptr<precompiled::Precompiled>> _constantPrecompiled)
 {
     m_constantPrecompiled = std::move(_constantPrecompiled);
 }
