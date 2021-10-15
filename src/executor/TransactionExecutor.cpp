@@ -35,8 +35,8 @@
 #include "../precompiled/SystemConfigPrecompiled.h"
 #include "../precompiled/TableFactoryPrecompiled.h"
 #include "../precompiled/Utilities.h"
-#include "../precompiled/extension/DagTransferPrecompiled.h"
 #include "../precompiled/extension/ContractAuthPrecompiled.h"
+#include "../precompiled/extension/DagTransferPrecompiled.h"
 #include "../vm/Precompiled.h"
 #include "Abi.h"
 #include "ClockCache.h"
@@ -94,7 +94,7 @@ TransactionExecutor::TransactionExecutor(txpool::TxPoolInterface::Ptr txpool,
     m_lastUncommittedIterator = m_stateStorages.begin();
     initPrecompiled();
     assert(m_precompiledContract);
-    assert(m_constantPrecompiled.size()>0);
+    assert(m_constantPrecompiled.size() > 0);
     assert(m_builtInPrecompiled);
     GlobalHashImpl::g_hashImpl = m_hashImpl;
     m_abiCache = make_shared<ClockCache<bcos::bytes, FunctionAbi>>(32);
@@ -988,7 +988,7 @@ void TransactionExecutor::initPrecompiled()
     };
     m_precompiledContract =
         std::make_shared<std::map<std::string, std::shared_ptr<PrecompiledContract>>>();
-     m_builtInPrecompiled = std::make_shared<std::vector<std::string>>();
+    m_builtInPrecompiled = std::make_shared<std::vector<std::string>>();
 
     m_precompiledContract->insert(std::make_pair(fillZero(1),
         make_shared<PrecompiledContract>(3000, 0, PrecompiledRegistrar::executor("ecrecover"))));
@@ -1032,12 +1032,17 @@ void TransactionExecutor::initPrecompiled()
         m_constantPrecompiled.insert({PARALLEL_CONFIG_NAME, parallelConfigPrecompiled});
         m_constantPrecompiled.insert({TABLE_FACTORY_NAME, tableFactoryPrecompiled});
         m_constantPrecompiled.insert({KV_TABLE_FACTORY_NAME, kvTableFactoryPrecompiled});
-        m_constantPrecompiled.insert({DAG_TRANSFER_NAME, std::make_shared<precompiled::DagTransferPrecompiled>(m_hashImpl)});
-        m_constantPrecompiled.insert({CRYPTO_NAME, std::make_shared<CryptoPrecompiled>(m_hashImpl)});
-        m_constantPrecompiled.insert({CRUD_NAME, std::make_shared<precompiled::CRUDPrecompiled>(m_hashImpl)});
-        m_constantPrecompiled.insert({BFS_NAME, std::make_shared<precompiled::FileSystemPrecompiled>(m_hashImpl)});
+        m_constantPrecompiled.insert(
+            {DAG_TRANSFER_NAME, std::make_shared<precompiled::DagTransferPrecompiled>(m_hashImpl)});
+        m_constantPrecompiled.insert(
+            {CRYPTO_NAME, std::make_shared<CryptoPrecompiled>(m_hashImpl)});
+        m_constantPrecompiled.insert(
+            {CRUD_NAME, std::make_shared<precompiled::CRUDPrecompiled>(m_hashImpl)});
+        m_constantPrecompiled.insert(
+            {BFS_NAME, std::make_shared<precompiled::FileSystemPrecompiled>(m_hashImpl)});
         // TODO: use unique address for ContractAuthPrecompiled
-        m_constantPrecompiled.insert({PERMISSION_NAME, std::make_shared<precompiled::ContractAuthPrecompiled>(m_hashImpl)});
+        m_constantPrecompiled.insert(
+            {PERMISSION_NAME, std::make_shared<precompiled::ContractAuthPrecompiled>(m_hashImpl)});
 
         vector<string> builtIn = {CRYPTO_NAME};
         m_builtInPrecompiled = make_shared<vector<string>>(builtIn);
@@ -1050,12 +1055,17 @@ void TransactionExecutor::initPrecompiled()
         m_constantPrecompiled.insert({PARALLEL_CONFIG_ADDRESS, parallelConfigPrecompiled});
         m_constantPrecompiled.insert({TABLE_FACTORY_ADDRESS, tableFactoryPrecompiled});
         m_constantPrecompiled.insert({KV_TABLE_FACTORY_ADDRESS, kvTableFactoryPrecompiled});
-        m_constantPrecompiled.insert({DAG_TRANSFER_ADDRESS,std::make_shared<precompiled::DagTransferPrecompiled>(m_hashImpl)});
-        m_constantPrecompiled.insert({CRYPTO_ADDRESS, std::make_shared<CryptoPrecompiled>(m_hashImpl)});
-        m_constantPrecompiled.insert({CRUD_ADDRESS, std::make_shared<precompiled::CRUDPrecompiled>(m_hashImpl)});
-        m_constantPrecompiled.insert({BFS_ADDRESS, std::make_shared<precompiled::FileSystemPrecompiled>(m_hashImpl)});
+        m_constantPrecompiled.insert({DAG_TRANSFER_ADDRESS,
+            std::make_shared<precompiled::DagTransferPrecompiled>(m_hashImpl)});
+        m_constantPrecompiled.insert(
+            {CRYPTO_ADDRESS, std::make_shared<CryptoPrecompiled>(m_hashImpl)});
+        m_constantPrecompiled.insert(
+            {CRUD_ADDRESS, std::make_shared<precompiled::CRUDPrecompiled>(m_hashImpl)});
+        m_constantPrecompiled.insert(
+            {BFS_ADDRESS, std::make_shared<precompiled::FileSystemPrecompiled>(m_hashImpl)});
         // TODO: use unique address for ContractAuthPrecompiled
-        m_constantPrecompiled.insert({PERMISSION_ADDRESS, std::make_shared<precompiled::ContractAuthPrecompiled>(m_hashImpl)});
+        m_constantPrecompiled.insert({PERMISSION_ADDRESS,
+            std::make_shared<precompiled::ContractAuthPrecompiled>(m_hashImpl)});
         vector<string> builtIn = {CRYPTO_ADDRESS};
         m_builtInPrecompiled = make_shared<vector<string>>(builtIn);
     }
@@ -1090,11 +1100,11 @@ std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
 
     callParameters->senderAddress = callParameters->origin;
     callParameters->receiveAddress = input.to();
-    callParameters->codeAddress = callParameters->receiveAddress;
+    callParameters->codeAddress = input.to();
 
     callParameters->gas = input.gasAvailable();
     callParameters->data = tx->input().toBytes();
-    callParameters->staticCall = false;
+    callParameters->staticCall = input.staticCall();
     callParameters->create = input.create();
 
     return callParameters;

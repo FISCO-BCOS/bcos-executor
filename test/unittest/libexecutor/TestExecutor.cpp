@@ -150,12 +150,10 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
     txpool->hash2Transaction.emplace(hash, tx);
 
     auto params = std::make_unique<NativeExecutionMessage>();
+    params->setType(bcos::protocol::ExecutionMessage::TXHASH);
     params->setContextID(100);
     params->setSeq(1000);
     params->setDepth(0);
-
-    params->setOrigin(std::string(sender));
-    params->setFrom(std::string(sender));
 
     // The contract address
     h256 addressCreate("ff6f30856ad3bae00b1169808488502786a13e3c174d85682135ffd51310310e");
@@ -164,7 +162,7 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
 
     params->setStaticCall(false);
     params->setGasAvailable(gas);
-    params->setData(input);
+    // params->setData(input);
     params->setType(ExecutionMessage::TXHASH);
     params->setTransactionHash(hash);
     params->setCreate(true);
@@ -191,9 +189,9 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
     auto result = executePromise.get_future().get();
     BOOST_CHECK_EQUAL(result->status(), 0);
 
-    BOOST_CHECK_EQUAL(result->origin(), paramsBak.origin());
+    BOOST_CHECK_EQUAL(result->origin(), sender);
     BOOST_CHECK_EQUAL(result->from(), paramsBak.to());
-    BOOST_CHECK_EQUAL(result->to(), paramsBak.from());
+    BOOST_CHECK_EQUAL(result->to(), sender);
 
     BOOST_CHECK(result->message().empty());
     BOOST_CHECK(!result->newEVMContractAddress().empty());

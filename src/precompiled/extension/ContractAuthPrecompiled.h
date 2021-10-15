@@ -31,8 +31,8 @@ function checkAuth(string path,bytes interface,string user) public constant retu
 
 namespace bcos::precompiled
 {
-const static char* AGENT_FILED = "agent";
-const static char* INTERFACE_AUTH = "interface_auth";
+const char AGENT_FILED[] = "agent";
+const char INTERFACE_AUTH[] = "interface_auth";
 class ContractAuthPrecompiled : public bcos::precompiled::Precompiled
 {
 public:
@@ -40,30 +40,34 @@ public:
     ContractAuthPrecompiled(crypto::Hash::Ptr _hashImpl);
     virtual ~ContractAuthPrecompiled(){};
 
-    std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::TransactionExecutive> _executive,
-        bytesConstRef _param, const std::string& _origin, const std::string& _sender) override;
+    std::shared_ptr<PrecompiledExecResult> call(
+        std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _param,
+        const std::string& _origin, const std::string& _sender) override;
 
 private:
-    void agent(const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& data,
-        const std::shared_ptr<PrecompiledExecResult>& callResult,
+    void agent(const std::shared_ptr<executor::TransactionExecutive>& _executive,
+        bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
         const PrecompiledGas::Ptr& gasPricer);
 
-    void setAgent(const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& data,
-        const std::shared_ptr<PrecompiledExecResult>& callResult,const std::string& _origin, const std::string& _sender,
+    void setAgent(const std::shared_ptr<executor::TransactionExecutive>& _executive,
+        bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
+        const std::string& _origin, const std::string& _sender,
         const PrecompiledGas::Ptr& gasPricer);
 
-    void setAuth(const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& data,
-        const std::shared_ptr<PrecompiledExecResult>& callResult,const std::string& _origin, const std::string& _sender,
+    void setAuth(const std::shared_ptr<executor::TransactionExecutive>& _executive,
+        bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
+        const std::string& _origin, const std::string& _sender,
         const PrecompiledGas::Ptr& gasPricer);
 
-    void checkAuth(const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& data,
-        const std::shared_ptr<PrecompiledExecResult>& callResult,
+    void checkAuth(const std::shared_ptr<executor::TransactionExecutive>& _executive,
+        bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
         const PrecompiledGas::Ptr& gasPricer);
 
-    std::string authMap2Json(const std::map<bytes, std::vector<std::pair<std::string, bool>>>& _authMap);
-    void json2AuthMap(
-        const std::string& _json, std::map<bytes, std::vector<std::pair<std::string, bool>>>& _authMap);
+    std::string authMap2Json(
+        const std::map<bytes, std::vector<std::pair<std::string, bool>>>& _authMap);
+    void json2AuthMap(const std::string& _json,
+        std::map<bytes, std::vector<std::pair<std::string, bool>>>& _authMap);
 
-    inline bool checkSender(std::string_view _sender){ return (_sender.substr(0, 4) != "/sys/"); }
+    inline bool checkSender(std::string_view _sender) { return (_sender.substr(0, 4) != "/sys/"); }
 };
 }  // namespace bcos::precompiled
