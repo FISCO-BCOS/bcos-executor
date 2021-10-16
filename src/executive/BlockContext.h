@@ -64,12 +64,16 @@ public:
     void setTxGasLimit(uint64_t _txGasLimit) { m_txGasLimit = _txGasLimit; }
 
     // Get transaction criticals, return nullptr if critical to all
-    std::shared_ptr<std::vector<std::string>> getTxCriticals(
-        const protocol::Transaction::ConstPtr& _tx)
-    {
-        return m_getTxCriticals(_tx);
-    }
-    void setTxCriticalsHandler(getTxCriticalsHandler _handler) { m_getTxCriticals = _handler; }
+    // std::shared_ptr<std::vector<std::string>> getTxCriticals(
+    //     const protocol::Transaction::ConstPtr& _tx)
+    // {
+    //     return m_getTxCriticals(_tx);
+    // }
+    // void setTxCriticalsHandler(getTxCriticalsHandler _handler) { m_getTxCriticals = _handler; }
+    
+    auto txCriticalsHandler(const protocol::Transaction::ConstPtr& _tx)
+        -> std::shared_ptr<std::vector<std::string>>;
+
     crypto::Hash::Ptr hashHandler() const { return m_hashImpl; }
     bool isWasm() const { return m_isWasm; }
     int64_t number() const { return m_blockNumber; }
@@ -95,9 +99,6 @@ public:
     void clear() { m_executives.clear(); }
 
 private:
-    auto txCriticalsHandler(const protocol::Transaction::ConstPtr& _tx)
-        -> std::shared_ptr<std::vector<std::string>>;
-
     struct HashCombine
     {
         size_t operator()(const std::tuple<int64_t, int64_t>& val) const
@@ -133,7 +134,7 @@ private:
     bool m_isWasm = false;
 
     uint64_t m_txGasLimit = 300000000;
-    getTxCriticalsHandler m_getTxCriticals = nullptr;
+    // getTxCriticalsHandler m_getTxCriticals = nullptr;
     std::shared_ptr<storage::StateStorage> m_storage;
 
     // map between {receiveAddress, selector} to {ParallelConfig}

@@ -913,7 +913,7 @@ void TransactionExecutor::externalCall(std::shared_ptr<BlockContext> blockContex
                 "," + boost::lexical_cast<std::string>(executive->seq())));
     }
 
-    // TODO: 用结构体放
+    // TODO: Use struct
     if (callback)
     {
         std::get<2>(*it) = std::move(callback);
@@ -1097,11 +1097,11 @@ void TransactionExecutor::initPrecompiled()
 
 void TransactionExecutor::checkAndClear()
 {
-    // std::unique_lock<std::mutex> lock(m_stateStoragesMutex, std::try_to_lock);
-    // if (!lock.owns_lock())
-    // {
-    //     return;
-    // }
+    std::unique_lock<std::shared_mutex> lock(m_stateStoragesMutex, std::try_to_lock);
+    if (!lock.owns_lock())
+    {
+        return;
+    }
 
     if (m_stateStorages.empty())
     {
@@ -1114,12 +1114,15 @@ void TransactionExecutor::checkAndClear()
     {
         totalCleared += it->storage->capacity();
         m_capacity -= it->storage->capacity();
-        it = m_stateStorages.erase(it);
+        it = m_stateStorages.erase(it);  // TODO: Consider the destructor cost
 
         it->storage->setPrev(m_backendStorage);
     }
 
-    EXECUTOR_LOG(DEBUG) << "Cleared " << totalCleared << " bytes";
+    if (totalCleared > 0)
+    {
+        EXECUTOR_LOG(DEBUG) << "Cleared " << totalCleared << " bytes";
+    }
 }
 
 std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(

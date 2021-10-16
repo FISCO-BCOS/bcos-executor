@@ -29,6 +29,7 @@
 #include "bcos-framework/interfaces/storage/Table.h"
 #include "bcos-framework/libcodec/abi/ContractABICodec.h"
 #include "bcos-framework/libutilities/Error.h"
+#include <boost/core/ignore_unused.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/throw_exception.hpp>
 #include <string>
@@ -102,6 +103,8 @@ BlockContext::getExecutive(int64_t contextID, int64_t seq)
 auto BlockContext::txCriticalsHandler(const protocol::Transaction::ConstPtr& _tx)
     -> std::shared_ptr<std::vector<std::string>>
 {
+    // TODO: fix here
+    boost::ignore_unused(_tx);
     return nullptr;
 
     /*
