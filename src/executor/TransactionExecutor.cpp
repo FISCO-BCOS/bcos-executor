@@ -368,7 +368,7 @@ void TransactionExecutor::call(bcos::protocol::ExecutionMessage::UniquePtr input
         blockContext = createBlockContext(
             number, h256(), 0, 0, std::move(storage));  // TODO: complete the block info
         auto inserted = m_calledContext.emplace(
-            std::tuple{input->contextID(), input->contextID()}, CallState{blockContext});
+            std::tuple{input->contextID(), input->seq()}, CallState{blockContext});
 
         if (!inserted)
         {
@@ -901,11 +901,11 @@ optional<ConflictFields> TransactionExecutor::decodeConflictFields(
     return {conflictFields};
 }
 
-void TransactionExecutor::externalCall(TransactionExecutive::Ptr executive,
-    std::unique_ptr<CallParameters> params,
+void TransactionExecutor::externalCall(std::shared_ptr<BlockContext> blockContext,
+    TransactionExecutive::Ptr executive, std::unique_ptr<CallParameters> params,
     std::function<void(Error::UniquePtr, std::unique_ptr<CallParameters>)> callback)
 {
-    auto it = m_blockContext->getExecutive(executive->contextID(), executive->seq());
+    auto it = blockContext->getExecutive(executive->contextID(), executive->seq());
     if (!it)
     {
         BOOST_THROW_EXCEPTION(BCOS_ERROR(-1,
@@ -992,7 +992,7 @@ TransactionExecutive::Ptr TransactionExecutor::createExecutive(
     auto executive =
         std::make_shared<TransactionExecutive>(_blockContext, _contractAddress, contextID, seq,
             std::bind(&TransactionExecutor::externalCall, this, std::placeholders::_1,
-                std::placeholders::_2, std::placeholders::_3));
+                std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
 
     executive->setConstantPrecompiled(m_constantPrecompiled);
     executive->setEVMPrecompiled(m_precompiledContract);

@@ -564,6 +564,33 @@ BOOST_AUTO_TEST_CASE(externalCall)
         BOOST_CHECK(!error);
         BOOST_CHECK_NE(hash.hex(), h256().hex());
     });
+
+    // execute a call request
+    auto callParam = std::make_unique<NativeExecutionMessage>();
+    callParam->setType(executor::NativeExecutionMessage::MESSAGE);
+    callParam->setContextID(500);
+    callParam->setSeq(7778);
+    callParam->setDepth(0);
+    callParam->setFrom(std::string(sender));
+    callParam->setTo(boost::algorithm::to_lower_copy(std::string(addressString2)));
+    callParam->setData(codec->encodeWithSig("value()"));
+    callParam->setOrigin(std::string(sender));
+    callParam->setStaticCall(true);
+    callParam->setGasAvailable(gas);
+    callParam->setCreate(false);
+
+    bcos::protocol::ExecutionMessage::UniquePtr callResult;
+    executor->call(std::move(callParam),
+        [&](bcos::Error::UniquePtr error, bcos::protocol::ExecutionMessage::UniquePtr response) {
+            BOOST_CHECK(!error);
+            callResult = std::move(response);
+        });
+
+    BOOST_CHECK_EQUAL(callResult->type(), protocol::ExecutionMessage::FINISHED);
+    BOOST_CHECK_EQUAL(callResult->status(), 0);
+
+    auto expectResult = codec->encode(s256(1000));
+    BOOST_CHECK(callResult->data().toBytes() == expectResult);
 }
 
 BOOST_AUTO_TEST_CASE(performance)

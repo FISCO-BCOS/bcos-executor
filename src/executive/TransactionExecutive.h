@@ -74,7 +74,8 @@ public:
 
     TransactionExecutive(std::weak_ptr<BlockContext> blockContext, std::string contractAddress,
         int64_t contextID, int64_t seq,
-        std::function<void(std::shared_ptr<TransactionExecutive> executive,
+        std::function<void(std::shared_ptr<BlockContext> blockContext,
+            std::shared_ptr<TransactionExecutive> executive,
             std::unique_ptr<CallParameters> callResults,
             std::function<void(Error::UniquePtr, std::unique_ptr<CallParameters>)> callback)>
             externalCallCallback)
@@ -141,8 +142,7 @@ public:
 
     bool isEthereumPrecompiled(const std::string& _a) const;
 
-    std::pair<bool, bytes> executeOriginPrecompiled(
-        const std::string& _a, bytesConstRef _in) const;
+    std::pair<bool, bytes> executeOriginPrecompiled(const std::string& _a, bytesConstRef _in) const;
 
     int64_t costOfPrecompiled(const std::string& _a, bytesConstRef _in) const;
 
@@ -207,7 +207,8 @@ private:
     int64_t m_baseGasRequired = 0;  ///< The base amount of gas required for executing
                                     ///< this transaction.
 
-    std::function<void(std::shared_ptr<TransactionExecutive> executive,
+    std::function<void(std::shared_ptr<BlockContext> blockContext,
+        std::shared_ptr<TransactionExecutive> executive,
         std::unique_ptr<CallParameters> callResults,
         std::function<void(Error::UniquePtr, std::unique_ptr<CallParameters>)> callback)>
         m_externalCallFunction;

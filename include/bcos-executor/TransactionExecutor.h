@@ -147,7 +147,8 @@ private:
         std::function<void(bcos::Error::UniquePtr&&, bcos::protocol::ExecutionMessage::UniquePtr&&)>
             callback);
 
-    void externalCall(std::shared_ptr<TransactionExecutive> executive,
+    void externalCall(std::shared_ptr<BlockContext> blockContext,
+        std::shared_ptr<TransactionExecutive> executive,
         std::unique_ptr<CallParameters> callResults,
         std::function<void(Error::UniquePtr, std::unique_ptr<CallParameters>)> callback);
 
@@ -194,7 +195,7 @@ private:
         bool equal(
             const std::tuple<int64_t, int64_t>& lhs, const std::tuple<int64_t, int64_t>& rhs) const
         {
-            return lhs == rhs;
+            return std::get<0>(lhs) == std::get<0>(rhs) && std::get<1>(lhs) == std::get<1>(rhs);
         }
 
         std::hash<int64_t> hashInt64;

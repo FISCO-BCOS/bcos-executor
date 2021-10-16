@@ -79,7 +79,7 @@ CallParameters::UniquePtr TransactionExecutive::externalCall(CallParameters::Uni
 {
     std::optional<CallParameters::UniquePtr> value;
 
-    m_externalCallFunction(shared_from_this(), std::move(input),
+    m_externalCallFunction(m_blockContext.lock(), shared_from_this(), std::move(input),
         [this, threadID = std::this_thread::get_id(), value = &value](
             Error::UniquePtr error, CallParameters::UniquePtr response) {
             EXECUTOR_LOG(TRACE) << "Invoke external call callback";
@@ -154,7 +154,7 @@ CallParameters::UniquePtr TransactionExecutive::execute(CallParameters::UniquePt
 
     // Current executive is finished
     m_finished = true;
-    m_externalCallFunction(shared_from_this(), std::move(callResults), {});
+    m_externalCallFunction(m_blockContext.lock(), shared_from_this(), std::move(callResults), {});
 
     return nullptr;
 }
