@@ -46,6 +46,8 @@ namespace executor
 enum ExecuteError
 {
     SUCCESS = 0,
+    GETHASH_ERROR,
+    CALL_ERROR,
     EXECUTE_ERROR,
     PREPARE_ERROR,
     COMMIT_ERROR,

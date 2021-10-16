@@ -17,6 +17,10 @@
  * @file TransactionExecutor.h
  * @author: xingqiangbai
  * @date: 2021-05-27
+ * @brief TransactionExecutor
+ * @file TransactionExecutor.h
+ * @author: xingqiangbai
+ * @date: 2021-10-16
  */
 #pragma once
 
@@ -31,6 +35,8 @@
 #include "interfaces/crypto/Hash.h"
 #include "interfaces/protocol/ProtocolTypeDef.h"
 #include "tbb/concurrent_unordered_map.h"
+#include <tbb/concurrent_hash_map.h>
+#include <tbb/spin_mutex.h>
 #include <boost/function.hpp>
 #include <algorithm>
 #include <cstdint>
@@ -43,16 +49,9 @@
 
 namespace bcos
 {
-class ThreadPool;
-namespace protocol
-{
-class TransactionReceipt;
-}  // namespace protocol
-
 namespace precompiled
 {
 class Precompiled;
-struct ParallelConfig;
 struct PrecompiledExecResult;
 }  // namespace precompiled
 
@@ -91,57 +90,60 @@ public:
     virtual ~TransactionExecutor() {}
 
     void nextBlockHeader(const bcos::protocol::BlockHeader::ConstPtr& blockHeader,
-        std::function<void(bcos::Error::UniquePtr&&)> callback) noexcept override;
+        std::function<void(bcos::Error::UniquePtr)> callback) override;
 
     void executeTransaction(bcos::protocol::ExecutionMessage::UniquePtr input,
-        std::function<void(bcos::Error::UniquePtr&&, bcos::protocol::ExecutionMessage::UniquePtr&&)>
-            callback) noexcept override;
+        std::function<void(bcos::Error::UniquePtr, bcos::protocol::ExecutionMessage::UniquePtr)>
+            callback) override;
 
-    void dagExecuteTransactions(
-        const gsl::span<bcos::protocol::ExecutionMessage::UniquePtr>& inputs,
+    void dagExecuteTransactions(gsl::span<bcos::protocol::ExecutionMessage::UniquePtr> inputs,
         std::function<void(
-            bcos::Error::UniquePtr&&, std::vector<bcos::protocol::ExecutionMessage::UniquePtr>&&)>
-            callback) noexcept override;
+            bcos::Error::UniquePtr, std::vector<bcos::protocol::ExecutionMessage::UniquePtr>)>
+            callback) override;
 
     void call(bcos::protocol::ExecutionMessage::UniquePtr input,
-        std::function<void(bcos::Error::UniquePtr&&, bcos::protocol::ExecutionMessage::UniquePtr&&)>
-            callback) noexcept override;
+        std::function<void(bcos::Error::UniquePtr, bcos::protocol::ExecutionMessage::UniquePtr)>
+            callback) override;
 
     void getHash(bcos::protocol::BlockNumber number,
-        std::function<void(bcos::Error::UniquePtr&&, crypto::HashType&&)> callback) noexcept
-        override;
+        std::function<void(bcos::Error::UniquePtr, crypto::HashType)> callback) override;
 
     /* ----- XA Transaction interface Start ----- */
 
     // Write data to storage uncommitted
-    void prepare(const TwoPCParams& params,
-        std::function<void(bcos::Error::Ptr&&)> callback) noexcept override;
+    void prepare(
+        const TwoPCParams& params, std::function<void(bcos::Error::Ptr)> callback) override;
 
     // Commit uncommitted data
-    void commit(const TwoPCParams& params,
-        std::function<void(bcos::Error::Ptr&&)> callback) noexcept override;
+    void commit(const TwoPCParams& params, std::function<void(bcos::Error::Ptr)> callback) override;
 
     // Rollback the changes
-    void rollback(const TwoPCParams& params,
-        std::function<void(bcos::Error::Ptr&&)> callback) noexcept override;
+    void rollback(
+        const TwoPCParams& params, std::function<void(bcos::Error::Ptr)> callback) override;
 
     /* ----- XA Transaction interface End ----- */
 
     // drop all status
-    void reset(std::function<void(bcos::Error::Ptr&&)> callback) noexcept override;
+    void reset(std::function<void(bcos::Error::Ptr)> callback) override;
+
+    // Max capacity (in bytes)
+    void setMaxCapacity(ssize_t capacity) { m_maxCapacity = capacity; }
 
 private:
-    protocol::Transaction::Ptr createTransaction(
-        const bcos::protocol::ExecutionMessage::UniquePtr& input);
     std::shared_ptr<BlockContext> createBlockContext(
         const protocol::BlockHeader::ConstPtr& currentHeader,
+        storage::StateStorage::Ptr tableFactory);
+
+    std::shared_ptr<BlockContext> createBlockContext(bcos::protocol::BlockNumber blockNumber,
+        h256 blockHash, uint64_t timestamp, int32_t blockVersion,
         storage::StateStorage::Ptr tableFactory);
 
     std::shared_ptr<TransactionExecutive> createExecutive(
         const std::shared_ptr<BlockContext>& _blockContext, const std::string& _contractAddress,
         int64_t contextID, int64_t seq);
 
-    void asyncExecute(bcos::protocol::ExecutionMessage::UniquePtr input, bool staticCall,
+    void asyncExecute(std::shared_ptr<BlockContext> blockContext,
+        bcos::protocol::ExecutionMessage::UniquePtr input, bool staticCall,
         std::function<void(bcos::Error::UniquePtr&&, bcos::protocol::ExecutionMessage::UniquePtr&&)>
             callback);
 
@@ -150,34 +152,63 @@ private:
         std::function<void(Error::UniquePtr, std::unique_ptr<CallParameters>)> callback);
 
     std::unique_ptr<CallParameters> createCallParameters(
-        const bcos::protocol::ExecutionMessage& inputs, bool staticCall);
+        bcos::protocol::ExecutionMessage&& inputs, bool staticCall);
 
     std::unique_ptr<CallParameters> createCallParameters(
-        const bcos::protocol::ExecutionMessage& input, bcos::protocol::Transaction::Ptr&& tx);
+        bcos::protocol::ExecutionMessage&& input, bcos::protocol::Transaction::Ptr&& tx);
 
     std::optional<std::vector<bcos::bytes>> decodeConflictFields(
         const FunctionAbi& functionAbi, bcos::protocol::Transaction* transaction);
 
     void initPrecompiled();
 
+    void checkAndClear();
+
     txpool::TxPoolInterface::Ptr m_txpool;
     std::shared_ptr<storage::TransactionalStorageInterface> m_backendStorage;
     protocol::ExecutionMessageFactory::Ptr m_executionMessageFactory;
-    std::shared_ptr<BlockContext> m_blockContext = nullptr;
+    std::shared_ptr<BlockContext> m_blockContext;
     crypto::Hash::Ptr m_hashImpl;
     bool m_isWasm = false;
     const ExecutorVersion m_version;
-    std::shared_ptr<ClockCache<bcos::bytes, FunctionAbi>> m_abiCache = nullptr;
+    std::shared_ptr<ClockCache<bcos::bytes, FunctionAbi>> m_abiCache;
 
     struct State
     {
         bcos::protocol::BlockNumber number;
         bcos::storage::StateStorage::Ptr storage;
     };
-
     std::list<State> m_stateStorages;
-
     std::list<State>::const_iterator m_lastUncommittedIterator;  // last uncommitted storage
+
+    struct HashCombine
+    {
+        size_t hash(const std::tuple<int64_t, int64_t>& val) const
+        {
+            size_t seed = hashInt64(std::get<0>(val));
+            boost::hash_combine(seed, hashInt64(std::get<1>(val)));
+
+            return seed;
+        }
+
+        bool equal(
+            const std::tuple<int64_t, int64_t>& lhs, const std::tuple<int64_t, int64_t>& rhs) const
+        {
+            return lhs == rhs;
+        }
+
+        std::hash<int64_t> hashInt64;
+    };
+
+    struct CallState
+    {
+        std::shared_ptr<BlockContext> blockContext;
+    };
+    tbb::concurrent_hash_map<std::tuple<int64_t, int64_t>, CallState, HashCombine> m_calledContext;
+    std::shared_mutex m_stateStoragesMutex;
+
+    ssize_t m_capacity = 0;
+    ssize_t m_maxCapacity = 256 * 1024 * 1024;  // 256MB for default capacity
 
     std::shared_ptr<std::map<std::string, std::shared_ptr<PrecompiledContract>>>
         m_precompiledContract;
@@ -185,22 +216,5 @@ private:
     std::shared_ptr<const std::vector<std::string>> m_builtInPrecompiled;
 };
 
-enum ConflictFieldKind : std::uint8_t
-{
-    All = 0,
-    Len,
-    Env,
-    Var,
-    Const,
-};
-
-enum EnvKind : std::uint8_t
-{
-    Caller = 0,
-    Origin,
-    Now,
-    BlockNumber,
-    Addr,
-};
 }  // namespace executor
 }  // namespace bcos

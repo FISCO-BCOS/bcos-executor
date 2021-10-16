@@ -341,11 +341,11 @@ void HostContext::log(h256s&& _topics, bytesConstRef _data)
 
 h256 HostContext::blockHash() const
 {
-    return m_executive->blockContext().lock()->currentBlockHeader()->hash();
+    return m_executive->blockContext().lock()->hash();
 }
 int64_t HostContext::blockNumber() const
 {
-    return m_executive->blockContext().lock()->currentNumber();
+    return m_executive->blockContext().lock()->number();
 }
 int64_t HostContext::timestamp() const
 {

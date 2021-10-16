@@ -127,7 +127,7 @@ int ConsensusPrecompiled::addSealer(
     auto newEntry = table->newEntry();
     newEntry.setField(NODE_TYPE, ledger::CONSENSUS_SEALER);
     newEntry.setField(
-        NODE_ENABLE_NUMBER, boost::lexical_cast<std::string>(blockContext->currentNumber() + 1));
+        NODE_ENABLE_NUMBER, boost::lexical_cast<std::string>(blockContext->number() + 1));
     newEntry.setField(NODE_WEIGHT, boost::lexical_cast<std::string>(weight));
     table->setRow(nodeID, std::move(newEntry));
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
@@ -163,7 +163,7 @@ int ConsensusPrecompiled::addObserver(
     auto newEntry = table->newEntry();
     newEntry.setField(NODE_TYPE, ledger::CONSENSUS_OBSERVER);
     newEntry.setField(
-        NODE_ENABLE_NUMBER, boost::lexical_cast<std::string>(blockContext->currentNumber() + 1));
+        NODE_ENABLE_NUMBER, boost::lexical_cast<std::string>(blockContext->number() + 1));
     newEntry.setField(NODE_WEIGHT, "0");
     if (checkIsLastSealer(table, nodeID))
     {
@@ -247,7 +247,7 @@ int ConsensusPrecompiled::setWeight(
     }
     entry->setField(NODE_WEIGHT, boost::lexical_cast<std::string>(weight));
     entry->setField(
-        NODE_ENABLE_NUMBER, boost::lexical_cast<std::string>(blockContext->currentNumber() + 1));
+        NODE_ENABLE_NUMBER, boost::lexical_cast<std::string>(blockContext->number() + 1));
     table->setRow(nodeID, std::move(entry.value()));
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
                            << LOG_DESC("setWeight successfully");

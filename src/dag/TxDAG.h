@@ -37,6 +37,24 @@ class TransactionExecutive;
 using ExecuteTxFunc =
     std::function<bool(protocol::Transaction::ConstPtr, ID, std::shared_ptr<TransactionExecutive>)>;
 
+enum ConflictFieldKind : std::uint8_t
+{
+    All = 0,
+    Len,
+    Env,
+    Var,
+    Const,
+};
+
+enum EnvKind : std::uint8_t
+{
+    Caller = 0,
+    Origin,
+    Now,
+    BlockNumber,
+    Addr,
+};
+
 class TxDAG
 {
 public:

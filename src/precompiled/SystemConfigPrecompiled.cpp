@@ -88,7 +88,7 @@ std::shared_ptr<PrecompiledExecResult> SystemConfigPrecompiled::call(
         auto entry = table->newEntry();
         entry.setField(SYS_VALUE, configValue);
         entry.setField(SYS_CONFIG_ENABLE_BLOCK_NUMBER,
-            boost::lexical_cast<std::string>(blockContext->currentNumber() + 1));
+            boost::lexical_cast<std::string>(blockContext->number() + 1));
         table->setRow(configKey, std::move(entry));
 
         PRECOMPILED_LOG(INFO) << LOG_BADGE("SystemConfigPrecompiled")

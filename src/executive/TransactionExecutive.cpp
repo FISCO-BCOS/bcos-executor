@@ -285,7 +285,7 @@ CallParameters::UniquePtr TransactionExecutive::go(HostContext& hostContext)
                                   const HostContext& hostContext) -> evmc_message {
             // the block number will be larger than 0,
             // can be controlled by the programmers
-            assert(blockContext.currentNumber() > 0);
+            assert(blockContext.number() > 0);
 
             evmc_call_kind kind = hostContext.isCreate() ? EVMC_CREATE : EVMC_CALL;
             uint32_t flags = hostContext.staticCall() ? EVMC_STATIC : 0;
