@@ -19,7 +19,7 @@
  * @date: 2021-09-26
  */
 
-#include "../src/executor/Abi.h"
+#include "../src/dag/Abi.h"
 #include "bcos-framework/libutilities/DataConvertUtility.h"
 #include "bcos-framework/testutils/crypto/HashImpl.h"
 #include <boost/test/unit_test.hpp>

@@ -168,7 +168,6 @@ std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionE
         BOOST_THROW_EXCEPTION(BCOS_ERROR(-1, "blockContext is null"));
     }
 
-    // TODO: 考虑提取函数
     auto precompiledAddress = callParameters->codeAddress;
     if (isPrecompiled(precompiledAddress))
     {

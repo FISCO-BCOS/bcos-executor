@@ -21,6 +21,10 @@
 
 #include "bcos-executor/TransactionExecutor.h"
 #include "../Common.h"
+#include "../dag/Abi.h"
+#include "../dag/ClockCache.h"
+#include "../dag/ScaleUtils.h"
+#include "../dag/TxDAG.h"
 #include "../executive/BlockContext.h"
 #include "../executive/TransactionExecutive.h"
 #include "../precompiled/CNSPrecompiled.h"
@@ -38,10 +42,6 @@
 #include "../precompiled/extension/ContractAuthPrecompiled.h"
 #include "../precompiled/extension/DagTransferPrecompiled.h"
 #include "../vm/Precompiled.h"
-#include "Abi.h"
-#include "ClockCache.h"
-#include "ScaleUtils.h"
-#include "TxDAG.h"
 #include "bcos-framework/interfaces/dispatcher/SchedulerInterface.h"
 #include "bcos-framework/interfaces/executor/PrecompiledTypeDef.h"
 #include "bcos-framework/interfaces/ledger/LedgerTypeDef.h"
@@ -460,7 +460,7 @@ void TransactionExecutor::prepare(
 void TransactionExecutor::commit(
     const TwoPCParams& params, std::function<void(bcos::Error::Ptr&&)> callback) noexcept
 {
-    EXECUTOR_LOG(INFO) << "Commit request" << LOG_KV("number", params.number);
+    EXECUTOR_LOG(DEBUG) << "Commit request" << LOG_KV("number", params.number);
 
     if (m_lastUncommittedIterator == m_stateStorages.end())
     {
@@ -496,7 +496,7 @@ void TransactionExecutor::commit(
                 return;
             }
 
-            EXECUTOR_LOG(INFO) << "Commit success";
+            EXECUTOR_LOG(DEBUG) << "Commit success";
 
             ++m_lastUncommittedIterator;
             m_blockContext = nullptr;

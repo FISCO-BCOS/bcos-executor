@@ -19,8 +19,8 @@
  * @date: 2021-09-26
  */
 
-#include "../src/executor/Abi.h"
-#include "../src/executor/ScaleUtils.h"
+#include "../src/dag/Abi.h"
+#include "../src/dag/ScaleUtils.h"
 #include "libutilities/Common.h"
 #include "libutilities/DataConvertUtility.h"
 #include <boost/test/unit_test.hpp>
