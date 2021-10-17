@@ -100,7 +100,7 @@ BlockContext::getExecutive(int64_t contextID, int64_t seq)
     return &(it->second);
 }
 
-auto BlockContext::txCriticalsHandler(const protocol::Transaction::ConstPtr& _tx)
+auto BlockContext::getTxCriticals(const protocol::Transaction::ConstPtr& _tx)
     -> std::shared_ptr<std::vector<std::string>>
 {
     // TODO: fix here

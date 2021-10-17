@@ -126,7 +126,7 @@ void TransactionExecutor::nextBlockHeader(const bcos::protocol::BlockHeader::Con
 
 
             m_blockContext = createBlockContext(blockHeader, stateStorage);
-            m_stateStorages.emplace_back(blockHeader->number(), std::move(stateStorage));
+            m_stateStorages.emplace_back(State{blockHeader->number(), std::move(stateStorage)});
 
             if (m_lastUncommittedIterator == m_stateStorages.end())
             {

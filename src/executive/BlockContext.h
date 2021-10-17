@@ -71,7 +71,7 @@ public:
     // }
     // void setTxCriticalsHandler(getTxCriticalsHandler _handler) { m_getTxCriticals = _handler; }
     
-    auto txCriticalsHandler(const protocol::Transaction::ConstPtr& _tx)
+    auto getTxCriticals(const protocol::Transaction::ConstPtr& _tx)
         -> std::shared_ptr<std::vector<std::string>>;
 
     crypto::Hash::Ptr hashHandler() const { return m_hashImpl; }
