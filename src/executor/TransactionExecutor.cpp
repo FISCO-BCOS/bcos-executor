@@ -111,24 +111,28 @@ void TransactionExecutor::nextBlockHeader(const bcos::protocol::BlockHeader::Con
         EXECUTOR_LOG(INFO) << "NextBlockHeader request: "
                            << LOG_KV("number", blockHeader->number());
 
-        bcos::storage::StateStorage::Ptr stateStorage;
-        if (m_stateStorages.empty())
         {
-            stateStorage = std::make_shared<bcos::storage::StateStorage>(m_backendStorage);
-        }
-        else
-        {
-            auto prev = m_stateStorages.back();
-            stateStorage = std::make_shared<bcos::storage::StateStorage>(prev.storage);
-        }
+            std::unique_lock<std::shared_mutex> lock(m_stateStoragesMutex);
+            bcos::storage::StateStorage::Ptr stateStorage;
+            if (m_stateStorages.empty())
+            {
+                stateStorage = std::make_shared<bcos::storage::StateStorage>(m_backendStorage);
+            }
+            else
+            {
+                auto prev = m_stateStorages.back();
+                stateStorage = std::make_shared<bcos::storage::StateStorage>(prev.storage);
+            }
 
-        m_blockContext = createBlockContext(blockHeader, stateStorage);
-        m_stateStorages.push_back({blockHeader->number(), std::move(stateStorage)});
 
-        if (m_lastUncommittedIterator == m_stateStorages.end())
-        {
-            m_lastUncommittedIterator = m_stateStorages.cend();
-            --m_lastUncommittedIterator;
+            m_blockContext = createBlockContext(blockHeader, stateStorage);
+            m_stateStorages.emplace_back(blockHeader->number(), std::move(stateStorage));
+
+            if (m_lastUncommittedIterator == m_stateStorages.end())
+            {
+                m_lastUncommittedIterator = m_stateStorages.cend();
+                --m_lastUncommittedIterator;
+            }
         }
 
         EXECUTOR_LOG(INFO) << "NextBlockHeader success";
@@ -742,15 +746,13 @@ void TransactionExecutor::asyncExecute(std::shared_ptr<BlockContext> blockContex
         if (it)
         {
             // REVERT or FINISHED
-            auto& [executive, externalCallFunc, responseFunc] = *it;
+            [[maybe_unused]] auto& [executive, externalCallFunc, responseFunc] = *it;
             externalCallFunc = std::move(callback);
 
             // Call callback
             EXECUTOR_LOG(TRACE) << "Entering responseFunc";
             responseFunc(nullptr, TransactionExecutive::CallMessage(std::move(callParameters)));
             EXECUTOR_LOG(TRACE) << "Exiting responseFunc";
-
-            (void)executive;
         }
         else
         {
