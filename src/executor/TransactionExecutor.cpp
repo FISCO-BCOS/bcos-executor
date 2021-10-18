@@ -456,9 +456,9 @@ void TransactionExecutor::executeTransaction(bcos::protocol::ExecutionMessage::U
     std::function<void(bcos::Error::UniquePtr, bcos::protocol::ExecutionMessage::UniquePtr)>
         callback)
 {
-    EXECUTOR_LOG(DEBUG) << "ExecuteTransaction request" << LOG_KV("ContextID", input->contextID())
-                        << LOG_KV("seq", input->seq()) << LOG_KV("Message type", input->type())
-                        << LOG_KV("To", input->to()) << LOG_KV("Create", input->create());
+    // EXECUTOR_LOG(DEBUG) << "ExecuteTransaction request" << LOG_KV("ContextID", input->contextID())
+    //                     << LOG_KV("seq", input->seq()) << LOG_KV("Message type", input->type())
+    //                     << LOG_KV("To", input->to()) << LOG_KV("Create", input->create());
 
     if (!m_blockContext)
     {
@@ -480,7 +480,7 @@ void TransactionExecutor::executeTransaction(bcos::protocol::ExecutionMessage::U
                 return;
             }
 
-            EXECUTOR_LOG(DEBUG) << "ExecuteTransaction success";
+            // EXECUTOR_LOG(DEBUG) << "ExecuteTransaction success";
             callback(std::move(error), std::move(result));
         });
 }
