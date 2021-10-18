@@ -19,7 +19,7 @@
  * @date: 2021-05-27
  * @brief TransactionExecutor
  * @file TransactionExecutor.h
- * @author: xingqiangbai
+ * @author: ancelmo
  * @date: 2021-10-16
  */
 #pragma once
@@ -44,6 +44,7 @@
 #include <future>
 #include <memory>
 #include <mutex>
+#include <shared_mutex>
 #include <stack>
 #include <thread>
 
