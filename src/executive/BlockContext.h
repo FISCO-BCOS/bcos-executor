@@ -63,14 +63,6 @@ public:
     uint64_t txGasLimit() const { return m_txGasLimit; }
     void setTxGasLimit(uint64_t _txGasLimit) { m_txGasLimit = _txGasLimit; }
 
-    // Get transaction criticals, return nullptr if critical to all
-    // std::shared_ptr<std::vector<std::string>> getTxCriticals(
-    //     const protocol::Transaction::ConstPtr& _tx)
-    // {
-    //     return m_getTxCriticals(_tx);
-    // }
-    // void setTxCriticalsHandler(getTxCriticalsHandler _handler) { m_getTxCriticals = _handler; }
-    
     auto getTxCriticals(const protocol::Transaction::ConstPtr& _tx)
         -> std::shared_ptr<std::vector<std::string>>;
 
@@ -84,17 +76,17 @@ public:
 
     EVMSchedule const& evmSchedule() const { return m_schedule; }
 
-    void insertExecutive(int64_t contextID, int64_t seq,
-        std::tuple<std::shared_ptr<TransactionExecutive>,
-            std::function<void(
-                bcos::Error::UniquePtr&&, bcos::protocol::ExecutionMessage::UniquePtr&&)>>
-            item);
+    struct ExecutiveState
+    {
+        std::shared_ptr<TransactionExecutive> executive;
+        std::function<void(bcos::Error::UniquePtr&&, bcos::protocol::ExecutionMessage::UniquePtr&&)>
+            requestFunction;
+        std::function<void(bcos::Error::UniquePtr&&, CallParameters::UniquePtr)> responseFunction;
+    };
 
-    std::tuple<std::shared_ptr<TransactionExecutive>,
-        std::function<void(
-            bcos::Error::UniquePtr&&, bcos::protocol::ExecutionMessage::UniquePtr&&)>,
-        std::function<void(bcos::Error::UniquePtr&&, CallParameters::UniquePtr)>>*
-    getExecutive(int64_t contextID, int64_t seq);
+    void insertExecutive(int64_t contextID, int64_t seq, ExecutiveState state);
+
+    ExecutiveState* getExecutive(int64_t contextID, int64_t seq);
 
     void clear() { m_executives.clear(); }
 
@@ -112,16 +104,7 @@ private:
         std::hash<int64_t> hashInt64;
     };
 
-    // only one request access the m_executives' value one time
-    tbb::concurrent_unordered_map<std::tuple<int64_t, int64_t>,
-        std::tuple<std::shared_ptr<TransactionExecutive>,
-            std::function<void(bcos::Error::UniquePtr&&,
-                bcos::protocol::ExecutionMessage::UniquePtr&&)>,  // for external call request
-            std::function<void(bcos::Error::UniquePtr&&, CallParameters::UniquePtr)>>,  // for
-                                                                                        // external
-                                                                                        // call
-                                                                                        // response
-        HashCombine>
+    tbb::concurrent_unordered_map<std::tuple<int64_t, int64_t>, ExecutiveState, HashCombine>
         m_executives;
 
     bcos::protocol::BlockNumber m_blockNumber;
@@ -134,13 +117,7 @@ private:
     bool m_isWasm = false;
 
     uint64_t m_txGasLimit = 300000000;
-    // getTxCriticalsHandler m_getTxCriticals = nullptr;
     std::shared_ptr<storage::StateStorage> m_storage;
-
-    // map between {receiveAddress, selector} to {ParallelConfig}
-    // avoid multiple concurrent transactions of openTable to obtain
-    // ParallelConfig
-    // std::shared_ptr<ParallelConfigCache> m_parallelConfigCache = nullptr;
     crypto::Hash::Ptr m_hashImpl;
 };
 

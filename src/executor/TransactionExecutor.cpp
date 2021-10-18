@@ -456,7 +456,8 @@ void TransactionExecutor::executeTransaction(bcos::protocol::ExecutionMessage::U
     std::function<void(bcos::Error::UniquePtr, bcos::protocol::ExecutionMessage::UniquePtr)>
         callback)
 {
-    // EXECUTOR_LOG(DEBUG) << "ExecuteTransaction request" << LOG_KV("ContextID", input->contextID())
+    // EXECUTOR_LOG(DEBUG) << "ExecuteTransaction request" << LOG_KV("ContextID",
+    // input->contextID())
     //                     << LOG_KV("seq", input->seq()) << LOG_KV("Message type", input->type())
     //                     << LOG_KV("To", input->to()) << LOG_KV("Create", input->create());
 
@@ -720,7 +721,7 @@ void TransactionExecutor::asyncExecute(std::shared_ptr<BlockContext> blockContex
                 auto executive =
                     createExecutive(blockContext, callParameters->codeAddress, contextID, seq);
 
-                blockContext->insertExecutive(contextID, seq, {executive, callback});
+                blockContext->insertExecutive(contextID, seq, {executive, callback, {}});
 
                 try
                 {
@@ -747,7 +748,7 @@ void TransactionExecutor::asyncExecute(std::shared_ptr<BlockContext> blockContex
         {
             // REVERT or FINISHED
             [[maybe_unused]] auto& [executive, externalCallFunc, responseFunc] = *it;
-            externalCallFunc = std::move(callback);
+            it->requestFunction = std::move(callback);
 
             // Call callback
             EXECUTOR_LOG(TRACE) << "Entering responseFunc";
@@ -760,7 +761,7 @@ void TransactionExecutor::asyncExecute(std::shared_ptr<BlockContext> blockContex
             auto executive =
                 createExecutive(blockContext, callParameters->codeAddress, contextID, seq);
 
-            blockContext->insertExecutive(contextID, seq, {executive, callback});
+            blockContext->insertExecutive(contextID, seq, {executive, callback, {}});
 
             try
             {
@@ -918,7 +919,7 @@ void TransactionExecutor::externalCall(std::shared_ptr<BlockContext> blockContex
     // TODO: Use struct
     if (callback)
     {
-        std::get<2>(*it) = std::move(callback);
+        it->responseFunction = std::move(callback);
     }
 
     auto message = m_executionMessageFactory->createExecutionMessage();
@@ -965,7 +966,7 @@ void TransactionExecutor::externalCall(std::shared_ptr<BlockContext> blockContex
     message->setLogEntries(std::move(params->logEntries));
     message->setNewEVMContractAddress(std::move(params->newEVMContractAddress));
 
-    std::get<1> (*it)(nullptr, std::move(message));
+    it->requestFunction(nullptr, std::move(message));
 }
 
 BlockContext::Ptr TransactionExecutor::createBlockContext(

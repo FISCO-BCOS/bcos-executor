@@ -67,11 +67,7 @@ BlockContext::BlockContext(std::shared_ptr<storage::StateStorage> storage,
     // m_parallelConfigCache = make_shared<ParallelConfigCache>();
 }
 
-void BlockContext::insertExecutive(int64_t contextID, int64_t seq,
-    std::tuple<std::shared_ptr<TransactionExecutive>,
-        std::function<void(
-            bcos::Error::UniquePtr&&, bcos::protocol::ExecutionMessage::UniquePtr&&)>>
-        item)
+void BlockContext::insertExecutive(int64_t contextID, int64_t seq, ExecutiveState state)
 {
     auto it = m_executives.find(std::tuple{contextID, seq});
     if (it != m_executives.end())
@@ -81,15 +77,11 @@ void BlockContext::insertExecutive(int64_t contextID, int64_t seq,
     }
 
     bool success;
-    std::tie(it, success) = m_executives.emplace(std::tuple{contextID, seq},
-        std::tuple{std::move(std::get<0>(item)), std::move(std::get<1>(item)),
-            std::function<void(bcos::Error::UniquePtr&&, CallParameters::UniquePtr)>()});
+    std::tie(it, success) = m_executives.emplace(std::tuple{contextID, seq}, std::move(state));
 }
 
-std::tuple<std::shared_ptr<TransactionExecutive>,
-    std::function<void(bcos::Error::UniquePtr&&, bcos::protocol::ExecutionMessage::UniquePtr&&)>,
-    std::function<void(bcos::Error::UniquePtr&&, CallParameters::UniquePtr)>>*
-BlockContext::getExecutive(int64_t contextID, int64_t seq)
+bcos::executor::BlockContext::ExecutiveState* BlockContext::getExecutive(
+    int64_t contextID, int64_t seq)
 {
     auto it = m_executives.find({contextID, seq});
     if (it == m_executives.end())
@@ -97,7 +89,7 @@ BlockContext::getExecutive(int64_t contextID, int64_t seq)
         return nullptr;
     }
 
-    return &(it->second);
+    return &it->second;
 }
 
 auto BlockContext::getTxCriticals(const protocol::Transaction::ConstPtr& _tx)
