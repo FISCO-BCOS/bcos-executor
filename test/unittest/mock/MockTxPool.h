@@ -56,7 +56,9 @@ public:
 
         _onBlockFilled(nullptr, std::move(transactions));
     }
-
+    void notifyConnectedNodes(
+        bcos::crypto::NodeIDSet const&, std::function<void(Error::Ptr)>) override
+    {}
     std::map<bcos::crypto::HashType, bcos::protocol::Transaction::Ptr> hash2Transaction;
 };
 }  // namespace bcos::test
