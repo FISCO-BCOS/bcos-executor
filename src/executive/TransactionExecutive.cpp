@@ -54,22 +54,20 @@ using errinfo_evmcStatusCode = boost::error_info<struct tag_evmcStatusCode, evmc
 
 void TransactionExecutive::start(CallParameters::UniquePtr input)
 {
-    auto blockContext = m_blockContext.lock();
-    if (!blockContext)
-    {
-        BOOST_THROW_EXCEPTION(BCOS_ERROR(-1, "blockContext is null"));
-    }
-
-    m_storageWrapper = std::make_unique<CoroutineStorageWrapper<CoroutineMessage>>(
-        blockContext->storage(), *m_pushMessage, *m_pullMessage);
-
     m_pushMessage = std::make_unique<Coroutine::push_type>([this](Coroutine::pull_type& source) {
         m_pullMessage = std::make_unique<Coroutine::pull_type>(std::move(source));
         auto callParameters = m_pullMessage->get();
 
-        execute(std::move(std::get<CallParameters::UniquePtr>(callParameters)));
+        auto blockContext = m_blockContext.lock();
+        if (!blockContext)
+        {
+            BOOST_THROW_EXCEPTION(BCOS_ERROR(-1, "blockContext is null"));
+        }
 
-        // EXECUTOR_LOG(TRACE) << "Switching coroutine";
+        m_storageWrapper = std::make_unique<CoroutineStorageWrapper<CoroutineMessage>>(
+            blockContext->storage(), *m_pushMessage, *m_pullMessage);
+
+        execute(std::move(std::get<CallParameters::UniquePtr>(callParameters)));
     });
 
     pushMessage(std::move(input));
@@ -77,33 +75,14 @@ void TransactionExecutive::start(CallParameters::UniquePtr input)
 
 CallParameters::UniquePtr TransactionExecutive::externalCall(CallParameters::UniquePtr input)
 {
-    std::optional<CallParameters::UniquePtr> value;
-
     m_externalCallFunction(m_blockContext.lock(), shared_from_this(), std::move(input),
-        [this, threadID = std::this_thread::get_id(), value = &value](
-            Error::UniquePtr error, CallParameters::UniquePtr response) {
+        [this]([[maybe_unused]] Error::UniquePtr error, CallParameters::UniquePtr response) {
             EXECUTOR_LOG(TRACE) << "Invoke external call callback";
-            (void)error;
-
-            // TODO: ensure the logic common
-            // if (std::this_thread::get_id() == threadID)
-            if (false)
-            {
-                *value = std::make_optional(std::move(response));
-            }
-            else
-            {
-                (*m_pushMessage)(CallMessage(std::move(response)));
-            }
+            (*m_pushMessage)(CallMessage(std::move(response)));
         });
 
-    if (!value)
-    {
-        (*m_pullMessage)();  // move to the main coroutine
-        value = std::make_optional(std::get<CallMessage>(m_pullMessage->get()));
-    }
-
-    auto output = std::move(*value);
+    (*m_pullMessage)();  // move to the main coroutine
+    auto output = std::get<CallMessage>(m_pullMessage->get());
 
     // After coroutine switch, set the recoder
     m_storageWrapper->setRecoder(m_recoder);
@@ -113,21 +92,6 @@ CallParameters::UniquePtr TransactionExecutive::externalCall(CallParameters::Uni
 
 CallParameters::UniquePtr TransactionExecutive::execute(CallParameters::UniquePtr callParameters)
 {
-    // Control by scheduler
-    // int64_t txGasLimit = m_blockContext.lock()->txGasLimit();
-
-    // if (txGasLimit < m_baseGasRequired)
-    // {
-    //     auto callResults = std::make_unique<CallParameters>(CallParameters::REVERT);
-    //     callResults->status = (int32_t)TransactionStatus::OutOfGasLimit;
-    //     callResults->message =
-    //         "The gas required by deploying/accessing this contract is more than "
-    //         "tx_gas_limit" +
-    //         boost::lexical_cast<std::string>(txGasLimit) +
-    //         " require: " + boost::lexical_cast<std::string>(m_baseGasRequired);
-
-    //     return callResults;
-    // }
     assert(!m_finished);
 
     m_storageWrapper->setRecoder(m_recoder);

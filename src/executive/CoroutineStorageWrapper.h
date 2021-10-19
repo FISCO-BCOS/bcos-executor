@@ -6,6 +6,7 @@
 #include "bcos-framework/libstorage/StateStorage.h"
 #include <boost/container/flat_set.hpp>
 #include <boost/coroutine2/coroutine.hpp>
+#include <boost/coroutine2/fixedsize_stack.hpp>
 #include <boost/iterator/iterator_categories.hpp>
 #include <optional>
 #include <thread>
@@ -41,10 +42,9 @@ public:
     {
         std::optional<GetPrimaryKeysReponse> value;
 
-        m_storage->asyncGetPrimaryKeys(table, _condition,
-            [this, value = &value, threadID = std::this_thread::get_id()](
-                auto&& error, auto&& keys) {
-                if (std::this_thread::get_id() == threadID)
+        m_storage->asyncGetPrimaryKeys(
+            table, _condition, [this, value = &value](auto&& error, auto&& keys) {
+                if (m_push)
                 {
                     *value = std::make_optional(std::tuple{std::move(error), std::move(keys)});
                 }
@@ -60,14 +60,14 @@ public:
             value = std::make_optional(std::get<GetPrimaryKeysReponse>(m_pull.get()));
         }
 
-        auto [error, keys] = std::move(*value);
+        auto& [error, keys] = *value;
 
         if (error)
         {
             BOOST_THROW_EXCEPTION(*error);
         }
 
-        return keys;
+        return std::move(keys);
     }
 
     std::optional<storage::Entry> getRow(
@@ -75,18 +75,16 @@ public:
     {
         std::optional<GetRowResponse> value;
 
-        m_storage->asyncGetRow(table, _key,
-            [this, value = &value, threadID = std::this_thread::get_id()](
-                auto&& error, auto&& entry) {
-                if (std::this_thread::get_id() == threadID)
-                {
-                    *value = std::make_optional(GetRowResponse{std::move(error), std::move(entry)});
-                }
-                else
-                {
-                    m_push(GetRowResponse{std::move(error), std::move(entry)});
-                }
-            });
+        m_storage->asyncGetRow(table, _key, [this, value = &value](auto&& error, auto&& entry) {
+            if (m_push)
+            {
+                *value = std::make_optional(GetRowResponse{std::move(error), std::move(entry)});
+            }
+            else
+            {
+                m_push(GetRowResponse{std::move(error), std::move(entry)});
+            }
+        });
 
         if (!value)
         {
@@ -94,7 +92,7 @@ public:
             value = std::make_optional(std::get<GetRowResponse>(m_pull.get()));
         }
 
-        auto&& [error, entry] = std::move(*value);
+        auto& [error, entry] = *value;
 
         if (error)
         {
@@ -102,7 +100,7 @@ public:
         }
 
         acquireKeyLock(_key);
-        return entry;
+        return std::move(entry);
     }
 
     std::vector<std::optional<storage::Entry>> getRows(
@@ -111,19 +109,16 @@ public:
     {
         std::optional<GetRowsResponse> value;
 
-        m_storage->asyncGetRows(table, _keys,
-            [this, value = &value, threadID = std::this_thread::get_id()](
-                auto&& error, auto&& entries) {
-                if (std::this_thread::get_id() == threadID)
-                {
-                    *value =
-                        std::make_optional(GetRowsResponse{std::move(error), std::move(entries)});
-                }
-                else
-                {
-                    m_push(GetRowsResponse{std::move(error), std::move(entries)});
-                }
-            });
+        m_storage->asyncGetRows(table, _keys, [this, value = &value](auto&& error, auto&& entries) {
+            if (m_push)
+            {
+                *value = std::make_optional(GetRowsResponse{std::move(error), std::move(entries)});
+            }
+            else
+            {
+                m_push(GetRowsResponse{std::move(error), std::move(entries)});
+            }
+        });
 
         if (!value)
         {
@@ -131,46 +126,39 @@ public:
             value = std::make_optional(std::get<GetRowsResponse>(m_pull.get()));
         }
 
-        auto [error, entries] = std::move(*value);
+        auto& [error, entries] = *value;
 
         if (error)
         {
             BOOST_THROW_EXCEPTION(*error);
         }
 
-        if (_keys.index() == 0)
-        {
-            for (auto& it : std::get<0>(_keys))
-            {
-                acquireKeyLock(it);
-            }
-        }
-        else
-        {
-            for (auto& it : std::get<1>(_keys))
-            {
-                acquireKeyLock(it);
-            }
-        }
+        std::visit(
+            [this](auto&& keys) {
+                for (auto& it : keys)
+                {
+                    acquireKeyLock(it);
+                }
+            },
+            _keys);
 
-        return entries;
+        return std::move(entries);
     }
 
     void setRow(const std::string_view& table, const std::string_view& key, storage::Entry entry)
     {
         std::optional<SetRowResponse> value;
 
-        m_storage->asyncSetRow(table, key, std::move(entry),
-            [this, value = &value, threadID = std::this_thread::get_id()](auto&& error) {
-                if (std::this_thread::get_id() == threadID)
-                {
-                    *value = std::make_optional(SetRowResponse{std::move(error)});
-                }
-                else
-                {
-                    m_push(SetRowResponse{std::move(error)});
-                }
-            });
+        m_storage->asyncSetRow(table, key, std::move(entry), [this, value = &value](auto&& error) {
+            if (m_push)
+            {
+                *value = std::make_optional(SetRowResponse{std::move(error)});
+            }
+            else
+            {
+                m_push(SetRowResponse{std::move(error)});
+            }
+        });
 
         if (!value)
         {
@@ -178,7 +166,7 @@ public:
             value = std::make_optional(std::get<SetRowResponse>(m_pull.get()));
         }
 
-        auto [error] = std::move(*value);
+        auto& [error] = *value;
 
         if (error)
         {
@@ -193,9 +181,8 @@ public:
         std::optional<OpenTableResponse> value;
 
         m_storage->asyncCreateTable(std::move(_tableName), std::move(_valueFields),
-            [this, value = &value, threadID = std::this_thread::get_id()](
-                Error::UniquePtr&& error, auto&& table) {
-                if (std::this_thread::get_id() == threadID)
+            [this, value = &value](Error::UniquePtr&& error, auto&& table) {
+                if (m_push)
                 {
                     *value =
                         std::make_optional(OpenTableResponse{std::move(error), std::move(table)});
@@ -212,24 +199,22 @@ public:
             value = std::make_optional(std::get<OpenTableResponse>(m_pull.get()));
         }
 
-        auto [error, table] = std::move(*value);
+        auto& [error, table] = *value;
 
         if (error)
         {
             BOOST_THROW_EXCEPTION(*(error));
         }
 
-        return table;
+        return std::move(table);
     }
 
     std::optional<storage::Table> openTable(std::string_view tableName)
     {
         std::optional<OpenTableResponse> value;
 
-        m_storage->asyncOpenTable(tableName, [this, value = &value,
-                                                 threadID = std::this_thread::get_id()](
-                                                 auto&& error, auto&& table) {
-            if (std::this_thread::get_id() == threadID)
+        m_storage->asyncOpenTable(tableName, [this, value = &value](auto&& error, auto&& table) {
+            if (m_push)
             {
                 *value = std::make_optional(OpenTableResponse{std::move(error), std::move(table)});
             }
@@ -244,19 +229,24 @@ public:
             m_pull();
             value = std::make_optional(std::get<OpenTableResponse>(m_pull.get()));
         }
-        auto [error, table] = std::move(*value);
+        auto& [error, table] = *value;
 
         if (error)
         {
             BOOST_THROW_EXCEPTION(*error);
         }
 
-        return table;
+        return std::move(table);
     }
 
     void setRecoder(storage::StateStorage::Recoder::Ptr recoder)
     {
         m_storage->setRecoder(std::move(recoder));
+    }
+
+    void setExistsKeyLocks(gsl::span<std::string> keyLocks)
+    {
+        m_existsKeyLocks.reserve(keyLocks.size());
     }
 
 private:
