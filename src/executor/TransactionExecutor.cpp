@@ -57,6 +57,7 @@
 #include "libprotocol/LogEntry.h"
 #include "tbb/flow_graph.h"
 #include <tbb/parallel_for.h>
+#include <boost/thread/latch.hpp>
 #include <boost/algorithm/hex.hpp>
 #include <boost/exception/detail/exception_ptr.hpp>
 #include <boost/lexical_cast.hpp>
@@ -269,42 +270,59 @@ void TransactionExecutor::dagExecuteTransactions(
     auto dependencies = unordered_map<bytes, size_t, boost::hash<bytes>>();
     auto slotUsage = unordered_map<size_t, size_t>();
 
+    boost::latch counter(allConflictFields.size());
+
     for (auto i = 0u; i < allConflictFields.size(); ++i)
     {
         auto& conflictFields = allConflictFields[i];
         if (!conflictFields.has_value())
         {
+            counter.count_down();
             continue;
         }
 
         auto index = tasks.size();
-        tasks.emplace_back(
-            Task(flowGraph, [this, i, &inputs, &transactions, &executionResults](Msg) {
-                auto& input = inputs[i];
-                auto contextID = input->contextID();
-                auto seq = input->seq();
-                auto callParameters =
-                    createCallParameters(std::move(*input), std::move(transactions->at(i)));
+        tasks.emplace_back(Task(flowGraph, [this, i, &inputs, &transactions, &executionResults, &counter](
+                                               Msg) {
+            auto& input = inputs[i];
+            auto contextID = input->contextID();
+            auto seq = input->seq();
+            auto callParameters =
+                createCallParameters(std::move(*input), std::move(transactions->at(i)));
 
-                auto executive =
-                    createExecutive(m_blockContext, callParameters->codeAddress, contextID, seq);
+            auto executive =
+                createExecutive(m_blockContext, callParameters->codeAddress, contextID, seq);
+            m_blockContext->insertExecutive(contextID, seq,
+                {executive, [i, &executionResults, &counter](bcos::Error::UniquePtr&& error,
+                                bcos::protocol::ExecutionMessage::UniquePtr&& response) {
+                     if (response->status() != 0 || error)
+                     {
+                         executionResults[i]->setType(ExecutionMessage::REVERT);
+                     }
+                     else
+                     {
+                         auto log_entries = response->logEntries();
+                         executionResults[i]->setLogEntries(std::vector<bcos::protocol::LogEntry>(
+                             log_entries.begin(), log_entries.end()));
 
-                auto response =
-                    executive->execute(std::move(callParameters));  // TODO: 用start()代替execute()
+                         executionResults[i]->setNewEVMContractAddress(
+                             std::string(response->newEVMContractAddress()));
+                         executionResults[i]->setStatus(response->status());
+                         executionResults[i]->setMessage(std::string(response->message()));
+                         executionResults[i]->setType(ExecutionMessage::FINISHED);
+                     }
+                     counter.count_down();
+                 }});
 
-                executionResults[i]->setNewEVMContractAddress(response->newEVMContractAddress);
-                executionResults[i]->setLogEntries(response->logEntries);
-                executionResults[i]->setStatus(response->status);
-                executionResults[i]->setMessage(response->message);
-                if (response->status != 0)
-                {
-                    executionResults[i]->setType(ExecutionMessage::REVERT);
-                }
-                else
-                {
-                    executionResults[i]->setType(ExecutionMessage::FINISHED);
-                }
-            }));
+            try
+            {
+                executive->start(std::move(callParameters));
+            }
+            catch (std::exception& e)
+            {
+                EXECUTOR_LOG(ERROR) << "Execute error: " << boost::diagnostic_information(e);
+            }
+        }));
 
         auto noDeps = true;
         for (auto& conflictField : conflictFields.value())
@@ -340,6 +358,7 @@ void TransactionExecutor::dagExecuteTransactions(
 
     start.try_put(continue_msg());
     flowGraph.wait_for_all();
+    counter.wait();
     callback(nullptr, std::move(executionResults));
 }
 
@@ -535,8 +554,8 @@ void TransactionExecutor::prepare(
     EXECUTOR_LOG(INFO) << "Prepare request" << LOG_KV("params", params.number);
     if (m_stateStorages.empty())
     {
-        EXECUTOR_LOG(ERROR) << "Prepare error: No uncommited state in executor";
-        callback(BCOS_ERROR_PTR(-1, "No uncommited state in executor"));
+        EXECUTOR_LOG(ERROR) << "Prepare error: No uncommitted state in executor";
+        callback(BCOS_ERROR_PTR(-1, "No uncommitted state in executor"));
         return;
     }
 
