@@ -278,6 +278,7 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
     BOOST_CHECK_EQUAL(result2->message(), "");
     BOOST_CHECK_EQUAL(result2->newEVMContractAddress(), "");
     BOOST_CHECK_LT(result2->gasAvailable(), gas);
+    BOOST_CHECK_GT(result2->keyLocks().size(), 0);
 
     // read "fisco bcos"
     bytes queryBytes;
