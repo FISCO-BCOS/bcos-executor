@@ -916,7 +916,6 @@ void TransactionExecutor::externalCall(std::shared_ptr<BlockContext> blockContex
                 "," + boost::lexical_cast<std::string>(executive->seq())));
     }
 
-    // TODO: Use struct
     if (callback)
     {
         it->responseFunction = std::move(callback);
@@ -931,7 +930,10 @@ void TransactionExecutor::externalCall(std::shared_ptr<BlockContext> blockContex
         message->setType(ExecutionMessage::MESSAGE);
         break;
     case CallParameters::WAIT_KEY:
+        message->setFrom(std::move(params->senderAddress));
         message->setType(ExecutionMessage::WAIT_KEY);
+        message->setKeyLockAcquired(std::move(params->acquireKeyLock));
+        message->setKeyLocks(std::move(params->keyLocks));
         break;
     case CallParameters::FINISHED:
         // Response message, Swap the from and to

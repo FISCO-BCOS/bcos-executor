@@ -65,7 +65,8 @@ void TransactionExecutive::start(CallParameters::UniquePtr input)
         }
 
         m_storageWrapper = std::make_unique<CoroutineStorageWrapper<CoroutineMessage>>(
-            blockContext->storage(), *m_pushMessage, *m_pullMessage);
+            blockContext->storage(), *m_pushMessage, *m_pullMessage,
+            std::bind(&TransactionExecutive::externalAcquireKeyLocks, this, std::placeholders::_1));
 
         execute(std::move(std::get<CallParameters::UniquePtr>(callParameters)));
     });
@@ -75,6 +76,8 @@ void TransactionExecutive::start(CallParameters::UniquePtr input)
 
 CallParameters::UniquePtr TransactionExecutive::externalCall(CallParameters::UniquePtr input)
 {
+    input->keyLocks = m_storageWrapper->exportKeyLocks();
+
     m_externalCallFunction(m_blockContext.lock(), shared_from_this(), std::move(input),
         [this]([[maybe_unused]] Error::UniquePtr error, CallParameters::UniquePtr response) {
             EXECUTOR_LOG(TRACE) << "Invoke external call callback";
@@ -87,7 +90,39 @@ CallParameters::UniquePtr TransactionExecutive::externalCall(CallParameters::Uni
     // After coroutine switch, set the recoder
     m_storageWrapper->setRecoder(m_recoder);
 
+    // Set the keyLocks
+    m_storageWrapper->setExistsKeyLocks(output->keyLocks);
+
     return output;
+}
+
+void TransactionExecutive::externalAcquireKeyLocks(std::string acquireKeyLock)
+{
+    auto callParameters = std::make_unique<CallParameters>(CallParameters::MESSAGE);
+    callParameters->senderAddress = m_contractAddress;
+    callParameters->keyLocks = m_storageWrapper->exportKeyLocks();
+    callParameters->acquireKeyLock = std::move(acquireKeyLock);
+
+    m_externalCallFunction(m_blockContext.lock(), shared_from_this(), std::move(callParameters),
+        [this]([[maybe_unused]] Error::UniquePtr error, CallParameters::UniquePtr response) {
+            EXECUTOR_LOG(TRACE) << "Invoke external call callback";
+            (*m_pushMessage)(CallMessage(std::move(response)));
+        });
+
+    (*m_pullMessage)();  // move to the main coroutine
+    auto output = std::get<CallMessage>(m_pullMessage->get());
+
+    if (output->status == CallParameters::REVERT)
+    {
+        // Dead lock, revert
+        BOOST_THROW_EXCEPTION(BCOS_ERROR(ExecuteError::DEAD_LOCK, "Dead lock detected"));
+    }
+
+    // After coroutine switch, set the recoder
+    m_storageWrapper->setRecoder(m_recoder);
+
+    // Set the keyLocks
+    m_storageWrapper->setExistsKeyLocks(output->keyLocks);
 }
 
 CallParameters::UniquePtr TransactionExecutive::execute(CallParameters::UniquePtr callParameters)

@@ -17,6 +17,10 @@
  * @file Common.h
  * @author: xingqiangbai
  * @date: 2021-05-24
+ * @brief vm common
+ * @file Common.h
+ * @author: ancelmo
+ * @date: 2021-10-08
  */
 
 #pragma once
@@ -52,6 +56,7 @@ enum ExecuteError
     PREPARE_ERROR,
     COMMIT_ERROR,
     ROLLBACK_ERROR,
+    DEAD_LOCK,
 };
 
 const char STORAGE_VALUE[] = "value";

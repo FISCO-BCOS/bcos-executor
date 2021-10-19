@@ -108,6 +108,9 @@ public:
     CallParameters::UniquePtr externalCall(CallParameters::UniquePtr input);  // call by
                                                                               // hostContext
 
+    // External request key locks
+    void externalAcquireKeyLocks(std::string acquireKeyLock);
+
     CoroutineStorageWrapper<CoroutineMessage>& storage() { return *m_storageWrapper; }
 
     std::weak_ptr<BlockContext> blockContext() { return m_blockContext; }

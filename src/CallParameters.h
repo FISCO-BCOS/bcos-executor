@@ -28,21 +28,25 @@ struct CallParameters
     CallParameters(CallParameters&&) = delete;
     CallParameters(const CallParameters&&) = delete;
 
-    Type type;
     std::string senderAddress;   // common field, readable format
     std::string codeAddress;     // common field, readable format
     std::string receiveAddress;  // common field, readable format
     std::string origin;          // common field, readable format
 
-    int64_t gas = 0;          // common field
-    bcos::bytes data;         // common field, transaction data, binary format
-    bool staticCall = false;  // common field
-    bool create = false;      // by request, is create
+    int64_t gas = 0;   // common field
+    bcos::bytes data;  // common field, transaction data, binary format
 
-    int32_t status = 0;                                // by response
+    std::vector<std::string> keyLocks;  // common field
+    std::string acquireKeyLock;         // by response
+
     std::string message;                               // by response, readable format
     std::vector<bcos::protocol::LogEntry> logEntries;  // by response
     std::optional<u256> createSalt;                    // by response
     std::string newEVMContractAddress;                 // by response, readable format
+
+    int32_t status = 0;  // by response
+    Type type;
+    bool staticCall = false;  // common field
+    bool create = false;      // by request, is create
 };
 }  // namespace bcos::executor
