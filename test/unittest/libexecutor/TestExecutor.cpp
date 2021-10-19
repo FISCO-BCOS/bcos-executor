@@ -278,7 +278,6 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
     BOOST_CHECK_EQUAL(result2->message(), "");
     BOOST_CHECK_EQUAL(result2->newEVMContractAddress(), "");
     BOOST_CHECK_LT(result2->gasAvailable(), gas);
-    BOOST_CHECK_GT(result2->keyLocks().size(), 0);
 
     // read "fisco bcos"
     bytes queryBytes;
@@ -509,6 +508,7 @@ BOOST_AUTO_TEST_CASE(externalCall)
     // BOOST_CHECK_EQUAL(result4->status(), 0);
     BOOST_CHECK(result4->message().empty());
     BOOST_CHECK(result4->newEVMContractAddress().empty());
+    BOOST_CHECK_GT(result4->keyLocks().size(), 0);
 
     // --------------------------------
     // Message 3: A call B's value(), set new seq 1003
