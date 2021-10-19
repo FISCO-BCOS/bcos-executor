@@ -933,7 +933,7 @@ void TransactionExecutor::externalCall(std::shared_ptr<BlockContext> blockContex
         message->setFrom(std::move(params->senderAddress));
         message->setType(ExecutionMessage::WAIT_KEY);
         message->setKeyLockAcquired(std::move(params->acquireKeyLock));
-        message->setKeyLocks(std::move(params->keyLocks));
+
         break;
     case CallParameters::FINISHED:
         // Response message, Swap the from and to
@@ -967,6 +967,8 @@ void TransactionExecutor::externalCall(std::shared_ptr<BlockContext> blockContex
     message->setMessage(std::move(params->message));
     message->setLogEntries(std::move(params->logEntries));
     message->setNewEVMContractAddress(std::move(params->newEVMContractAddress));
+
+    message->setKeyLocks(std::move(params->keyLocks));
 
     it->requestFunction(nullptr, std::move(message));
 }
@@ -1145,6 +1147,7 @@ std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
     callParameters->create = input.create();
     callParameters->newEVMContractAddress = input.newEVMContractAddress();
     callParameters->status = 0;
+    callParameters->keyLocks = input.keyLocks();
 
     return callParameters;
 }
