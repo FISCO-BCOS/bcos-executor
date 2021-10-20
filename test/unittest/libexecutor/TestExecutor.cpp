@@ -503,6 +503,7 @@ BOOST_AUTO_TEST_CASE(externalCall)
     BOOST_CHECK_EQUAL(result4->seq(), 1001);
     BOOST_CHECK_EQUAL(result4->from(), std::string(address));
     BOOST_CHECK_EQUAL(result4->to(), boost::algorithm::to_lower_copy(std::string(addressString2)));
+    BOOST_CHECK_GT(result4->keyLocks().size(), 1);
 
     // Request message without status
     // BOOST_CHECK_EQUAL(result4->status(), 0);
