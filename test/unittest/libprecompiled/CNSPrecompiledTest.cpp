@@ -473,6 +473,7 @@ BOOST_AUTO_TEST_CASE(helloTest)
 
     // callback to TestCNS, TestCNS call cns.selectByNameAndVersion
     result2->setSeq(2000);
+    result2->setKeyLocks({});
     std::promise<ExecutionMessage::UniquePtr> executePromise3;
     executor->executeTransaction(std::move(result2),
         [&](bcos::Error::UniquePtr&& error, NativeExecutionMessage::UniquePtr&& result) {
@@ -521,6 +522,7 @@ BOOST_AUTO_TEST_CASE(helloTest)
 
     // callback to TestCNS, return true
     result4->setSeq(2000);
+    result4->setKeyLocks({});
     std::promise<ExecutionMessage::UniquePtr> executePromise5;
     executor->executeTransaction(std::move(result4),
         [&](bcos::Error::UniquePtr&& error, NativeExecutionMessage::UniquePtr&& result) {

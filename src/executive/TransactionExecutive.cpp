@@ -98,7 +98,7 @@ CallParameters::UniquePtr TransactionExecutive::externalCall(CallParameters::Uni
 
 void TransactionExecutive::externalAcquireKeyLocks(std::string acquireKeyLock)
 {
-    auto callParameters = std::make_unique<CallParameters>(CallParameters::MESSAGE);
+    auto callParameters = std::make_unique<CallParameters>(CallParameters::WAIT_KEY);
     callParameters->senderAddress = m_contractAddress;
     callParameters->keyLocks = m_storageWrapper->exportKeyLocks();
     callParameters->acquireKeyLock = std::move(acquireKeyLock);

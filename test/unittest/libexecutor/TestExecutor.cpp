@@ -820,6 +820,10 @@ BOOST_AUTO_TEST_CASE(performance)
               << std::endl;
 }
 
+BOOST_AUTO_TEST_CASE(keyLock) {
+    
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 }  // namespace test
 }  // namespace bcos
