@@ -1142,12 +1142,12 @@ std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
     callParameters->codeAddress = input.to();
     callParameters->create = input.create();
     callParameters->gas = input.gasAvailable();
-    callParameters->data = std::move(input.takeData());
+    callParameters->data = input.takeData();
     callParameters->staticCall = staticCall;
     callParameters->create = input.create();
     callParameters->newEVMContractAddress = input.newEVMContractAddress();
     callParameters->status = 0;
-    callParameters->keyLocks = input.keyLocks();
+    callParameters->keyLocks = input.takeKeyLocks();
 
     return callParameters;
 }
