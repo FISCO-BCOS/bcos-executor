@@ -88,6 +88,7 @@ public:
         m_gasInjector(std::make_shared<wasm::GasInjector>(wasm::GetInstructionTable()))
     {
         m_recoder = m_blockContext.lock()->storage()->newRecoder();
+        m_hashImpl = m_blockContext.lock()->hashHandler();
     }
 
     TransactionExecutive(TransactionExecutive const&) = delete;
@@ -130,15 +131,12 @@ public:
     void setConstantPrecompiled(
         const std::string& _address, std::shared_ptr<precompiled::Precompiled> precompiled);
 
-    void setBuiltInPrecompiled(std::shared_ptr<const std::vector<std::string>> _builtInPrecompiled)
+    void setBuiltInPrecompiled(std::shared_ptr<const std::set<std::string>> _builtInPrecompiled)
     {
         m_builtInPrecompiled = std::move(_builtInPrecompiled);
     }
 
-    std::shared_ptr<const std::vector<std::string>> getBuiltInPrecompiled()
-    {
-        return m_builtInPrecompiled;
-    }
+    bool isBuiltInPrecompiled(const std::string& _a) const;
 
     bool isEthereumPrecompiled(const std::string& _a) const;
 
@@ -154,11 +152,13 @@ public:
         const std::map<std::string, std::shared_ptr<precompiled::Precompiled>>
             _constantPrecompiled);
 
-    std::shared_ptr<precompiled::PrecompiledExecResult> callPrecompiled(const std::string& address,
+    std::shared_ptr<precompiled::PrecompiledExecResult> execPrecompiled(const std::string& address,
         bytesConstRef param, const std::string& origin, const std::string& sender);
 
 private:
     std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> call(
+        CallParameters::UniquePtr callParameters);
+    std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> callPrecompiled(
         CallParameters::UniquePtr callParameters);
     std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> create(
         CallParameters::UniquePtr callParameters);
@@ -196,7 +196,7 @@ private:
     std::map<std::string, std::shared_ptr<precompiled::Precompiled>> m_constantPrecompiled;
     std::shared_ptr<const std::map<std::string, std::shared_ptr<PrecompiledContract>>>
         m_evmPrecompiled;
-    std::shared_ptr<const std::vector<std::string>> m_builtInPrecompiled;
+    std::shared_ptr<const std::set<std::string>> m_builtInPrecompiled;
     std::atomic<int> m_addressCount;
 
     std::string m_contractAddress;

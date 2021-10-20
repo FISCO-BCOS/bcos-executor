@@ -109,14 +109,9 @@ std::shared_ptr<PrecompiledExecResult> ParallelConfigPrecompiled::call(
     return callResult;
 }
 
-std::string ParallelConfigPrecompiled::getTableName(
-    const std::string_view& _contractName, bool _isWasm)
+std::string ParallelConfigPrecompiled::getTableName(const std::string_view& _contractName)
 {
     std::string tableName = std::string(PARA_CONFIG_TABLE_PREFIX_SHORT).append(_contractName);
-    if (!_isWasm)
-    {
-        tableName = PARA_CONFIG_TABLE_PREFIX_SHORT + *toHexString(_contractName);
-    }
     return tableName;
 }
 
@@ -126,7 +121,7 @@ std::shared_ptr<Table> ParallelConfigPrecompiled::openTable(
     std::string const&, bool _needCreate)
 {
     auto blockContext = _executive->blockContext().lock();
-    std::string tableName = getTableName(_contractName, blockContext->isWasm());
+    std::string tableName = getTableName(_contractName);
     auto table = _executive->storage().openTable(tableName);
 
     if (!table && _needCreate)
@@ -199,14 +194,13 @@ void ParallelConfigPrecompiled::unregisterParallelFunction(PrecompiledCodec::Ptr
     {
         std::string contractAddress;
         _codec->decode(_data, contractAddress, functionName);
-        table =
-            _executive->storage().openTable(getTableName(contractAddress, blockContext->isWasm()));
+        table = _executive->storage().openTable(getTableName(contractAddress));
     }
     else
     {
         Address contractAddress;
         _codec->decode(_data, contractAddress, functionName);
-        table = _executive->storage().openTable(contractAddress.hex());
+        table = _executive->storage().openTable(getTableName(contractAddress.hex()));
     }
 
     uint32_t selector = getFuncSelector(functionName, m_hashImpl);
@@ -225,8 +219,7 @@ ParallelConfig::Ptr ParallelConfigPrecompiled::getParallelConfig(
     const std::string_view& _contractAddress, uint32_t _selector, const std::string_view&)
 {
     auto blockContext = _executive->blockContext().lock();
-    auto table =
-        _executive->storage().openTable(getTableName(_contractAddress, blockContext->isWasm()));
+    auto table = _executive->storage().openTable(getTableName(_contractAddress));
     if (!table)
     {
         return nullptr;

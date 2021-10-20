@@ -73,8 +73,8 @@ public:
                 }
 
                 auto keyHex = boost::algorithm::hex_lower(std::string(key));
-                EXECUTOR_LOG(TRACE) << "Merge data" << LOG_KV("table", table)
-                                    << LOG_KV("key", keyHex) << LOG_KV("fields", fields);
+                // EXECUTOR_LOG(TRACE) << "Merge data" << LOG_KV("table", table)
+                //                  << LOG_KV("key", keyHex) << LOG_KV("fields", fields);
 
                 auto myTable = m_inner->openTable(std::string(table));
                 if (!myTable)

@@ -61,7 +61,7 @@ private:
         const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& _data);
 
 private:
-    void showConsensusTable(std::shared_ptr<executor::TransactionExecutive> _executive);
+    void showConsensusTable(const std::shared_ptr<executor::TransactionExecutive>& _executive);
     bool checkIsLastSealer(std::optional<bcos::storage::Table> table, std::string const& nodeID);
     std::shared_ptr<std::map<std::string, std::optional<storage::Entry>>> getRowsByNodeType(
         std::optional<bcos::storage::Table> _table, std::string const& _nodeType);

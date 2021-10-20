@@ -19,7 +19,7 @@
  */
 
 #include "precompiled/FileSystemPrecompiled.h"
-#include "PreCompiledFixture.h"
+#include "libprecompiled/PreCompiledFixture.h"
 #include "precompiled/KVTableFactoryPrecompiled.h"
 #include <bcos-framework/testutils/TestPromptFixture.h>
 #include <json/json.h>

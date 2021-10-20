@@ -38,7 +38,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/throw_exception.hpp>
 #include <functional>
-#include <numeric>
+#include <string>
 #include <thread>
 
 using namespace std;
@@ -168,44 +168,9 @@ std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionE
         BOOST_THROW_EXCEPTION(BCOS_ERROR(-1, "blockContext is null"));
     }
 
-    auto precompiledAddress = callParameters->codeAddress;
-    if (isPrecompiled(precompiledAddress))
+    if (isPrecompiled(callParameters->codeAddress))
     {
-        auto callResults = std::make_unique<CallParameters>(CallParameters::FINISHED);
-        try
-        {
-            auto precompiledResult = callPrecompiled(precompiledAddress, ref(callParameters->data),
-                callParameters->origin, callParameters->senderAddress);
-            auto gas = precompiledResult->m_gas;
-            if (callParameters->gas < gas)
-            {
-                callResults->type = CallParameters::REVERT;
-                callResults->status = (int32_t)TransactionStatus::OutOfGas;
-                return {nullptr, std::move(callResults)};
-            }
-            callParameters->gas -= gas;
-            callResults->status = (int32_t)TransactionStatus::None;
-            callResults->data.swap(precompiledResult->m_execResult);
-        }
-        catch (protocol::PrecompiledError& e)
-        {
-            writeErrInfoToOutput(e.what(), callResults->data);
-            revert();
-            callResults->status = (int32_t)TransactionStatus::PrecompiledError;
-        }
-        catch (Exception& e)
-        {
-            writeErrInfoToOutput(e.what(), callResults->data);
-            revert();
-            callResults->status = (int32_t)executor::toTransactionStatus(e);
-        }
-        catch (std::exception& e)
-        {
-            writeErrInfoToOutput(e.what(), callResults->data);
-            revert();
-            callResults->status = (int32_t)TransactionStatus::Unknown;
-        }
-        return {nullptr, std::move(callResults)};
+        return callPrecompiled(std::move(callParameters));
     }
     else
     {
@@ -215,6 +180,46 @@ std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionE
 
         return {std::move(hostContext), nullptr};
     }
+}
+
+std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr>
+TransactionExecutive::callPrecompiled(CallParameters::UniquePtr callParameters)
+{
+    callParameters->type = CallParameters::FINISHED;
+    try
+    {
+        auto precompiledResult = execPrecompiled(callParameters->codeAddress,
+            ref(callParameters->data), callParameters->origin, callParameters->senderAddress);
+        auto gas = precompiledResult->m_gas;
+        if (callParameters->gas < gas)
+        {
+            callParameters->type = CallParameters::REVERT;
+            callParameters->status = (int32_t)TransactionStatus::OutOfGas;
+            return {nullptr, std::move(callParameters)};
+        }
+        callParameters->gas -= gas;
+        callParameters->status = (int32_t)TransactionStatus::None;
+        callParameters->data.swap(precompiledResult->m_execResult);
+    }
+    catch (protocol::PrecompiledError& e)
+    {
+        writeErrInfoToOutput(e.what(), callParameters->data);
+        revert();
+        callParameters->status = (int32_t)TransactionStatus::PrecompiledError;
+    }
+    catch (Exception& e)
+    {
+        writeErrInfoToOutput(e.what(), callParameters->data);
+        revert();
+        callParameters->status = (int32_t)executor::toTransactionStatus(e);
+    }
+    catch (std::exception& e)
+    {
+        writeErrInfoToOutput(e.what(), callParameters->data);
+        revert();
+        callParameters->status = (int32_t)TransactionStatus::Unknown;
+    }
+    return {nullptr, std::move(callParameters)};
 }
 
 std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionExecutive::create(
@@ -489,13 +494,12 @@ CallParameters::UniquePtr TransactionExecutive::go(HostContext& hostContext)
     return nullptr;
 }
 
-std::shared_ptr<precompiled::PrecompiledExecResult> TransactionExecutive::callPrecompiled(
+std::shared_ptr<precompiled::PrecompiledExecResult> TransactionExecutive::execPrecompiled(
     const std::string& address, bytesConstRef param, const std::string& origin,
     const std::string& sender)
 {
     try
     {
-        auto blockContext = this->blockContext().lock();
         auto p = getPrecompiled(address);
 
         if (p)
@@ -556,8 +560,19 @@ std::shared_ptr<Precompiled> TransactionExecutive::getPrecompiled(const std::str
     return std::shared_ptr<precompiled::Precompiled>();
 }
 
+bool TransactionExecutive::isBuiltInPrecompiled(const std::string& _a) const
+{
+    // TODO: check _a prefix first, is it necessary?
+    return m_builtInPrecompiled->find(_a) != m_builtInPrecompiled->end();
+}
+
 bool TransactionExecutive::isEthereumPrecompiled(const string& _a) const
 {
+    // TODO: make it static
+    std::stringstream prefix;
+    prefix << std::setfill('0') << std::setw(39);
+    if (_a.rfind(prefix.str()) != 0)
+        return false;
     return m_evmPrecompiled->find(_a) != m_evmPrecompiled->end();
 }
 

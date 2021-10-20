@@ -255,10 +255,15 @@ int ConsensusPrecompiled::setWeight(
 }
 
 void ConsensusPrecompiled::showConsensusTable(
-    std::shared_ptr<executor::TransactionExecutive> _executive)
+    const std::shared_ptr<executor::TransactionExecutive>& _executive)
 {
     auto table = _executive->storage().openTable(ledger::SYS_CONSENSUS);
-    auto nodeIdList = table->getPrimaryKeys(std::nullopt);
+    if (!table)
+    {
+        _executive->storage().createTable(ledger::SYS_CONSENSUS, "type,weight,enable_number");
+        return;
+    }
+    auto nodeIdList = _executive->storage().getPrimaryKeys(ledger::SYS_CONSENSUS, std::nullopt);
 
     std::stringstream s;
     s << "ConsensusPrecompiled show table:\n";

@@ -163,9 +163,7 @@ evmc_result HostContext::externalRequest(const evmc_message* _msg)
     // if (built in precompiled) then execute locally
     auto blockContext = m_executive->blockContext().lock();
 
-    if (std::find(m_executive->getBuiltInPrecompiled()->begin(),
-            m_executive->getBuiltInPrecompiled()->end(),
-            request->receiveAddress) != m_executive->getBuiltInPrecompiled()->end())
+    if (m_executive->isBuiltInPrecompiled(request->receiveAddress))
     {
         return callBuiltInPrecompiled(request, false);
     }
@@ -219,7 +217,7 @@ evmc_result HostContext::callBuiltInPrecompiled(
     {
         try
         {
-            auto precompiledResponse = m_executive->callPrecompiled(_request->receiveAddress,
+            auto precompiledResponse = m_executive->execPrecompiled(_request->receiveAddress,
                 ref(_request->data), _request->origin, _request->senderAddress);
             callResults->gas = precompiledResponse->m_gas;
             resultCode = (int32_t)TransactionStatus::None;

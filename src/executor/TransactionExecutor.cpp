@@ -703,7 +703,7 @@ void TransactionExecutor::asyncExecute(std::shared_ptr<BlockContext> blockContex
                     return;
                 }
 
-                if (transactions->empty())
+                if (!transactions || transactions->empty())
                 {
                     callback(BCOS_ERROR_UNIQUE_PTR(ExecuteError::EXECUTE_ERROR,
                                  "Transaction does not exists: " + input->transactionHash().hex()),
@@ -712,6 +712,13 @@ void TransactionExecutor::asyncExecute(std::shared_ptr<BlockContext> blockContex
                 }
 
                 auto tx = (*transactions)[0];
+                if (!tx)
+                {
+                    callback(BCOS_ERROR_UNIQUE_PTR(ExecuteError::EXECUTE_ERROR,
+                                 "Transaction is null: " + input->transactionHash().hex()),
+                        nullptr);
+                    return;
+                }
 
                 auto contextID = input->contextID();
                 auto seq = input->seq();
@@ -1014,7 +1021,7 @@ void TransactionExecutor::initPrecompiled()
     };
     m_precompiledContract =
         std::make_shared<std::map<std::string, std::shared_ptr<PrecompiledContract>>>();
-    m_builtInPrecompiled = std::make_shared<std::vector<std::string>>();
+    m_builtInPrecompiled = std::make_shared<std::set<std::string>>();
 
     m_precompiledContract->insert(std::make_pair(fillZero(1),
         make_shared<PrecompiledContract>(3000, 0, PrecompiledRegistrar::executor("ecrecover"))));
@@ -1070,8 +1077,8 @@ void TransactionExecutor::initPrecompiled()
         m_constantPrecompiled.insert(
             {PERMISSION_NAME, std::make_shared<precompiled::ContractAuthPrecompiled>(m_hashImpl)});
 
-        vector<string> builtIn = {CRYPTO_NAME};
-        m_builtInPrecompiled = make_shared<vector<string>>(builtIn);
+        set<string> builtIn = {CRYPTO_NAME};
+        m_builtInPrecompiled = make_shared<set<string>>(builtIn);
     }
     else
     {
@@ -1092,8 +1099,8 @@ void TransactionExecutor::initPrecompiled()
         // TODO: use unique address for ContractAuthPrecompiled
         m_constantPrecompiled.insert({PERMISSION_ADDRESS,
             std::make_shared<precompiled::ContractAuthPrecompiled>(m_hashImpl)});
-        vector<string> builtIn = {CRYPTO_ADDRESS};
-        m_builtInPrecompiled = make_shared<vector<string>>(builtIn);
+        set<string> builtIn = {CRYPTO_ADDRESS};
+        m_builtInPrecompiled = make_shared<set<string>>(builtIn);
     }
 }
 

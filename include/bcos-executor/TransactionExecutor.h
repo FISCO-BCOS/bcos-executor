@@ -215,7 +215,7 @@ private:
     std::shared_ptr<std::map<std::string, std::shared_ptr<PrecompiledContract>>>
         m_precompiledContract;
     std::map<std::string, std::shared_ptr<precompiled::Precompiled>> m_constantPrecompiled;
-    std::shared_ptr<const std::vector<std::string>> m_builtInPrecompiled;
+    std::shared_ptr<const std::set<std::string>> m_builtInPrecompiled;
 };
 
 }  // namespace executor
