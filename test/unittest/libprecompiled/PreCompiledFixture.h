@@ -79,9 +79,7 @@ public:
         executor = std::make_shared<TransactionExecutor>(
             txpool, storage, executionResultFactory, hashImpl, _isWasm);
         createSysTable();
-        context = std::make_shared<BlockContext>(
-            memoryTableFactory, hashImpl, header, executionResultFactory, EVMSchedule(), _isWasm);
-        codec = std::make_shared<PrecompiledCodec>(hashImpl, context->isWasm());
+        codec = std::make_shared<PrecompiledCodec>(hashImpl, _isWasm);
         keyPair = cryptoSuite->signatureImpl()->generateKeyPair();
         memcpy(keyPair->secretKey()->mutableData(),
             fromHexString("ff6f30856ad3bae00b1169808488502786a13e3c174d85682135ffd51310310e")
@@ -109,9 +107,7 @@ public:
         executor = std::make_shared<TransactionExecutor>(
             txpool, storage, executionResultFactory, smHashImpl, _isWasm);
         createSysTable();
-        context = std::make_shared<BlockContext>(
-            memoryTableFactory, smHashImpl, header, executionResultFactory, EVMSchedule(), _isWasm);
-        codec = std::make_shared<PrecompiledCodec>(smHashImpl, context->isWasm());
+        codec = std::make_shared<PrecompiledCodec>(smHashImpl, _isWasm);
 
         keyPair = smCryptoSuite->signatureImpl()->generateKeyPair();
         memcpy(keyPair->secretKey()->mutableData(),
@@ -129,8 +125,13 @@ public:
     void createSysTable()
     {
         // create sys table
-        memoryTableFactory->createTable(ledger::SYS_CONFIG, "value,enable_number");
-        auto table = memoryTableFactory->openTable(ledger::SYS_CONFIG);
+        std::promise<std::optional<Table>> promise1;
+        storage->asyncCreateTable(ledger::SYS_CONFIG, "value,enable_number",
+            [&](Error::UniquePtr&& _error, std::optional<Table>&& _table) {
+                BOOST_CHECK(!_error);
+                promise1.set_value(std::move(_table));
+            });
+        auto table = promise1.get_future().get();
         auto entry = table->newEntry();
         entry.setField(SYS_VALUE, "3000000");
         entry.setField(SYS_CONFIG_ENABLE_BLOCK_NUMBER, "0");
@@ -138,11 +139,22 @@ public:
 
 
         // create / table
-        memoryTableFactory->createTable("/", FS_FIELD_COMBINED);
+        std::promise<std::optional<Table>> promise2;
+        storage->asyncCreateTable("/", FS_FIELD_COMBINED,
+            [&](Error::UniquePtr&& _error, std::optional<Table>&& _table) {
+                BOOST_CHECK(!_error);
+                promise2.set_value(std::move(_table));
+            });
+        promise2.get_future().get();
 
         // create /tables table
-        memoryTableFactory->createTable("/tables", FS_FIELD_COMBINED);
-        auto rootTable = memoryTableFactory->openTable("/");
+        std::promise<std::optional<Table>> promise3;
+        storage->asyncCreateTable("/tables", FS_FIELD_COMBINED,
+            [&](Error::UniquePtr&& _error, std::optional<Table>&& _table) {
+                BOOST_CHECK(!_error);
+                promise3.set_value(std::move(_table));
+            });
+        auto rootTable = promise3.get_future().get();
         assert(rootTable != std::nullopt);
         auto dirEntry = rootTable->newEntry();
         dirEntry.setField(FS_FIELD_TYPE, FS_TYPE_DIR);
@@ -167,10 +179,29 @@ public:
         nextPromise.get_future().get();
     }
 
+    void commitBlock(protocol::BlockNumber blockNumber)
+    {
+        bcos::executor::TransactionExecutor::TwoPCParams commitParams{};
+        commitParams.number = blockNumber;
+
+        std::promise<void> preparePromise;
+        executor->prepare(commitParams, [&](bcos::Error::Ptr&& error) {
+            BOOST_CHECK(!error);
+            preparePromise.set_value();
+        });
+        preparePromise.get_future().get();
+
+        std::promise<void> commitPromise;
+        executor->commit(commitParams, [&](bcos::Error::Ptr&& error) {
+            BOOST_CHECK(!error);
+            commitPromise.set_value();
+        });
+        commitPromise.get_future().get();
+    }
+
 protected:
     crypto::Hash::Ptr hashImpl;
     crypto::Hash::Ptr smHashImpl;
-    BlockContext::Ptr context;
     protocol::BlockFactory::Ptr blockFactory;
     CryptoSuite::Ptr cryptoSuite = nullptr;
     CryptoSuite::Ptr smCryptoSuite = nullptr;
@@ -182,7 +213,7 @@ protected:
     KeyPairInterface::Ptr keyPair;
 
     PrecompiledCodec::Ptr codec;
-    u256 gas = u256(300000000);
+    int64_t gas = 300000000;
     bool isWasm = false;
 };
 }  // namespace bcos::test

@@ -199,7 +199,7 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
 
     auto address = result->newEVMContractAddress();
 
-    bcos::executor::TransactionExecutor::TwoPCParams commitParams;
+    bcos::executor::TransactionExecutor::TwoPCParams commitParams{};
     commitParams.number = 1;
 
     std::promise<void> preparePromise;
@@ -694,7 +694,7 @@ BOOST_AUTO_TEST_CASE(performance)
     // Set user
     for (size_t i = 0; i < count; ++i)
     {
-        auto params = std::make_unique<NativeExecutionMessage>();
+        params = std::make_unique<NativeExecutionMessage>();
         params->setContextID(i);
         params->setSeq(5000);
         params->setDepth(0);
@@ -728,7 +728,7 @@ BOOST_AUTO_TEST_CASE(performance)
     // Transfer
     for (size_t i = 0; i < count; ++i)
     {
-        auto params = std::make_unique<NativeExecutionMessage>();
+        params = std::make_unique<NativeExecutionMessage>();
         params->setContextID(i);
         params->setSeq(6000);
         params->setDepth(0);
@@ -762,10 +762,10 @@ BOOST_AUTO_TEST_CASE(performance)
                 // BOOST_CHECK(!error);
                 output = std::move(result);
             });
-        auto& result = *output;
-        if (result->status() != 0)
+        auto& transResult = *output;
+        if (transResult->status() != 0)
         {
-            std::cout << "Error: " << result->status() << std::endl;
+            std::cout << "Error: " << transResult->status() << std::endl;
         }
     }
 
@@ -776,7 +776,7 @@ BOOST_AUTO_TEST_CASE(performance)
     // Check the result
     for (size_t i = 0; i < count; ++i)
     {
-        auto params = std::make_unique<NativeExecutionMessage>();
+        params = std::make_unique<NativeExecutionMessage>();
         params->setContextID(i);
         params->setSeq(7000);
         params->setDepth(0);
@@ -801,10 +801,10 @@ BOOST_AUTO_TEST_CASE(performance)
                 // BOOST_CHECK(!error);
                 output = std::move(result);
             });
-        auto& result = *output;
+        auto& balanceResult = *output;
 
         bcos::u256 value(0);
-        codec->decode(result->data(), value);
+        codec->decode(balanceResult->data(), value);
 
         if (i < count - 1)
         {

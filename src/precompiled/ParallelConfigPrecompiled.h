@@ -61,7 +61,7 @@ private:
     void unregisterParallelFunction(PrecompiledCodec::Ptr _codec,
         std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _data,
         std::string const& _origin, bytes& _out);
-    std::string getTableName(std::string_view const& _contractName, bool _isWasm);
+    std::string getTableName(std::string_view const& _contractName);
 
 public:
     /// get parallel config, return nullptr if not found

@@ -188,8 +188,8 @@ bcos::precompiled::ContractStatus bcos::precompiled::getContractStatus(
     }
 
     auto codeHashEntry = table->getRow(executor::ACCOUNT_CODE_HASH);
-    HashType codeHash;
-    codeHash = HashType(std::string(codeHashEntry->getField(executor::STORAGE_VALUE)));
+    auto codeHashStr = std::string(codeHashEntry->getField(executor::STORAGE_VALUE));
+    auto codeHash = HashType(codeHashStr, FixedBytes<32>::FromBinary);
 
     if (codeHash == HashType())
     {
@@ -198,7 +198,7 @@ bcos::precompiled::ContractStatus bcos::precompiled::getContractStatus(
 
     // FIXME: frozen in BFS
     auto frozenEntry = table->getRow(executor::ACCOUNT_FROZEN);
-    if ("true" == frozenEntry->getField(executor::STORAGE_VALUE))
+    if (frozenEntry != std::nullopt && "true" == frozenEntry->getField(executor::STORAGE_VALUE))
     {
         return ContractStatus::Frozen;
     }

@@ -19,7 +19,7 @@
  */
 
 #include "precompiled/TablePrecompiled.h"
-#include "PreCompiledFixture.h"
+#include "libprecompiled/PreCompiledFixture.h"
 #include "precompiled/ConditionPrecompiled.h"
 #include "precompiled/EntriesPrecompiled.h"
 #include "precompiled/EntryPrecompiled.h"
