@@ -57,10 +57,10 @@
 #include "libprotocol/LogEntry.h"
 #include "tbb/flow_graph.h"
 #include <tbb/parallel_for.h>
-#include <boost/thread/latch.hpp>
 #include <boost/algorithm/hex.hpp>
 #include <boost/exception/detail/exception_ptr.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/thread/latch.hpp>
 #include <boost/throw_exception.hpp>
 #include <cassert>
 #include <exception>
@@ -282,47 +282,44 @@ void TransactionExecutor::dagExecuteTransactions(
         }
 
         auto index = tasks.size();
-        tasks.emplace_back(Task(flowGraph, [this, i, &inputs, &transactions, &executionResults, &counter](
-                                               Msg) {
-            auto& input = inputs[i];
-            auto contextID = input->contextID();
-            auto seq = input->seq();
-            auto callParameters =
-                createCallParameters(std::move(*input), std::move(transactions->at(i)));
+        tasks.emplace_back(
+            Task(flowGraph, [this, i, &inputs, &transactions, &executionResults, &counter](Msg) {
+                auto& input = inputs[i];
+                auto contextID = input->contextID();
+                auto seq = input->seq();
+                auto callParameters =
+                    createCallParameters(std::move(*input), std::move(transactions->at(i)));
 
-            auto executive =
-                createExecutive(m_blockContext, callParameters->codeAddress, contextID, seq);
-            m_blockContext->insertExecutive(contextID, seq,
-                {executive, [i, &executionResults, &counter](bcos::Error::UniquePtr&& error,
-                                bcos::protocol::ExecutionMessage::UniquePtr&& response) {
-                     if (response->status() != 0 || error)
-                     {
-                         executionResults[i]->setType(ExecutionMessage::REVERT);
-                     }
-                     else
-                     {
-                         auto log_entries = response->logEntries();
-                         executionResults[i]->setLogEntries(std::vector<bcos::protocol::LogEntry>(
-                             log_entries.begin(), log_entries.end()));
+                auto executive =
+                    createExecutive(m_blockContext, callParameters->codeAddress, contextID, seq);
+                m_blockContext->insertExecutive(contextID, seq,
+                    {executive, [i, &executionResults, &counter](bcos::Error::UniquePtr&& error,
+                                    bcos::protocol::ExecutionMessage::UniquePtr&& response) {
+                         if (response->status() != 0 || error)
+                         {
+                             executionResults[i]->setType(ExecutionMessage::REVERT);
+                         }
+                         else
+                         {
+                             executionResults[i]->setNewEVMContractAddress(
+                                 std::string(response->newEVMContractAddress()));
+                             executionResults[i]->setLogEntries(response->takeLogEntries());
+                             executionResults[i]->setStatus(response->status());
+                             executionResults[i]->setMessage(std::string(response->message()));
+                             executionResults[i]->setType(ExecutionMessage::FINISHED);
+                         }
+                         counter.count_down();
+                     }});
 
-                         executionResults[i]->setNewEVMContractAddress(
-                             std::string(response->newEVMContractAddress()));
-                         executionResults[i]->setStatus(response->status());
-                         executionResults[i]->setMessage(std::string(response->message()));
-                         executionResults[i]->setType(ExecutionMessage::FINISHED);
-                     }
-                     counter.count_down();
-                 }});
-
-            try
-            {
-                executive->start(std::move(callParameters));
-            }
-            catch (std::exception& e)
-            {
-                EXECUTOR_LOG(ERROR) << "Execute error: " << boost::diagnostic_information(e);
-            }
-        }));
+                try
+                {
+                    executive->start(std::move(callParameters));
+                }
+                catch (std::exception& e)
+                {
+                    EXECUTOR_LOG(ERROR) << "Execute error: " << boost::diagnostic_information(e);
+                }
+            }));
 
         auto noDeps = true;
         for (auto& conflictField : conflictFields.value())

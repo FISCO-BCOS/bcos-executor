@@ -165,7 +165,8 @@ private:
         CallParameters::UniquePtr callParameters);
     std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> create(
         CallParameters::UniquePtr callParameters);
-    CallParameters::UniquePtr go(HostContext& hostContext);
+    CallParameters::UniquePtr go(
+        HostContext& hostContext, CallParameters::UniquePtr extraData = nullptr);
 
     void revert();
 
