@@ -575,13 +575,13 @@ BOOST_AUTO_TEST_CASE(consensus_test)
     // FIXME: this will occur EXC_BAD_ACCESS
     // removeTest observer
     {
-        // callFunc(9, 108, "removeTest(string)", node2, -1, 0);
+        callFunc(9, 108, "removeTest(string)", node2, -1, 0);
     }
 
     // TODO: remove it first
     // set weigh to not exist node2
     {
-        // callFunc(10, 109, "setWeightTest(string,uint256)", node2, 123, CODE_NODE_NOT_EXIST);
+        callFunc(10, 109, "setWeightTest(string,uint256)", node2, 123, CODE_NODE_NOT_EXIST);
     }
 }
 

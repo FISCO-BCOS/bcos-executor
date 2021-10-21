@@ -29,11 +29,13 @@ public:
     CoroutineStorageWrapper(storage::StateStorage::Ptr storage,
         typename boost::coroutines2::coroutine<T>::push_type& push,
         typename boost::coroutines2::coroutine<T>::pull_type& pull,
-        std::function<void(std::string)> externalAcquireKeyLocks)
+        std::function<void(std::string)> externalAcquireKeyLocks,
+        bcos::storage::StateStorage::Recoder::Ptr recoder)
       : m_storage(std::move(storage)),
         m_push(push),
         m_pull(pull),
-        m_externalAcquireKeyLocks(std::move(externalAcquireKeyLocks))
+        m_externalAcquireKeyLocks(std::move(externalAcquireKeyLocks)),
+        m_recoder(recoder)
     {}
 
     CoroutineStorageWrapper(const CoroutineStorageWrapper&) = delete;
@@ -62,6 +64,9 @@ public:
         {
             m_pull();
             value.emplace(std::get<GetPrimaryKeysReponse>(m_pull.get()));
+
+            // After coroutine switch, set the recoder
+            setRecoder(m_recoder);
         }
 
         auto& [error, keys] = *value;
@@ -96,6 +101,9 @@ public:
         {
             m_pull();
             value.emplace(std::get<GetRowResponse>(m_pull.get()));
+
+            // After coroutine switch, set the recoder
+            setRecoder(m_recoder);
         }
 
         auto& [error, entry] = *value;
@@ -138,6 +146,9 @@ public:
         {
             m_pull();
             value.emplace(std::get<GetRowsResponse>(m_pull.get()));
+
+            // After coroutine switch, set the recoder
+            setRecoder(m_recoder);
         }
 
         auto& [error, entries] = *value;
@@ -171,6 +182,9 @@ public:
         {
             m_pull();
             value.emplace(std::get<SetRowResponse>(m_pull.get()));
+
+            // After coroutine switch, set the recoder
+            setRecoder(m_recoder);
         }
 
         auto& [error] = *value;
@@ -201,6 +215,9 @@ public:
         {
             m_pull();
             value.emplace(std::get<OpenTableResponse>(m_pull.get()));
+
+            // After coroutine switch, set the recoder
+            setRecoder(m_recoder);
         }
 
         auto& [error, table] = *value;
@@ -232,6 +249,9 @@ public:
         {
             m_pull();
             value.emplace(std::get<OpenTableResponse>(m_pull.get()));
+
+            // After coroutine switch, set the recoder
+            setRecoder(m_recoder);
         }
         auto& [error, table] = *value;
 
@@ -295,6 +315,7 @@ private:
     typename boost::coroutines2::coroutine<T>::push_type& m_push;
     typename boost::coroutines2::coroutine<T>::pull_type& m_pull;
     std::function<void(std::string)> m_externalAcquireKeyLocks;
+    bcos::storage::StateStorage::Recoder::Ptr m_recoder;
 
     boost::container::flat_set<std::string, std::less<>> m_existsKeyLocks;
     std::set<std::string, std::less<>> m_myKeyLocks;

@@ -66,7 +66,8 @@ void TransactionExecutive::start(CallParameters::UniquePtr input)
 
         m_storageWrapper = std::make_unique<CoroutineStorageWrapper<CoroutineMessage>>(
             blockContext->storage(), *m_pushMessage, *m_pullMessage,
-            std::bind(&TransactionExecutive::externalAcquireKeyLocks, this, std::placeholders::_1));
+            std::bind(&TransactionExecutive::externalAcquireKeyLocks, this, std::placeholders::_1),
+            m_recoder);
 
         execute(std::move(std::get<CallParameters::UniquePtr>(callParameters)));
     });

@@ -140,8 +140,8 @@ public:
 
         // create / table
         std::promise<std::optional<Table>> promise2;
-        storage->asyncCreateTable("/", FS_FIELD_COMBINED,
-            [&](Error::UniquePtr&& _error, std::optional<Table>&& _table) {
+        storage->asyncCreateTable(
+            "/", FS_FIELD_COMBINED, [&](Error::UniquePtr&& _error, std::optional<Table>&& _table) {
                 BOOST_CHECK(!_error);
                 promise2.set_value(std::move(_table));
             });
