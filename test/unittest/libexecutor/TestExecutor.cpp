@@ -71,7 +71,7 @@ struct TransactionExecutorFixture
         auto executionResultFactory = std::make_shared<NativeExecutionMessageFactory>();
 
         executor = std::make_shared<TransactionExecutor>(
-            txpool, backend, executionResultFactory, hashImpl, false);
+            txpool, nullptr, backend, executionResultFactory, hashImpl, false);
 
         keyPair = cryptoSuite->signatureImpl()->generateKeyPair();
         memcpy(keyPair->secretKey()->mutableData(),
@@ -820,9 +820,7 @@ BOOST_AUTO_TEST_CASE(performance)
               << std::endl;
 }
 
-BOOST_AUTO_TEST_CASE(keyLock) {
-    
-}
+BOOST_AUTO_TEST_CASE(keyLock) {}
 
 BOOST_AUTO_TEST_SUITE_END()
 }  // namespace test

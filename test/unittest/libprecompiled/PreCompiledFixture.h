@@ -77,7 +77,7 @@ public:
 
         auto executionResultFactory = std::make_shared<NativeExecutionMessageFactory>();
         executor = std::make_shared<TransactionExecutor>(
-            txpool, storage, executionResultFactory, hashImpl, _isWasm);
+            txpool, nullptr, storage, executionResultFactory, hashImpl, _isWasm);
         createSysTable();
         codec = std::make_shared<PrecompiledCodec>(hashImpl, _isWasm);
         keyPair = cryptoSuite->signatureImpl()->generateKeyPair();
@@ -105,7 +105,7 @@ public:
 
         auto executionResultFactory = std::make_shared<NativeExecutionMessageFactory>();
         executor = std::make_shared<TransactionExecutor>(
-            txpool, storage, executionResultFactory, smHashImpl, _isWasm);
+            txpool, nullptr, storage, executionResultFactory, smHashImpl, _isWasm);
         createSysTable();
         codec = std::make_shared<PrecompiledCodec>(smHashImpl, _isWasm);
 

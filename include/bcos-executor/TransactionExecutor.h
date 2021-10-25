@@ -84,6 +84,7 @@ public:
     using ConstPtr = std::shared_ptr<const TransactionExecutor>;
 
     TransactionExecutor(txpool::TxPoolInterface::Ptr txpool,
+        storage::MergeableStorageInterface::Ptr cachedStorage,
         storage::TransactionalStorageInterface::Ptr backendStorage,
         protocol::ExecutionMessageFactory::Ptr executionMessageFactory,
         bcos::crypto::Hash::Ptr hashImpl, bool isWasm);
@@ -127,9 +128,6 @@ public:
     // drop all status
     void reset(std::function<void(bcos::Error::Ptr)> callback) override;
 
-    // Max capacity (in bytes)
-    void setMaxCapacity(ssize_t capacity) { m_maxCapacity = capacity; }
-
 private:
     std::shared_ptr<BlockContext> createBlockContext(
         const protocol::BlockHeader::ConstPtr& currentHeader,
@@ -167,6 +165,7 @@ private:
     void checkAndClear();
 
     txpool::TxPoolInterface::Ptr m_txpool;
+    storage::MergeableStorageInterface::Ptr m_cachedStorage;
     std::shared_ptr<storage::TransactionalStorageInterface> m_backendStorage;
     protocol::ExecutionMessageFactory::Ptr m_executionMessageFactory;
     std::shared_ptr<BlockContext> m_blockContext;
@@ -208,9 +207,6 @@ private:
     };
     tbb::concurrent_hash_map<std::tuple<int64_t, int64_t>, CallState, HashCombine> m_calledContext;
     std::shared_mutex m_stateStoragesMutex;
-
-    ssize_t m_capacity = 0;
-    ssize_t m_maxCapacity = 256 * 1024 * 1024;  // 256MB for default capacity
 
     std::shared_ptr<std::map<std::string, std::shared_ptr<PrecompiledContract>>>
         m_precompiledContract;

@@ -82,10 +82,12 @@ using namespace tbb::flow;
 crypto::Hash::Ptr GlobalHashImpl::g_hashImpl;
 
 TransactionExecutor::TransactionExecutor(txpool::TxPoolInterface::Ptr txpool,
+    storage::MergeableStorageInterface::Ptr cachedStorage,
     storage::TransactionalStorageInterface::Ptr backendStorage,
     protocol::ExecutionMessageFactory::Ptr executionMessageFactory,
     bcos::crypto::Hash::Ptr hashImpl, bool isWasm)
   : m_txpool(std::move(txpool)),
+    m_cachedStorage(std::move(cachedStorage)),
     m_backendStorage(std::move(backendStorage)),
     m_executionMessageFactory(std::move(executionMessageFactory)),
     m_hashImpl(std::move(hashImpl)),
@@ -116,7 +118,14 @@ void TransactionExecutor::nextBlockHeader(const bcos::protocol::BlockHeader::Con
             bcos::storage::StateStorage::Ptr stateStorage;
             if (m_stateStorages.empty())
             {
-                stateStorage = std::make_shared<bcos::storage::StateStorage>(m_backendStorage);
+                if (m_cachedStorage)
+                {
+                    stateStorage = std::make_shared<bcos::storage::StateStorage>(m_cachedStorage);
+                }
+                else
+                {
+                    stateStorage = std::make_shared<bcos::storage::StateStorage>(m_backendStorage);
+                }
             }
             else
             {
@@ -557,7 +566,6 @@ void TransactionExecutor::prepare(
     bcos::storage::TransactionalStorageInterface::TwoPCParams storageParams;  // TODO: add tikv
                                                                               // params
     storageParams.number = params.number;
-    m_capacity += last->storage->capacity();
 
     m_backendStorage->asyncPrepare(
         storageParams, last->storage, [callback = std::move(callback)](auto&& error, uint64_t) {
@@ -618,7 +626,6 @@ void TransactionExecutor::commit(
         EXECUTOR_LOG(DEBUG) << "Commit success";
 
         ++m_lastUncommittedIterator;
-        m_blockContext = nullptr;
 
         checkAndClear();
 
@@ -1111,31 +1118,34 @@ void TransactionExecutor::initPrecompiled()
 
 void TransactionExecutor::checkAndClear()
 {
-    std::unique_lock<std::shared_mutex> lock(m_stateStoragesMutex, std::try_to_lock);
-    if (!lock.owns_lock())
-    {
-        return;
-    }
+    std::unique_lock<std::shared_mutex> lock(m_stateStoragesMutex);
 
     if (m_stateStorages.empty())
     {
         return;
     }
 
-    ssize_t totalCleared = 0;
     auto it = m_stateStorages.begin();
-    while (m_capacity > m_maxCapacity && it != m_lastUncommittedIterator)
-    {
-        totalCleared += it->storage->capacity();
-        m_capacity -= it->storage->capacity();
-        it = m_stateStorages.erase(it);  // TODO: Consider the destructor cost
 
-        it->storage->setPrev(m_backendStorage);
-    }
-
-    if (totalCleared > 0)
+    if (it != m_lastUncommittedIterator)
     {
-        EXECUTOR_LOG(DEBUG) << "Cleared " << totalCleared << " bytes";
+        if (m_cachedStorage)
+        {
+            m_cachedStorage->merge(true, *(it->storage));
+            it = m_stateStorages.erase(it);
+            if (it != m_stateStorages.end())
+            {
+                it->storage->setPrev(m_cachedStorage);
+            }
+        }
+        else
+        {
+            it = m_stateStorages.erase(it);
+            if (it != m_stateStorages.end())
+            {
+                it->storage->setPrev(m_backendStorage);
+            }
+        }
     }
 }
 
