@@ -593,6 +593,38 @@ BOOST_AUTO_TEST_CASE(externalCall)
 
     auto expectResult = codec->encode(s256(1000));
     BOOST_CHECK(callResult->data().toBytes() == expectResult);
+
+    // commit the state, and call
+    bcos::executor::TransactionExecutor::TwoPCParams commitParams;
+    commitParams.number = 1;
+    executor->prepare(commitParams, [&](bcos::Error::Ptr error) { BOOST_CHECK(!error); });
+    executor->commit(commitParams, [&](bcos::Error::Ptr error) { BOOST_CHECK(!error); });
+
+    auto callParam2 = std::make_unique<NativeExecutionMessage>();
+    callParam2->setType(executor::NativeExecutionMessage::MESSAGE);
+    callParam2->setContextID(501);
+    callParam2->setSeq(7779);
+    callParam2->setDepth(0);
+    callParam2->setFrom(std::string(sender));
+    callParam2->setTo(boost::algorithm::to_lower_copy(std::string(addressString2)));
+    callParam2->setData(codec->encodeWithSig("value()"));
+    callParam2->setOrigin(std::string(sender));
+    callParam2->setStaticCall(true);
+    callParam2->setGasAvailable(gas);
+    callParam2->setCreate(false);
+
+    bcos::protocol::ExecutionMessage::UniquePtr callResult2;
+    executor->call(std::move(callParam2),
+        [&](bcos::Error::UniquePtr error, bcos::protocol::ExecutionMessage::UniquePtr response) {
+            BOOST_CHECK(!error);
+            callResult2 = std::move(response);
+        });
+
+    BOOST_CHECK_EQUAL(callResult2->type(), protocol::ExecutionMessage::FINISHED);
+    BOOST_CHECK_EQUAL(callResult2->status(), 0);
+
+    auto expectResult2 = codec->encode(s256(1000));
+    BOOST_CHECK(callResult2->data().toBytes() == expectResult);
 }
 
 BOOST_AUTO_TEST_CASE(performance)

@@ -181,6 +181,7 @@ private:
     };
     std::list<State> m_stateStorages;
     std::list<State>::const_iterator m_lastUncommittedIterator;  // last uncommitted storage
+    bcos::protocol::BlockNumber m_lastCommitedBlockNumber = 1;
 
     struct HashCombine
     {

@@ -364,7 +364,7 @@ void TransactionExecutor::call(bcos::protocol::ExecutionMessage::UniquePtr input
             if (m_stateStorages.empty())
             {
                 prev = m_backendStorage;
-                number = 0;
+                number = m_lastCommitedBlockNumber;
             }
             else
             {
@@ -612,25 +612,27 @@ void TransactionExecutor::commit(
 
     bcos::storage::TransactionalStorageInterface::TwoPCParams storageParams;  // Add tikv params
     storageParams.number = params.number;
-    m_backendStorage->asyncCommit(storageParams, [this, callback = std::move(callback)](
-                                                     Error::Ptr&& error) {
-        if (error)
-        {
-            auto errorMessage = "Commit error: " + boost::diagnostic_information(*error);
+    m_backendStorage->asyncCommit(storageParams,
+        [this, callback = std::move(callback), blockNumber = params.number](Error::Ptr&& error) {
+            if (error)
+            {
+                auto errorMessage = "Commit error: " + boost::diagnostic_information(*error);
 
-            EXECUTOR_LOG(ERROR) << errorMessage;
-            callback(BCOS_ERROR_WITH_PREV_PTR(ExecuteError::COMMIT_ERROR, errorMessage, *error));
-            return;
-        }
+                EXECUTOR_LOG(ERROR) << errorMessage;
+                callback(
+                    BCOS_ERROR_WITH_PREV_PTR(ExecuteError::COMMIT_ERROR, errorMessage, *error));
+                return;
+            }
 
-        EXECUTOR_LOG(DEBUG) << "Commit success";
+            EXECUTOR_LOG(DEBUG) << "Commit success";
 
-        ++m_lastUncommittedIterator;
+            ++m_lastUncommittedIterator;
+            m_lastCommitedBlockNumber = blockNumber;
 
-        checkAndClear();
+            checkAndClear();
 
-        callback(nullptr);
-    });
+            callback(nullptr);
+        });
 }
 
 void TransactionExecutor::rollback(
