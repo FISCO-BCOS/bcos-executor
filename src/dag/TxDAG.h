@@ -20,8 +20,12 @@
  */
 
 #pragma once
+#include "../CallParameters.h"
+#include "../Common.h"
 #include "../executive/BlockContext.h"
+#include "../executive/TransactionExecutive.h"
 #include "DAG.h"
+#include "bcos-executor/TransactionExecutor.h"
 #include "bcos-framework/interfaces/protocol/Block.h"
 #include "bcos-framework/interfaces/protocol/Transaction.h"
 #include <map>
@@ -34,8 +38,8 @@ namespace bcos
 namespace executor
 {
 class TransactionExecutive;
-using ExecuteTxFunc =
-    std::function<bool(protocol::Transaction::ConstPtr, ID, std::shared_ptr<TransactionExecutive>)>;
+using ExecuteTxFunc = std::function<void(
+    bcos::executor::TransactionExecutive::Ptr, bcos::executor::CallParameters::UniquePtr)>;
 
 enum ConflictFieldKind : std::uint8_t
 {
@@ -62,7 +66,8 @@ public:
     virtual ~TxDAG() {}
 
     // Generate DAG according with given transactions
-    void init(BlockContext::Ptr _ctx, const protocol::Block::Ptr& _block);
+    void init(const bcos::protocol::TransactionsPtr& _block,
+        const std::vector<std::shared_ptr<std::vector<std::string>>>& _txsCriticals);
 
     // Set transaction execution function
     void setTxExecuteFunc(ExecuteTxFunc const& _f);
@@ -77,7 +82,8 @@ public:
     // Called by thread
     // Execute a unit in DAG
     // This function can be parallel
-    int executeUnit(std::shared_ptr<TransactionExecutive> _executive);
+    int executeUnit(const std::vector<TransactionExecutive::Ptr>& allExecutives,
+        std::vector<std::unique_ptr<CallParameters>>& allCallParameters);
 
     ID paraTxsNumber() { return m_totalParaTxs; }
 
@@ -86,7 +92,7 @@ public:
 
 private:
     ExecuteTxFunc f_executeTx;
-    protocol::Block::Ptr m_block;
+    bcos::protocol::TransactionsPtr m_transactions;
     DAG m_dag;
 
     ID m_exeCnt = 0;

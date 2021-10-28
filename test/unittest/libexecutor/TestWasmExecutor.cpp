@@ -75,7 +75,7 @@ struct WasmExecutorFixture
         auto executionResultFactory = std::make_shared<NativeExecutionMessageFactory>();
 
         executor = std::make_shared<TransactionExecutor>(
-            txpool, backend, executionResultFactory, hashImpl, true);
+            txpool, nullptr, backend, executionResultFactory, hashImpl, true);
 
         keyPair = cryptoSuite->signatureImpl()->generateKeyPair();
         memcpy(keyPair->secretKey()->mutableData(),
@@ -538,7 +538,7 @@ BOOST_AUTO_TEST_CASE(performance)
     bytes path = codec->encode(transferAddress);
     input.insert(input.end(), path.begin(), path.end());
 
-    input.insert(input.end(), helloWorldCallerAbi.begin(), helloWorldCallerAbi.end());
+    input.insert(input.end(), transferAbi.begin(), transferAbi.end());
 
     auto tx = fakeTransaction(cryptoSuite, keyPair, "", input, 101, 100001, "1", "1");
     auto sender = boost::algorithm::hex_lower(std::string(tx->sender()));

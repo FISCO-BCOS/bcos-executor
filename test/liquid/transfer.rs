@@ -18,6 +18,8 @@ mod transfer {
             self.accounts.initialize();
             self.accounts.insert(String::from("alice"), u32::MAX);
             self.accounts.insert(String::from("bob"), 0);
+            self.accounts.insert(String::from("charlie"), u32::MAX);
+            self.accounts.insert(String::from("david"), 0);
         }
 
         pub fn transfer(&mut self, from: String ,to: String, amount: u32) -> bool {

@@ -20,8 +20,6 @@
  */
 
 #include "TxDAG.h"
-#include "../Common.h"
-#include "../executive/TransactionExecutive.h"
 #include <tbb/parallel_for.h>
 #include <map>
 
@@ -32,31 +30,19 @@ using namespace bcos::executor;
 #define DAG_LOG(LEVEL) BCOS_LOG(LEVEL) << LOG_BADGE("DAG")
 
 // Generate DAG according with given transactions
-void TxDAG::init(BlockContext::Ptr _ctx, const protocol::Block::Ptr& _block)
+void TxDAG::init(const bcos::protocol::TransactionsPtr& _transactions,
+    const std::vector<std::shared_ptr<std::vector<std::string>>>& _txsCriticals)
 {
-    m_block = _block;
-    auto txsSize = m_block->transactionsSize();
-    DAG_LOG(TRACE) << LOG_DESC("Begin init transaction DAG")
-                   << LOG_KV("blockHeight", m_block->blockHeader()->number())
-                   << LOG_KV("transactionNum", txsSize);
+    m_transactions = _transactions;
+    auto txsSize = m_transactions->size();
+    DAG_LOG(TRACE) << LOG_DESC("Begin init transaction DAG") << LOG_KV("transactionNum", txsSize);
     m_dag.init(txsSize);
-
-    // get criticals
-    std::vector<std::shared_ptr<std::vector<std::string>>> txsCriticals;
-    txsCriticals.resize(txsSize);
-    tbb::parallel_for(
-        tbb::blocked_range<uint64_t>(0, txsSize), [&](const tbb::blocked_range<uint64_t>& range) {
-            for (uint64_t i = range.begin(); i < range.end(); i++)
-            {
-                txsCriticals[i] = _ctx->getTxCriticals(m_block->transaction(i));
-            }
-        });
 
     CriticalField<string> latestCriticals;
 
     for (ID id = 0; id < txsSize; ++id)
     {
-        auto criticals = txsCriticals[id];
+        auto criticals = _txsCriticals[id];
         if (criticals)
         {
             // DAG transaction: Conflict with certain critical fields
@@ -79,15 +65,7 @@ void TxDAG::init(BlockContext::Ptr _ctx, const protocol::Block::Ptr& _block)
         }
         else
         {
-            // Normal transaction: Conflict with all transaction
-            latestCriticals.foreachField([&](ID _fieldId) {
-                ID pId = _fieldId;
-                // Add edge from all critical transaction
-                m_dag.addEdge(pId, id);
-            });
-
-            // set all critical to my id
-            latestCriticals.setCriticalAll(id);
+            continue;
         }
     }
 
@@ -96,8 +74,7 @@ void TxDAG::init(BlockContext::Ptr _ctx, const protocol::Block::Ptr& _block)
 
     m_totalParaTxs = txsSize;
 
-    DAG_LOG(TRACE) << LOG_DESC("End init transaction DAG")
-                   << LOG_KV("blockHeight", m_block->blockHeader()->number());
+    DAG_LOG(TRACE) << LOG_DESC("End init transaction DAG");
 }
 
 // Set transaction execution function
@@ -106,7 +83,8 @@ void TxDAG::setTxExecuteFunc(ExecuteTxFunc const& _f)
     f_executeTx = _f;
 }
 
-int TxDAG::executeUnit(TransactionExecutive::Ptr _executive)
+int TxDAG::executeUnit(const vector<TransactionExecutive::Ptr>& allExecutives,
+    vector<std::unique_ptr<CallParameters>>& allCallParameters)
 {
     int exeCnt = 0;
     ID id = m_dag.waitPop();
@@ -115,7 +93,8 @@ int TxDAG::executeUnit(TransactionExecutive::Ptr _executive)
         do
         {
             exeCnt += 1;
-            f_executeTx(m_block->transaction(id), id, _executive);
+            assert(allExecutives[id] && allCallParameters.at(id));
+            f_executeTx(allExecutives[id], std::move(allCallParameters.at(id)));
             id = m_dag.consume(id);
         } while (id != INVALID_ID);
         id = m_dag.waitPop();

@@ -124,6 +124,10 @@ unique_ptr<FunctionAbi> FunctionAbi::deserialize(
         {
             auto param = parseParameter(functionInputs[i]);
             signature += canonizeParamter(param);
+            if (i < functionInputs.size() - 1)
+            {
+                signature += ",";
+            }
             inputs.emplace_back(std::move(param));
         }
         signature += ")";
@@ -160,7 +164,8 @@ unique_ptr<FunctionAbi> FunctionAbi::deserialize(
             }
         }
 
-        return unique_ptr<FunctionAbi>(new FunctionAbi{inputs, conflictFields});
+        return unique_ptr<FunctionAbi>(
+            new FunctionAbi{functionName.asString(), inputs, conflictFields});
     }
 
     BCOS_LOG(ERROR) << LOG_BADGE("EXECUTOR") << LOG_DESC("expected selector not found")

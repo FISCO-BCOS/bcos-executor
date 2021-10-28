@@ -37,6 +37,31 @@ struct ParallelConfig
 };
 const std::string PARA_CONFIG_TABLE_PREFIX_SHORT = "cp_";
 
+/*
+    table name: PARA_CONFIG_TABLE_PREFIX_CONTRACT_ADDR_
+    | selector   | functionName                    | criticalSize |
+    | ---------- | ------------------------------- | ------------ |
+    | 0x12345678 | transfer(string,string,uint256) | 2            |
+    | 0x23456789 | set(string,uint256)             | 1            |
+*/
+
+const std::string PARA_SELECTOR = "selector";
+const std::string PARA_FUNC_NAME = "functionName";
+const std::string PARA_CRITICAL_SIZE = "criticalSize";
+
+const std::string PARA_CONFIG_REGISTER_METHOD_ADDR_STR_UINT =
+    "registerParallelFunctionInternal(address,string,uint256)";
+const std::string PARA_CONFIG_REGISTER_METHOD_STR_STR_UINT =
+    "registerParallelFunctionInternal(string,string,uint256)";
+const std::string PARA_CONFIG_UNREGISTER_METHOD_ADDR_STR =
+    "unregisterParallelFunctionInternal(address,string)";
+const std::string PARA_CONFIG_UNREGISTER_METHOD_STR_STR =
+    "unregisterParallelFunctionInternal(string,string)";
+
+const std::string PARA_KEY_NAME = PARA_SELECTOR;
+const std::string PARA_VALUE_NAMES = PARA_FUNC_NAME + "," + PARA_CRITICAL_SIZE;
+
+
 class ParallelConfigPrecompiled : public bcos::precompiled::Precompiled
 {
 public:

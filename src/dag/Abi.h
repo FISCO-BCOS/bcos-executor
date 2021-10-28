@@ -70,6 +70,7 @@ struct ParameterAbi
 
 struct FunctionAbi
 {
+    std::string name;
     std::vector<ParameterAbi> inputs;
     std::vector<ConflictField> conflictFields;
 
