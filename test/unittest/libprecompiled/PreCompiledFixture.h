@@ -145,7 +145,6 @@ public:
                 BOOST_CHECK(!_error);
                 promise2.set_value(std::move(_table));
             });
-        promise2.get_future().get();
 
         // create /tables table
         std::promise<std::optional<Table>> promise3;
@@ -154,7 +153,8 @@ public:
                 BOOST_CHECK(!_error);
                 promise3.set_value(std::move(_table));
             });
-        auto rootTable = promise3.get_future().get();
+        promise3.get_future().get();
+        auto rootTable = promise2.get_future().get();
         assert(rootTable != std::nullopt);
         auto dirEntry = rootTable->newEntry();
         dirEntry.setField(FS_FIELD_TYPE, FS_TYPE_DIR);

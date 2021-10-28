@@ -203,7 +203,9 @@ TransactionExecutive::callPrecompiled(CallParameters::UniquePtr callParameters)
     }
     catch (protocol::PrecompiledError& e)
     {
-        writeErrInfoToOutput(e.what(), callParameters->data);
+        const string* _msg = boost::get_error_info<errinfo_comment>(e);
+        writeErrInfoToOutput(_msg ? *_msg : "error occurs in precompiled, but error_info is empty",
+            callParameters->data);
         revert();
         callParameters->status = (int32_t)TransactionStatus::PrecompiledError;
     }
@@ -566,8 +568,9 @@ std::shared_ptr<precompiled::PrecompiledExecResult> TransactionExecutive::execPr
     }
     catch (protocol::PrecompiledError& e)
     {
+        const string* _msg = boost::get_error_info<errinfo_comment>(e);
         EXECUTIVE_LOG(ERROR) << "PrecompiledError" << LOG_KV("address", address)
-                             << LOG_KV("message:", e.what());
+                             << LOG_KV("message:", _msg ? *_msg : "");
         BOOST_THROW_EXCEPTION(e);
     }
     catch (std::exception& e)
@@ -581,33 +584,25 @@ std::shared_ptr<precompiled::PrecompiledExecResult> TransactionExecutive::execPr
 
 string TransactionExecutive::registerPrecompiled(std::shared_ptr<precompiled::Precompiled> p)
 {
-    auto count = ++m_addressCount;
-    std::stringstream stream;
-    stream << std::setfill('0') << std::setw(40) << std::hex << count;
-    auto address = stream.str();
-    m_dynamicPrecompiled.insert(std::make_pair(address, p));
-    return address;
+    return m_blockContext.lock()->registerPrecompiled(p);
 }
 
 bool TransactionExecutive::isPrecompiled(const std::string& address) const
 {
-    return (m_constantPrecompiled.count(address) > 0 || m_dynamicPrecompiled.count(address) > 0);
+    return (m_constantPrecompiled.count(address) > 0 ||
+            m_blockContext.lock()->isDynamicPrecompiled(address));
 }
 
 std::shared_ptr<Precompiled> TransactionExecutive::getPrecompiled(const std::string& address) const
 {
     auto constantPrecompiled = m_constantPrecompiled.find(address);
-    auto dynamicPrecompiled = m_dynamicPrecompiled.find(address);
 
     if (constantPrecompiled != m_constantPrecompiled.end())
     {
         return constantPrecompiled->second;
     }
-    if (dynamicPrecompiled != m_dynamicPrecompiled.end())
-    {
-        return dynamicPrecompiled->second;
-    }
-    return std::shared_ptr<precompiled::Precompiled>();
+
+    return m_blockContext.lock()->getDynamicPrecompiled(address);
 }
 
 bool TransactionExecutive::isBuiltInPrecompiled(const std::string& _a) const

@@ -80,7 +80,6 @@ public:
             std::function<void(Error::UniquePtr, std::unique_ptr<CallParameters>)> callback)>
             externalCallCallback)
       : m_blockContext(std::move(blockContext)),
-        m_addressCount(0x10000),
         m_contractAddress(std::move(contractAddress)),
         m_contextID(contextID),
         m_seq(seq),
@@ -197,14 +196,10 @@ private:
         std::string_view _tableName, std::string_view _origin, std::string_view _sender);
 
     std::weak_ptr<BlockContext> m_blockContext;  ///< Information on the runtime environment.
-    tbb::concurrent_unordered_map<std::string, std::shared_ptr<precompiled::Precompiled>,
-        std::hash<std::string>>
-        m_dynamicPrecompiled;
     std::map<std::string, std::shared_ptr<precompiled::Precompiled>> m_constantPrecompiled;
     std::shared_ptr<const std::map<std::string, std::shared_ptr<PrecompiledContract>>>
         m_evmPrecompiled;
     std::shared_ptr<const std::set<std::string>> m_builtInPrecompiled;
-    std::atomic<int> m_addressCount;
 
     std::string m_contractAddress;
     int64_t m_contextID;

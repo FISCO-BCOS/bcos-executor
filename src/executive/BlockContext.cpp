@@ -49,23 +49,16 @@ BlockContext::BlockContext(std::shared_ptr<storage::StateStorage> storage,
     m_schedule(_schedule),
     m_isWasm(_isWasm),
     m_storage(std::move(storage)),
-    m_hashImpl(_hashImpl)
+    m_hashImpl(_hashImpl),
+    m_addressCount(0x10000)
 {}
 
 BlockContext::BlockContext(std::shared_ptr<storage::StateStorage> storage,
     crypto::Hash::Ptr _hashImpl, protocol::BlockHeader::ConstPtr _current,
     const EVMSchedule& _schedule, bool _isWasm)
-  : m_blockNumber(_current->number()),
-    m_blockHash(_current->hash()),
-    m_timeStamp(_current->timestamp()),
-    m_blockVersion(_current->version()),
-    m_schedule(_schedule),
-    m_isWasm(_isWasm),
-    m_storage(std::move(storage)),
-    m_hashImpl(_hashImpl)
-{
-    // m_parallelConfigCache = make_shared<ParallelConfigCache>();
-}
+  : BlockContext(storage, _hashImpl, _current->number(), _current->hash(), _current->timestamp(),
+        _current->version(), _schedule, _isWasm)
+{}
 
 void BlockContext::insertExecutive(int64_t contextID, int64_t seq, ExecutiveState state)
 {
@@ -90,4 +83,26 @@ bcos::executor::BlockContext::ExecutiveState* BlockContext::getExecutive(
     }
 
     return &it->second;
+}
+string BlockContext::registerPrecompiled(std::shared_ptr<precompiled::Precompiled> p)
+{
+    auto count = ++m_addressCount;
+    std::stringstream stream;
+    stream << std::setfill('0') << std::setw(40) << std::hex << count;
+    auto address = stream.str();
+    m_dynamicPrecompiled.insert(std::make_pair(address, p));
+    return address;
+}
+
+bool BlockContext::isDynamicPrecompiled(const std::string& address) const
+{
+    return m_dynamicPrecompiled.count(address) > 0;
+}
+
+std::shared_ptr<Precompiled> BlockContext::getDynamicPrecompiled(const std::string& address) const
+{
+    auto dynamicPrecompiled = m_dynamicPrecompiled.find(address);
+    return (dynamicPrecompiled != m_dynamicPrecompiled.end()) ?
+               dynamicPrecompiled->second :
+               std::shared_ptr<precompiled::Precompiled>();
 }

@@ -55,39 +55,48 @@ contract TestTable {
         return kvTableFactory.createTable(tableName, keyField, valueFields);
     }
 
-    function select(Table table, Condition cond) public view returns (Entries){
+    function select(string tableName, Condition cond) public view returns (Entries){
+        Table table = tableFactory.openTable(tableName);
         return table.select(cond);
     }
 
-    function insert(Table table, Entry entry) public returns (int256){
+    function insert(string tableName, Entry entry) public returns (int256){
+        Table table = tableFactory.openTable(tableName);
         return table.insert(entry);
     }
 
-    function update(Table table, Entry entry, Condition cond) public returns (int256){
+    function update(string tableName, Entry entry, Condition cond) public returns (int256){
+        Table table = tableFactory.openTable(tableName);
         return table.update(entry, cond);
     }
 
-    function remove(Table table, Condition cond) public returns (int256){
+    function remove(string tableName, Condition cond) public returns (int256){
+        Table table = tableFactory.openTable(tableName);
         return table.remove(cond);
     }
 
-    function newEntry(Table table) public view returns (Entry){
+    function newEntry(string tableName) public view returns (Entry){
+        Table table = tableFactory.openTable(tableName);
         return table.newEntry();
     }
 
-    function newCondition(Table table) public view returns (Condition){
+    function newCondition(string tableName) public view returns (Condition){
+        Table table = tableFactory.openTable(tableName);
         return table.newCondition();
     }
 
-    function get(KVTable table, string key) public view returns (bool, Entry){
+    function get(string tableName, string key) public view returns (bool, Entry){
+        KVTable kvTable = kvTableFactory.openTable(tableName);
         return table.get(key);
     }
 
-    function set(KVTable table, string key, Entry entry) public returns (int256){
+    function set(string tableName, string key, Entry entry) public returns (int256){
+        KVTable kvTable = kvTableFactory.openTable(tableName);
         return table.set(key, entry);
     }
 
-    function newEntry(KVTable table) public view returns (Entry){
+    function newKVEntry(string tableName) public view returns (Entry){
+        KVTable kvTable = kvTableFactory.openTable(tableName);
         return table.newEntry();
     }
 }

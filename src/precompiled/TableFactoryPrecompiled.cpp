@@ -102,7 +102,7 @@ void TableFactoryPrecompiled::checkCreateTableParam(
         {  // mysql TableName and fieldName length limit is 64
             BOOST_THROW_EXCEPTION(
                 protocol::PrecompiledError()
-                << errinfo_comment("errorCode" + std::to_string(CODE_TABLE_FIELD_LENGTH_OVERFLOW))
+                << errinfo_comment("errorCode " + std::to_string(CODE_TABLE_FIELD_LENGTH_OVERFLOW))
                 << errinfo_comment(std::string("table key name length overflow ") +
                                    std::to_string(SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH)));
         }
@@ -115,7 +115,7 @@ void TableFactoryPrecompiled::checkCreateTableParam(
         {  // mysql TableName and fieldName length limit is 64
             BOOST_THROW_EXCEPTION(
                 protocol::PrecompiledError()
-                << errinfo_comment("errorCode" + std::to_string(CODE_TABLE_FIELD_LENGTH_OVERFLOW))
+                << errinfo_comment("errorCode " + std::to_string(CODE_TABLE_FIELD_LENGTH_OVERFLOW))
                 << errinfo_comment(std::string("table field name length overflow ") +
                                    std::to_string(SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH)));
         }
@@ -145,7 +145,7 @@ void TableFactoryPrecompiled::checkCreateTableParam(
         // mysql TableName and fieldName length limit is 64
         BOOST_THROW_EXCEPTION(
             protocol::PrecompiledError()
-            << errinfo_comment("errorCode: " + std::to_string(CODE_TABLE_NAME_LENGTH_OVERFLOW))
+            << errinfo_comment("errorCode " + std::to_string(CODE_TABLE_NAME_LENGTH_OVERFLOW))
             << errinfo_comment(std::string("tableName length overflow ") +
                                std::to_string(USER_TABLE_NAME_MAX_LENGTH)));
     }

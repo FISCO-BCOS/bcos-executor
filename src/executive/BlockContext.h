@@ -37,6 +37,10 @@
 
 namespace bcos
 {
+namespace precompiled
+{
+class Precompiled;
+}
 namespace executor
 {
 class TransactionExecutive;
@@ -90,6 +94,13 @@ public:
 
     void clear() { m_executives.clear(); }
 
+    std::string registerPrecompiled(std::shared_ptr<precompiled::Precompiled> p);
+
+    bool isDynamicPrecompiled(const std::string& address) const;
+
+    std::shared_ptr<precompiled::Precompiled> getDynamicPrecompiled(
+        const std::string& address) const;
+
 private:
     struct HashCombine
     {
@@ -119,6 +130,10 @@ private:
     uint64_t m_txGasLimit = 300000000;
     std::shared_ptr<storage::StateStorage> m_storage;
     crypto::Hash::Ptr m_hashImpl;
+    tbb::concurrent_unordered_map<std::string, std::shared_ptr<precompiled::Precompiled>,
+        std::hash<std::string>>
+        m_dynamicPrecompiled;
+    std::atomic<int> m_addressCount;
 };
 
 }  // namespace executor

@@ -100,7 +100,7 @@ TransactionExecutor::TransactionExecutor(txpool::TxPoolInterface::Ptr txpool,
     m_lastUncommittedIterator = m_stateStorages.begin();
     initPrecompiled();
     assert(m_precompiledContract);
-    assert(m_constantPrecompiled.size() > 0);
+    assert(!m_constantPrecompiled.empty());
     assert(m_builtInPrecompiled);
     GlobalHashImpl::g_hashImpl = m_hashImpl;
     m_abiCache = make_shared<ClockCache<bcos::bytes, FunctionAbi>>(32);
@@ -1302,7 +1302,6 @@ TransactionExecutive::Ptr TransactionExecutor::createExecutive(
     executive->setConstantPrecompiled(m_constantPrecompiled);
     executive->setEVMPrecompiled(m_precompiledContract);
     executive->setBuiltInPrecompiled(m_builtInPrecompiled);
-
     // TODO: register User developed Precompiled contract
     // registerUserPrecompiled(context);
     return executive;
