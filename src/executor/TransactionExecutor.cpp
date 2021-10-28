@@ -711,7 +711,7 @@ void TransactionExecutor::executeTransaction(bcos::protocol::ExecutionMessage::U
     std::function<void(bcos::Error::UniquePtr, bcos::protocol::ExecutionMessage::UniquePtr)>
         callback)
 {
-    EXECUTOR_LOG(TRACE) << "ExecuteTransaction request" << LOG_KV("ContextID", input->contextID())
+     EXECUTOR_LOG(DEBUG) << "ExecuteTransaction request" << LOG_KV("ContextID", input->contextID())
                         << LOG_KV("seq", input->seq()) << LOG_KV("Message type", input->type())
                         << LOG_KV("To", input->to()) << LOG_KV("Create", input->create());
 

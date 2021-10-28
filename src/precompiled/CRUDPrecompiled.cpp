@@ -117,6 +117,7 @@ void CRUDPrecompiled::desc(const std::shared_ptr<executor::TransactionExecutive>
     std::string tableName;
     codec->decode(_paramData, tableName);
     tableName = precompiled::getTableName(tableName);
+    PRECOMPILED_LOG(DEBUG) << LOG_BADGE("CRUDPrecompiled") << LOG_KV("desc", tableName);
 
     // s_tables must exist
     auto table = _executive->storage().openTable(StorageInterface::SYS_TABLES);
@@ -149,6 +150,9 @@ void CRUDPrecompiled::update(const std::shared_ptr<executor::TransactionExecutiv
     std::string tableName, entryStr, conditionStr, optional;
     codec->decode(_paramData, tableName, entryStr, conditionStr, optional);
     tableName = precompiled::getTableName(tableName);
+
+    PRECOMPILED_LOG(DEBUG) << LOG_BADGE("CRUDPrecompiled") << LOG_KV("update", tableName);
+
     auto table = _executive->storage().openTable(tableName);
     _gasPricer->appendOperation(InterfaceOpcode::OpenTable);
     // get key field name from s_tables
@@ -275,8 +279,9 @@ void CRUDPrecompiled::insert(const std::shared_ptr<executor::TransactionExecutiv
         std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     std::string tableName, entryStr, optional;
     codec->decode(_paramData, tableName, entryStr, optional);
-
     tableName = precompiled::getTableName(tableName);
+    PRECOMPILED_LOG(DEBUG) << LOG_BADGE("CRUDPrecompiled") << LOG_KV("insert", tableName);
+
     auto table = _executive->storage().openTable(tableName);
     _gasPricer->appendOperation(InterfaceOpcode::OpenTable);
 
@@ -340,6 +345,8 @@ void CRUDPrecompiled::remove(const std::shared_ptr<executor::TransactionExecutiv
     std::string tableName, conditionStr, optional;
     codec->decode(_paramData, tableName, conditionStr, optional);
     tableName = precompiled::getTableName(tableName);
+    PRECOMPILED_LOG(DEBUG) << LOG_BADGE("CRUDPrecompiled") << LOG_KV("remove", tableName);
+
     auto table = _executive->storage().openTable(tableName);
     _gasPricer->appendOperation(InterfaceOpcode::OpenTable);
     auto keyField = getKeyField(_executive, tableName);
@@ -504,6 +511,8 @@ int CRUDPrecompiled::parseCondition(const std::string& conditionStr,
 {
     Json::Reader reader;
     Json::Value conditionJson;
+    PRECOMPILED_LOG(DEBUG) << LOG_BADGE("CRUDPrecompiled") << LOG_DESC("table records")
+                           << LOG_KV("conditionStr", conditionStr);
     if (!reader.parse(conditionStr, conditionJson))
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("CRUDPrecompiled")
