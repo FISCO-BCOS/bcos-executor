@@ -46,7 +46,6 @@
 #include <boost/test/tools/old/interface.hpp>
 #include <boost/test/unit_test.hpp>
 #include <cstdio>
-#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <iterator>

@@ -44,7 +44,6 @@
 #include <boost/test/tools/old/interface.hpp>
 #include <boost/test/unit_test.hpp>
 #include <cstdio>
-#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <iterator>
@@ -92,7 +91,6 @@ struct WasmExecutorFixture
         codec = std::make_unique<bcos::precompiled::PrecompiledCodec>(hashImpl, true);
 
         string helloWorldPath = "../test/liquid/hello_world.wasm";
-        BOOST_CHECK(filesystem::exists(helloWorldPath));
 
         auto in = ifstream(helloWorldPath, ios::binary | ios::ate);
         BOOST_CHECK(in.is_open());
@@ -107,7 +105,6 @@ struct WasmExecutorFixture
             R"([{"inputs":[{"internalType":"string","name":"name","type":"string"}],"type":"constructor"},{"conflictFields":[{"kind":0,"path":[],"read_only":false,"slot":0}],"constant":false,"inputs":[{"internalType":"string","name":"name","type":"string"}],"name":"set","outputs":[],"type":"function"},{"constant":true,"inputs":[],"name":"get","outputs":[{"internalType":"string","type":"string"}],"type":"function"}])"));
 
         string helloWorldCallerPath = "../test/liquid/hello_world_caller.wasm";
-        BOOST_CHECK(filesystem::exists(helloWorldCallerPath));
 
         in = ifstream(helloWorldCallerPath, ios::binary | ios::ate);
         BOOST_CHECK(in.is_open());

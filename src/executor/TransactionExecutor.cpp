@@ -210,10 +210,9 @@ void TransactionExecutor::dagExecuteTransactionsForEvm(
     std::vector<std::shared_ptr<std::vector<std::string>>> txsCriticals;
     txsCriticals.resize(transactionsNum);
     size_t serialTransactionsNum = 0;
-    //tbb::parallel_for(tbb::blocked_range<uint64_t>(0, transactionsNum),
-    //    [&](const tbb::blocked_range<uint64_t>& range) {
-            //for (uint64_t i = range.begin(); i < range.end(); i++)
-            for (uint64_t i = 0; i < transactionsNum; i++)
+    tbb::parallel_for(tbb::blocked_range<uint64_t>(0, transactionsNum),
+        [&](const tbb::blocked_range<uint64_t>& range) {
+            for (uint64_t i = range.begin(); i < range.end(); i++)
             {
                 auto defaultExecutionResult = m_executionMessageFactory->createExecutionMessage();
                 executionResults[i].swap(defaultExecutionResult);
@@ -225,7 +224,7 @@ void TransactionExecutor::dagExecuteTransactionsForEvm(
                     executionResults[i]->setType(ExecutionMessage::SEND_BACK);
                 }
             }
-        //});
+        });
 
     shared_ptr<TxDAG> txDag = make_shared<TxDAG>();
     txDag->init(transactions, txsCriticals);
