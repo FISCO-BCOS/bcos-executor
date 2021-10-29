@@ -19,6 +19,9 @@
  * @date: 2021-10-19
  */
 
+#include "../liquid/hello_world.h"
+#include "../liquid/hello_world_caller.h"
+#include "../liquid/transfer.h"
 #include "../mock/MockTransactionalStorage.h"
 #include "../mock/MockTxPool.h"
 #include "Common.h"
@@ -90,44 +93,18 @@ struct WasmExecutorFixture
 
         codec = std::make_unique<bcos::precompiled::PrecompiledCodec>(hashImpl, true);
 
-        string helloWorldPath = "../test/liquid/hello_world.wasm";
-
-        auto in = ifstream(helloWorldPath, ios::binary | ios::ate);
-        BOOST_CHECK(in.is_open());
-        std::streamsize size = in.tellg();
-        BOOST_CHECK(size != 0);
-
-        in.seekg(0, std::ios::beg);
-        helloWorldBin.resize(size);
-        BOOST_CHECK(in.read(reinterpret_cast<char*>(helloWorldBin.data()), size));
+        helloWorldBin.assign(hello_world_wasm, hello_world_wasm + hello_world_wasm_len);
         helloWorldBin = codec->encode(helloWorldBin);
         helloWorldAbi = codec->encode(string(
             R"([{"inputs":[{"internalType":"string","name":"name","type":"string"}],"type":"constructor"},{"conflictFields":[{"kind":0,"path":[],"read_only":false,"slot":0}],"constant":false,"inputs":[{"internalType":"string","name":"name","type":"string"}],"name":"set","outputs":[],"type":"function"},{"constant":true,"inputs":[],"name":"get","outputs":[{"internalType":"string","type":"string"}],"type":"function"}])"));
 
-        string helloWorldCallerPath = "../test/liquid/hello_world_caller.wasm";
-
-        in = ifstream(helloWorldCallerPath, ios::binary | ios::ate);
-        BOOST_CHECK(in.is_open());
-        size = in.tellg();
-        BOOST_CHECK(size != 0);
-
-        in.seekg(0, std::ios::beg);
-        helloWorldCallerBin.resize(size);
-        BOOST_CHECK(in.read(reinterpret_cast<char*>(helloWorldCallerBin.data()), size));
+        helloWorldCallerBin.assign(
+            hello_world_caller_wasm, hello_world_caller_wasm + hello_world_caller_wasm_len);
         helloWorldCallerBin = codec->encode(helloWorldCallerBin);
         helloWorldCallerAbi = codec->encode(string(
             R"([{"inputs":[{"internalType":"string","name":"addr","type":"string"}],"type":"constructor"},{"constant":false,"inputs":[{"internalType":"string","name":"name","type":"string"}],"name":"set","outputs":[],"type":"function"},{"constant":true,"inputs":[],"name":"get","outputs":[{"internalType":"string","type":"string"}],"type":"function"}])"));
 
-
-        string transferPath = "../test/liquid/transfer.wasm";
-        in = ifstream(transferPath, ios::binary | ios::ate);
-        BOOST_CHECK(in.is_open());
-        size = in.tellg();
-        BOOST_CHECK(size != 0);
-
-        in.seekg(0, std::ios::beg);
-        transferBin.resize(size);
-        BOOST_CHECK(in.read(reinterpret_cast<char*>(transferBin.data()), size));
+        transferBin.assign(transfer_wasm, transfer_wasm + transfer_wasm_len);
         transferBin = codec->encode(transferBin);
         transferAbi = codec->encode(string(
             R"([{"inputs":[],"type":"constructor"},{"conflictFields":[{"kind":3,"path":[0],"read_only":false,"slot":0},{"kind":3,"path":[1],"read_only":false,"slot":0}],"constant":false,"inputs":[{"internalType":"string","name":"from","type":"string"},{"internalType":"string","name":"to","type":"string"},{"internalType":"uint32","name":"amount","type":"uint32"}],"name":"transfer","outputs":[{"internalType":"bool","type":"bool"}],"type":"function"},{"constant":true,"inputs":[{"internalType":"string","name":"name","type":"string"}],"name":"query","outputs":[{"internalType":"uint32","type":"uint32"}],"type":"function"}])"));

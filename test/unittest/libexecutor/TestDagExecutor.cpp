@@ -19,6 +19,8 @@
  * @date: 2021-10-27
  */
 
+#include "../liquid/hello_world.h"
+#include "../liquid/transfer.h"
 #include "../mock/MockTransactionalStorage.h"
 #include "../mock/MockTxPool.h"
 #include "Common.h"
@@ -105,16 +107,7 @@ BOOST_AUTO_TEST_CASE(callWasmConcurrentlyTransfer)
         txpool, nullptr, backend, executionResultFactory, hashImpl, true);
     auto codec = std::make_unique<bcos::precompiled::PrecompiledCodec>(hashImpl, true);
 
-    string transferPath = "../test/liquid/transfer.wasm";
-    auto in = ifstream(transferPath, ios::binary | ios::ate);
-    BOOST_CHECK(in.is_open());
-    auto size = in.tellg();
-    BOOST_CHECK(size != 0);
-
-    bytes transferBin;
-    in.seekg(0, std::ios::beg);
-    transferBin.resize(size);
-    BOOST_CHECK(in.read(reinterpret_cast<char*>(transferBin.data()), size));
+    bytes transferBin(transfer_wasm, transfer_wasm + transfer_wasm_len);
     transferBin = codec->encode(transferBin);
     auto transferAbi = codec->encode(string(
         R"([{"inputs":[],"type":"constructor"},{"conflictFields":[{"kind":3,"path":[0],"read_only":false,"slot":0},{"kind":3,"path":[1],"read_only":false,"slot":0}],"constant":false,"inputs":[{"internalType":"string","name":"from","type":"string"},{"internalType":"string","name":"to","type":"string"},{"internalType":"uint32","name":"amount","type":"uint32"}],"name":"transfer","outputs":[{"internalType":"bool","type":"bool"}],"type":"function"},{"constant":true,"inputs":[{"internalType":"string","name":"name","type":"string"}],"name":"query","outputs":[{"internalType":"uint32","type":"uint32"}],"type":"function"}])"));
@@ -319,16 +312,7 @@ BOOST_AUTO_TEST_CASE(callWasmConcurrentlyHelloWorld)
         txpool, nullptr, backend, executionResultFactory, hashImpl, true);
     auto codec = std::make_unique<bcos::precompiled::PrecompiledCodec>(hashImpl, true);
 
-    string helloWorldPath = "../test/liquid/hello_world.wasm";
-    auto in = ifstream(helloWorldPath, ios::binary | ios::ate);
-    BOOST_CHECK(in.is_open());
-    auto size = in.tellg();
-    BOOST_CHECK(size != 0);
-
-    bytes helloWorldBin;
-    in.seekg(0, std::ios::beg);
-    helloWorldBin.resize(size);
-    BOOST_CHECK(in.read(reinterpret_cast<char*>(helloWorldBin.data()), size));
+    bytes helloWorldBin(hello_world_wasm, hello_world_wasm + hello_world_wasm_len);
     helloWorldBin = codec->encode(helloWorldBin);
     auto helloWorldAbi = codec->encode(string(
         R"([{"inputs":[{"internalType":"string","name":"name","type":"string"}],"type":"constructor"},{"conflictFields":[{"kind":0,"path":[],"read_only":false,"slot":0}],"constant":false,"inputs":[{"internalType":"string","name":"name","type":"string"}],"name":"set","outputs":[],"type":"function"},{"constant":true,"inputs":[],"name":"get","outputs":[{"internalType":"string","type":"string"}],"type":"function"}])"));
