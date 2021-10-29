@@ -76,7 +76,7 @@ evmc_bytes32 evm_hash_fn(const uint8_t* data, size_t size)
 }
 }  // namespace
 
-EVMSchedule HostContext::m_evmSchedule;
+EVMSchedule HostContext::m_evmSchedule = FiscoBcosScheduleV3;
 // crypto::Hash::Ptr g_hashImpl = nullptr;
 
 HostContext::HostContext(CallParameters::UniquePtr callParameters,
@@ -271,6 +271,15 @@ void HostContext::setCode(bytes code)
     Entry codeEntry;
     codeEntry.importFields({std::move(code)});
     m_executive->storage().setRow(m_tableName, ACCOUNT_CODE, std::move(codeEntry));
+}
+
+void HostContext::setCodeAndAbi(bytes code, string abi)
+{
+    setCode(code);
+
+    Entry abiEntry;
+    abiEntry.importFields({std::move(abi)});
+    m_executive->storage().setRow(m_tableName, ACCOUNT_ABI, abiEntry);
 }
 
 size_t HostContext::codeSizeAt(const std::string_view& _a)

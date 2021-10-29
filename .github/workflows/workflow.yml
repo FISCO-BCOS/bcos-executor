@@ -49,7 +49,7 @@ jobs:
         run: sudo apt install -y git curl build-essential clang cmake ccache
       - name: configure
         if: runner.os == 'macOS'
-        run: export SDKROOT=$(xcrun --sdk macosx --show-sdk-path) && CC=/usr/bin/clang CXX=/usr/bin/clang++ cmake . -DTESTS=ON
+        run: mkdir build && cd build && export SDKROOT=$(xcrun --sdk macosx --show-sdk-path) && CC=/usr/bin/clang CXX=/usr/bin/clang++ cmake .. -DTESTS=ON
       - name: install rust language
         uses: actions-rs/toolchain@v1
         with:
@@ -57,14 +57,14 @@ jobs:
           override: true
       - name: Linux configure
         if: runner.os == 'Linux'
-        run: CC=/usr/bin/clang CXX=/usr/bin/clang++ cmake . -DTESTS=ON
+        run: mkdir build && cd build && CC=/usr/bin/clang CXX=/usr/bin/clang++ cmake .. -DTESTS=ON
       - name: check commit
         if: ${{ runner.os == 'Linux' && github.base_ref != 'master' && github.event_name == 'pull_request' }}
         run: bash cmake/scripts/shell/check-commit.sh 3000 "https://api.github.com/repos/FISCO-BCOS/bcos-executor"
       - name: compile
-        run: make -j2
+        run: cd build && make -j2
       - name: run test
-        run: CTEST_OUTPUT_ON_FAILURE=TRUE make test
+        run: cd build && CTEST_OUTPUT_ON_FAILURE=TRUE make test
 
   ubuntu20_04_build_with_gcc:
     name: build20_04_with_gcc
@@ -97,17 +97,17 @@ jobs:
           toolchain: nightly-2021-06-17
           override: true
       - name: configure
-        run: cmake . -DTESTS=ON  -DCOVERAGE=ON
+        run: mkdir build && cd build && cmake .. -DTESTS=ON  -DCOVERAGE=ON
       - name: compile
-        run: make -j2
+        run: cd build && make -j2
       - name: run test
-        run: CTEST_OUTPUT_ON_FAILURE=TRUE make test
+        run: cd build && CTEST_OUTPUT_ON_FAILURE=TRUE make test
       - name: generate coverage
-        run: make coverage
+        run: cd build && make coverage
       - name: upload code coverage to Codecov
         uses: codecov/codecov-action@v1
         with:
-          file: ./coverage.info
+          file: ./build/coverage.info
           name: code coverage
           fail_ci_if_error: true
           gcov_path_exclude: deps/
@@ -143,11 +143,11 @@ jobs:
           toolchain: nightly-2021-06-17
           override: true
       - name: configure
-        run: cmake . -DTESTS=ON -DDEBUG=ON
+        run: mkdir build && cd build && cmake .. -DTESTS=ON -DDEBUG=ON
       - name: compile
-        run: make -j2
+        run: cd build && make -j2
       - name: run test
-        run: CTEST_OUTPUT_ON_FAILURE=TRUE make test
+        run: cd build && CTEST_OUTPUT_ON_FAILURE=TRUE make test
 
   build_centos_with_gcc:
     name: build_centos_with_gcc

@@ -128,6 +128,9 @@ public:
     // drop all status
     void reset(std::function<void(bcos::Error::Ptr)> callback) override;
 
+    std::shared_ptr<std::vector<std::string>> getTxCriticals(
+        const protocol::Transaction::ConstPtr& _tx);
+
 private:
     std::shared_ptr<BlockContext> createBlockContext(
         const protocol::BlockHeader::ConstPtr& currentHeader,
@@ -163,6 +166,19 @@ private:
     void initPrecompiled();
 
     void checkAndClear();
+
+    void dagExecuteTransactionsForEvm(gsl::span<bcos::protocol::ExecutionMessage::UniquePtr> inputs,
+        bcos::protocol::TransactionsPtr transactions,
+        std::function<void(
+            bcos::Error::UniquePtr, std::vector<bcos::protocol::ExecutionMessage::UniquePtr>)>
+            callback);
+
+    void dagExecuteTransactionsForWasm(
+        gsl::span<bcos::protocol::ExecutionMessage::UniquePtr> inputs,
+        bcos::protocol::TransactionsPtr transactions,
+        std::function<void(
+            bcos::Error::UniquePtr, std::vector<bcos::protocol::ExecutionMessage::UniquePtr>)>
+            callback);
 
     txpool::TxPoolInterface::Ptr m_txpool;
     storage::MergeableStorageInterface::Ptr m_cachedStorage;
@@ -213,6 +229,7 @@ private:
         m_precompiledContract;
     std::map<std::string, std::shared_ptr<precompiled::Precompiled>> m_constantPrecompiled;
     std::shared_ptr<const std::set<std::string>> m_builtInPrecompiled;
+    unsigned int m_threadNum = std::max(std::thread::hardware_concurrency(), (unsigned int)1);
 };
 
 }  // namespace executor

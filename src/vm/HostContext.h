@@ -86,6 +86,8 @@ public:
 
     void setCode(bytes code);
 
+    void setCodeAndAbi(bytes code, std::string abi);
+
     size_t codeSizeAt(const std::string_view& _a);
 
     h256 codeHashAt(const std::string_view& _a);

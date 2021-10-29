@@ -33,30 +33,6 @@ using namespace bcos::storage;
 using namespace bcos::executor;
 using namespace bcos::precompiled;
 
-/*
-    table name: PARA_CONFIG_TABLE_PREFIX_CONTRACT_ADDR_
-    | selector   | functionName                    | criticalSize |
-    | ---------- | ------------------------------- | ------------ |
-    | 0x12345678 | transfer(string,string,uint256) | 2            |
-    | 0x23456789 | set(string,uint256)             | 1            |
-*/
-
-const std::string PARA_SELECTOR = "selector";
-const std::string PARA_FUNC_NAME = "functionName";
-const std::string PARA_CRITICAL_SIZE = "criticalSize";
-
-const std::string PARA_CONFIG_REGISTER_METHOD_ADDR_STR_UINT =
-    "registerParallelFunctionInternal(address,string,uint256)";
-const std::string PARA_CONFIG_REGISTER_METHOD_STR_STR_UINT =
-    "registerParallelFunctionInternal(string,string,uint256)";
-const std::string PARA_CONFIG_UNREGISTER_METHOD_ADDR_STR =
-    "unregisterParallelFunctionInternal(address,string)";
-const std::string PARA_CONFIG_UNREGISTER_METHOD_STR_STR =
-    "unregisterParallelFunctionInternal(string,string)";
-
-const std::string PARA_KEY_NAME = PARA_SELECTOR;
-const std::string PARA_VALUE_NAMES = PARA_FUNC_NAME + "," + PARA_CRITICAL_SIZE;
-
 ParallelConfigPrecompiled::ParallelConfigPrecompiled(crypto::Hash::Ptr _hashImpl)
   : Precompiled(_hashImpl)
 {
@@ -122,7 +98,7 @@ std::shared_ptr<Table> ParallelConfigPrecompiled::openTable(
 {
     auto blockContext = _executive->blockContext().lock();
     std::string tableName = getTableName(_contractName);
-    auto table = _executive->storage().openTable(tableName);
+    auto table = blockContext->storage()->openTable(tableName);
 
     if (!table && _needCreate)
     {  //__dat_transfer__ is not exist, then create it first.
@@ -219,7 +195,7 @@ ParallelConfig::Ptr ParallelConfigPrecompiled::getParallelConfig(
     const std::string_view& _contractAddress, uint32_t _selector, const std::string_view&)
 {
     auto blockContext = _executive->blockContext().lock();
-    auto table = _executive->storage().openTable(getTableName(_contractAddress));
+    auto table = blockContext->storage()->openTable(getTableName(_contractAddress));
     if (!table)
     {
         return nullptr;

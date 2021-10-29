@@ -145,7 +145,7 @@ CallParameters::UniquePtr TransactionExecutive::execute(CallParameters::UniquePt
 
     if (hostContext)
     {
-        callResults = go(*hostContext);
+        callResults = go(*hostContext, std::move(callResults));
 
         // TODO: check if needed
         hostContext->sub().refunds +=
@@ -231,22 +231,30 @@ std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionE
         BOOST_THROW_EXCEPTION(BCOS_ERROR(-1, "blockContext is null"));
     }
 
-    // Schedule _init execution if not empty.
-    auto& code = callParameters->data;
+    auto code = bytes();
+    auto params = bytes();
+    auto path = string();
+    auto abi = string();
+
+    auto newAddress = string();
 
     if (blockContext->isWasm())
     {
-        // the Wasm deploy use a precompiled which
-        // call this function, so inject meter here
+        auto data = ref(callParameters->data);
+
+        auto input = std::make_pair(std::make_pair(code, params), std::make_pair(path, abi));
+        auto codec = std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), true);
+        codec->decode(data, input);
+
+        std::tie(code, params) = std::get<0>(input);
         if (!hasWasmPreamble(code))
-        {  // if isWASM and the code is not WASM, make it failed
+        {
             revert();
 
             auto callResults = std::move(callParameters);
             callResults->type = CallParameters::REVERT;
             callResults->status = (int32_t)TransactionStatus::WASMValidationFailure;
             callResults->message = "wasm bytecode invalid or use unsupported opcode";
-            EXECUTIVE_LOG(ERROR) << callResults->message;
             return {nullptr, std::move(callResults)};
         }
 
@@ -266,27 +274,45 @@ std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionE
             EXECUTIVE_LOG(ERROR) << callResults->message;
             return {nullptr, std::move(callResults)};
         }
-    }
 
-    auto& newAddress = callParameters->codeAddress;
+        std::tie(path, abi) = std::get<1>(input);
+        newAddress = std::move(path);
+        callParameters->data.swap(code);
+    }
+    else
+    {
+        newAddress = string(callParameters->codeAddress);
+    }
 
     // Create the table first
     auto tableName = getContractTableName(newAddress);
     m_storageWrapper->createTable(tableName, STORAGE_VALUE);
+    EXECUTIVE_LOG(INFO) << "create contract table " << tableName;
     // Create auth table
     creatAuthTable(tableName, callParameters->origin, callParameters->senderAddress);
 
     auto hostContext = std::make_unique<HostContext>(
         std::move(callParameters), shared_from_this(), std::move(tableName));
 
-    return {std::move(hostContext), nullptr};
+    if (blockContext->isWasm())
+    {
+        auto extraData = std::make_unique<CallParameters>(CallParameters::MESSAGE);
+        extraData->data = params;
+        extraData->origin = abi;
+        return {std::move(hostContext), std::move(extraData)};
+    }
+    else
+    {
+        return {std::move(hostContext), nullptr};
+    }
 }
 
-CallParameters::UniquePtr TransactionExecutive::go(HostContext& hostContext)
+CallParameters::UniquePtr TransactionExecutive::go(
+    HostContext& hostContext, CallParameters::UniquePtr extraData)
 {
     try
     {
-        auto getEVMCMessage = [](const BlockContext& blockContext,
+        auto getEVMCMessage = [&extraData](const BlockContext& blockContext,
                                   const HostContext& hostContext) -> evmc_message {
             // the block number will be larger than 0,
             // can be controlled by the programmers
@@ -303,8 +329,6 @@ CallParameters::UniquePtr TransactionExecutive::go(HostContext& hostContext)
             evmcMessage.flags = flags;
             evmcMessage.depth = 0;  // depth own by scheduler
             evmcMessage.gas = leftGas;
-            evmcMessage.input_data = hostContext.data().data();
-            evmcMessage.input_size = hostContext.data().size();
             evmcMessage.value = toEvmC(h256(0));
             evmcMessage.create2_salt = toEvmC(0x0_cppui256);
 
@@ -315,9 +339,24 @@ CallParameters::UniquePtr TransactionExecutive::go(HostContext& hostContext)
 
                 evmcMessage.sender_ptr = (uint8_t*)hostContext.caller().data();
                 evmcMessage.sender_len = hostContext.caller().size();
+
+                if (hostContext.isCreate())
+                {
+                    assert(extraData != nullptr);
+                    evmcMessage.input_data = extraData->data.data();
+                    evmcMessage.input_size = extraData->data.size();
+                }
+                else
+                {
+                    evmcMessage.input_data = hostContext.data().data();
+                    evmcMessage.input_size = hostContext.data().size();
+                }
             }
             else
             {
+                evmcMessage.input_data = hostContext.data().data();
+                evmcMessage.input_size = hostContext.data().size();
+
                 auto myAddressBytes = boost::algorithm::unhex(std::string(hostContext.myAddress()));
                 auto callerBytes = boost::algorithm::unhex(std::string(hostContext.caller()));
 
@@ -341,10 +380,12 @@ CallParameters::UniquePtr TransactionExecutive::go(HostContext& hostContext)
 
             auto code = hostContext.data();
             auto vmKind = VMKind::evmone;
-            if (hasWasmPreamble(code))
+
+            if (blockContext->isWasm())
             {
                 vmKind = VMKind::Hera;
             }
+
             auto vm = VMFactory::create(vmKind);
 
             auto ret = vm.exec(hostContext, mode, &evmcMessage, code.data(), code.size());
@@ -361,7 +402,7 @@ CallParameters::UniquePtr TransactionExecutive::go(HostContext& hostContext)
                     "Code is too large: " + boost::lexical_cast<std::string>(outputRef.size()) +
                     " limit: " +
                     boost::lexical_cast<std::string>(hostContext.evmSchedule().maxCodeSize);
-
+                EXECUTIVE_LOG(ERROR) << callResults->message;
                 return callResults;
             }
 
@@ -373,12 +414,21 @@ CallParameters::UniquePtr TransactionExecutive::go(HostContext& hostContext)
                     callResults->type = CallParameters::REVERT;
                     callResults->status = (int32_t)TransactionStatus::OutOfGas;
                     callResults->message = "exceptionalFailedCodeDeposit";
-
+                    EXECUTIVE_LOG(ERROR) << callResults->message;
                     return callResults;
                 }
             }
 
-            hostContext.setCode(outputRef.toBytes());
+            if (blockContext->isWasm())
+            {
+                assert(extraData != nullptr);
+                hostContext.setCodeAndAbi(outputRef.toBytes(), extraData->origin);
+            }
+            else
+            {
+                hostContext.setCode(outputRef.toBytes());
+            }
+
 
             callResults->gas -= outputRef.size() * hostContext.evmSchedule().createDataGas;
             callResults->newEVMContractAddress = callResults->codeAddress;

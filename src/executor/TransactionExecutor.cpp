@@ -60,6 +60,7 @@
 #include <boost/algorithm/hex.hpp>
 #include <boost/exception/detail/exception_ptr.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/thread/latch.hpp>
 #include <boost/throw_exception.hpp>
 #include <cassert>
 #include <exception>
@@ -161,51 +162,184 @@ void TransactionExecutor::dagExecuteTransactions(
         bcos::Error::UniquePtr, std::vector<bcos::protocol::ExecutionMessage::UniquePtr>)>
         callback)
 {
-    auto txHashes = make_shared<HashList>(inputs.size());
+    auto txHashes = make_shared<HashList>();
+    txHashes->reserve(inputs.size());
     for (auto& execution_params : inputs)
     {
         assert(execution_params->type() == ExecutionMessage::TXHASH);
         txHashes->emplace_back(execution_params->transactionHash());
     }
 
-    // TODO: After passing function testing, change sync behaviour to async way.
-    std::promise<protocol::TransactionsPtr> promise;
-    m_txpool->asyncFillBlock(txHashes, [&promise](Error::Ptr error, protocol::TransactionsPtr txs) {
-        if (error)
+    m_txpool->asyncFillBlock(
+        txHashes, [&](Error::Ptr error, protocol::TransactionsPtr transactions) {
+            if (error)
+            {
+                std::string errorMessage =
+                    "asyncFillBlock failed: " + boost::diagnostic_information(*error);
+                EXECUTOR_LOG(ERROR) << errorMessage;
+                callback(BCOS_ERROR_WITH_PREV_UNIQUE_PTR(-1, errorMessage, *error),
+                    vector<ExecutionMessage::UniquePtr>());
+            }
+            else
+            {
+                if (m_isWasm)
+                {
+                    dagExecuteTransactionsForWasm(
+                        std::move(inputs), std::move(transactions), std::move(callback));
+                }
+                else
+                {
+                    dagExecuteTransactionsForEvm(
+                        std::move(inputs), std::move(transactions), std::move(callback));
+                }
+            }
+        });
+}
+
+void TransactionExecutor::dagExecuteTransactionsForEvm(
+    gsl::span<bcos::protocol::ExecutionMessage::UniquePtr> inputs,
+    bcos::protocol::TransactionsPtr transactions,
+    std::function<void(
+        bcos::Error::UniquePtr, std::vector<bcos::protocol::ExecutionMessage::UniquePtr>)>
+        callback)
+{
+    auto transactionsNum = transactions->size();
+    vector<ExecutionMessage::UniquePtr> executionResults(transactionsNum);
+
+    // get criticals
+    std::vector<std::shared_ptr<std::vector<std::string>>> txsCriticals;
+    txsCriticals.resize(transactionsNum);
+    size_t serialTransactionsNum = 0;
+    tbb::parallel_for(tbb::blocked_range<uint64_t>(0, transactionsNum),
+        [&](const tbb::blocked_range<uint64_t>& range) {
+            for (uint64_t i = range.begin(); i < range.end(); i++)
+            {
+                auto defaultExecutionResult = m_executionMessageFactory->createExecutionMessage();
+                executionResults[i].swap(defaultExecutionResult);
+
+                txsCriticals[i] = getTxCriticals(transactions->at(i));
+                if (!txsCriticals[i])
+                {
+                    serialTransactionsNum++;
+                    executionResults[i]->setType(ExecutionMessage::SEND_BACK);
+                }
+            }
+        });
+
+    shared_ptr<TxDAG> txDag = make_shared<TxDAG>();
+    txDag->init(transactions, txsCriticals);
+    boost::latch counter(transactionsNum - serialTransactionsNum);
+
+    vector<TransactionExecutive::Ptr> allExecutives(transactionsNum);
+    vector<std::unique_ptr<CallParameters>> allCallParameters(transactionsNum);
+
+    for (size_t i = 0; i < transactionsNum; ++i)
+    {
+        if (!txsCriticals[i])
         {
-            EXECUTOR_LOG(ERROR) << LOG_BADGE("executor") << LOG_DESC("asyncFillBlock failed")
-                                << LOG_KV("message", error->errorMessage());
-            promise.set_exception(std::make_exception_ptr(error));
+            continue;
         }
-        else
+
+        auto& input = inputs[i];
+        auto contextID = input->contextID();
+        auto seq = input->seq();
+        auto callParameters =
+            createCallParameters(std::move(*input), std::move(transactions->at(i)));
+
+        auto executive =
+            createExecutive(m_blockContext, callParameters->codeAddress, contextID, seq);
+        m_blockContext->insertExecutive(contextID, seq,
+            {executive,
+                [i, &executionResults, &counter](bcos::Error::UniquePtr&& error,
+                    bcos::protocol::ExecutionMessage::UniquePtr&& response) {
+                    if (response->status() != 0 || error)
+                    {
+                        EXECUTOR_LOG(DEBUG) << "Transaction reverted";
+                        executionResults[i]->setType(ExecutionMessage::REVERT);
+                    }
+                    else
+                    {
+                        EXECUTOR_LOG(DEBUG) << "Transaction executed";
+                        executionResults[i]->setNewEVMContractAddress(
+                            std::string(response->newEVMContractAddress()));
+                        executionResults[i]->setLogEntries(response->takeLogEntries());
+                        executionResults[i]->setStatus(response->status());
+                        executionResults[i]->setMessage(std::string(response->message()));
+                        executionResults[i]->setType(ExecutionMessage::FINISHED);
+                        executionResults[i]->setData(response->takeData());
+                        executionResults[i]->setTransactionHash(response->transactionHash());
+                        executionResults[i]->setFrom(string(response->from()));
+                        executionResults[i]->setTo(string(response->to()));
+                        executionResults[i]->setGasAvailable(response->gasAvailable());
+                    }
+                    counter.count_down();
+                },
+                {}});
+
+        allExecutives[i].swap(executive);
+        allCallParameters[i].swap(callParameters);
+    }
+
+    txDag->setTxExecuteFunc([](bcos::executor::TransactionExecutive::Ptr executive,
+                                CallParameters::UniquePtr callParameters) {
+        try
         {
-            promise.set_value(txs);
+            executive->start(std::move(callParameters));
+        }
+        catch (std::exception& e)
+        {
+            EXECUTOR_LOG(ERROR) << "Execute error: " << boost::diagnostic_information(e);
         }
     });
 
-    auto future = promise.get_future();
-    TransactionsPtr transactions;
+    auto parallelTimeOut = utcSteadyTime() + 30000;  // 30 timeout
     try
     {
-        transactions = future.get();
+        tbb::atomic<bool> isWarnedTimeout(false);
+        tbb::parallel_for(tbb::blocked_range<unsigned int>(0, m_threadNum),
+            [&](const tbb::blocked_range<unsigned int>& _r) {
+                (void)_r;
+
+                while (!txDag->hasFinished())
+                {
+                    if (!isWarnedTimeout.load() && utcSteadyTime() >= parallelTimeOut)
+                    {
+                        isWarnedTimeout.store(true);
+                        EXECUTOR_LOG(WARNING)
+                            << LOG_BADGE("executeBlock") << LOG_DESC("Para execute block timeout")
+                            << LOG_KV("txNum", transactions->size())
+                            << LOG_KV("blockNumber", m_blockContext->number());
+                    }
+                    txDag->executeUnit(allExecutives, allCallParameters);
+                }
+            });
     }
-    catch (exception_ptr error)
+    catch (exception& e)
     {
-        try
-        {
-            rethrow_exception(error);
-        }
-        catch (Error::UniquePtr& error)
-        {
-            callback(std::move(error), vector<ExecutionMessage::UniquePtr>());
-            return;
-        }
+        EXECUTOR_LOG(ERROR) << LOG_BADGE("executeBlock")
+                            << LOG_DESC("Error during parallel block execution")
+                            << LOG_KV("EINFO", boost::diagnostic_information(e));
+        callback(BCOS_ERROR_UNIQUE_PTR(ExecuteError::CALL_ERROR, boost::diagnostic_information(e)),
+            vector<ExecutionMessage::UniquePtr>{});
+        return;
     }
 
+    counter.wait();
+    callback(nullptr, std::move(executionResults));
+}
+
+void TransactionExecutor::dagExecuteTransactionsForWasm(
+    gsl::span<bcos::protocol::ExecutionMessage::UniquePtr> inputs,
+    bcos::protocol::TransactionsPtr transactions,
+    std::function<void(
+        bcos::Error::UniquePtr, std::vector<bcos::protocol::ExecutionMessage::UniquePtr>)>
+        callback)
+{
     auto transactionsNum = transactions->size();
     auto executionResults = vector<ExecutionMessage::UniquePtr>(transactionsNum);
     auto allConflictFields = vector<optional<ConflictFields>>(transactionsNum, nullopt);
 
+    mutex tableMutex;
     tbb::parallel_for(tbb::blocked_range<uint64_t>(0, transactionsNum),
         [&](const tbb::blocked_range<uint64_t>& range) {
             for (auto i = range.begin(); i != range.end(); ++i)
@@ -214,6 +348,8 @@ void TransactionExecutor::dagExecuteTransactions(
                 executionResults[i].swap(defaultExecutionResult);
 
                 auto transaction = transactions->at(i).get();
+                assert(transaction);
+
                 auto to = transaction->to();
                 auto input = transaction->input();
                 auto selector = input.getCroppedData(0, 4);
@@ -224,33 +360,73 @@ void TransactionExecutor::dagExecuteTransactions(
                 optional<ConflictFields> conflictFields = nullopt;
                 if (!cacheHandle.isValid())
                 {
-                    auto storage = m_blockContext->storage();
-                    auto table = storage->openTable(to);
-                    auto abiStr = table->getRow(ACCOUNT_ABI)->getField(SYS_VALUE);
+                    EXECUTOR_LOG(DEBUG) << LOG_BADGE("dagExecuteTransactionsForWasm")
+                                        << LOG_DESC("No ABI found in cache, try to load")
+                                        << LOG_KV("abiKey", toHexStringWithPrefix(abiKey));
 
-                    auto functionAbi =
-                        FunctionAbi::deserialize(abiStr, selector.toBytes(), m_hashImpl);
-                    if (!functionAbi)
-                    {
-                        executionResults[i]->setType(ExecutionMessage::SEND_BACK);
-                        continue;
-                    }
+                    std::lock_guard guard(tableMutex);
 
-                    auto abiPtr = functionAbi.get();
-                    if (m_abiCache->insert(abiKey, abiPtr, &cacheHandle))
+                    cacheHandle = m_abiCache->lookup(abiKey);
+                    if (cacheHandle.isValid())
                     {
-                        functionAbi.release();  // TODO: cause memory leak?
+                        EXECUTOR_LOG(DEBUG) << LOG_BADGE("dagExecuteTransactionsForWasm")
+                                            << LOG_DESC("ABI had beed loaded by other workers")
+                                            << LOG_KV("abiKey", toHexStringWithPrefix(abiKey));
+                        auto& functionAbi = cacheHandle.value();
+                        conflictFields = decodeConflictFields(functionAbi, transaction);
                     }
-                    conflictFields = decodeConflictFields(*abiPtr, transaction);
+                    else
+                    {
+                        auto storage = m_blockContext->storage();
+                        auto tableName = "/apps" + string(to);
+                        auto table = storage->openTable(tableName);
+                        assert(table.has_value());
+
+                        auto abiStr = table->getRow(ACCOUNT_ABI)->getField(SYS_VALUE);
+
+                        EXECUTOR_LOG(DEBUG) << LOG_BADGE("dagExecuteTransactionsForWasm")
+                                            << LOG_DESC("ABI loaded") << LOG_KV("ABI", abiStr);
+
+                        auto functionAbi =
+                            FunctionAbi::deserialize(abiStr, selector.toBytes(), m_hashImpl);
+                        if (!functionAbi)
+                        {
+                            executionResults[i]->setType(ExecutionMessage::SEND_BACK);
+                            // If abi is not valid, we don't impact the cache. In such a
+                            // situation, if the caller invokes this method over and over
+                            // again, executor will read the contract table repeatedly,
+                            // which may cause performance loss. But we think occurrence
+                            // of invalid abi is impossible in actual situations.
+                            continue;
+                        }
+
+                        auto abiPtr = functionAbi.get();
+                        if (m_abiCache->insert(abiKey, abiPtr, &cacheHandle))
+                        {
+                            // If abi object had been inserted into the cache successfully,
+                            // the cache will take charge of life time management of the
+                            // object. After this object being eliminated, the cache will
+                            // delete its memory storage.
+                            functionAbi.release();
+                        }
+                        conflictFields = decodeConflictFields(*abiPtr, transaction);
+                    }
                 }
                 else
                 {
+                    EXECUTOR_LOG(DEBUG) << LOG_BADGE("dagExecuteTransactionsForWasm")
+                                        << LOG_DESC("Found ABI in cache")
+                                        << LOG_KV("abiKey", toHexStringWithPrefix(abiKey));
                     auto& functionAbi = cacheHandle.value();
                     conflictFields = decodeConflictFields(functionAbi, transaction);
                 }
 
                 if (!conflictFields.has_value())
                 {
+                    EXECUTOR_LOG(DEBUG)
+                        << LOG_BADGE("dagExecuteTransactionsForWasm")
+                        << LOG_DESC("The transaction can't be executed concurrently")
+                        << LOG_KV("abiKey", toHexStringWithPrefix(abiKey));
                     executionResults[i]->setType(ExecutionMessage::SEND_BACK);
                     continue;
                 }
@@ -266,45 +442,75 @@ void TransactionExecutor::dagExecuteTransactions(
     auto flowGraph = graph();
     broadcast_node<continue_msg> start(flowGraph);
 
-    auto dependencies = unordered_map<bytes, size_t, boost::hash<bytes>>();
+    auto dependencies = unordered_map<bytes, vector<size_t>, boost::hash<bytes>>();
     auto slotUsage = unordered_map<size_t, size_t>();
+
+    boost::latch counter(allConflictFields.size());
 
     for (auto i = 0u; i < allConflictFields.size(); ++i)
     {
         auto& conflictFields = allConflictFields[i];
         if (!conflictFields.has_value())
         {
+            // Transactions those invokes method which can't be executed concurrently
+            // will be sent back.
+            counter.count_down();
             continue;
         }
 
+        auto& input = inputs[i];
+        auto contextID = input->contextID();
+        auto seq = input->seq();
+
+        auto executive = createExecutive(m_blockContext, string(input->to()), contextID, seq);
+        m_blockContext->insertExecutive(contextID, seq,
+            {executive,
+                [i, &executionResults, &counter](bcos::Error::UniquePtr&& error,
+                    bcos::protocol::ExecutionMessage::UniquePtr&& response) {
+                    if (response->status() != 0 || error)
+                    {
+                        EXECUTOR_LOG(DEBUG) << "Transaction reverted";
+                        executionResults[i]->setType(ExecutionMessage::REVERT);
+                    }
+                    else
+                    {
+                        EXECUTOR_LOG(DEBUG) << "Transaction executed";
+                        executionResults[i]->setNewEVMContractAddress(
+                            std::string(response->newEVMContractAddress()));
+                        executionResults[i]->setLogEntries(response->takeLogEntries());
+                        executionResults[i]->setStatus(response->status());
+                        executionResults[i]->setMessage(std::string(response->message()));
+                        executionResults[i]->setType(ExecutionMessage::FINISHED);
+                        executionResults[i]->setData(response->takeData());
+                        executionResults[i]->setTransactionHash(response->transactionHash());
+                        executionResults[i]->setFrom(string(response->from()));
+                        executionResults[i]->setTo(string(response->to()));
+                        executionResults[i]->setGasAvailable(response->gasAvailable());
+                    }
+                    counter.count_down();
+                },
+                {}});
+
+        auto task = [this, i, executive, &inputs, &transactions, &executionResults](Msg) {
+            EXECUTOR_LOG(DEBUG) << LOG_BADGE("dagExecuteTransactionsForWasm")
+                                << LOG_DESC("Start transaction") << LOG_KV("to", inputs[i]->to())
+                                << LOG_KV("contextID", inputs[i]->contextID())
+                                << LOG_KV("seq", inputs[i]->seq());
+            auto callParameters =
+                createCallParameters(std::move(*inputs[i]), std::move(transactions->at(i)));
+            try
+            {
+                executive->start(std::move(callParameters));
+            }
+            catch (std::exception& e)
+            {
+                EXECUTOR_LOG(ERROR) << "Execute error: " << boost::diagnostic_information(e);
+                executionResults[i]->setType(ExecutionMessage::REVERT);
+            }
+        };
         auto index = tasks.size();
-        tasks.emplace_back(
-            Task(flowGraph, [this, i, &inputs, &transactions, &executionResults](Msg) {
-                auto& input = inputs[i];
-                auto contextID = input->contextID();
-                auto seq = input->seq();
-                auto callParameters =
-                    createCallParameters(std::move(*input), std::move(transactions->at(i)));
-
-                auto executive =
-                    createExecutive(m_blockContext, callParameters->codeAddress, contextID, seq);
-
-                auto response =
-                    executive->execute(std::move(callParameters));  // TODO: 用start()代替execute()
-
-                executionResults[i]->setNewEVMContractAddress(response->newEVMContractAddress);
-                executionResults[i]->setLogEntries(response->logEntries);
-                executionResults[i]->setStatus(response->status);
-                executionResults[i]->setMessage(response->message);
-                if (response->status != 0)
-                {
-                    executionResults[i]->setType(ExecutionMessage::REVERT);
-                }
-                else
-                {
-                    executionResults[i]->setType(ExecutionMessage::FINISHED);
-                }
-            }));
+        auto t = Task(flowGraph, std::move(task));
+        tasks.push_back(t);
 
         auto noDeps = true;
         for (auto& conflictField : conflictFields.value())
@@ -312,34 +518,74 @@ void TransactionExecutor::dagExecuteTransactions(
             assert(conflictField.size() >= sizeof(size_t));
 
             auto slot = *(size_t*)conflictField.data();
-            if (conflictField.size() != sizeof(size_t))
-            {
-                auto iter = dependencies.find(conflictField);
-                if (iter != dependencies.end())
-                {
-                    noDeps = false;
-                    make_edge(tasks[iter->second], tasks[index]);
-                }
-                dependencies[conflictField] = index;
-            }
-
             auto iter = slotUsage.find(slot);
-            if (iter != slotUsage.end())
+            if (iter != slotUsage.end() && iter->second != index)
             {
                 noDeps = false;
                 make_edge(tasks[iter->second], tasks[index]);
+
+                EXECUTOR_LOG(DEBUG) << LOG_BADGE("dagExecuteTransactionsForWasm")
+                                    << LOG_DESC("Make dependency for slot")
+                                    << LOG_KV("from", iter->second) << LOG_KV("to", index);
             }
-            slotUsage[slot] = index;
+
+            if (conflictField.size() != sizeof(size_t))
+            {
+                auto iter = dependencies.find(conflictField);
+                if (iter != dependencies.end() && iter->second.back() != index)
+                {
+                    noDeps = false;
+                    make_edge(tasks[iter->second.back()], tasks[index]);
+
+                    EXECUTOR_LOG(DEBUG)
+                        << LOG_BADGE("dagExecuteTransactionsForWasm")
+                        << LOG_DESC("Make dependency for key")
+                        << LOG_KV("from", iter->second.back()) << LOG_KV("to", index);
+                    dependencies[conflictField].push_back(index);
+                }
+                else
+                {
+                    dependencies[conflictField] = {index};
+                }
+            }
+            else
+            {
+                // `slotUsage` is used when some a conflict key equals to `All` or `Len`. In such
+                // cases, if there are 2 transations and one of them uses all of slot 0  meanwhile
+                // another use a key to visit slot 0, then their conflict keys may looks very
+                // different, and they can't be captured by `dependencies` only.
+                for (auto& slotIndices : dependencies)
+                {
+                    auto prevSlot = *(size_t*)slotIndices.first.data();
+                    if (prevSlot == slot)
+                    {
+                        auto& prevIndices = slotIndices.second;
+                        if (prevIndices.size() != 0)
+                        {
+                            noDeps = false;
+                        }
+                        for (auto prevIndex : prevIndices)
+                        {
+                            make_edge(tasks[prevIndex], tasks[index]);
+                        }
+                    }
+                }
+                slotUsage[slot] = index;
+            }
         }
 
         if (noDeps)
         {
             make_edge(start, tasks[index]);
+            EXECUTOR_LOG(DEBUG) << LOG_BADGE("dagExecuteTransactionsForWasm")
+                                << LOG_DESC("Make dependency for start") << LOG_KV("from", "start")
+                                << LOG_KV("to", index);
         }
     }
 
     start.try_put(continue_msg());
     flowGraph.wait_for_all();
+    counter.wait();
     callback(nullptr, std::move(executionResults));
 }
 
@@ -465,10 +711,9 @@ void TransactionExecutor::executeTransaction(bcos::protocol::ExecutionMessage::U
     std::function<void(bcos::Error::UniquePtr, bcos::protocol::ExecutionMessage::UniquePtr)>
         callback)
 {
-    // EXECUTOR_LOG(TRACE) << "ExecuteTransaction request" << LOG_KV("ContextID",
-    // input->contextID())
-    //                     << LOG_KV("seq", input->seq()) << LOG_KV("Message type", input->type())
-    //                     << LOG_KV("To", input->to()) << LOG_KV("Create", input->create());
+    EXECUTOR_LOG(TRACE) << "ExecuteTransaction request" << LOG_KV("ContextID", input->contextID())
+                        << LOG_KV("seq", input->seq()) << LOG_KV("Message type", input->type())
+                        << LOG_KV("To", input->to()) << LOG_KV("Create", input->create());
 
     if (!m_blockContext)
     {
@@ -535,8 +780,8 @@ void TransactionExecutor::prepare(
     EXECUTOR_LOG(INFO) << "Prepare request" << LOG_KV("params", params.number);
     if (m_stateStorages.empty())
     {
-        EXECUTOR_LOG(ERROR) << "Prepare error: No uncommited state in executor";
-        callback(BCOS_ERROR_PTR(-1, "No uncommited state in executor"));
+        EXECUTOR_LOG(ERROR) << "Prepare error: No uncommitted state in executor";
+        callback(BCOS_ERROR_PTR(-1, "No uncommitted state in executor"));
         return;
     }
 
@@ -823,24 +1068,45 @@ optional<ConflictFields> TransactionExecutor::decodeConflictFields(
         auto slotBegin = (uint8_t*)static_cast<void*>(&slot);
         key.insert(key.end(), slotBegin, slotBegin + sizeof(slot));
 
+        EXECUTOR_LOG(DEBUG) << LOG_BADGE("decodeConflictFields") << LOG_KV("to", to)
+                            << LOG_KV("functionName", functionAbi.name)
+                            << LOG_KV("slot", (int)conflictField.slot);
+
         switch (conflictField.kind)
         {
         case All:
+        {
+            EXECUTOR_LOG(DEBUG) << LOG_BADGE("decodeConflictFields") << LOG_DESC("use `All`");
+            break;
+        }
         case Len:
         {
+            EXECUTOR_LOG(DEBUG) << LOG_BADGE("decodeConflictFields") << LOG_DESC("use `Len`");
             break;
         }
         case Env:
         {
             assert(conflictField.accessPath.size() == 1);
+
             auto envKind = conflictField.accessPath[0];
             switch (envKind)
             {
             case Caller:
+            {
+                auto sender = transaction->sender();
+                key.insert(key.end(), sender.begin(), sender.end());
+
+                EXECUTOR_LOG(DEBUG) << LOG_BADGE("decodeConflictFields") << LOG_DESC("use `Caller`")
+                                    << LOG_KV("caller", sender);
+                break;
+            }
             case Origin:
             {
                 auto sender = transaction->sender();
                 key.insert(key.end(), sender.begin(), sender.end());
+
+                EXECUTOR_LOG(DEBUG) << LOG_BADGE("decodeConflictFields") << LOG_DESC("use `Origin`")
+                                    << LOG_KV("origin", sender);
                 break;
             }
             case Now:
@@ -848,6 +1114,9 @@ optional<ConflictFields> TransactionExecutor::decodeConflictFields(
                 auto now = m_blockContext->timestamp();
                 auto bytes = static_cast<byte*>(static_cast<void*>(&now));
                 key.insert(key.end(), bytes, bytes + sizeof(now));
+
+                EXECUTOR_LOG(DEBUG) << LOG_BADGE("decodeConflictFields") << LOG_DESC("use `Now`")
+                                    << LOG_KV("now", now);
                 break;
             }
             case BlockNumber:
@@ -855,11 +1124,19 @@ optional<ConflictFields> TransactionExecutor::decodeConflictFields(
                 auto blockNumber = m_blockContext->number();
                 auto bytes = static_cast<byte*>(static_cast<void*>(&blockNumber));
                 key.insert(key.end(), bytes, bytes + sizeof(blockNumber));
+
+                EXECUTOR_LOG(DEBUG)
+                    << LOG_BADGE("decodeConflictFields") << LOG_DESC("use `BlockNumber`")
+                    << LOG_KV("functionName", functionAbi.name)
+                    << LOG_KV("blockNumber", blockNumber);
                 break;
             }
             case Addr:
             {
                 key.insert(key.end(), to.begin(), to.end());
+
+                EXECUTOR_LOG(DEBUG) << LOG_BADGE("decodeConflictFields") << LOG_DESC("use `Addr`")
+                                    << LOG_KV("addr", to);
                 break;
             }
             default:
@@ -904,8 +1181,13 @@ optional<ConflictFields> TransactionExecutor::decodeConflictFields(
                 return nullopt;
             }
             assert(startPos + length.value() <= inputData.size());
-            key.insert(key.end(), inputData.begin() + startPos,
-                inputData.begin() + startPos + length.value());
+            bytes var(inputData.begin() + startPos, inputData.begin() + startPos + length.value());
+            key.insert(key.end(), var.begin(), var.end());
+
+
+            EXECUTOR_LOG(DEBUG) << LOG_BADGE("decodeConflictFields") << LOG_DESC("use `Var`")
+                                << LOG_KV("functionName", functionAbi.name)
+                                << LOG_KV("var", toHexStringWithPrefix(var));
             break;
         }
         default:
@@ -1189,4 +1471,98 @@ std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
     callParameters->create = input.create();
 
     return callParameters;
+}
+
+std::shared_ptr<std::vector<std::string>> TransactionExecutor::getTxCriticals(
+    const protocol::Transaction::ConstPtr& _tx)
+{
+    assert(_tx);
+
+    if (_tx->type() == protocol::TransactionType::ContractCreation)
+    {
+        // Not to parallel contract creation transaction
+        return nullptr;
+    }
+
+    // temp executive
+    auto executive = createExecutive(m_blockContext, std::string(_tx->to()), 0, 0);
+    auto p = executive->getPrecompiled(string(_tx->to()));
+    if (p)
+    {
+        // Precompile transaction
+        if (p->isParallelPrecompiled())
+        {
+            auto ret = make_shared<vector<string>>(p->getParallelTag(_tx->input()));
+            for (string& critical : *ret)
+            {
+                critical += _tx->to();
+            }
+            return ret;
+        }
+        return nullptr;
+    }
+    uint32_t selector = precompiled::getParamFunc(_tx->input());
+
+    auto receiveAddress = _tx->to();
+    std::shared_ptr<precompiled::ParallelConfig> config = nullptr;
+    // hit the cache, fetch ParallelConfig from the cache directly
+    // Note: Only when initializing DAG, get ParallelConfig, will not get
+    // during transaction execution
+    // TODO: add parallel config cache
+    // auto parallelKey = std::make_pair(string(receiveAddress), selector);
+    auto parallelConfigPrecompiled =
+        std::make_shared<precompiled::ParallelConfigPrecompiled>(m_hashImpl);
+
+    EXECUTOR_LOG(TRACE) << LOG_DESC("[getTxCriticals] get parallel config")
+                        << LOG_KV("receiveAddress", receiveAddress) << LOG_KV("selector", selector)
+                        << LOG_KV("sender", _tx->sender());
+
+    config = parallelConfigPrecompiled->getParallelConfig(
+        executive, receiveAddress, selector, _tx->sender());
+
+    if (config == nullptr)
+    {
+        return nullptr;
+    }
+    // Testing code
+    auto res = make_shared<vector<string>>();
+
+    codec::abi::ABIFunc af;
+    bool isOk = af.parser(config->functionName);
+    if (!isOk)
+    {
+        EXECUTOR_LOG(DEBUG) << LOG_DESC("[getTxCriticals] parser function signature failed, ")
+                            << LOG_KV("func signature", config->functionName);
+
+        return nullptr;
+    }
+
+    auto paramTypes = af.getParamsType();
+    if (paramTypes.size() < (size_t)config->criticalSize)
+    {
+        EXECUTOR_LOG(DEBUG) << LOG_DESC("[getTxCriticals] params type less than  criticalSize")
+                            << LOG_KV("func signature", config->functionName)
+                            << LOG_KV("func criticalSize", config->criticalSize);
+
+        return nullptr;
+    }
+
+    paramTypes.resize((size_t)config->criticalSize);
+
+    codec::abi::ContractABICodec abi(m_hashImpl);
+    isOk = abi.abiOutByFuncSelector(_tx->input().getCroppedData(4), paramTypes, *res);
+    if (!isOk)
+    {
+        EXECUTOR_LOG(DEBUG) << LOG_DESC("[getTxCriticals] abiout failed, ")
+                            << LOG_KV("func signature", config->functionName);
+
+        return nullptr;
+    }
+
+    for (string& critical : *res)
+    {
+        critical += _tx->to();
+    }
+
+    return res;
 }
