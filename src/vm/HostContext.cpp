@@ -163,7 +163,8 @@ evmc_result HostContext::externalRequest(const evmc_message* _msg)
     // if (built in precompiled) then execute locally
     auto blockContext = m_executive->blockContext().lock();
 
-    if (m_executive->isBuiltInPrecompiled(request->receiveAddress))
+    if (m_executive->isBuiltInPrecompiled(request->receiveAddress) ||
+        m_executive->isDynamicPrecompiled(request->receiveAddress))
     {
         return callBuiltInPrecompiled(request, false);
     }

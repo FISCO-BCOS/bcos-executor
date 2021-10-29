@@ -111,9 +111,10 @@ public:
     // External request key locks
     void externalAcquireKeyLocks(std::string acquireKeyLock);
 
-    CoroutineStorageWrapper<CoroutineMessage>& storage() { 
+    CoroutineStorageWrapper<CoroutineMessage>& storage()
+    {
         assert(m_storageWrapper);
-        return *m_storageWrapper; 
+        return *m_storageWrapper;
     }
 
     std::weak_ptr<BlockContext> blockContext() { return m_blockContext; }
@@ -144,6 +145,8 @@ public:
     bool isBuiltInPrecompiled(const std::string& _a) const;
 
     bool isEthereumPrecompiled(const std::string& _a) const;
+
+    bool isDynamicPrecompiled(const std::string& _a) const;
 
     std::pair<bool, bytes> executeOriginPrecompiled(const std::string& _a, bytesConstRef _in) const;
 

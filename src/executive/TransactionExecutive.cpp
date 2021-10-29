@@ -589,8 +589,7 @@ string TransactionExecutive::registerPrecompiled(std::shared_ptr<precompiled::Pr
 
 bool TransactionExecutive::isPrecompiled(const std::string& address) const
 {
-    return (m_constantPrecompiled.count(address) > 0 ||
-            m_blockContext.lock()->isDynamicPrecompiled(address));
+    return (m_constantPrecompiled.count(address) > 0 || isDynamicPrecompiled(address));
 }
 
 std::shared_ptr<Precompiled> TransactionExecutive::getPrecompiled(const std::string& address) const
@@ -619,6 +618,11 @@ bool TransactionExecutive::isEthereumPrecompiled(const string& _a) const
     if (_a.rfind(prefix.str()) != 0)
         return false;
     return m_evmPrecompiled->find(_a) != m_evmPrecompiled->end();
+}
+
+bool TransactionExecutive::isDynamicPrecompiled(const string& _a) const
+{
+    return m_blockContext.lock()->isDynamicPrecompiled(_a);
 }
 
 std::pair<bool, bcos::bytes> TransactionExecutive::executeOriginPrecompiled(
