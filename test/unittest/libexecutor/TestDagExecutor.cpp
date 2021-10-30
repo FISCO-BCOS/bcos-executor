@@ -119,12 +119,12 @@ BOOST_AUTO_TEST_CASE(callWasmConcurrentlyTransfer)
     auto transferAbi = codec->encode(string(
         R"([{"inputs":[],"type":"constructor"},{"conflictFields":[{"kind":3,"path":[0],"read_only":false,"slot":0},{"kind":3,"path":[1],"read_only":false,"slot":0}],"constant":false,"inputs":[{"internalType":"string","name":"from","type":"string"},{"internalType":"string","name":"to","type":"string"},{"internalType":"uint32","name":"amount","type":"uint32"}],"name":"transfer","outputs":[{"internalType":"bool","type":"bool"}],"type":"function"},{"constant":true,"inputs":[{"internalType":"string","name":"name","type":"string"}],"name":"query","outputs":[{"internalType":"uint32","type":"uint32"}],"type":"function"}])"));
 
-    bytes input = transferBin;
+    bytes input;
+    input.push_back(0);
+    input.insert(input.end(), transferBin.begin(), transferBin.end());
     input.push_back(0);
 
     string transferAddress = "/usr/alice/transfer";
-    bytes path = codec->encode(transferAddress);
-    input.insert(input.end(), path.begin(), path.end());
 
     input.insert(input.end(), transferAbi.begin(), transferAbi.end());
 
@@ -230,7 +230,12 @@ BOOST_AUTO_TEST_CASE(callWasmConcurrentlyTransfer)
         std::string from = std::get<0>(cases[i]);
         std::string to = std::get<1>(cases[i]);
         uint32_t amount = std::get<2>(cases[i]);
-        auto input = codec->encodeWithSig("transfer(string,string,uint32)", from, to, amount);
+        bytes input;
+        input.push_back(1);
+        auto encodedParams =
+            codec->encodeWithSig("transfer(string,string,uint32)", from, to, amount);
+        input.insert(input.end(), encodedParams.begin(), encodedParams.end());
+
         auto tx = fakeTransaction(cryptoSuite, keyPair, address, input, 101 + i, 100001, "1", "1");
         auto sender = boost::algorithm::hex_lower(std::string(tx->sender()));
 
@@ -276,7 +281,11 @@ BOOST_AUTO_TEST_CASE(callWasmConcurrentlyTransfer)
 
             for (size_t i = 0; i < expected.size(); ++i)
             {
-                bytes queryBytes = codec->encodeWithSig("query(string)", std::get<0>(expected[i]));
+                bytes queryBytes;
+                queryBytes.push_back(1);
+                auto encodedParams =
+                    codec->encodeWithSig("query(string)", std::get<0>(expected[i]));
+                queryBytes.insert(queryBytes.end(), encodedParams.begin(), encodedParams.end());
 
                 auto params = std::make_unique<NativeExecutionMessage>();
                 params->setContextID(888 + i);
@@ -333,15 +342,15 @@ BOOST_AUTO_TEST_CASE(callWasmConcurrentlyHelloWorld)
     auto helloWorldAbi = codec->encode(string(
         R"([{"inputs":[{"internalType":"string","name":"name","type":"string"}],"type":"constructor"},{"conflictFields":[{"kind":0,"path":[],"read_only":false,"slot":0}],"constant":false,"inputs":[{"internalType":"string","name":"name","type":"string"}],"name":"set","outputs":[],"type":"function"},{"constant":true,"inputs":[],"name":"get","outputs":[{"internalType":"string","type":"string"}],"type":"function"}])"));
 
-    bytes input = helloWorldBin;
+    bytes input;
+    input.push_back(0);
+    input.insert(input.end(), helloWorldBin.begin(), helloWorldBin.end());
 
     bytes constructorParam = codec->encode(string("alice"));
     constructorParam = codec->encode(constructorParam);
     input.insert(input.end(), constructorParam.begin(), constructorParam.end());
 
     string helloWorldAddress = "/usr/alice/hello_world";
-    bytes path = codec->encode(helloWorldAddress);
-    input.insert(input.end(), path.begin(), path.end());
 
     input.insert(input.end(), helloWorldAbi.begin(), helloWorldAbi.end());
 
@@ -445,7 +454,12 @@ BOOST_AUTO_TEST_CASE(callWasmConcurrentlyHelloWorld)
     for (size_t i = 0; i < cases.size(); ++i)
     {
         std::string name = cases[i];
-        auto input = codec->encodeWithSig("set(string)", name);
+        bytes input;
+        input.push_back(1);
+
+        auto encodedParams = codec->encodeWithSig("set(string)", name);
+        input.insert(input.end(), encodedParams.begin(), encodedParams.end());
+
         auto tx = fakeTransaction(cryptoSuite, keyPair, address, input, 101 + i, 100001, "1", "1");
         auto sender = boost::algorithm::hex_lower(std::string(tx->sender()));
 
@@ -480,7 +494,12 @@ BOOST_AUTO_TEST_CASE(callWasmConcurrentlyHelloWorld)
                 BOOST_CHECK(result->message().empty());
             }
 
-            bytes getBytes = codec->encodeWithSig("get()");
+
+            bytes getBytes;
+            getBytes.push_back(1);
+
+            auto encodedParams = codec->encodeWithSig("get()");
+            getBytes.insert(getBytes.end(), encodedParams.begin(), encodedParams.end());
 
             auto params = std::make_unique<NativeExecutionMessage>();
             params->setContextID(888);
@@ -517,7 +536,7 @@ BOOST_AUTO_TEST_CASE(callWasmConcurrentlyHelloWorld)
 
 BOOST_AUTO_TEST_CASE(callEvmConcurrentlyTransfer)
 {
-    size_t count = 10 * 1000;
+    size_t count = 100;
     auto executionResultFactory = std::make_shared<NativeExecutionMessageFactory>();
     auto executor = std::make_shared<TransactionExecutor>(
         txpool, nullptr, backend, executionResultFactory, hashImpl, false);

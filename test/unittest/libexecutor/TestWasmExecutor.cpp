@@ -156,15 +156,16 @@ BOOST_FIXTURE_TEST_SUITE(TestWasmExecutor, WasmExecutorFixture)
 
 BOOST_AUTO_TEST_CASE(deployAndCall)
 {
-    bytes input = helloWorldBin;
+    bytes input;
+    input.push_back(0);
+
+    input.insert(input.end(), helloWorldBin.begin(), helloWorldBin.end());
 
     bytes constructorParam = codec->encode(string("alice"));
     constructorParam = codec->encode(constructorParam);
     input.insert(input.end(), constructorParam.begin(), constructorParam.end());
 
     string selfAddress = "/usr/alice/hello_world";
-    bytes path = codec->encode(selfAddress);
-    input.insert(input.end(), path.begin(), path.end());
 
     input.insert(input.end(), helloWorldAbi.begin(), helloWorldAbi.end());
 
@@ -263,6 +264,7 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
 
     // set "fisco bcos"
     bytes txInput;
+    txInput.push_back(1);
     char inputBytes[] = "4ed3885e28666973636f2062636f73";
     boost::algorithm::unhex(
         &inputBytes[0], inputBytes + sizeof(inputBytes) - 1, std::back_inserter(txInput));
@@ -294,6 +296,8 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
 
     // read "fisco bcos"
     bytes queryBytes;
+    queryBytes.push_back(1);
+
     char inputBytes2[] = "6d4ce63c";
     boost::algorithm::unhex(
         &inputBytes2[0], inputBytes2 + sizeof(inputBytes2) - 1, std::back_inserter(queryBytes));
@@ -338,14 +342,14 @@ BOOST_AUTO_TEST_CASE(externalCall)
     // Create contract HelloWorld
     // --------------------------------
     {
-        bytes input = helloWorldBin;
+        bytes input;
+        input.push_back(0);
+
+        input.insert(input.end(), helloWorldBin.begin(), helloWorldBin.end());
 
         bytes constructorParam = codec->encode(string("alice"));
         constructorParam = codec->encode(constructorParam);
         input.insert(input.end(), constructorParam.begin(), constructorParam.end());
-
-        bytes path = codec->encode(aliceAddress);
-        input.insert(input.end(), path.begin(), path.end());
 
         input.insert(input.end(), helloWorldAbi.begin(), helloWorldAbi.end());
 
@@ -398,14 +402,14 @@ BOOST_AUTO_TEST_CASE(externalCall)
     // Create contract HelloWorldCaller
     // --------------------------------
     {
-        bytes input = helloWorldCallerBin;
+        bytes input;
+        input.push_back(0);
+
+        input.insert(input.end(), helloWorldCallerBin.begin(), helloWorldCallerBin.end());
 
         bytes constructorParam = codec->encode(aliceAddress);
         constructorParam = codec->encode(constructorParam);
         input.insert(input.end(), constructorParam.begin(), constructorParam.end());
-
-        bytes path = codec->encode(bobAddress);
-        input.insert(input.end(), path.begin(), path.end());
 
         input.insert(input.end(), helloWorldCallerAbi.begin(), helloWorldCallerAbi.end());
 
@@ -468,7 +472,13 @@ BOOST_AUTO_TEST_CASE(externalCall)
         params->setStaticCall(false);
         params->setGasAvailable(gas);
         params->setCreate(false);
-        params->setData(codec->encodeWithSig("set(string)", string("fisco bcos")));
+
+        bytes data;
+        data.push_back(1);
+        auto encodedParams = codec->encodeWithSig("set(string)", string("fisco bcos"));
+        data.insert(data.end(), encodedParams.begin(), encodedParams.end());
+
+        params->setData(data);
         params->setType(NativeExecutionMessage::MESSAGE);
 
         auto blockHeader = std::make_shared<bcos::protocol::PBBlockHeader>(cryptoSuite);
@@ -491,7 +501,7 @@ BOOST_AUTO_TEST_CASE(externalCall)
 
         BOOST_CHECK(result);
         BOOST_CHECK_EQUAL(result->type(), ExecutionMessage::MESSAGE);
-        BOOST_CHECK_EQUAL(result->data().size(), 15);
+        BOOST_CHECK_EQUAL(result->data().size(), 16);
         BOOST_CHECK_EQUAL(result->contextID(), 300);
         BOOST_CHECK_EQUAL(result->seq(), 1003);
         BOOST_CHECK_EQUAL(result->create(), false);
@@ -528,12 +538,13 @@ BOOST_AUTO_TEST_CASE(performance)
 {
     size_t count = 10 * 1000;
 
-    bytes input = transferBin;
+    bytes input;
+    input.push_back(0);
+    input.insert(input.end(), transferBin.begin(), transferBin.end());
+
     input.push_back(0);
 
     string transferAddress = "/usr/alice/transfer";
-    bytes path = codec->encode(transferAddress);
-    input.insert(input.end(), path.begin(), path.end());
 
     input.insert(input.end(), transferAbi.begin(), transferAbi.end());
 
@@ -599,7 +610,12 @@ BOOST_AUTO_TEST_CASE(performance)
         std::string from = "alice";
         std::string to = "bob";
         uint32_t amount = 1;
-        params->setData(codec->encodeWithSig("transfer(string,string,uint32)", from, to, amount));
+        bytes data;
+        data.push_back(1);
+        auto encodedParams =
+            codec->encodeWithSig("transfer(string,string,uint32)", from, to, amount);
+        data.insert(data.end(), encodedParams.begin(), encodedParams.end());
+        params->setData(data);
         params->setType(NativeExecutionMessage::MESSAGE);
 
         requests.emplace_back(std::move(params));
@@ -630,7 +646,11 @@ BOOST_AUTO_TEST_CASE(performance)
               << (std::chrono::system_clock::now() - now).count() / 1000 / 1000 << std::endl;
 
     {
-        bytes queryBytes = codec->encodeWithSig("query(string)", string("alice"));
+        bytes queryBytes;
+        queryBytes.push_back(1);
+
+        auto encodedParams = codec->encodeWithSig("query(string)", string("alice"));
+        queryBytes.insert(queryBytes.end(), encodedParams.begin(), encodedParams.end());
 
         auto params = std::make_unique<NativeExecutionMessage>();
         params->setContextID(102);
