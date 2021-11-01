@@ -65,7 +65,7 @@ public:
     };
     GasInjector(const InstructionTable costTable) : m_costTable(costTable) {}
 
-    Result InjectMeter(std::vector<uint8_t> byteCode);
+    Result InjectMeter(const std::vector<uint8_t>& byteCode);
 
 private:
     void InjectMeterExprList(

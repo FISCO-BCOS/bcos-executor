@@ -353,7 +353,7 @@ void GasInjector::InjectMeterExprList(
     }
 }
 
-GasInjector::Result GasInjector::InjectMeter(std::vector<uint8_t> byteCode)
+GasInjector::Result GasInjector::InjectMeter(const std::vector<uint8_t>& byteCode)
 {
     GasInjector::Result injectResult;
     // parse wasm use wabt
