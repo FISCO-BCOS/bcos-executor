@@ -69,6 +69,23 @@ const char ACCOUNT_ALIVE[] = "alive";
 const char ACCOUNT_AUTHORITY[] = "authority";
 const char ACCOUNT_FROZEN[] = "frozen";
 
+/// auth
+const char CONTRACT_SUFFIX[] = "_accessAuth";
+const char ADMIN_FIELD[] = "admin";
+const char METHOD_AUTH_TYPE[] = "method_auth_type";
+const char METHOD_AUTH_WHITE[] = "method_auth_white";
+const char METHOD_AUTH_BLACK[] = "method_auth_black";
+
+/// FileSystem table keys
+static const char* const FS_KEY_NAME = "name";
+static const char* const FS_FIELD_TYPE = "type";
+static const char* const FS_FIELD_EXTRA = "extra";
+static const char* const FS_FIELD_COMBINED = "type,extra";
+
+/// FileSystem file type
+static const char* const FS_TYPE_DIR = "directory";
+static const char* const FS_TYPE_CONTRACT = "contract";
+
 #define EXECUTIVE_LOG(LEVEL) BCOS_LOG(LEVEL) << "[EXECUTOR]"
 
 struct GlobalHashImpl
@@ -341,12 +358,12 @@ inline u256 fromEvmC(evmc_bytes32 const& _n)
  */
 inline std::string_view fromEvmC(evmc_address const& _addr)
 {
-    return std::string_view((char*)_addr.bytes, 20);
+    return {(char*)_addr.bytes, 20};
 }
 
 inline std::string fromBytes(const bytes& _addr)
 {
-    return std::string((char*)_addr.data(), _addr.size());
+    return {(char*)_addr.data(), _addr.size()};
 }
 
 inline std::string fromBytes(const bytesConstRef& _addr)
@@ -356,7 +373,7 @@ inline std::string fromBytes(const bytesConstRef& _addr)
 
 inline bytes toBytes(const std::string_view& _addr)
 {
-    return bytes((char*)_addr.data(), (char*)(_addr.data() + _addr.size()));
+    return {(char*)_addr.data(), (char*)(_addr.data() + _addr.size())};
 }
 
 }  // namespace bcos

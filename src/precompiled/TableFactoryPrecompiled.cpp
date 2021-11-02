@@ -256,9 +256,6 @@ void TableFactoryPrecompiled::createTable(
             auto parentTable = _executive->storage().openTable(parentDir);
             auto newEntry = parentTable->newEntry();
             newEntry.setField(FS_FIELD_TYPE, FS_TYPE_CONTRACT);
-            newEntry.setField(FS_FIELD_ACCESS, "");
-            newEntry.setField(FS_FIELD_OWNER, _origin);
-            newEntry.setField(FS_FIELD_GID, "");
             newEntry.setField(FS_FIELD_EXTRA, "");
             parentTable->setRow(tableBaseName, std::move(newEntry));
         }

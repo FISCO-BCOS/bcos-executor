@@ -158,9 +158,6 @@ public:
         assert(rootTable != std::nullopt);
         auto dirEntry = rootTable->newEntry();
         dirEntry.setField(FS_FIELD_TYPE, FS_TYPE_DIR);
-        dirEntry.setField(FS_FIELD_ACCESS, "");
-        dirEntry.setField(FS_FIELD_OWNER, "root");
-        dirEntry.setField(FS_FIELD_GID, "/usr");
         dirEntry.setField(FS_FIELD_EXTRA, "");
         rootTable->setRow(getDirBaseName("/tables"), dirEntry);
         rootTable->setRow("/", dirEntry);

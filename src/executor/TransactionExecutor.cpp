@@ -1389,9 +1389,8 @@ void TransactionExecutor::initPrecompiled()
             {CRUD_NAME, std::make_shared<precompiled::CRUDPrecompiled>(m_hashImpl)});
         m_constantPrecompiled.insert(
             {BFS_NAME, std::make_shared<precompiled::FileSystemPrecompiled>(m_hashImpl)});
-        // TODO: use unique address for ContractAuthPrecompiled
         m_constantPrecompiled.insert(
-            {PERMISSION_NAME, std::make_shared<precompiled::ContractAuthPrecompiled>(m_hashImpl)});
+            {CONTRACT_AUTH_NAME, std::make_shared<precompiled::ContractAuthPrecompiled>(m_hashImpl)});
 
         set<string> builtIn = {CRYPTO_NAME};
         m_builtInPrecompiled = make_shared<set<string>>(builtIn);
@@ -1412,8 +1411,7 @@ void TransactionExecutor::initPrecompiled()
             {CRUD_ADDRESS, std::make_shared<precompiled::CRUDPrecompiled>(m_hashImpl)});
         m_constantPrecompiled.insert(
             {BFS_ADDRESS, std::make_shared<precompiled::FileSystemPrecompiled>(m_hashImpl)});
-        // TODO: use unique address for ContractAuthPrecompiled
-        m_constantPrecompiled.insert({PERMISSION_ADDRESS,
+        m_constantPrecompiled.insert({CONTRACT_AUTH_ADDRESS,
             std::make_shared<precompiled::ContractAuthPrecompiled>(m_hashImpl)});
         set<string> builtIn = {CRYPTO_ADDRESS};
         m_builtInPrecompiled = make_shared<set<string>>(builtIn);

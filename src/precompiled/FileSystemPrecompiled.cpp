@@ -177,8 +177,6 @@ void FileSystemPrecompiled::listDir(
                 Json::Value file;
                 file[FS_KEY_NAME] = fileName;
                 file[FS_FIELD_TYPE] = std::string(entry->getField(FS_FIELD_TYPE));
-                file[FS_FIELD_OWNER] = std::string(entry->getField(FS_FIELD_OWNER));
-                file[FS_FIELD_GID] = std::string(entry->getField(FS_FIELD_GID));
                 file[FS_FIELD_EXTRA] = std::string(entry->getField(FS_FIELD_EXTRA));
                 subdirectory.append(file);
             }
@@ -195,8 +193,6 @@ void FileSystemPrecompiled::listDir(
             Json::Value file;
             file[FS_KEY_NAME] = baseName;
             file[FS_FIELD_TYPE] = std::string(baseEntry->getField(FS_FIELD_TYPE));
-            file[FS_FIELD_OWNER] = std::string(baseEntry->getField(FS_FIELD_OWNER));
-            file[FS_FIELD_GID] = std::string(baseEntry->getField(FS_FIELD_GID));
             file[FS_FIELD_EXTRA] = std::string(baseEntry->getField(FS_FIELD_EXTRA));
             fileList.append(file);
             Json::FastWriter fastWriter;

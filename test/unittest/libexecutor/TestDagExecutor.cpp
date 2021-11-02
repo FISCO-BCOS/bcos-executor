@@ -86,8 +86,35 @@ struct DagExecutorFixture
                 "03f56e250af52b25682014554f7b3297d6152401e85d426a06ae")
                 ->data(),
             64);
+        createSysTable();
     }
 
+    void createSysTable()
+    {
+        // create / table
+        std::promise<std::optional<Table>> promise2;
+        backend->asyncCreateTable(
+            "/", FS_FIELD_COMBINED, [&](Error::UniquePtr&& _error, std::optional<Table>&& _table) {
+                BOOST_CHECK(!_error);
+                promise2.set_value(std::move(_table));
+            });
+
+        // create /apps table
+        std::promise<std::optional<Table>> promise3;
+        backend->asyncCreateTable("/apps", FS_FIELD_COMBINED,
+            [&](Error::UniquePtr&& _error, std::optional<Table>&& _table) {
+                BOOST_CHECK(!_error);
+                promise3.set_value(std::move(_table));
+            });
+        promise3.get_future().get();
+        auto rootTable = promise2.get_future().get();
+        assert(rootTable != std::nullopt);
+        auto dirEntry = rootTable->newEntry();
+        dirEntry.setField(FS_FIELD_TYPE, FS_TYPE_DIR);
+        dirEntry.setField(FS_FIELD_EXTRA, "");
+        rootTable->setRow("apps", dirEntry);
+        rootTable->setRow("/", dirEntry);
+    }
     CryptoSuite::Ptr cryptoSuite;
     std::shared_ptr<MockTxPool> txpool;
     std::shared_ptr<MockTransactionalStorage> backend;

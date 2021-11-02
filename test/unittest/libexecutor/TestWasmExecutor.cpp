@@ -131,6 +131,34 @@ struct WasmExecutorFixture
         transferBin = codec->encode(transferBin);
         transferAbi = codec->encode(string(
             R"([{"inputs":[],"type":"constructor"},{"conflictFields":[{"kind":3,"path":[0],"read_only":false,"slot":0},{"kind":3,"path":[1],"read_only":false,"slot":0}],"constant":false,"inputs":[{"internalType":"string","name":"from","type":"string"},{"internalType":"string","name":"to","type":"string"},{"internalType":"uint32","name":"amount","type":"uint32"}],"name":"transfer","outputs":[{"internalType":"bool","type":"bool"}],"type":"function"},{"constant":true,"inputs":[{"internalType":"string","name":"name","type":"string"}],"name":"query","outputs":[{"internalType":"uint32","type":"uint32"}],"type":"function"}])"));
+        createSysTable();
+    }
+
+    void createSysTable()
+    {
+        // create / table
+        std::promise<std::optional<Table>> promise2;
+        backend->asyncCreateTable(
+            "/", FS_FIELD_COMBINED, [&](Error::UniquePtr&& _error, std::optional<Table>&& _table) {
+                BOOST_CHECK(!_error);
+                promise2.set_value(std::move(_table));
+            });
+
+        // create /apps table
+        std::promise<std::optional<Table>> promise3;
+        backend->asyncCreateTable("/apps", FS_FIELD_COMBINED,
+            [&](Error::UniquePtr&& _error, std::optional<Table>&& _table) {
+                BOOST_CHECK(!_error);
+                promise3.set_value(std::move(_table));
+            });
+        promise3.get_future().get();
+        auto rootTable = promise2.get_future().get();
+        assert(rootTable != std::nullopt);
+        auto dirEntry = rootTable->newEntry();
+        dirEntry.setField(FS_FIELD_TYPE, FS_TYPE_DIR);
+        dirEntry.setField(FS_FIELD_EXTRA, "");
+        rootTable->setRow("apps", dirEntry);
+        rootTable->setRow("/", dirEntry);
     }
 
     TransactionExecutor::Ptr executor;

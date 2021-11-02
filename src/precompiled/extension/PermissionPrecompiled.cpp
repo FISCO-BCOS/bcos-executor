@@ -34,7 +34,8 @@ call(string userPath, string origin, string to,  bytes params) => <s256 code, st
 sendTransaction(string userPath, string origin, string to, bytes params) => <s256 code, string message>
 #endif
 
-PermissionPrecompiled::PermissionPrecompiled(crypto::Hash::Ptr _hashImpl) : PermissionPrecompiledInterface(_hashImpl)
+PermissionPrecompiled::PermissionPrecompiled(crypto::Hash::Ptr _hashImpl)
+  : PermissionPrecompiledInterface(_hashImpl)
 {
     name2Selector[PER_METHOD_LOGIN] = getFuncSelector(PER_METHOD_LOGIN, _hashImpl);
     name2Selector[PER_METHOD_LOGOUT] = getFuncSelector(PER_METHOD_LOGOUT, _hashImpl);
@@ -49,8 +50,8 @@ std::string PermissionPrecompiled::toString()
 }
 
 std::shared_ptr<PrecompiledExecResult> PermissionPrecompiled::call(
-    std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _param, const std::string&,
-    const std::string&)
+    std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _param,
+    const std::string&, const std::string&)
 {
     // parse function name
     uint32_t func = getParamFunc(_param);
@@ -89,7 +90,8 @@ std::shared_ptr<PrecompiledExecResult> PermissionPrecompiled::call(
     }
     else if (func == name2Selector[PER_METHOD_CREATE])
     {
-        // create(string userPath, string origin, string to, bytes params) => <s256 code, string message>
+        // create(string userPath, string origin, string to, bytes params) => <s256 code, string
+        // message>
         std::string userPath, origin, to;
         bytes params;
         auto codec =
@@ -102,7 +104,8 @@ std::shared_ptr<PrecompiledExecResult> PermissionPrecompiled::call(
     }
     else if (func == name2Selector[PER_METHOD_CALL])
     {
-        // call(string userPath, string origin, string to, bytes params) => <s256 code, string message>
+        // call(string userPath, string origin, string to, bytes params) => <s256 code, string
+        // message>
         std::string userPath, origin, to;
         bytes params;
         auto codec =
@@ -115,7 +118,8 @@ std::shared_ptr<PrecompiledExecResult> PermissionPrecompiled::call(
     }
     else if (func == name2Selector[PER_METHOD_SEND])
     {
-        // sendTransaction(string userPath, string origin, string to, bytes params) => <s256 code, string message>
+        // sendTransaction(string userPath, string origin, string to, bytes params) => <s256 code,
+        // string message>
         std::string userPath, origin, to;
         bytes params;
         auto codec =
@@ -128,15 +132,14 @@ std::shared_ptr<PrecompiledExecResult> PermissionPrecompiled::call(
     }
     else
     {
-        PRECOMPILED_LOG(ERROR) << LOG_BADGE("PermissionPrecompiled") << LOG_DESC("call undefined function")
-                               << LOG_KV("func", func);
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("PermissionPrecompiled")
+                               << LOG_DESC("call undefined function") << LOG_KV("func", func);
     }
     gasPricer->updateMemUsed(callResult->m_execResult.size());
     callResult->setGas(gasPricer->calTotalGas());
     return callResult;
 }
-PermissionRet::Ptr PermissionPrecompiled::login(
-    const std::string&, const std::vector<std::string>&)
+PermissionRet::Ptr PermissionPrecompiled::login(const std::string&, const std::vector<std::string>&)
 {
     /// do something...
     return std::make_shared<PermissionRet>(s256((int)CODE_SUCCESS), "success", "/usr/test");

@@ -36,8 +36,9 @@ public:
 
     std::string toString() override;
 
-    std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::TransactionExecutive> _executive,
-        bytesConstRef _param, const std::string& _origin, const std::string& _sender) override;
+    std::shared_ptr<PrecompiledExecResult> call(
+        std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _param,
+        const std::string& _origin, const std::string& _sender) override;
 
 public:
     // is this precompiled need parallel processing, default false.
@@ -45,18 +46,20 @@ public:
     virtual std::vector<std::string> getParallelTag(bytesConstRef param) override;
 
 protected:
-    std::optional<storage::Table> openTable(std::shared_ptr<executor::TransactionExecutive> _executive);
+    std::optional<storage::Table> openTable(
+        std::shared_ptr<executor::TransactionExecutive> _executive);
 
 public:
     void userAddCall(std::shared_ptr<executor::TransactionExecutive> _executive,
         bytesConstRef _data, std::string const& _origin, bytes& _out);
-    void userSaveCall(std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _data,
-        std::string const& _origin, bytes& _out);
-    void userDrawCall(std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _data,
-        std::string const& _origin, bytes& _out);
-    void userBalanceCall(std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _data, bytes& _out);
-    void userTransferCall(std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _data,
-        std::string const& _origin, bytes& _out);
+    void userSaveCall(std::shared_ptr<executor::TransactionExecutive> _executive,
+        bytesConstRef _data, std::string const& _origin, bytes& _out);
+    void userDrawCall(std::shared_ptr<executor::TransactionExecutive> _executive,
+        bytesConstRef _data, std::string const& _origin, bytes& _out);
+    void userBalanceCall(std::shared_ptr<executor::TransactionExecutive> _executive,
+        bytesConstRef _data, bytes& _out);
+    void userTransferCall(std::shared_ptr<executor::TransactionExecutive> _executive,
+        bytesConstRef _data, std::string const& _origin, bytes& _out);
 };
 
 }  // namespace precompiled

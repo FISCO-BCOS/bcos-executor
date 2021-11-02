@@ -196,6 +196,8 @@ private:
     void creatAuthTable(
         std::string_view _tableName, std::string_view _origin, std::string_view _sender);
 
+    bool buildBfsPath(std::string const& _absoluteDir);
+
     std::weak_ptr<BlockContext> m_blockContext;  ///< Information on the runtime environment.
     tbb::concurrent_unordered_map<std::string, std::shared_ptr<precompiled::Precompiled>,
         std::hash<std::string>>

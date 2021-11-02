@@ -70,18 +70,19 @@ std::shared_ptr<PrecompiledExecResult> HelloWorldPrecompiled::call(
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
     auto blockContext = _executive->blockContext().lock();
-    auto codec = std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
+    auto codec =
+        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->setMemUsed(_param.size());
 
-    auto table =
-        _executive->storage().openTable(precompiled::getTableName(HELLO_WORLD_TABLE_NAME));
+    auto table = _executive->storage().openTable(precompiled::getTableName(HELLO_WORLD_TABLE_NAME));
     gasPricer->appendOperation(InterfaceOpcode::OpenTable);
     if (!table)
     {
         // table is not exist, create it.
-        table = _executive->storage().createTable(precompiled::getTableName(HELLO_WORLD_TABLE_NAME), HELLO_WORLD_VALUE_FIELD);
+        table = _executive->storage().createTable(
+            precompiled::getTableName(HELLO_WORLD_TABLE_NAME), HELLO_WORLD_VALUE_FIELD);
         gasPricer->appendOperation(InterfaceOpcode::CreateTable);
         if (!table)
         {

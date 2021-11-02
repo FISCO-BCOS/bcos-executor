@@ -43,28 +43,11 @@ const char* const SYS_CNS = "s_cns";
 
 /// SYS_CONFIG table fields
 static const char* const SYS_VALUE = "value";
-static const char* const SYS_KEY = "key";
 static const char* const SYS_CONFIG_ENABLE_BLOCK_NUMBER = "enable_number";
 
-/// FileSystem table keys
-static const std::string FS_KEY_NAME = "name";
-static const std::string FS_FIELD_TYPE = "type";
-static const std::string FS_FIELD_ACCESS = "access";
-static const std::string FS_FIELD_OWNER = "uid";
-static const std::string FS_FIELD_GID = "gid";
-static const std::string FS_FIELD_EXTRA = "extra";
-static const std::string FS_FIELD_COMBINED = "type,access,uid,gid,extra";
 /// FileSystem path limit
 static const size_t FS_PATH_MAX_LENGTH = 56;
 static const size_t FS_PATH_MAX_LEVEL = 6;
-
-/// FileSystem file type
-static const std::string FS_TYPE_DIR = "directory";
-static const std::string FS_TYPE_CONTRACT = "contract";
-
-/// FileSystem table fields
-static const std::string FS_TABLE_KEY_ADDRESS = "address";
-static const std::string FS_TABLE_KEY_NUM = "enable_number";
 
 /// SYS_CONSENSUS table fields
 static const char* const NODE_TYPE = "type";
@@ -174,9 +157,9 @@ enum PrecompiledErrorCode : int
     CODE_NODE_NOT_EXIST = -51103,
 
     // PermissionPrecompiled -51099 ~ -51000
-    CODE_COMMITTEE_PERMISSION = -51004,
-    CODE_CONTRACT_NOT_EXIST = -51003,
-    CODE_TABLE_NAME_OVERFLOW = -51002,
+    CODE_TABLE_AUTH_TYPE_DECODE_ERROR = -51004,
+    CODE_TABLE_ERROR_AUTH_TYPE = -51003,
+    CODE_TABLE_AUTH_TYPE_NOT_EXIST = -51002,
     CODE_TABLE_AUTH_ROW_NOT_EXIST = -51001,
     CODE_TABLE_AGENT_ROW_NOT_EXIST = -51000,
 

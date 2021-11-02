@@ -19,8 +19,8 @@
  */
 
 #pragma once
-#include "PermissionPrecompiledInterface.h"
 #include "../Common.h"
+#include "PermissionPrecompiledInterface.h"
 
 namespace bcos::precompiled
 {
@@ -33,12 +33,15 @@ public:
 
     std::string toString() override;
 
-    std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::TransactionExecutive> _executive,
-        bytesConstRef _param, const std::string& _origin, const std::string& _sender) override;
+    std::shared_ptr<PrecompiledExecResult> call(
+        std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _param,
+        const std::string& _origin, const std::string& _sender) override;
 
-    PermissionRet::Ptr login(const std::string& nonce, const std::vector<std::string>& params) override;
+    PermissionRet::Ptr login(
+        const std::string& nonce, const std::vector<std::string>& params) override;
 
-    PermissionRet::Ptr logout(const std::string& path, const std::vector<std::string>& params) override;
+    PermissionRet::Ptr logout(
+        const std::string& path, const std::vector<std::string>& params) override;
     PermissionRet::Ptr create(const std::string& userPath, const std::string& origin,
         const std::string& to, bytesConstRef params) override;
 
