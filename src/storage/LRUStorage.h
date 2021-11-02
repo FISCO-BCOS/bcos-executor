@@ -47,7 +47,7 @@ private:
 
     struct EntryKeyWrapper : public EntryKey
     {
-        EntryKeyWrapper() : EntryKey(std::string_view(), std::string_view()), capacity(0) {}
+        EntryKeyWrapper() : EntryKey(), capacity(0) {}
         EntryKeyWrapper(std::string_view table, std::string key, size_t _capacity)
           : EntryKey(table, std::move(key)), capacity(_capacity)
         {}
@@ -64,7 +64,7 @@ private:
             return {table(), key()};
         }
 
-        bool isStop() const { return table().empty() && key().empty() && !capacity; }
+        bool isStop() const { return table().empty() && key().empty() && capacity == 0; }
 
         size_t capacity;
     };
@@ -81,7 +81,7 @@ private:
     int64_t m_maxCapacity = 256 * 1024 * 1024;  // default 256MB for cache
     std::atomic_int64_t m_capacity = {0};
 
-    tbb::task_group m_taskGroup;
+    std::unique_ptr<std::thread> m_worker;
     std::atomic_bool m_running = false;
 
     tbb::atomic<uint64_t> m_hitTimes;

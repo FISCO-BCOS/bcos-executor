@@ -86,17 +86,17 @@ void LRUStorage::merge(bool onlyDirty, const TraverseStorageInterface& source)
 void LRUStorage::start()
 {
     m_running = true;
-    m_taskGroup.run([self = shared_from_this()]() { self->startLoop(); });
+    m_worker = std::make_unique<std::thread>([self = shared_from_this()]() { self->startLoop(); });
 }
 
 void LRUStorage::stop()
 {
     if (m_running)
     {
-        m_mruQueue.emplace();
-        m_taskGroup.wait();
-
         m_running = false;
+
+        m_mruQueue.emplace(EntryKeyWrapper());
+        m_worker->join();
     }
 }
 
