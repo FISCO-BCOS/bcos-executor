@@ -15,6 +15,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ------------------------------------------------------------------------------
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/libvm/WasmPath.h.in ${CMAKE_CURRENT_SOURCE_DIR}/libvm/WasmPath.h @ONLY)
+
 file(GLOB_RECURSE SOURCES "*.cpp" "*.h")
 # cmake settings
 
@@ -28,6 +30,12 @@ find_package(Boost CONFIG QUIET REQUIRED unit_test_framework)
 
 target_link_libraries(${TEST_BINARY_NAME} executor bcos-framework::protocol-pb bcos-framework::protocol bcos-framework::utilities bcos-framework::storage wedpr-crypto::crypto)
 add_test(NAME test-bcos-executor COMMAND ${TEST_BINARY_NAME})
+# config_test_cases("" "${SOURCES}" bin/${TEST_BINARY_NAME} "")
+
+# target_link_options(${TEST_BINARY_NAME} PUBLIC "LINKER:-z,muldefs")
+# target_link_options(${TEST_BINARY_NAME} PUBLIC "LINKER:SHELL:-z muldefs")
+# target_link_options(${TEST_BINARY_NAME} PUBLIC "--allow-multiple-definition")
+target_compile_options(${TEST_BINARY_NAME} PRIVATE -Wno-error -fno-var-tracking -Wno-unused-parameter)
 
 # for code coverage
 if (COVERAGE)

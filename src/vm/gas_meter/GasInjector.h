@@ -69,7 +69,7 @@ public:
 
 private:
     void InjectMeterExprList(
-        wabt::ExprList* exprs, uint32_t funcIndex, uint32_t tmpVarIndex, bool foundGasFunction);
+        wabt::ExprList* exprs, uint32_t funcIndex, uint32_t tmpVarIndex, uint32_t globalGas, bool foundGasFunction);
     const InstructionTable m_costTable;
 };
 
