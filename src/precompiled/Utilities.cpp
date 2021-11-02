@@ -138,7 +138,7 @@ int bcos::precompiled::checkLengthValidate(
         BOOST_THROW_EXCEPTION(PrecompiledError()
                               << errinfo_comment(
                                      "size of value/key greater than" + std::to_string(maxLength))
-                              << errinfo_comment(std::to_string(errorCode)));
+                              << errinfo_comment(" error code: " +std::to_string(errorCode)));
     }
     return 0;
 }

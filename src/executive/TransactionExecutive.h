@@ -112,9 +112,9 @@ public:
     // External request key locks
     void externalAcquireKeyLocks(std::string acquireKeyLock);
 
-    CoroutineStorageWrapper<CoroutineMessage>& storage() { 
+    CoroutineStorageWrapper<CoroutineMessage>& storage() {
         assert(m_storageWrapper);
-        return *m_storageWrapper; 
+        return *m_storageWrapper;
     }
 
     std::weak_ptr<BlockContext> blockContext() { return m_blockContext; }

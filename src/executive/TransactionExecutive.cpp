@@ -203,7 +203,9 @@ TransactionExecutive::callPrecompiled(CallParameters::UniquePtr callParameters)
     }
     catch (protocol::PrecompiledError& e)
     {
-        writeErrInfoToOutput(e.what(), callParameters->data);
+        const string* _msg = boost::get_error_info<errinfo_comment>(e);
+        writeErrInfoToOutput(_msg ? *_msg : "error occurs in precompiled, but error_info is empty",
+            callParameters->data);
         revert();
         callParameters->status = (int32_t)TransactionStatus::PrecompiledError;
     }
@@ -560,8 +562,9 @@ std::shared_ptr<precompiled::PrecompiledExecResult> TransactionExecutive::execPr
     }
     catch (protocol::PrecompiledError& e)
     {
+        const string* _msg = boost::get_error_info<errinfo_comment>(e);
         EXECUTIVE_LOG(ERROR) << "PrecompiledError" << LOG_KV("address", address)
-                             << LOG_KV("message:", e.what());
+                             << LOG_KV("message:", _msg ? *_msg : "");
         BOOST_THROW_EXCEPTION(e);
     }
     catch (std::exception& e)

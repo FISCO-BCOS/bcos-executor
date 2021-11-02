@@ -217,7 +217,7 @@ public:
     std::string sender;
     Address contractAddress = Address("0x420f853b49838bd3e9466c85a4cc3428c960dde2");
 };
-BOOST_FIXTURE_TEST_SUITE(precompiledTableTest, ConfigPrecompiledFixture)
+BOOST_FIXTURE_TEST_SUITE(precompiledConfigTest, ConfigPrecompiledFixture)
 
 BOOST_AUTO_TEST_CASE(paraConfig_test)
 {
