@@ -46,6 +46,8 @@ public:
         BOOST_TEST(tableFactory != nullptr);
     }
 
+    ~StorageFixture() { tableFactory->stop(); }
+
     std::optional<Table> createDefaultTable()
     {
         std::promise<std::optional<Table>> createPromise;

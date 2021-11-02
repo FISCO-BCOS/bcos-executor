@@ -107,7 +107,7 @@ void LRUStorage::startLoop()
         EntryKeyWrapper entryKey;
         if (m_mruQueue.try_pop(entryKey))
         {
-            EXECUTOR_LOG(TRACE) << "Pop key: " << entryKey.table() << " " << entryKey.key();
+            EXECUTOR_LOG(TRACE) << "Pop key: " << entryKey.table() << " " << entryKey.key() << " " << entryKey.capacity;
             // Check if stopped
             if (entryKey.isStop())
             {
@@ -126,8 +126,8 @@ void LRUStorage::startLoop()
             }
 
             // Check if out of capacity
-            auto capacity = m_capacity.load();
-            if (capacity > m_maxCapacity)
+            EXECUTOR_LOG(TRACE) << "capacity: " << m_capacity << " max_capacity: " << m_maxCapacity;
+            if (m_capacity > m_maxCapacity)
             {
                 // Clear the out date items
                 while (m_capacity > m_maxCapacity)
@@ -146,7 +146,8 @@ void LRUStorage::startLoop()
         }
         else
         {
-            // std::this_thread::sleep_for(1000);
+            using namespace std::chrono_literals;
+            std::this_thread::sleep_for(200ms);
         }
     }
 }
