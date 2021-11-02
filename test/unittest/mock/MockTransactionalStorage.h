@@ -15,6 +15,7 @@ public:
     MockTransactionalStorage(bcos::crypto::Hash::Ptr hashImpl) : m_hashImpl(std::move(hashImpl))
     {
         m_inner = std::make_shared<bcos::storage::StateStorage>(nullptr);
+        m_inner->setEnableTraverse(true);
     }
 
     void asyncGetPrimaryKeys(const std::string_view& table,
@@ -73,7 +74,7 @@ public:
 
                 auto keyHex = boost::algorithm::hex_lower(std::string(key));
                 EXECUTOR_LOG(TRACE) << "Merge data" << LOG_KV("table", table)
-                                 << LOG_KV("key", keyHex) << LOG_KV("fields", fields);
+                                    << LOG_KV("key", keyHex) << LOG_KV("fields", fields);
 
                 auto myTable = m_inner->openTable(std::string(table));
                 if (!myTable)

@@ -20,7 +20,7 @@ struct HashMapFixture
     }
 
     std::vector<std::string> keys;
-    size_t count = 1000 * 10000;
+    size_t count = 100 * 10000;
 };
 
 struct KeyType
