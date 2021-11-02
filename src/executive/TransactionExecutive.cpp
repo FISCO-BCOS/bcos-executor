@@ -233,16 +233,13 @@ std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionE
 
     auto code = bytes();
     auto params = bytes();
-    auto path = string();
     auto abi = string();
-
-    auto newAddress = string();
 
     if (blockContext->isWasm())
     {
         auto data = ref(callParameters->data);
 
-        auto input = std::make_pair(std::make_pair(code, params), std::make_pair(path, abi));
+        auto input = std::make_pair(std::make_pair(code, params), abi);
         auto codec = std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), true);
         codec->decode(data, input);
 
@@ -275,14 +272,11 @@ std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionE
             return {nullptr, std::move(callResults)};
         }
 
-        std::tie(path, abi) = std::get<1>(input);
-        newAddress = std::move(path);
+        abi = std::get<1>(input);
         callParameters->data.swap(code);
     }
-    else
-    {
-        newAddress = string(callParameters->codeAddress);
-    }
+
+    auto newAddress = string(callParameters->codeAddress);
 
     // Create the table first
     auto tableName = getContractTableName(newAddress);

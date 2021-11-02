@@ -254,7 +254,7 @@ void TransactionExecutor::dagExecuteTransactionsForEvm(
                     bcos::protocol::ExecutionMessage::UniquePtr&& response) {
                     if (response->status() != 0 || error)
                     {
-                        EXECUTOR_LOG(DEBUG) << "Transaction reverted";
+                        EXECUTOR_LOG(DEBUG) << "Transaction reverted: " << response->status();
                         executionResults[i]->setType(ExecutionMessage::REVERT);
                     }
                     else
@@ -282,6 +282,10 @@ void TransactionExecutor::dagExecuteTransactionsForEvm(
 
     txDag->setTxExecuteFunc([](bcos::executor::TransactionExecutive::Ptr executive,
                                 CallParameters::UniquePtr callParameters) {
+        EXECUTOR_LOG(TRACE) << LOG_BADGE("dagExecuteTransactionsForEvm")
+                            << LOG_DESC("Start transaction")
+                            << LOG_KV("to", callParameters->receiveAddress)
+                            << LOG_KV("data", toHexStringWithPrefix(callParameters->data));
         try
         {
             executive->start(std::move(callParameters));
@@ -352,7 +356,14 @@ void TransactionExecutor::dagExecuteTransactionsForWasm(
 
                 auto to = transaction->to();
                 auto input = transaction->input();
-                auto selector = input.getCroppedData(0, 4);
+
+                if (input[0] == 0)
+                {
+                    executionResults[i]->setType(ExecutionMessage::SEND_BACK);
+                    continue;
+                }
+
+                auto selector = input.getCroppedData(1, 4);
                 auto abiKey = bytes(to.cbegin(), to.cend());
                 abiKey.insert(abiKey.end(), selector.begin(), selector.end());
 
@@ -469,7 +480,7 @@ void TransactionExecutor::dagExecuteTransactionsForWasm(
                     bcos::protocol::ExecutionMessage::UniquePtr&& response) {
                     if (response->status() != 0 || error)
                     {
-                        EXECUTOR_LOG(DEBUG) << "Transaction reverted";
+                        EXECUTOR_LOG(DEBUG) << "Transaction reverted" << response->status();
                         executionResults[i]->setType(ExecutionMessage::REVERT);
                     }
                     else
@@ -492,7 +503,7 @@ void TransactionExecutor::dagExecuteTransactionsForWasm(
                 {}});
 
         auto task = [this, i, executive, &inputs, &transactions, &executionResults](Msg) {
-            EXECUTOR_LOG(DEBUG) << LOG_BADGE("dagExecuteTransactionsForWasm")
+            EXECUTOR_LOG(TRACE) << LOG_BADGE("dagExecuteTransactionsForWasm")
                                 << LOG_DESC("Start transaction") << LOG_KV("to", inputs[i]->to())
                                 << LOG_KV("contextID", inputs[i]->contextID())
                                 << LOG_KV("seq", inputs[i]->seq());
@@ -712,8 +723,9 @@ void TransactionExecutor::executeTransaction(bcos::protocol::ExecutionMessage::U
         callback)
 {
     EXECUTOR_LOG(TRACE) << "ExecuteTransaction request" << LOG_KV("ContextID", input->contextID())
-                        << LOG_KV("seq", input->seq()) << LOG_KV("Message type", input->type())
-                        << LOG_KV("To", input->to()) << LOG_KV("Create", input->create());
+                        << LOG_KV("seq", input->seq()) << LOG_KV("message type", input->type())
+                        << LOG_KV("to", input->to()) << LOG_KV("create", input->create())
+                        << LOG_KV("data", toHexStringWithPrefix(input->data()));
 
     if (!m_blockContext)
     {
@@ -1153,7 +1165,7 @@ optional<ConflictFields> TransactionExecutor::decodeConflictFields(
             assert(!conflictField.accessPath.empty());
             const ParameterAbi* paramAbi = nullptr;
             auto components = &functionAbi.inputs;
-            auto inputData = transaction->input().getCroppedData(4).toBytes();
+            auto inputData = transaction->input().getCroppedData(5).toBytes();
 
             auto startPos = 0u;
             for (auto segment : conflictField.accessPath)
@@ -1249,11 +1261,19 @@ void TransactionExecutor::externalCall(std::shared_ptr<BlockContext> blockContex
 
     message->setContextID(executive->contextID());
     message->setSeq(executive->seq());
-
     message->setOrigin(std::move(params->origin));
-
     message->setGasAvailable(params->gas);
-    message->setData(std::move(params->data));
+
+    if (m_isWasm && params->type == CallParameters::MESSAGE)
+    {
+        bytes data = {1};
+        data.insert(data.end(), params->data.begin(), params->data.end());
+        message->setData(std::move(data));
+    }
+    else
+    {
+        message->setData(std::move(params->data));
+    }
     message->setStaticCall(params->staticCall);
     message->setCreate(params->create);
     if (params->createSalt)
@@ -1441,11 +1461,22 @@ std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
     callParameters->senderAddress = input.from();
     callParameters->receiveAddress = input.to();
     callParameters->codeAddress = input.to();
-    callParameters->create = input.create();
+
+    if (!m_isWasm)
+    {
+        callParameters->create = input.create();
+        callParameters->data = input.takeData();
+    }
+    else
+    {
+        assert(input.data().size() > 0);
+        callParameters->create = (input.data()[0] == 0);
+        input.setCreate(callParameters->create);
+        callParameters->data = input.data().getCroppedData(1).toBytes();
+    }
+
     callParameters->gas = input.gasAvailable();
-    callParameters->data = input.takeData();
     callParameters->staticCall = staticCall;
-    callParameters->create = input.create();
     callParameters->newEVMContractAddress = input.newEVMContractAddress();
     callParameters->status = 0;
     callParameters->keyLocks = input.takeKeyLocks();
@@ -1464,11 +1495,23 @@ std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
     callParameters->senderAddress = callParameters->origin;
     callParameters->receiveAddress = input.to();
     callParameters->codeAddress = input.to();
-
     callParameters->gas = input.gasAvailable();
-    callParameters->data = tx->input().toBytes();  // TODO: add take data
     callParameters->staticCall = input.staticCall();
-    callParameters->create = input.create();
+
+    if (!m_isWasm)
+    {
+        callParameters->create = input.create();
+        callParameters->data = tx->input().toBytes();  // TODO: add take data
+    }
+    else
+    {
+        auto txInput = tx->input();
+        assert(txInput.size() > 0);
+
+        callParameters->create = (txInput[0] == 0);
+        input.setCreate(callParameters->create);
+        callParameters->data = txInput.getCroppedData(1).toBytes();
+    }
 
     return callParameters;
 }
