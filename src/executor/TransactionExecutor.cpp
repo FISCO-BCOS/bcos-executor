@@ -1389,8 +1389,8 @@ void TransactionExecutor::initPrecompiled()
             {CRUD_NAME, std::make_shared<precompiled::CRUDPrecompiled>(m_hashImpl)});
         m_constantPrecompiled.insert(
             {BFS_NAME, std::make_shared<precompiled::FileSystemPrecompiled>(m_hashImpl)});
-        m_constantPrecompiled.insert(
-            {CONTRACT_AUTH_NAME, std::make_shared<precompiled::ContractAuthPrecompiled>(m_hashImpl)});
+        m_constantPrecompiled.insert({CONTRACT_AUTH_NAME,
+            std::make_shared<precompiled::ContractAuthPrecompiled>(m_hashImpl)});
 
         set<string> builtIn = {CRYPTO_NAME};
         m_builtInPrecompiled = make_shared<set<string>>(builtIn);

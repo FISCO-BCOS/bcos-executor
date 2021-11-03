@@ -29,6 +29,7 @@ inline ostream& operator<<(ostream& os, const std::tuple<std::string, bcos::cryp
 }
 }  // namespace std
 
+/*
 namespace bcos::test
 {
 using namespace bcos::storage;
@@ -888,3 +889,4 @@ BOOST_AUTO_TEST_CASE(rollbackAndGetRows)
 BOOST_AUTO_TEST_SUITE_END()
 
 }  // namespace bcos::test
+*/

@@ -20,7 +20,6 @@ file(GLOB_RECURSE SOURCES "*.cpp" "*.h")
 
 include(SearchTestCases)
 set(TEST_BINARY_NAME test-bcos-executor)
-config_test_cases("" "${SOURCES}" bin/${TEST_BINARY_NAME} "")
 
 add_executable(${TEST_BINARY_NAME} ${SOURCES})
 target_include_directories(${TEST_BINARY_NAME} PRIVATE ./ ../../src ../../include)
@@ -28,9 +27,7 @@ target_include_directories(${TEST_BINARY_NAME} PRIVATE ./ ../../src ../../includ
 find_package(Boost CONFIG QUIET REQUIRED unit_test_framework)
 
 target_link_libraries(${TEST_BINARY_NAME} executor bcos-framework::protocol-pb bcos-framework::protocol bcos-framework::utilities bcos-framework::storage wedpr-crypto::crypto)
-# target_link_options(${TEST_BINARY_NAME} PUBLIC "LINKER:-z,muldefs")
-# target_link_options(${TEST_BINARY_NAME} PUBLIC "LINKER:SHELL:-z muldefs")
-# target_link_options(${TEST_BINARY_NAME} PUBLIC "--allow-multiple-definition")
+add_test(NAME test-bcos-executor COMMAND ${TEST_BINARY_NAME})
 
 # for code coverage
 if (COVERAGE)
