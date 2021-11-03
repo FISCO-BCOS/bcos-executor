@@ -65,7 +65,6 @@ private:
         EntryKeyWrapper(EntryKeyWrapper&&) noexcept = default;
         EntryKeyWrapper& operator=(EntryKeyWrapper&&) noexcept = default;
 
-
         std::tuple<std::string_view, std::string_view> tableKeyView() const
         {
             return {table(), key()};
