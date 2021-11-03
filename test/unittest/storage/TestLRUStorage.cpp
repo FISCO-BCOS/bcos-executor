@@ -1,5 +1,6 @@
 #include "../../src/storage/LRUStorage.h"
 #include <bcos-framework/testutils/TestPromptFixture.h>
+#include <bcos-framework/testutils/crypto/HashImpl.h>
 #include <boost/test/unit_test.hpp>
 
 namespace std
@@ -29,7 +30,6 @@ inline ostream& operator<<(ostream& os, const std::tuple<std::string, bcos::cryp
 }
 }  // namespace std
 
-/*
 namespace bcos::test
 {
 using namespace bcos::storage;
@@ -43,6 +43,7 @@ public:
         BOOST_TEST(memoryStorage != nullptr);
         tableFactory = std::make_shared<executor::LRUStorage>(memoryStorage);
         tableFactory->start();
+        hashImpl = std::make_shared<Keccak256Hash>();
 
         BOOST_TEST(tableFactory != nullptr);
     }
@@ -220,11 +221,6 @@ BOOST_AUTO_TEST_CASE(rollback2)
     BOOST_TEST(hash00 == hash0);
     table = tableFactory->openTable(testTableName);
     BOOST_TEST(!table);
-}
-
-BOOST_AUTO_TEST_CASE(rollback3)
-{
-    // Test rollback multi state storage
 }
 
 BOOST_AUTO_TEST_CASE(hash)
@@ -889,4 +885,3 @@ BOOST_AUTO_TEST_CASE(rollbackAndGetRows)
 BOOST_AUTO_TEST_SUITE_END()
 
 }  // namespace bcos::test
-*/

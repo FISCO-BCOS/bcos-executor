@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../Common.h"
 #include <bcos-framework/interfaces/storage/StorageInterface.h>
 #include <bcos-framework/libstorage/StateStorage.h>
 #include <tbb/concurrent_queue.h>
@@ -18,7 +19,12 @@ class LRUStorage : public virtual bcos::storage::StateStorage,
 {
 public:
     LRUStorage(std::shared_ptr<StorageInterface> prev) : StateStorage(std::move(prev)) {}
-    ~LRUStorage() noexcept override { stop(); }
+    ~LRUStorage() noexcept override
+    {
+        EXECUTOR_LOG(TRACE) << "Removing thread...";
+        stop();
+        EXECUTOR_LOG(TRACE) << "Remove thread finished";
+    }
 
     void asyncGetPrimaryKeys(const std::string_view& table,
         const std::optional<bcos::storage::Condition const>& _condition,
@@ -42,14 +48,15 @@ public:
     void start();
     void stop();
 
+    void setMaxCapacity(size_t capacity) { m_maxCapacity = capacity; }
+
 private:
     void startLoop();
 
     struct EntryKeyWrapper : public EntryKey
     {
-        EntryKeyWrapper() : EntryKey(), capacity(0) {}
-        EntryKeyWrapper(std::string_view table, std::string key, size_t _capacity)
-          : EntryKey(table, std::move(key)), capacity(_capacity)
+        EntryKeyWrapper() : EntryKey() {}
+        EntryKeyWrapper(std::string_view table, std::string key) : EntryKey(table, std::move(key))
         {}
 
         EntryKeyWrapper(const EntryKeyWrapper&) = delete;
@@ -64,9 +71,7 @@ private:
             return {table(), key()};
         }
 
-        bool isStop() const { return table().empty() && key().empty() && capacity == 0; }
-
-        size_t capacity;
+        bool isStop() const { return table().empty() && key().empty(); }
     };
 
     void updateMRU(EntryKeyWrapper entryKey);
@@ -78,8 +83,7 @@ private:
         m_mru;
     tbb::concurrent_queue<EntryKeyWrapper> m_mruQueue;
 
-    int64_t m_maxCapacity = 256 * 1024 * 1024;  // default 256MB for cache
-    int64_t m_capacity = 0;
+    size_t m_maxCapacity = 256 * 1024 * 1024;  // default 256MB for cache
 
     std::unique_ptr<std::thread> m_worker;
     std::atomic_bool m_running = false;
