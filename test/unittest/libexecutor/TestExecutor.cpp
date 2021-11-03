@@ -36,12 +36,14 @@
 #include <bcos-framework/testutils/crypto/SignatureImpl.h>
 #include <bcos-framework/testutils/protocol/FakeBlockHeader.h>
 #include <bcos-framework/testutils/protocol/FakeTransaction.h>
+#include <tbb/task_group.h>
 #include <boost/algorithm/hex.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/exception/diagnostic_information.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/test/tools/old/interface.hpp>
 #include <boost/test/unit_test.hpp>
+#include <boost/thread/latch.hpp>
 #include <iostream>
 #include <iterator>
 #include <memory>
@@ -850,6 +852,90 @@ BOOST_AUTO_TEST_CASE(performance)
 
     std::cout << "Check elapsed: " << (std::chrono::system_clock::now() - now).count() / 1000 / 1000
               << std::endl;
+}
+
+BOOST_AUTO_TEST_CASE(multiDeploy)
+{
+    tbb::task_group group;
+
+    size_t count = 100;
+    std::vector<NativeExecutionMessage::UniquePtr> paramsList;
+
+    for (size_t i = 0; i < count; ++i)
+    {
+        auto helloworld = string(helloBin);
+        bytes input;
+        boost::algorithm::unhex(helloworld, std::back_inserter(input));
+        auto tx = fakeTransaction(cryptoSuite, keyPair, "", input, 100 + i, 100001, "1", "1");
+
+        auto hash = tx->hash();
+        txpool->hash2Transaction.emplace(hash, tx);
+        auto params = std::make_unique<NativeExecutionMessage>();
+        params->setType(bcos::protocol::ExecutionMessage::TXHASH);
+        params->setContextID(100 + i);
+        params->setSeq(1000);
+        params->setDepth(0);
+        auto sender = *toHexString(string_view((char*)tx->sender().data(), tx->sender().size()));
+
+        auto addressCreate =
+            cryptoSuite->hashImpl()->hash("i am a address" + boost::lexical_cast<std::string>(i));
+        std::string addressString = addressCreate.hex().substr(0, 40);
+        params->setTo(std::move(addressString));
+
+        params->setStaticCall(false);
+        params->setGasAvailable(gas);
+        // params->setData(input);
+        params->setType(ExecutionMessage::TXHASH);
+        params->setTransactionHash(hash);
+        params->setCreate(true);
+
+        paramsList.emplace_back(std::move(params));
+    }
+
+    auto blockHeader = std::make_shared<bcos::protocol::PBBlockHeader>(cryptoSuite);
+    blockHeader->setNumber(1);
+
+    std::promise<void> nextPromise;
+    executor->nextBlockHeader(blockHeader, [&](bcos::Error::Ptr&& error) {
+        BOOST_CHECK(!error);
+        nextPromise.set_value();
+    });
+    nextPromise.get_future().get();
+
+    boost::latch latch(paramsList.size());
+
+    std::vector<std::tuple<bcos::Error::UniquePtr, bcos::protocol::ExecutionMessage::UniquePtr>>
+        responses(count);
+    for (size_t i = 0; i < paramsList.size(); ++i)
+    {
+        group.run([&responses, executor = executor, &paramsList, index = i, &latch]() {
+            executor->executeTransaction(std::move(std::move(paramsList[index])),
+                [&](bcos::Error::UniquePtr error,
+                    bcos::protocol::ExecutionMessage::UniquePtr result) {
+                    responses[index] = std::make_tuple(std::move(error), std::move(result));
+                    latch.count_down();
+                });
+        });
+    }
+
+    latch.wait();
+
+    for (auto& it : responses)
+    {
+        auto& [error, result] = it;
+
+        BOOST_CHECK(!error);
+        if (error)
+        {
+            std::cout << boost::diagnostic_information(*error) << std::endl;
+        }
+
+        BOOST_CHECK_EQUAL(result->status(), 0);
+
+        BOOST_CHECK(result->message().empty());
+        BOOST_CHECK(!result->newEVMContractAddress().empty());
+        BOOST_CHECK_LT(result->gasAvailable(), gas);
+    }
 }
 
 BOOST_AUTO_TEST_CASE(keyLock) {}
