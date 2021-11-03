@@ -228,9 +228,6 @@ void KVTableFactoryPrecompiled::createTable(
         assert(parentTable != std::nullopt);
         auto newEntry = parentTable->newEntry();
         newEntry.setField(FS_FIELD_TYPE, FS_TYPE_CONTRACT);
-        newEntry.setField(FS_FIELD_ACCESS, "");
-        newEntry.setField(FS_FIELD_OWNER, _origin);
-        newEntry.setField(FS_FIELD_GID, "");
         newEntry.setField(FS_FIELD_EXTRA, "");
         parentTable->setRow(tableBaseName, newEntry);
     }

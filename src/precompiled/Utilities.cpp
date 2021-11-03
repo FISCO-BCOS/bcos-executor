@@ -25,6 +25,7 @@
 #include <tbb/concurrent_unordered_map.h>
 
 using namespace bcos;
+using namespace bcos::executor;
 using namespace bcos::precompiled;
 using namespace bcos::protocol;
 using namespace bcos::crypto;
@@ -138,7 +139,7 @@ int bcos::precompiled::checkLengthValidate(
         BOOST_THROW_EXCEPTION(PrecompiledError()
                               << errinfo_comment(
                                      "size of value/key greater than" + std::to_string(maxLength))
-                              << errinfo_comment(std::to_string(errorCode)));
+                              << errinfo_comment(" error code: " + std::to_string(errorCode)));
     }
     return 0;
 }
@@ -584,10 +585,6 @@ bool precompiled::recursiveBuildDir(
         // not exist, then create table and write in parent dir
         auto newFileEntry = table->newEntry();
         newFileEntry.setField(FS_FIELD_TYPE, FS_TYPE_DIR);
-        // FIXME: consider permission inheritance
-        newFileEntry.setField(FS_FIELD_ACCESS, "");
-        newFileEntry.setField(FS_FIELD_OWNER, "");
-        newFileEntry.setField(FS_FIELD_GID, "");
         newFileEntry.setField(FS_FIELD_EXTRA, "");
         table->setRow(dir, std::move(newFileEntry));
 

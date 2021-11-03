@@ -29,28 +29,35 @@ const char* const PER_METHOD_LOGOUT = "logout(string,string[])";
 const char* const PER_METHOD_CREATE = "create(string,string,string,bytes)";
 const char* const PER_METHOD_CALL = "call(string,string,string,bytes)";
 const char* const PER_METHOD_SEND = "sendTransaction(string,string,string,bytes)";
-struct PermissionRet{
+struct PermissionRet
+{
     using Ptr = std::shared_ptr<PermissionRet>;
     s256 code;
     std::string message;
     std::string path;
     PermissionRet(s256&& _code, std::string&& _msg) : code(_code), message(_msg) {}
     PermissionRet(s256&& _code, std::string&& _msg, std::string&& _path)
-      : code(_code), message(_msg), path(_path) {}
+      : code(_code), message(_msg), path(_path)
+    {}
 };
 class PermissionPrecompiledInterface : public bcos::precompiled::Precompiled
 {
 public:
     using Ptr = std::shared_ptr<PermissionPrecompiledInterface>;
-    PermissionPrecompiledInterface(crypto::Hash::Ptr _hashImpl): Precompiled(_hashImpl){};
+    PermissionPrecompiledInterface(crypto::Hash::Ptr _hashImpl) : Precompiled(_hashImpl){};
     virtual ~PermissionPrecompiledInterface(){};
 
     std::shared_ptr<PrecompiledExecResult> call(std::shared_ptr<executor::TransactionExecutive>,
-        bytesConstRef, const std::string&, const std::string&) override { return nullptr; }
+        bytesConstRef, const std::string&, const std::string&) override
+    {
+        return nullptr;
+    }
 
-    virtual PermissionRet::Ptr login(const std::string& nonce, const std::vector<std::string>& params) = 0;
+    virtual PermissionRet::Ptr login(
+        const std::string& nonce, const std::vector<std::string>& params) = 0;
 
-    virtual PermissionRet::Ptr logout(const std::string& path, const std::vector<std::string>& params) = 0;
+    virtual PermissionRet::Ptr logout(
+        const std::string& path, const std::vector<std::string>& params) = 0;
 
     virtual PermissionRet::Ptr create(const std::string& userPath, const std::string& origin,
         const std::string& to, bytesConstRef params) = 0;
@@ -58,8 +65,7 @@ public:
     virtual PermissionRet::Ptr call(const std::string& userPath, const std::string& origin,
         const std::string& to, bytesConstRef params) = 0;
 
-    virtual PermissionRet::Ptr sendTransaction(const std::string& userPath, const std::string& origin,
-        const std::string& to, bytesConstRef params) = 0;
+    virtual PermissionRet::Ptr sendTransaction(const std::string& userPath,
+        const std::string& origin, const std::string& to, bytesConstRef params) = 0;
 };
 }  // namespace bcos::precompiled
-

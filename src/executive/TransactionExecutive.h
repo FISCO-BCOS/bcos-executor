@@ -112,9 +112,9 @@ public:
     // External request key locks
     void externalAcquireKeyLocks(std::string acquireKeyLock);
 
-    CoroutineStorageWrapper<CoroutineMessage>& storage() { 
+    CoroutineStorageWrapper<CoroutineMessage>& storage() {
         assert(m_storageWrapper);
-        return *m_storageWrapper; 
+        return *m_storageWrapper;
     }
 
     std::weak_ptr<BlockContext> blockContext() { return m_blockContext; }
@@ -195,6 +195,8 @@ private:
 
     void creatAuthTable(
         std::string_view _tableName, std::string_view _origin, std::string_view _sender);
+
+    bool buildBfsPath(std::string const& _absoluteDir);
 
     std::weak_ptr<BlockContext> m_blockContext;  ///< Information on the runtime environment.
     tbb::concurrent_unordered_map<std::string, std::shared_ptr<precompiled::Precompiled>,

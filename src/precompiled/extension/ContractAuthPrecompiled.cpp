@@ -19,32 +19,35 @@
  */
 
 #include "ContractAuthPrecompiled.h"
-#include "../PrecompiledResult.h"
 #include <json/json.h>
-#include "../Utilities.h"
 
 using namespace bcos;
 using namespace bcos::precompiled;
 using namespace bcos::executor;
 using namespace bcos::storage;
 
-const char* const AUTH_METHOD_GET_AGENT = "agent(string)";
-const char* const AUTH_METHOD_SET_AGENT = "setAgent(string,string)";
-const char* const AUTH_METHOD_SET_AUTH = "setAuth(string,bytes,string,bool)";
-const char* const AUTH_METHOD_CHECK_AUTH = "checkAuth(string,bytes,string)";
+const char* const AUTH_METHOD_GET_ADMIN = "getAdmin(string)";
+const char* const AUTH_METHOD_SET_ADMIN = "resetAdmin(string,address)";
+const char* const AUTH_METHOD_SET_AUTH_TYPE = "setMethodAuthType(string,bytes4,uint8)";
+const char* const AUTH_METHOD_OPEN_AUTH = "openMethodAuth(string,bytes4,address)";
+const char* const AUTH_METHOD_CLOSE_AUTH = "closeMethodAuth(string,bytes4,address)";
+const char* const AUTH_METHOD_CHECK_AUTH = "checkMethodAuth(string,bytes4,address)";
 
 ContractAuthPrecompiled::ContractAuthPrecompiled(crypto::Hash::Ptr _hashImpl)
   : Precompiled(_hashImpl)
 {
-    name2Selector[AUTH_METHOD_GET_AGENT] = getFuncSelector(AUTH_METHOD_GET_AGENT, _hashImpl);
-    name2Selector[AUTH_METHOD_SET_AGENT] = getFuncSelector(AUTH_METHOD_SET_AGENT, _hashImpl);
-    name2Selector[AUTH_METHOD_SET_AUTH] = getFuncSelector(AUTH_METHOD_SET_AUTH, _hashImpl);
+    name2Selector[AUTH_METHOD_GET_ADMIN] = getFuncSelector(AUTH_METHOD_GET_ADMIN, _hashImpl);
+    name2Selector[AUTH_METHOD_SET_ADMIN] = getFuncSelector(AUTH_METHOD_SET_ADMIN, _hashImpl);
+    name2Selector[AUTH_METHOD_SET_AUTH_TYPE] =
+        getFuncSelector(AUTH_METHOD_SET_AUTH_TYPE, _hashImpl);
+    name2Selector[AUTH_METHOD_OPEN_AUTH] = getFuncSelector(AUTH_METHOD_OPEN_AUTH, _hashImpl);
+    name2Selector[AUTH_METHOD_CLOSE_AUTH] = getFuncSelector(AUTH_METHOD_CLOSE_AUTH, _hashImpl);
     name2Selector[AUTH_METHOD_CHECK_AUTH] = getFuncSelector(AUTH_METHOD_CHECK_AUTH, _hashImpl);
 }
 
 std::shared_ptr<PrecompiledExecResult> ContractAuthPrecompiled::call(
     std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _param,
-    const std::string& _origin, const std::string& _sender)
+    const std::string&, const std::string& _sender)
 {
     // parse function name
     uint32_t func = getParamFunc(_param);
@@ -56,40 +59,51 @@ std::shared_ptr<PrecompiledExecResult> ContractAuthPrecompiled::call(
 
     gasPricer->setMemUsed(_param.size());
 
-    if (func == name2Selector[AUTH_METHOD_GET_AGENT])
+    if (func == name2Selector[AUTH_METHOD_GET_ADMIN])
     {
-        agent(_executive, data, callResult, gasPricer);
+        getAdmin(_executive, data, callResult, gasPricer);
     }
-    else if (func == name2Selector[AUTH_METHOD_SET_AGENT])
+    else if (func == name2Selector[AUTH_METHOD_SET_ADMIN])
     {
-        setAgent(_executive, data, callResult, _origin, _sender, gasPricer);
+        resetAdmin(_executive, data, callResult, _sender, gasPricer);
     }
-    else if (func == name2Selector[AUTH_METHOD_SET_AUTH])
+    else if (func == name2Selector[AUTH_METHOD_SET_AUTH_TYPE])
     {
-        setAuth(_executive, data, callResult, _origin, _sender, gasPricer);
+        setMethodAuthType(_executive, data, callResult, _sender, gasPricer);
+    }
+    else if (func == name2Selector[AUTH_METHOD_OPEN_AUTH])
+    {
+        openMethodAuth(_executive, data, callResult, _sender, gasPricer);
+    }
+    else if (func == name2Selector[AUTH_METHOD_CLOSE_AUTH])
+    {
+        closeMethodAuth(_executive, data, callResult, _sender, gasPricer);
     }
     else if (func == name2Selector[AUTH_METHOD_CHECK_AUTH])
     {
-        checkAuth(_executive, data, callResult, gasPricer);
+        checkMethodAuth(_executive, data, callResult, _sender, gasPricer);
     }
     else
     {
-        PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled") << LOG_DESC("call undefined function")
-                               << LOG_KV("func", func);
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled")
+                               << LOG_DESC("call undefined function") << LOG_KV("func", func);
     }
     gasPricer->updateMemUsed(callResult->m_execResult.size());
     callResult->setGas(gasPricer->calTotalGas());
     return callResult;
 }
 
-void ContractAuthPrecompiled::agent(const std::shared_ptr<executor::TransactionExecutive>& _executive,
-    bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
-    const PrecompiledGas::Ptr& gasPricer)
+void ContractAuthPrecompiled::getAdmin(
+    const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& data,
+    const std::shared_ptr<PrecompiledExecResult>& callResult, const PrecompiledGas::Ptr& gasPricer)
 {
-    std::string path, agent;
+    std::string path;
+    Address admin;
     auto blockContext = _executive->blockContext().lock();
-    auto codec = std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
+    auto codec =
+        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     codec->decode(data, path);
+    path = getAuthTableName(path);
     auto table = _executive->storage().openTable(path);
     if (!table)
     {
@@ -98,69 +112,75 @@ void ContractAuthPrecompiled::agent(const std::shared_ptr<executor::TransactionE
         callResult->setExecResult(codec->encode(std::string("")));
         return;
     }
-    auto entry = table->getRow(AGENT_FILED);
+    auto entry = table->getRow(ADMIN_FIELD);
     if (!entry)
     {
-        PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled") << LOG_DESC("entry not found")
-                               << LOG_KV("path", path);
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled")
+                               << LOG_DESC("entry not found") << LOG_KV("path", path);
         callResult->setExecResult(codec->encode(std::string("")));
         return;
     }
-    agent = entry->getField(SYS_VALUE);
+    admin = Address(std::string(entry->getField(ADMIN_FIELD)), Address::FromBinary);
     gasPricer->updateMemUsed(1);
-    callResult->setExecResult(codec->encode(std::move(agent)));
+    callResult->setExecResult(codec->encode(admin));
 }
 
-void ContractAuthPrecompiled::setAgent(const std::shared_ptr<executor::TransactionExecutive>& _executive,
-    bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
-    const std::string&, const std::string& _sender, const PrecompiledGas::Ptr& gasPricer)
+void ContractAuthPrecompiled::resetAdmin(
+    const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& data,
+    const std::shared_ptr<PrecompiledExecResult>& callResult, const std::string& _sender,
+    const PrecompiledGas::Ptr& gasPricer)
 {
-    std::string path, agent;
+    std::string path;
+    Address admin;
     auto blockContext = _executive->blockContext().lock();
-    auto codec = std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
-    codec->decode(data, path, agent);
+    auto codec =
+        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
+    codec->decode(data, path, admin);
     // check _sender from /sys/
-    if(!checkSender(_sender))
+    if (!checkSender(_sender))
     {
         getErrorCodeOut(callResult->mutableExecResult(), CODE_NO_AUTHORIZED, codec);
         return;
     }
+    path = getAuthTableName(path);
     auto table = _executive->storage().openTable(path);
-    if (!table || !table->getRow(AGENT_FILED))
+    if (!table || !table->getRow(ADMIN_FIELD))
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled") << LOG_DESC("path not found")
                                << LOG_KV("path", path);
         getErrorCodeOut(callResult->mutableExecResult(), CODE_TABLE_AGENT_ROW_NOT_EXIST, codec);
         return;
     }
-    // TODO: check agent is a valid string
     auto newEntry = table->newEntry();
-    newEntry.setField(SYS_VALUE, agent);
-    table->setRow(AGENT_FILED, std::move(newEntry));
+    newEntry.setField(SYS_VALUE, asString(admin.asBytes()));
+    table->setRow(ADMIN_FIELD, std::move(newEntry));
     gasPricer->updateMemUsed(1);
     gasPricer->appendOperation(InterfaceOpcode::Set);
     getErrorCodeOut(callResult->mutableExecResult(), CODE_SUCCESS, codec);
 }
 
-void ContractAuthPrecompiled::setAuth(const std::shared_ptr<executor::TransactionExecutive>& _executive,
-    bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
-    const std::string&, const std::string& _sender, const PrecompiledGas::Ptr& gasPricer)
+void ContractAuthPrecompiled::setMethodAuthType(
+    const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& data,
+    const std::shared_ptr<PrecompiledExecResult>& callResult, const std::string& _sender,
+    const PrecompiledGas::Ptr& gasPricer)
 {
-    std::string path, user;
+    std::string path;
     bytes func;
-    bool access;
+    u256 type;
     auto blockContext = _executive->blockContext().lock();
-    auto codec = std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
-    codec->decode(data, path, func, user, access);
-    PRECOMPILED_LOG(INFO) << LOG_BADGE("ContractAuthPrecompiled") << LOG_DESC("setAuth")
-                          << LOG_KV("path", path) << LOG_KV("func", asString(func))
-                          << LOG_KV("user", user);
+    auto codec =
+        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
+    codec->decode(data, path, func, type);
+    PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ContractAuthPrecompiled") << LOG_DESC("setMethodAuthType")
+                           << LOG_KV("path", path) << LOG_KV("func", asString(func))
+                           << LOG_KV("type", type);
     // check _sender from /sys/
-    if(!checkSender(_sender))
+    if (!checkSender(_sender))
     {
         getErrorCodeOut(callResult->mutableExecResult(), CODE_NO_AUTHORIZED, codec);
         return;
     }
+    path = getAuthTableName(path);
     auto table = _executive->storage().openTable(path);
     if (!table)
     {
@@ -169,50 +189,60 @@ void ContractAuthPrecompiled::setAuth(const std::shared_ptr<executor::Transactio
         getErrorCodeOut(callResult->mutableExecResult(), CODE_TABLE_NOT_EXIST, codec);
         return;
     }
-    auto entry = table->getRow(INTERFACE_AUTH);
+    auto entry = table->getRow(METHOD_AUTH_TYPE);
     if (!entry)
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled")
-                               << LOG_DESC("auth row not found") << LOG_KV("path", path);
+                               << LOG_DESC("method_auth_type row not found")
+                               << LOG_KV("path", path);
         getErrorCodeOut(callResult->mutableExecResult(), CODE_TABLE_AUTH_ROW_NOT_EXIST, codec);
         return;
     }
-    std::map<bytes, std::vector<std::pair<std::string, bool>>> authMap;
-    json2AuthMap(std::string(entry->getField(SYS_VALUE)), authMap);
-    if (authMap.empty())
+    std::string authTypeStr = std::string(entry->getField(SYS_VALUE));
+    std::map<bytes, u256> methAuthTypeMap;
+    if (!authTypeStr.empty())
     {
-        PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled")
-                               << LOG_DESC("auth map parse error") << LOG_KV("path", path);
-        getErrorCodeOut(callResult->mutableExecResult(), CODE_TABLE_AUTH_ROW_NOT_EXIST, codec);
-        return;
+        codec::scale::decode(methAuthTypeMap, gsl::make_span(asBytes(authTypeStr)));
     }
-    auto userAuth = std::make_pair(std::move(user), access);
-    if (authMap.find(func) != authMap.end())
-    {
-        authMap.at(func).emplace_back(std::move(userAuth));
-    }
-    else
-    {
-        authMap.insert({func, {std::move(userAuth)}});
-    }
-    entry->setField(SYS_VALUE, authMap2Json(authMap));
-    table->setRow(INTERFACE_AUTH, std::move(entry.value()));
+    // covered writing
+    methAuthTypeMap[func] = type;
+    entry->setField(SYS_VALUE, asString(codec::scale::encode(methAuthTypeMap)));
+    table->setRow(METHOD_AUTH_TYPE, std::move(entry.value()));
     gasPricer->updateMemUsed(1);
     gasPricer->appendOperation(InterfaceOpcode::Set);
     getErrorCodeOut(callResult->mutableExecResult(), CODE_SUCCESS, codec);
 }
 
-void ContractAuthPrecompiled::checkAuth(const std::shared_ptr<executor::TransactionExecutive>& _executive,
-    bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
+void ContractAuthPrecompiled::openMethodAuth(
+    const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& data,
+    const std::shared_ptr<PrecompiledExecResult>& callResult, const std::string& _sender,
+    const PrecompiledGas::Ptr& gasPricer)
+{
+    setMethodAuth(_executive, data, callResult, false, _sender, gasPricer);
+}
+
+void ContractAuthPrecompiled::closeMethodAuth(
+    const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& data,
+    const std::shared_ptr<PrecompiledExecResult>& callResult, const std::string& _sender,
+    const PrecompiledGas::Ptr& gasPricer)
+{
+    setMethodAuth(_executive, data, callResult, true, _sender, gasPricer);
+}
+
+void ContractAuthPrecompiled::checkMethodAuth(
+    const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& data,
+    const std::shared_ptr<PrecompiledExecResult>& callResult, const std::string& _sender,
     const PrecompiledGas::Ptr&)
 {
-    std::string path, user;
+    std::string path;
     bytes func;
+    Address account;
     auto blockContext = _executive->blockContext().lock();
-    auto codec = std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
-    codec->decode(data, path, func, user);
+    auto codec =
+        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
+    codec->decode(data, path, func, account);
     bool result = false;
-
+    path = getAuthTableName(path);
     auto table = _executive->storage().openTable(path);
     if (!table)
     {
@@ -221,74 +251,172 @@ void ContractAuthPrecompiled::checkAuth(const std::shared_ptr<executor::Transact
         callResult->setExecResult(codec->encode(result));
         return;
     }
-    auto entry = table->getRow(INTERFACE_AUTH);
-    if (!entry)
+    auto getMethodType = getMethodAuthType(table, ref(func));
+    if (getMethodType == (int)CODE_TABLE_AUTH_TYPE_NOT_EXIST)
+    {
+        callResult->setExecResult(codec->encode(true));
+        return;
+    }
+    std::string getTypeStr;
+    if (getMethodType == 1)
+        getTypeStr = METHOD_AUTH_WHITE;
+    else if (getMethodType == 2)
+        getTypeStr = METHOD_AUTH_BLACK;
+    else
+    {
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled")
+                               << LOG_DESC("error auth type") << LOG_KV("path", path)
+                               << LOG_KV("type", getMethodType);
+        callResult->setExecResult(codec->encode(result));
+        return;
+    }
+
+    auto entry = table->getRow(getTypeStr);
+    if (!entry && !entry->getField(SYS_VALUE).empty())
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled")
                                << LOG_DESC("auth row not found") << LOG_KV("path", path);
         callResult->setExecResult(codec->encode(result));
         return;
     }
-    std::map<bytes, std::vector<std::pair<std::string, bool>>> authMap;
-    json2AuthMap(std::string(entry->getField(SYS_VALUE)), authMap);
+    MethodAuthMap authMap;
+    codec::scale::decode(authMap, gsl::make_span(asBytes(std::string(entry->getField(SYS_VALUE)))));
     if (authMap.find(func) != authMap.end())
     {
-        for (const auto &userAuth : authMap.at(func)){
-            if(userAuth.first == user && userAuth.second){
-                result = true;
-                break;
-            }
+        try
+        {
+            auto access = authMap.at(func).at(account);
+            result = (getMethodType == 1) ? access : !access;
+        }
+        catch (...)
+        {
+            // can't find account in user map, return false?
+            result = false;
         }
     }
     callResult->setExecResult(codec->encode(result));
 }
 
-std::string ContractAuthPrecompiled::authMap2Json(
-    const std::map<bytes, std::vector<std::pair<std::string, bool>>>& _authMap)
+void ContractAuthPrecompiled::setMethodAuth(
+    const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& data,
+    const std::shared_ptr<PrecompiledExecResult>& callResult, bool _isClose,
+    const std::string& _sender, const PrecompiledGas::Ptr& gasPricer)
 {
-    Json::Value authObj;
-    for (const auto& funcAuthPair : _authMap)
+    std::string path;
+    Address account;
+    bytes func;
+    auto blockContext = _executive->blockContext().lock();
+    auto codec =
+        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
+    codec->decode(data, path, func, account);
+    PRECOMPILED_LOG(INFO) << LOG_BADGE("ContractAuthPrecompiled") << LOG_DESC("setAuth")
+                          << LOG_KV("path", path) << LOG_KV("func", asString(func))
+                          << LOG_KV("account", account.hex());
+    // check _sender from /sys/
+    if (!checkSender(_sender))
     {
-        Json::Value userAuth(Json::arrayValue);
-        for (const auto &userAuthPair : funcAuthPair.second)
-        {
-            Json::Value user;
-            user[userAuthPair.first] = userAuthPair.second;
-            userAuth.append(user);
-        }
-        authObj[asString(funcAuthPair.first)] = userAuth;
+        getErrorCodeOut(callResult->mutableExecResult(), CODE_NO_AUTHORIZED, codec);
+        return;
     }
-    return authObj.asString();
+    path = getAuthTableName(path);
+    auto table = _executive->storage().openTable(path);
+    if (!table)
+    {
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled") << LOG_DESC("path not found")
+                               << LOG_KV("path", path);
+        getErrorCodeOut(callResult->mutableExecResult(), CODE_TABLE_NOT_EXIST, codec);
+        return;
+    }
+    s256 authType = getMethodAuthType(table, ref(func));
+    if (authType <= 0)
+    {
+        callResult->setExecResult(codec->encode(authType));
+        return;
+    }
+    std::string getTypeStr;
+    if (authType == 1)
+        getTypeStr = METHOD_AUTH_WHITE;
+    else if (authType == 2)
+        getTypeStr = METHOD_AUTH_BLACK;
+    else
+    {
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled")
+                               << LOG_DESC("error auth type") << LOG_KV("path", path)
+                               << LOG_KV("type", authType);
+        getErrorCodeOut(callResult->mutableExecResult(), CODE_TABLE_ERROR_AUTH_TYPE, codec);
+        return;
+    }
+    auto entry = table->getRow(getTypeStr);
+    if (entry && !entry->getField(SYS_VALUE).empty())
+    {
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled")
+                               << LOG_DESC("auth row not found") << LOG_KV("path", path);
+        getErrorCodeOut(callResult->mutableExecResult(), CODE_TABLE_AUTH_ROW_NOT_EXIST, codec);
+        return;
+    }
+
+    MethodAuthMap authMap;
+    codec::scale::decode(authMap, gsl::make_span(asBytes(std::string(entry->getField(SYS_VALUE)))));
+    if (authMap.empty())
+    {
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled")
+                               << LOG_DESC("auth map parse error") << LOG_KV("path", path);
+        getErrorCodeOut(callResult->mutableExecResult(), CODE_TABLE_AUTH_ROW_NOT_EXIST, codec);
+        return;
+    }
+    bool access = _isClose ? (authType == 2) : (authType == 1);
+
+    auto userAuth = std::make_pair(account, access);
+    if (authMap.find(func) != authMap.end())
+    {
+        authMap.at(func)[account] = access;
+    }
+    else
+    {
+        // first insert func
+        authMap.insert({func, {std::move(userAuth)}});
+    }
+    entry->setField(SYS_VALUE, asString(codec::scale::encode(authMap)));
+    table->setRow(getTypeStr, std::move(entry.value()));
+    gasPricer->updateMemUsed(1);
+    gasPricer->appendOperation(InterfaceOpcode::Set);
+    getErrorCodeOut(callResult->mutableExecResult(), CODE_SUCCESS, codec);
 }
 
-void ContractAuthPrecompiled::json2AuthMap(
-    const std::string& _json, std::map<bytes, std::vector<std::pair<std::string, bool>>>& _authMap)
+
+s256 ContractAuthPrecompiled::getMethodAuthType(
+    std::optional<storage::Table> _table, bytesConstRef _func)
 {
-    Json::Reader reader;
-    Json::Value value;
-    if(reader.parse(_json, value))
+    // _table can't be nullopt
+    auto entry = _table->getRow(METHOD_AUTH_TYPE);
+    if (!entry)
     {
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled")
+                               << LOG_DESC("auth type row not found");
+        return (int)CODE_TABLE_AUTH_ROW_NOT_EXIST;
+    }
+    std::string authTypeStr = std::string(entry->getField(SYS_VALUE));
+    std::map<bytes, u256> authTypeMap;
+    if (authTypeStr.empty())
+    {
+        PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ContractAuthPrecompiled")
+                               << LOG_DESC("should set the method access auth type firstly");
+        return (int)CODE_TABLE_AUTH_TYPE_NOT_EXIST;
+    }
+    else
+    {
+        codec::scale::decode(authTypeMap, gsl::make_span(asBytes(authTypeStr)));
+        s256 type = -1;
         try
         {
-            Json::Value::Members members = value.getMemberNames();
-            for (auto& member : members)
-            {
-                // std::vector
-                Json::Value userAuthJson = value[member];
-                std::vector<std::pair<std::string, bool>> userVector;
-                for (unsigned int i = 0; i < value[member].size(); i++)
-                {
-                    std::string userName = value[member][i].getMemberNames().at(0);
-                    bool access = value[member][i][userName].asBool();
-                    auto userAuth = std::make_pair(std::move(userName), access);
-                    userVector.emplace_back(std::move(userAuth));
-                }
-                _authMap.insert(std::make_pair(asBytes(member), userVector));
-            }
+            type = u2s(authTypeMap.at(_func.toBytes()));
         }
-        catch (...){
-            PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled")
-                                   << LOG_DESC("jsonParse error") << LOG_KV("json", _json);
+        catch (...)
+        {
+            PRECOMPILED_LOG(ERROR)
+                << LOG_BADGE("ContractAuthPrecompiled") << LOG_DESC("decode method type error");
+            return (int)CODE_TABLE_AUTH_TYPE_DECODE_ERROR;
         }
+        return type;
     }
 }

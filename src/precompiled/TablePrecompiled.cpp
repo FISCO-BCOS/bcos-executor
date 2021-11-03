@@ -172,6 +172,8 @@ std::shared_ptr<PrecompiledExecResult> TablePrecompiled::call(
 
             auto entriesPrecompiled = std::make_shared<EntriesPrecompiled>(m_hashImpl);
             entriesPrecompiled->setEntries(entries);
+            PRECOMPILED_LOG(DEBUG)
+                << LOG_DESC("Table select") << LOG_KV("entriesSize", entries->size());
             if (blockContext->isWasm())
             {
                 // wasm env
@@ -250,7 +252,8 @@ std::shared_ptr<PrecompiledExecResult> TablePrecompiled::call(
         auto condition = std::make_shared<precompiled::Condition>();
         auto conditionPrecompiled = std::make_shared<ConditionPrecompiled>(m_hashImpl);
         conditionPrecompiled->setCondition(condition);
-
+        PRECOMPILED_LOG(DEBUG) << LOG_DESC("Table newCondition")
+                               << LOG_KV("tableName", m_table->tableInfo()->name());
         if (blockContext->isWasm())
         {
             // wasm env
@@ -270,7 +273,8 @@ std::shared_ptr<PrecompiledExecResult> TablePrecompiled::call(
         auto entry = m_table->newEntry();
         auto entryPrecompiled = std::make_shared<EntryPrecompiled>(m_hashImpl);
         entryPrecompiled->setEntry(std::make_shared<storage::Entry>(entry));
-
+        PRECOMPILED_LOG(DEBUG) << LOG_DESC("Table newEntry")
+                               << LOG_KV("tableName", m_table->tableInfo()->name());
         if (blockContext->isWasm())
         {
             // wasm env
@@ -345,6 +349,8 @@ std::shared_ptr<PrecompiledExecResult> TablePrecompiled::call(
                 if (entryCondition->filter(entry))
                 {
                     m_table->setRow(tableKey, m_table->newDeletedEntry());
+                    PRECOMPILED_LOG(DEBUG)
+                        << LOG_DESC("Table remove") << LOG_KV("removeKey", tableKey);
                 }
             }
             gasPricer->appendOperation(InterfaceOpcode::Remove, 1);
@@ -443,6 +449,8 @@ std::shared_ptr<PrecompiledExecResult> TablePrecompiled::call(
                             tableEntry->setField(field, std::string(entry->getField(field)));
                         }
                         m_table->setRow(tableKey, std::move(tableEntry.value()));
+                        PRECOMPILED_LOG(DEBUG)
+                            << LOG_DESC("Table update") << LOG_KV("key", tableKey);
                         updateCount++;
                     }
                 }

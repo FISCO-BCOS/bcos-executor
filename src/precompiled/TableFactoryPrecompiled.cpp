@@ -102,7 +102,7 @@ void TableFactoryPrecompiled::checkCreateTableParam(
         {  // mysql TableName and fieldName length limit is 64
             BOOST_THROW_EXCEPTION(
                 protocol::PrecompiledError()
-                << errinfo_comment("errorCode" + std::to_string(CODE_TABLE_FIELD_LENGTH_OVERFLOW))
+                << errinfo_comment("errorCode: " + std::to_string(CODE_TABLE_FIELD_LENGTH_OVERFLOW))
                 << errinfo_comment(std::string("table key name length overflow ") +
                                    std::to_string(SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH)));
         }
@@ -115,7 +115,7 @@ void TableFactoryPrecompiled::checkCreateTableParam(
         {  // mysql TableName and fieldName length limit is 64
             BOOST_THROW_EXCEPTION(
                 protocol::PrecompiledError()
-                << errinfo_comment("errorCode" + std::to_string(CODE_TABLE_FIELD_LENGTH_OVERFLOW))
+                << errinfo_comment("errorCode: " + std::to_string(CODE_TABLE_FIELD_LENGTH_OVERFLOW))
                 << errinfo_comment(std::string("table field name length overflow ") +
                                    std::to_string(SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH)));
         }
@@ -256,9 +256,6 @@ void TableFactoryPrecompiled::createTable(
             auto parentTable = _executive->storage().openTable(parentDir);
             auto newEntry = parentTable->newEntry();
             newEntry.setField(FS_FIELD_TYPE, FS_TYPE_CONTRACT);
-            newEntry.setField(FS_FIELD_ACCESS, "");
-            newEntry.setField(FS_FIELD_OWNER, _origin);
-            newEntry.setField(FS_FIELD_GID, "");
             newEntry.setField(FS_FIELD_EXTRA, "");
             parentTable->setRow(tableBaseName, std::move(newEntry));
         }

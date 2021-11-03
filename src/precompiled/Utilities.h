@@ -94,7 +94,8 @@ inline void getErrorCodeOut(bytes& out, int const& result, const PrecompiledCode
 }
 inline std::string getTableName(const std::string& _tableName)
 {
-    return USER_TABLE_PREFIX + _tableName;
+    auto tableName = (_tableName[0] == '/') ? _tableName.substr(1) : _tableName;
+    return USER_TABLE_PREFIX + tableName;
 }
 
 void checkNameValidate(std::string_view tableName, std::vector<std::string>& keyFieldList,

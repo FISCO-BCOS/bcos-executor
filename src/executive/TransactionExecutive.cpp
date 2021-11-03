@@ -203,7 +203,9 @@ TransactionExecutive::callPrecompiled(CallParameters::UniquePtr callParameters)
     }
     catch (protocol::PrecompiledError& e)
     {
-        writeErrInfoToOutput(e.what(), callParameters->data);
+        const string* _msg = boost::get_error_info<errinfo_comment>(e);
+        writeErrInfoToOutput(_msg ? *_msg : "error occurs in precompiled, but error_info is empty",
+            callParameters->data);
         revert();
         callParameters->status = (int32_t)TransactionStatus::PrecompiledError;
     }
@@ -286,10 +288,21 @@ std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionE
     creatAuthTable(tableName, callParameters->origin, callParameters->senderAddress);
 
     auto hostContext = std::make_unique<HostContext>(
-        std::move(callParameters), shared_from_this(), std::move(tableName));
+        std::move(callParameters), shared_from_this(), tableName);
 
     if (blockContext->isWasm())
     {
+        // BFS recursive build parent dir and write meta data in parent table
+        if (!buildBfsPath(tableName))
+        {
+            revert();
+            auto callResults = std::move(callParameters);
+            callResults->type = CallParameters::REVERT;
+            callResults->status = (int32_t)TransactionStatus::RevertInstruction;
+            callResults->message = "error occurs in build BFS dir";
+            EXECUTIVE_LOG(ERROR) << callResults->message;
+            return {nullptr, std::move(callResults)};
+        }
         auto extraData = std::make_unique<CallParameters>(CallParameters::MESSAGE);
         extraData->data = params;
         extraData->origin = abi;
@@ -560,8 +573,9 @@ std::shared_ptr<precompiled::PrecompiledExecResult> TransactionExecutive::execPr
     }
     catch (protocol::PrecompiledError& e)
     {
+        const string* _msg = boost::get_error_info<errinfo_comment>(e);
         EXECUTIVE_LOG(ERROR) << "PrecompiledError" << LOG_KV("address", address)
-                             << LOG_KV("message:", e.what());
+                             << LOG_KV("message:", _msg ? *_msg : "");
         BOOST_THROW_EXCEPTION(e);
     }
     catch (std::exception& e)
@@ -789,22 +803,95 @@ void TransactionExecutive::creatAuthTable(
     std::string_view _tableName, std::string_view _origin, std::string_view _sender)
 {
     // Create the access table
-    // TODO: use global variant,
+    // FIXME: use global variant,
     //  /sys/ not create
     if (_tableName.substr(0, 4) == "/sys/")
         return;
-    auto authTableName = std::string(_tableName).append("_accessAuth");
-    // if contract external create contract, then inheritance agent
-    std::string_view agent;
+    auto authTableName = std::string(_tableName).append(CONTRACT_SUFFIX);
+    // if contract external create contract, then inheritance admin
+    std::string_view admin;
     if (_sender != _origin)
     {
-        auto senderAuthTable = getContractTableName(_sender).append("_accessAuth");
-        auto entry = m_storageWrapper->getRow(std::move(senderAuthTable), "agent");
-        agent = entry->getField(STORAGE_VALUE);
+        auto senderAuthTable = getContractTableName(_sender).append(CONTRACT_SUFFIX);
+        auto entry = m_storageWrapper->getRow(std::move(senderAuthTable), ADMIN_FIELD);
+        admin = entry->getField(STORAGE_VALUE);
     }
     auto table = m_storageWrapper->createTable(authTableName, STORAGE_VALUE);
-    auto agentEntry = table->newEntry();
-    agentEntry.setField(STORAGE_VALUE, std::string(agent));
-    m_storageWrapper->setRow(authTableName, "agent", std::move(agentEntry));
-    m_storageWrapper->setRow(authTableName, "interface_auth", table->newEntry());
+    auto adminEntry = table->newEntry();
+    adminEntry.setField(STORAGE_VALUE, std::string(admin));
+    m_storageWrapper->setRow(authTableName, ADMIN_FIELD, std::move(adminEntry));
+    m_storageWrapper->setRow(authTableName, METHOD_AUTH_TYPE, table->newEntry());
+    m_storageWrapper->setRow(authTableName, METHOD_AUTH_WHITE, table->newEntry());
+    m_storageWrapper->setRow(authTableName, METHOD_AUTH_BLACK, table->newEntry());
+}
+
+bool TransactionExecutive::buildBfsPath(std::string const& _absoluteDir)
+{
+    if (_absoluteDir.empty())
+    {
+        return false;
+    }
+    // transfer /usr/local/bin => ["usr", "local", "bin"]
+    std::vector<std::string> dirList;
+    std::string absoluteDir = _absoluteDir;
+    if (absoluteDir[0] == '/')
+    {
+        absoluteDir = absoluteDir.substr(1);
+    }
+    if (absoluteDir.at(absoluteDir.size() - 1) == '/')
+    {
+        absoluteDir = absoluteDir.substr(0, absoluteDir.size() - 1);
+    }
+    boost::split(dirList, absoluteDir, boost::is_any_of("/"), boost::token_compress_on);
+    // last one is baseName
+    std::string baseName = dirList.at(dirList.size() - 1);
+    std::string root = "/";
+
+    for (size_t i = 0; i < dirList.size() - 1; i++)
+    {
+        auto dir = dirList.at(i);
+        auto table = m_storageWrapper->openTable(root);
+        if (!table)
+        {
+            EXECUTIVE_LOG(ERROR) << LOG_BADGE("recursiveBuildDir")
+                                 << LOG_DESC("can not open path table")
+                                 << LOG_KV("tableName", root);
+            return false;
+        }
+        if (root != "/")
+        {
+            root += "/";
+        }
+        auto entry = table->getRow(dir);
+        if (entry)
+        {
+            if (entry->getField(FS_FIELD_TYPE) != FS_TYPE_DIR)
+            {
+                EXECUTIVE_LOG(ERROR) << LOG_BADGE("recursiveBuildDir")
+                                     << LOG_DESC("file had already existed, and not directory type")
+                                     << LOG_KV("parentDir", root) << LOG_KV("dir", dir);
+                return false;
+            }
+            EXECUTIVE_LOG(DEBUG) << LOG_BADGE("recursiveBuildDir")
+                                 << LOG_DESC("dir already existed in parent dir, continue")
+                                 << LOG_KV("parentDir", root) << LOG_KV("dir", dir);
+            root += dir;
+            continue;
+        }
+        // not exist, then create table and write in parent dir
+        auto newFileEntry = table->newEntry();
+        newFileEntry.setField(FS_FIELD_TYPE, FS_TYPE_DIR);
+        newFileEntry.setField(FS_FIELD_EXTRA, "");
+        table->setRow(dir, std::move(newFileEntry));
+
+        m_storageWrapper->createTable(root + dir, FS_FIELD_COMBINED);
+        root += dir;
+    }
+    // table must exist
+    auto table = m_storageWrapper->openTable(root);
+    auto newFileEntry = table->newEntry();
+    newFileEntry.setField(FS_FIELD_TYPE, FS_TYPE_CONTRACT);
+    newFileEntry.setField(FS_FIELD_EXTRA, "");
+    table->setRow(baseName, std::move(newFileEntry));
+    return true;
 }

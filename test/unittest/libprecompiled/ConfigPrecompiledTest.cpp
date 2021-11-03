@@ -217,7 +217,7 @@ public:
     std::string sender;
     Address contractAddress = Address("0x420f853b49838bd3e9466c85a4cc3428c960dde2");
 };
-BOOST_FIXTURE_TEST_SUITE(precompiledTableTest, ConfigPrecompiledFixture)
+BOOST_FIXTURE_TEST_SUITE(precompiledConfigTest, ConfigPrecompiledFixture)
 
 BOOST_AUTO_TEST_CASE(paraConfig_test)
 {
@@ -493,6 +493,9 @@ BOOST_AUTO_TEST_CASE(consensus_test)
 
     auto callFunc = [&](protocol::BlockNumber _number, int _contextId, const std::string& method,
                         const std::string& _nodeId, int _w = -1, int _errorCode = 0) {
+        BCOS_LOG(DEBUG) << LOG_BADGE("consensus_test") << LOG_KV("method", method)
+                        << LOG_KV("_nodeId", _nodeId) << LOG_KV("_w", _w)
+                        << LOG_KV("_errorCode", _errorCode);
         nextBlock(_number);
         bytes in = _w < 0 ? codec->encodeWithSig(method, _nodeId) :
                             codec->encodeWithSig(method, _nodeId, u256(_w));
@@ -537,51 +540,54 @@ BOOST_AUTO_TEST_CASE(consensus_test)
 
     // node id too short
     {
-        callFunc(1, 100, "addSealerTest(string,uint256)", std::string("111111"), 1,
+        callFunc(2, 100, "addSealerTest(string,uint256)", std::string("111111"), 1,
             CODE_INVALID_NODE_ID);
 
         callFunc(
-            2, 101, "addObserverTest(string)", std::string("111111"), -1, CODE_INVALID_NODE_ID);
-        callFunc(3, 102, "removeTest(string)", std::string("111111"), -1, CODE_INVALID_NODE_ID);
-        callFunc(4, 103, "setWeightTest(string,uint256)", std::string("111111"), 11,
+            2, 100, "addObserverTest(string)", std::string("111111"), -1, CODE_INVALID_NODE_ID);
+        callFunc(2, 100, "removeTest(string)", std::string("111111"), -1, CODE_INVALID_NODE_ID);
+        callFunc(2, 100, "setWeightTest(string,uint256)", std::string("111111"), 11,
             CODE_INVALID_NODE_ID);
     }
 
     // add sealer node1
     {
-        callFunc(5, 104, "addSealerTest(string,uint256)", node1, 1, 0);
+        callFunc(3, 101, "addSealerTest(string,uint256)", node1, 1, 0);
     }
 
     // add observer node2
     {
-        callFunc(6, 105, "addObserverTest(string)", node2, -1, 0);
+        callFunc(4, 105, "addObserverTest(string)", node2, -1, 0);
     }
 
     // turn last sealer to observer
     {
-        callFunc(7, 106, "addObserverTest(string)", node1, -1, CODE_LAST_SEALER);
+        callFunc(5, 106, "addObserverTest(string)", node1, -1, CODE_LAST_SEALER);
     }
 
     // removeTest last sealer
     {
-        callFunc(8, 107, "removeTest(string)", node1, -1, CODE_LAST_SEALER);
+        callFunc(5, 107, "removeTest(string)", node1, -1, CODE_LAST_SEALER);
     }
 
     // set an invalid weight(0) to node
     {
-        callFunc(9, 108, "setWeightTest(string,uint256)", node1, 0, CODE_INVALID_WEIGHT);
+        callFunc(5, 108, "setWeightTest(string,uint256)", node1, 0, CODE_INVALID_WEIGHT);
     }
 
-    // FIXME: this will occur EXC_BAD_ACCESS
+    // set a valid weight(2) to node1
+    {
+        callFunc(5, 108, "setWeightTest(string,uint256)", node1, 2);
+    }
+
     // removeTest observer
     {
-        callFunc(9, 108, "removeTest(string)", node2, -1, 0);
+        callFunc(6, 108, "removeTest(string)", node2, -1, 0);
     }
 
-    // TODO: remove it first
     // set weigh to not exist node2
     {
-        callFunc(10, 109, "setWeightTest(string,uint256)", node2, 123, CODE_NODE_NOT_EXIST);
+        callFunc(6, 109, "setWeightTest(string,uint256)", node2, 123, CODE_NODE_NOT_EXIST);
     }
 }
 

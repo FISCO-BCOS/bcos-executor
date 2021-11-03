@@ -90,6 +90,7 @@ void FileSystemPrecompiled::makeDir(
     auto codec =
         std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     codec->decode(data, absolutePath);
+    PRECOMPILED_LOG(DEBUG) << LOG_BADGE("FileSystemPrecompiled") << LOG_KV("mkdir", absolutePath);
     if (!checkPathValid(absolutePath))
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("FileSystemPrecompiled")
@@ -126,6 +127,7 @@ void FileSystemPrecompiled::listDir(
     auto codec =
         std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     codec->decode(data, absolutePath);
+    PRECOMPILED_LOG(DEBUG) << LOG_BADGE("FileSystemPrecompiled") << LOG_KV("ls", absolutePath);
     if (!checkPathValid(absolutePath))
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("FileSystemPrecompiled")
@@ -175,8 +177,6 @@ void FileSystemPrecompiled::listDir(
                 Json::Value file;
                 file[FS_KEY_NAME] = fileName;
                 file[FS_FIELD_TYPE] = std::string(entry->getField(FS_FIELD_TYPE));
-                file[FS_FIELD_OWNER] = std::string(entry->getField(FS_FIELD_OWNER));
-                file[FS_FIELD_GID] = std::string(entry->getField(FS_FIELD_GID));
                 file[FS_FIELD_EXTRA] = std::string(entry->getField(FS_FIELD_EXTRA));
                 subdirectory.append(file);
             }
@@ -193,8 +193,6 @@ void FileSystemPrecompiled::listDir(
             Json::Value file;
             file[FS_KEY_NAME] = baseName;
             file[FS_FIELD_TYPE] = std::string(baseEntry->getField(FS_FIELD_TYPE));
-            file[FS_FIELD_OWNER] = std::string(baseEntry->getField(FS_FIELD_OWNER));
-            file[FS_FIELD_GID] = std::string(baseEntry->getField(FS_FIELD_GID));
             file[FS_FIELD_EXTRA] = std::string(baseEntry->getField(FS_FIELD_EXTRA));
             fileList.append(file);
             Json::FastWriter fastWriter;
