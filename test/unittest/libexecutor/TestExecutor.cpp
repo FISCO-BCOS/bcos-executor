@@ -31,6 +31,7 @@
 #include "libprotocol/protobuf/PBBlockHeader.h"
 #include "libstorage/StateStorage.h"
 #include "precompiled/PrecompiledCodec.h"
+#include "storage/LRUStorage.h"
 #include <bcos-framework/libexecutor/NativeExecutionMessage.h>
 #include <bcos-framework/testutils/crypto/HashImpl.h>
 #include <bcos-framework/testutils/crypto/SignatureImpl.h>
@@ -72,8 +73,10 @@ struct TransactionExecutorFixture
         backend = std::make_shared<MockTransactionalStorage>(hashImpl);
         auto executionResultFactory = std::make_shared<NativeExecutionMessageFactory>();
 
+        auto lruStorage = std::make_shared<bcos::executor::LRUStorage>(backend);
+
         executor = std::make_shared<TransactionExecutor>(
-            txpool, nullptr, backend, executionResultFactory, hashImpl, false);
+            txpool, lruStorage, backend, executionResultFactory, hashImpl, false);
 
         keyPair = cryptoSuite->signatureImpl()->generateKeyPair();
         memcpy(keyPair->secretKey()->mutableData(),
