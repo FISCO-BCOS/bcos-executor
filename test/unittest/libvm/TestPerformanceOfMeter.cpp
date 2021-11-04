@@ -299,6 +299,91 @@ BOOST_AUTO_TEST_CASE(origin_wasmtime)
     wasm_engine_delete(engine);
 }
 
+BOOST_AUTO_TEST_CASE(origin_function_call_wasmtime)
+{
+    wasmtime_error_t* error = NULL;
+
+    wasm_config_t* config = wasm_config_new();
+    assert(config != NULL);
+    // Create an *engine*, which is a compilation context, with our configured options.
+    wasm_engine_t* engine = wasm_engine_new_with_config(config);
+    assert(engine != NULL);
+    wasmtime_store_t* store = wasmtime_store_new(engine, NULL, NULL);
+    assert(store != NULL);
+    wasmtime_context_t* context = wasmtime_store_context(store);
+
+    // Load our input file to parse it next
+    FILE* file = fopen(originBinary, "r");
+    if (!file)
+    {
+        BOOST_FAIL("> Error reading file!\n");
+        return;
+    }
+    fseek(file, 0L, SEEK_END);
+    size_t file_size = ftell(file);
+    fseek(file, 0L, SEEK_SET);
+    wasm_byte_vec_t wasm;
+    wasm_byte_vec_new_uninitialized(&wasm, file_size);
+    if (fread(wasm.data, file_size, 1, file) != 1)
+    {
+        BOOST_FAIL("> Error loading module!\n");
+        return;
+    }
+    fclose(file);
+
+    // Compile and instantiate our module
+    wasmtime_module_t* module = NULL;
+    error = wasmtime_module_new(engine, (uint8_t*)wasm.data, wasm.size, &module);
+    if (module == NULL)
+        exit_with_error("failed to compile module", error, NULL);
+    wasm_byte_vec_delete(&wasm);
+
+    // Create external print functions.
+    wasm_functype_t* bcos_setStorage_type = wasm_functype_new_4_0(wasm_valtype_new_i32(),
+        wasm_valtype_new_i32(), wasm_valtype_new_i32(), wasm_valtype_new_i32());
+    wasmtime_func_t setStorage_func;
+    wasmtime_func_new(
+        context, bcos_setStorage_type, bcos_setStorage_wasmtime, NULL, NULL, &setStorage_func);
+    // wasm_functype_delete(bcos_setStorage_type);
+    wasmtime_extern_t import;
+    import.kind = WASMTIME_EXTERN_FUNC;
+    import.of.func = setStorage_func;
+
+    wasm_trap_t* trap = NULL;
+    wasmtime_instance_t instance;
+    error = wasmtime_instance_new(context, module, &import, 1, &instance, &trap);
+    if (error != NULL || trap != NULL)
+        exit_with_error("failed to instantiate", error, trap);
+
+    wasmtime_extern_t main;
+    bool ok = wasmtime_instance_export_get(context, &instance, "main2", strlen("main2"), &main);
+    assert(ok);
+    assert(main.kind == WASMTIME_EXTERN_FUNC);
+
+    // Call it repeatedly until it fails
+    auto start = chrono::system_clock::now();
+    for (int n = 0; n < count; n++)
+    {
+        error = wasmtime_func_call(context, &main.of.func, nullptr, 0, nullptr, 0, &trap);
+        if (error != NULL || trap != NULL)
+        {
+            wasm_byte_vec_t error_message;
+            wasmtime_error_message(error, &error_message);
+            cout << string(error_message.data, error_message.size) << endl;
+            printf("Exhausted fuel computing main(%d)\n", n);
+            break;
+        }
+    }
+    auto end = chrono::system_clock::now();
+    cout << "origin_wasmtime function call function " << count << " times, time used(us)="
+         << chrono::duration_cast<chrono::microseconds>(end - start).count() << endl;
+
+    // Clean up after ourselves at this point
+    wasmtime_module_delete(module);
+    wasmtime_store_delete(store);
+    wasm_engine_delete(engine);
+}
+
 BOOST_AUTO_TEST_CASE(origin_fuel)
 {
     wasmtime_error_t* error = NULL;
@@ -588,12 +673,11 @@ BOOST_AUTO_TEST_CASE(globalGas)
         }
     }
     auto end = chrono::system_clock::now();
-    cout << "globalGas call function " << count << " times, time used(us)="
-         << chrono::duration_cast<chrono::microseconds>(end - start).count() << endl;
     wasmtime_val_t finalValue;
     wasmtime_global_get(context, &globalGas, &finalValue);
-    cout << "globalGas call function left=" << finalValue.of.i64 << endl;
     BOOST_TEST(finalValue.kind, WASMTIME_I64);
+    cout << "globalGas call function " << count << " times, time used(us)="
+         << chrono::duration_cast<chrono::microseconds>(end - start).count() << ", left=" << finalValue.of.i64 << endl;
 
     // Clean up after ourselves at this point
     wasmtime_module_delete(module);
@@ -823,7 +907,6 @@ BOOST_AUTO_TEST_CASE(useGas_infinit_loop)
     wasmtime_store_delete(store);
     wasm_engine_delete(engine);
 }
-
 
 BOOST_AUTO_TEST_SUITE_END()
 

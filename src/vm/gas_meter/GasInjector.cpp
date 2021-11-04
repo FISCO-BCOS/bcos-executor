@@ -40,8 +40,7 @@ const char* const OUT_OF_GAS_NAME = "outOfGas";
 const char* const GLOBAL_GAS_NAME = "gas";
 
 // write wasm will not use loc, so wrong loc doesn't matter
-void GasInjector::InjectMeterExprList(ExprList* exprs, Index funcIndex, Index tmpVarIndex,
-    Index globalGasIndex, bool foundGasFunction)
+void GasInjector::InjectMeterExprList(ExprList* exprs, const ImportsInfo& info)
 {
     auto insertPoint = exprs->begin();
     int64_t gasCost = 0;
@@ -49,10 +48,10 @@ void GasInjector::InjectMeterExprList(ExprList* exprs, Index funcIndex, Index tm
         // sub
         auto sub = MakeUnique<BinaryExpr>(Opcode::I64Sub);
         exprs->insert(loc, std::move(sub));
-        auto set = MakeUnique<GlobalSetExpr>(Var(globalGasIndex));
+        auto set = MakeUnique<GlobalSetExpr>(Var(info.globalGasIndex));
         exprs->insert(loc, std::move(set));
         // check if gas < 0, then call outOfGas
-        auto getGas = MakeUnique<GlobalGetExpr>(Var(globalGasIndex));
+        auto getGas = MakeUnique<GlobalGetExpr>(Var(info.globalGasIndex));
         exprs->insert(loc, std::move(getGas));
         auto zero = MakeUnique<ConstExpr>(Const::I64(0));
         exprs->insert(loc, std::move(zero));
@@ -61,18 +60,18 @@ void GasInjector::InjectMeterExprList(ExprList* exprs, Index funcIndex, Index tm
         auto ifExpr = MakeUnique<IfExpr>();
         ifExpr->true_.decl.has_func_type = false;
         ifExpr->true_.decl.sig.param_types.clear();
-        ifExpr->true_.end_loc;
+        // ifExpr->true_.end_loc;
         auto voidType = Type(Type::Void);
         ifExpr->true_.decl.sig.result_types = voidType.GetInlineVector();
-        auto outOfGas = MakeUnique<CallExpr>(Var(funcIndex));
+        auto outOfGas = MakeUnique<CallExpr>(Var(info.gasFuncIndex));
         ifExpr->true_.exprs.insert(ifExpr->true_.exprs.begin(), std::move(outOfGas));
         exprs->insert(loc, std::move(ifExpr));
     };
-    auto insertUseGasLogic = [&](ExprList::iterator loc,
-                                int64_t& gas, ExprList::iterator current) -> ExprList::iterator {
+    auto insertUseGasLogic = [&](ExprList::iterator loc, int64_t& gas,
+                                 ExprList::iterator current) -> ExprList::iterator {
         if (gas > 0)
         {
-            auto getGas = MakeUnique<GlobalGetExpr>(Var(globalGasIndex));
+            auto getGas = MakeUnique<GlobalGetExpr>(Var(info.globalGasIndex));
             exprs->insert(loc, std::move(getGas));
             auto constGas = MakeUnique<ConstExpr>(Const::I64(gas));
             exprs->insert(loc, std::move(constGas));
@@ -120,8 +119,7 @@ void GasInjector::InjectMeterExprList(ExprList* exprs, Index funcIndex, Index tm
         {
             auto& block = cast<BlockExpr>(&*it)->block;
             insertPoint = insertUseGasLogic(insertPoint, gasCost, it);
-            InjectMeterExprList(
-                &block.exprs, funcIndex, tmpVarIndex, globalGasIndex, foundGasFunction);
+            InjectMeterExprList(&block.exprs, info);
             break;
         }
         case ExprType::Br:
@@ -145,10 +143,11 @@ void GasInjector::InjectMeterExprList(ExprList* exprs, Index funcIndex, Index tm
         case ExprType::Call:
         {
             auto& var = cast<CallExpr>(&*it)->var;
-            if (var.index() >= funcIndex && !foundGasFunction)
+            if (var.index() >= info.originSize && !info.foundGasFunction)
             {  // add outOfGas import, so update call func index
                 var.set_index(var.index() + 1);
             }
+
             gasCost += m_costTable[Instruction::Enum::Call].Cost;
             insertPoint = insertUseGasLogic(insertPoint, gasCost, it);
             break;
@@ -212,24 +211,28 @@ void GasInjector::InjectMeterExprList(ExprList* exprs, Index funcIndex, Index tm
         }
         case ExprType::GlobalGet:
         {
+            auto& var = cast<GlobalGetExpr>(&*it)->var;
+            // add globalGas import, so update global index
+            var.set_index(var.index() + 1);
             gasCost += m_costTable[Instruction::Enum::GlobalGet].Cost;
             break;
         }
         case ExprType::GlobalSet:
         {
+            auto& var = cast<GlobalSetExpr>(&*it)->var;
+            // add globalGas import, so update global index
+            var.set_index(var.index() + 1);
             gasCost += m_costTable[Instruction::Enum::GlobalSet].Cost;
             break;
         }
         case ExprType::If:
         {
             auto ifExpr = cast<IfExpr>(&*it);
-            InjectMeterExprList(
-                &ifExpr->true_.exprs, funcIndex, tmpVarIndex, globalGasIndex, foundGasFunction);
+            InjectMeterExprList(&ifExpr->true_.exprs, info);
             if (!ifExpr->false_.empty())
             {
                 gasCost += m_costTable[Instruction::Enum::Else].Cost;
-                InjectMeterExprList(
-                    &ifExpr->false_, funcIndex, tmpVarIndex, globalGasIndex, foundGasFunction);
+                InjectMeterExprList(&ifExpr->false_, info);
             }
             insertPoint = insertUseGasLogic(insertPoint, gasCost, it);
             break;
@@ -259,17 +262,16 @@ void GasInjector::InjectMeterExprList(ExprList* exprs, Index funcIndex, Index tm
         {
             insertPoint = insertUseGasLogic(insertPoint, gasCost, it);
             auto& block = cast<LoopExpr>(&*it)->block;
-            InjectMeterExprList(
-                &block.exprs, funcIndex, tmpVarIndex, globalGasIndex, foundGasFunction);
+            InjectMeterExprList(&block.exprs, info);
             break;
         }
         case ExprType::MemoryGrow:
         {
-            auto localTee = MakeUnique<LocalTeeExpr>(Var(tmpVarIndex));
+            auto localTee = MakeUnique<LocalTeeExpr>(Var(info.tempVarForMemoryGasIndex));
             exprs->insert(it, std::move(localTee));
-            auto getGas = MakeUnique<GlobalGetExpr>(Var(globalGasIndex));
+            auto getGas = MakeUnique<GlobalGetExpr>(Var(info.globalGasIndex));
             exprs->insert(it, std::move(getGas));
-            auto localGet = MakeUnique<LocalGetExpr>(Var(tmpVarIndex));
+            auto localGet = MakeUnique<LocalGetExpr>(Var(info.tempVarForMemoryGasIndex));
             exprs->insert(it, std::move(localGet));
             auto constGas =
                 MakeUnique<ConstExpr>(Const::I32(m_costTable[Instruction::Enum::MemoryGrow].Cost));
@@ -405,6 +407,7 @@ GasInjector::Result GasInjector::InjectMeter(const std::vector<uint8_t>& byteCod
     // check if import outOfGas function
     Index outOfGasIndex = 0;
     bool foundGasFunction = false;
+    uint32_t originImportSize = module.imports.size();
     for (size_t i = 0; i < module.imports.size(); ++i)
     {
         const Import* import = module.imports[i];
@@ -459,8 +462,7 @@ GasInjector::Result GasInjector::InjectMeter(const std::vector<uint8_t>& byteCod
         ++module.num_func_imports;
         module.imports.push_back(import.get());
         module.fields.push_back(MakeUnique<ImportModuleField>(std::move(import)));
-        outOfGasIndex = module.imports.size() - 1;
-
+        outOfGasIndex = originImportSize;
         for (Export* exportItem : module.exports)
         {
             if (exportItem->kind == ExternalKind::Func)
@@ -481,6 +483,7 @@ GasInjector::Result GasInjector::InjectMeter(const std::vector<uint8_t>& byteCod
             }
         }
     }
+
     // add global var gas
     auto globalGas = MakeUnique<GlobalImport>(GLOBAL_GAS_NAME);
     globalGas->module_name = MODULE_NAME;
@@ -490,11 +493,15 @@ GasInjector::Result GasInjector::InjectMeter(const std::vector<uint8_t>& byteCod
     globalGas->global.mutable_ = true;
     auto zero = MakeUnique<ConstExpr>(Const::I64(0));
     globalGas->global.init_expr.push_back(std::move(zero));
-    Index globalGasIndex = module.globals.size();
-    module.AppendField(MakeUnique<ImportModuleField>(std::move(globalGas)));
+    module.globals.insert(module.globals.begin(), &globalGas->global);
+    ++module.num_global_imports;
+    module.imports.push_back(globalGas.get());
+    module.fields.push_back(MakeUnique<ImportModuleField>(std::move(globalGas)));
+    // module.AppendField(MakeUnique<ImportModuleField>(std::move(globalGas)));
 
     try
     {
+        ImportsInfo info{foundGasFunction, outOfGasIndex, 0, 0, originImportSize};
         // FIXME: main and deploy of wasm should charge memory gas first
         for (Func* func : module.funcs)
         {  // scan opcode and add meter logic
@@ -502,13 +509,14 @@ GasInjector::Result GasInjector::InjectMeter(const std::vector<uint8_t>& byteCod
             {
                 continue;
             }
-            Index tmpVarIndex = func->GetNumParamsAndLocals();
+            Index tempVarIndex = func->GetNumParamsAndLocals();
             func->local_types.AppendDecl(Type::Enum::I32, 1);
+            info.tempVarForMemoryGasIndex = tempVarIndex;
             // cout << "Func:" << func->name << ", type index:" << func->decl.type_var.index()
-            //      << ", expr size:" << func->exprs.size() << ",tmpVarIndex:" << tmpVarIndex
+            //      << ", expr size:" << func->exprs.size() << ",info.tempVarForMemoryGasIndex:" <<
+            //      info.tempVarForMemoryGasIndex
             //      << "/" << func->local_types.size() << endl;
-            InjectMeterExprList(
-                &func->exprs, outOfGasIndex, tmpVarIndex, globalGasIndex, foundGasFunction);
+            InjectMeterExprList(&func->exprs, info);
         }
     }
     catch (const InvalidInstruction& e)

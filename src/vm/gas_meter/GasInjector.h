@@ -68,8 +68,15 @@ public:
     Result InjectMeter(const std::vector<uint8_t>& byteCode);
 
 private:
+    struct ImportsInfo{
+        bool foundGasFunction = false;
+        uint32_t gasFuncIndex;
+        uint32_t globalGasIndex;
+        uint32_t tempVarForMemoryGasIndex;
+        uint32_t originSize;
+    };
     void InjectMeterExprList(
-        wabt::ExprList* exprs, uint32_t funcIndex, uint32_t tmpVarIndex, uint32_t globalGas, bool foundGasFunction);
+        wabt::ExprList* exprs, const ImportsInfo & info);
     const InstructionTable m_costTable;
 };
 
