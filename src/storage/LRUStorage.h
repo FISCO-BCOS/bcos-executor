@@ -52,8 +52,8 @@ private:
           : EntryKey(table, std::move(key)), capacity(_capacity)
         {}
 
-        EntryKeyWrapper(const EntryKeyWrapper&) = delete;
-        EntryKeyWrapper& operator=(const EntryKeyWrapper&) = delete;
+        EntryKeyWrapper(const EntryKeyWrapper&) = default;
+        EntryKeyWrapper& operator=(const EntryKeyWrapper&) = default;
 
         EntryKeyWrapper(EntryKeyWrapper&&) noexcept = default;
         EntryKeyWrapper& operator=(EntryKeyWrapper&&) noexcept = default;
