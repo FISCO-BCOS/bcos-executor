@@ -287,8 +287,8 @@ std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionE
     // Create auth table
     creatAuthTable(tableName, callParameters->origin, callParameters->senderAddress);
 
-    auto hostContext = std::make_unique<HostContext>(
-        std::move(callParameters), shared_from_this(), tableName);
+    auto hostContext =
+        std::make_unique<HostContext>(std::move(callParameters), shared_from_this(), tableName);
 
     if (blockContext->isWasm())
     {
@@ -433,6 +433,12 @@ CallParameters::UniquePtr TransactionExecutive::go(
             }
             else
             {
+                if (outputRef.empty())
+                {
+                    EXECUTOR_LOG(ERROR) << "Create contract with empty code!";
+                    BOOST_THROW_EXCEPTION(BCOS_ERROR(bcos::executor::ExecuteError::EXECUTE_ERROR,
+                        "Create contract with empty code!"));
+                }
                 hostContext.setCode(outputRef.toBytes());
             }
 
