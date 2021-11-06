@@ -1,6 +1,5 @@
 #pragma once
 
-#include "../Common.h"
 #include <bcos-framework/interfaces/storage/StorageInterface.h>
 #include <bcos-framework/libstorage/StateStorage.h>
 #include <tbb/concurrent_queue.h>
@@ -21,9 +20,7 @@ public:
     LRUStorage(std::shared_ptr<StorageInterface> prev) : StateStorage(std::move(prev)) {}
     ~LRUStorage() noexcept override
     {
-        EXECUTOR_LOG(TRACE) << "Removing thread...";
         stop();
-        EXECUTOR_LOG(TRACE) << "Remove thread finished";
     }
 
     void asyncGetPrimaryKeys(const std::string_view& table,

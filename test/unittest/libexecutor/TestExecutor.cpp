@@ -31,7 +31,7 @@
 #include "libprotocol/protobuf/PBBlockHeader.h"
 #include "libstorage/StateStorage.h"
 #include "precompiled/PrecompiledCodec.h"
-#include "storage/LRUStorage.h"
+#include "bcos-executor/LRUStorage.h"
 #include <bcos-framework/libexecutor/NativeExecutionMessage.h>
 #include <bcos-framework/testutils/crypto/HashImpl.h>
 #include <bcos-framework/testutils/crypto/SignatureImpl.h>

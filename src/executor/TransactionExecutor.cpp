@@ -1442,11 +1442,11 @@ void TransactionExecutor::checkAndClear()
         }
         else
         {
-            // it = m_stateStorages.erase(it);
-            // if (it != m_stateStorages.end())
-            // {
-            //     it->storage->setPrev(m_backendStorage);
-            // }
+            it = m_stateStorages.erase(it);
+            if (it != m_stateStorages.end())
+            {
+                it->storage->setPrev(m_backendStorage);
+            }
         }
     }
 }

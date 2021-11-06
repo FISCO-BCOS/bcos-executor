@@ -1,4 +1,4 @@
-#include "../../src/storage/LRUStorage.h"
+#include "bcos-executor/LRUStorage.h"
 #include <bcos-framework/testutils/TestPromptFixture.h>
 #include <bcos-framework/testutils/crypto/HashImpl.h>
 #include <boost/test/unit_test.hpp>
