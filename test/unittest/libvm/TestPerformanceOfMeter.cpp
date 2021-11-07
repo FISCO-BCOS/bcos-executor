@@ -189,10 +189,8 @@ BOOST_AUTO_TEST_CASE(origin_wasmc)
 
     // Call.
     printf("Calling export %d times...\n", count);
-    wasm_val_t as[] = {};
-    wasm_val_t rs[] = {};
-    wasm_val_vec_t args = WASM_ARRAY_VEC(as);
-    wasm_val_vec_t results = WASM_ARRAY_VEC(rs);
+    wasm_val_vec_t args{0, nullptr};
+    wasm_val_vec_t results{0, nullptr};
     auto start = chrono::system_clock::now();
     for (int n = 0; n < count; n++)
     {
@@ -677,7 +675,8 @@ BOOST_AUTO_TEST_CASE(globalGas)
     wasmtime_global_get(context, &globalGas, &finalValue);
     BOOST_TEST(finalValue.kind, WASMTIME_I64);
     cout << "globalGas call function " << count << " times, time used(us)="
-         << chrono::duration_cast<chrono::microseconds>(end - start).count() << ", left=" << finalValue.of.i64 << endl;
+         << chrono::duration_cast<chrono::microseconds>(end - start).count()
+         << ", left=" << finalValue.of.i64 << endl;
 
     // Clean up after ourselves at this point
     wasmtime_module_delete(module);
