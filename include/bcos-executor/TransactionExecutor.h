@@ -165,7 +165,7 @@ private:
 
     void initPrecompiled();
 
-    void checkAndClear();
+    void removeCommittedState();
 
     void dagExecuteTransactionsForEvm(gsl::span<bcos::protocol::ExecutionMessage::UniquePtr> inputs,
         bcos::protocol::TransactionsPtr transactions,

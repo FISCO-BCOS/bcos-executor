@@ -47,9 +47,10 @@ namespace executor
 #define EXECUTOR_LOG(LEVEL) BCOS_LOG(LEVEL) << LOG_BADGE("EXECUTOR")
 #define PARA_LOG(LEVEL) BCOS_LOG(LEVEL) << LOG_BADGE("PARA") << LOG_BADGE(utcTime())
 
-enum ExecuteError
+enum ExecuteError : int32_t
 {
-    SUCCESS = 0,
+    SUCCESS = -80000,
+    INVALID_BLOCKNUMBER,
     GETHASH_ERROR,
     CALL_ERROR,
     EXECUTE_ERROR,

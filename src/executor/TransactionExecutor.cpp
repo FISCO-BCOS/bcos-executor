@@ -59,6 +59,8 @@
 #include <tbb/parallel_for.h>
 #include <boost/algorithm/hex.hpp>
 #include <boost/exception/detail/exception_ptr.hpp>
+#include <boost/format.hpp>
+#include <boost/format/format_fwd.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/thread/latch.hpp>
 #include <boost/throw_exception.hpp>
@@ -130,6 +132,16 @@ void TransactionExecutor::nextBlockHeader(const bcos::protocol::BlockHeader::Con
             else
             {
                 auto& prev = m_stateStorages.back();
+
+                if (blockHeader->number() - prev.number != 1)
+                {
+                    auto fmt = boost::format("Block number mismatch! request: %d, current: %d") %
+                               blockHeader->number() % prev.number;
+                    EXECUTOR_LOG(ERROR) << fmt;
+                    callback(BCOS_ERROR_UNIQUE_PTR(ExecuteError::EXECUTE_ERROR, fmt.str()));
+                    return;
+                }
+
                 stateStorage = std::make_shared<bcos::storage::StateStorage>(prev.storage);
             }
 
@@ -837,7 +849,7 @@ void TransactionExecutor::commit(
     {
         auto errorMessage = "Commit error: empty stateStorages";
         EXECUTOR_LOG(ERROR) << errorMessage;
-        callback(BCOS_ERROR_PTR(-1, errorMessage));
+        callback(BCOS_ERROR_PTR(INVALID_BLOCKNUMBER, errorMessage));
 
         return;
     }
@@ -850,7 +862,7 @@ void TransactionExecutor::commit(
             " not equal to last blockNumber: " + boost::lexical_cast<std::string>(first->number);
 
         EXECUTOR_LOG(ERROR) << errorMessage;
-        callback(BCOS_ERROR_PTR(-1, errorMessage));
+        callback(BCOS_ERROR_PTR(INVALID_BLOCKNUMBER, errorMessage));
 
         return;
     }
@@ -873,7 +885,7 @@ void TransactionExecutor::commit(
 
             m_lastCommitedBlockNumber = blockNumber;
 
-            checkAndClear();
+            removeCommittedState();
 
             callback(nullptr);
         });
@@ -1406,12 +1418,13 @@ void TransactionExecutor::initPrecompiled()
     }
 }
 
-void TransactionExecutor::checkAndClear()
+void TransactionExecutor::removeCommittedState()
 {
     std::unique_lock<std::shared_mutex> lock(m_stateStoragesMutex);
 
     if (m_stateStorages.empty())
     {
+        EXECUTOR_LOG(ERROR) << "Remove committed state failed, empty states";
         return;
     }
 
@@ -1426,7 +1439,7 @@ void TransactionExecutor::checkAndClear()
             it->storage->setPrev(m_cachedStorage);
         }
     }
-    else
+    else if (m_backendStorage)
     {
         it = m_stateStorages.erase(it);
         if (it != m_stateStorages.end())
