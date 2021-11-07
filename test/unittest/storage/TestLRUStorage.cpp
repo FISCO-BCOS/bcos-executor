@@ -369,7 +369,7 @@ BOOST_AUTO_TEST_CASE(chainLink)
     auto valueFields = "value1,value2,value3";
 
     StateStorage::Ptr prev = nullptr;
-    for (int i = 0; i < 20; ++i)
+    for (int i = 0; i < 10; ++i)
     {
         auto tableStorage = std::make_shared<StateStorage>(prev);
         for (int j = 0; j < 10; ++j)
@@ -381,7 +381,7 @@ BOOST_AUTO_TEST_CASE(chainLink)
             auto table = tableStorage->openTable(tableName);
             BOOST_TEST(table);
 
-            for (int k = 0; k < 100; ++k)
+            for (int k = 0; k < 10; ++k)
             {
                 auto entry = std::make_optional(table->newEntry());
                 auto key =
@@ -397,29 +397,29 @@ BOOST_AUTO_TEST_CASE(chainLink)
         storages.push_back(tableStorage);
     }
 
-    for (int index = 0; index < 20; ++index)
+    for (int index = 0; index < 10; ++index)
     {
         auto storage = storages[index];
-        // Data count must be 10 * 100 + 10
+        // Data count must be 10 * 10 + 10
         tbb::atomic<size_t> totalCount = 0;
         storage->parallelTraverse(false, [&](auto&&, auto&&, auto&&) {
             ++totalCount;
             return true;
         });
 
-        BOOST_CHECK_EQUAL(totalCount, 10 * 100 + 10);  // extra 100 for s_tables
+        BOOST_CHECK_EQUAL(totalCount, 10 * 10 + 10);  // extra 100 for s_tables
 
-        // Dirty data count must be 10 * 100 + 10
+        // Dirty data count must be 10 * 10 + 10
         tbb::atomic<size_t> dirtyCount = 0;
         storage->parallelTraverse(true, [&](auto&&, auto&&, auto&&) {
             ++dirtyCount;
             return true;
         });
 
-        BOOST_CHECK_EQUAL(dirtyCount, 10 * 100 + 10);  // extra 100 for s_tables
+        BOOST_CHECK_EQUAL(dirtyCount, 10 * 10 + 10);  // extra 100 for s_tables
 
         // Low level can't touch high level's data
-        for (int i = 0; i < 20; ++i)
+        for (int i = 0; i < 10; ++i)
         {
             for (int j = 0; j < 10; ++j)
             {
@@ -435,7 +435,7 @@ BOOST_AUTO_TEST_CASE(chainLink)
                 {
                     BOOST_TEST(table);
 
-                    for (int k = 0; k < 100; ++k)
+                    for (int k = 0; k < 10; ++k)
                     {
                         auto key = boost::lexical_cast<std::string>(i) +
                                    boost::lexical_cast<std::string>(k);
@@ -485,7 +485,7 @@ BOOST_AUTO_TEST_CASE(chainLink)
 
                     BOOST_CHECK_LE(i, index);
                     BOOST_CHECK_LE(j, 10);
-                    BOOST_CHECK_LE(k, 100);
+                    BOOST_CHECK_LE(k, 10);
                 }
             });
 
@@ -498,7 +498,7 @@ BOOST_AUTO_TEST_CASE(chainLink)
             it();
         }
 
-        BOOST_CHECK_EQUAL(totalCount, (10 * 100 + 10) * (index + 1));
+        BOOST_CHECK_EQUAL(totalCount, (10 * 10 + 10) * (index + 1));
 
         checks.clear();
         dirtyCount = 0;
@@ -521,7 +521,7 @@ BOOST_AUTO_TEST_CASE(chainLink)
                     }
 
                     BOOST_CHECK_LE(j, 10);
-                    BOOST_CHECK_LE(k, 100);
+                    BOOST_CHECK_LE(k, 10);
                 }
             });
 
@@ -534,7 +534,7 @@ BOOST_AUTO_TEST_CASE(chainLink)
             it();
         }
 
-        BOOST_CHECK_EQUAL(dirtyCount, 10 * 100 + 10);
+        BOOST_CHECK_EQUAL(dirtyCount, 10 * 10 + 10);
     }
 }
 

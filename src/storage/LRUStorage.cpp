@@ -131,7 +131,7 @@ void LRUStorage::startLoop()
                     auto& item = m_mru.front();
 
                     bcos::storage::Entry entry;
-                    entry.setStatus(bcos::storage::Entry::DELETED);
+                    entry.setStatus(bcos::storage::Entry::PURGED);
 
                     storage::StateStorage::asyncSetRow(
                         item.table(), item.key(), std::move(entry), [](Error::UniquePtr) {});

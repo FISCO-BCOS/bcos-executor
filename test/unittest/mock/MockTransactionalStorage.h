@@ -76,7 +76,7 @@ public:
                 //EXECUTOR_LOG(TRACE) << "Merge data" << LOG_KV("table", table)
                 //                 << LOG_KV("key", keyHex) << LOG_KV("fields", fields);
 
-                auto myTable = m_inner->openTable(std::string(table));
+                auto myTable = m_inner->openTable(table);
                 if (!myTable)
                 {
                     m_inner->createTable(std::string(table), executor::STORAGE_VALUE);

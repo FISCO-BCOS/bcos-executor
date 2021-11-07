@@ -192,11 +192,16 @@ private:
 
     struct State
     {
+        State(bcos::protocol::BlockNumber _number, bcos::storage::StateStorage::Ptr _storage)
+          : number(_number), storage(_storage)
+        {}
+        State(const State&) = delete;
+        State& operator=(const State&) = delete;
+
         bcos::protocol::BlockNumber number;
         bcos::storage::StateStorage::Ptr storage;
     };
     std::list<State> m_stateStorages;
-    std::list<State>::const_iterator m_lastUncommittedIterator;  // last uncommitted storage
     bcos::protocol::BlockNumber m_lastCommitedBlockNumber = 1;
 
     struct HashCombine
