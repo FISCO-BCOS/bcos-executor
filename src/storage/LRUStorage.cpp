@@ -1,6 +1,7 @@
 #include "bcos-executor/LRUStorage.h"
 #include "../Common.h"
 #include "libstorage/StateStorage.h"
+#include <boost/format.hpp>
 #include <boost/iterator/zip_iterator.hpp>
 #include <algorithm>
 #include <thread>
@@ -125,9 +126,12 @@ void LRUStorage::startLoop()
 
             if (storage::StateStorage::capacity() > m_maxCapacity)
             {
+                size_t clearedCount = 0;
+                size_t clearedCapacity = 0;
                 // Clear the out date items
                 while (storage::StateStorage::capacity() > m_maxCapacity && !m_mru.empty())
                 {
+                    auto currentCapacity = storage::StateStorage::capacity();
                     auto& item = m_mru.front();
 
                     bcos::storage::Entry entry;
@@ -136,8 +140,14 @@ void LRUStorage::startLoop()
                     storage::StateStorage::asyncSetRow(
                         item.table(), item.key(), std::move(entry), [](Error::UniquePtr) {});
 
+                    ++clearedCount;
+                    clearedCapacity += currentCapacity - storage::StateStorage::capacity();
+
                     m_mru.pop_front();
                 }
+
+                STORAGE_LOG(DEBUG) << boost::format("LRUStorage clear %lu keys, %lu bytes") %
+                                          clearedCount % clearedCapacity;
             }
         }
         else

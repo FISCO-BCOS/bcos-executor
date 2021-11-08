@@ -135,8 +135,9 @@ void TransactionExecutor::nextBlockHeader(const bcos::protocol::BlockHeader::Con
 
                 if (blockHeader->number() - prev.number != 1)
                 {
-                    auto fmt = boost::format("Block number mismatch! request: %d, current: %d") %
-                               blockHeader->number() % prev.number;
+                    auto fmt =
+                        boost::format("Block number mismatch! request: %d - 1, current: %d") %
+                        blockHeader->number() % prev.number;
                     EXECUTOR_LOG(ERROR) << fmt;
                     callback(BCOS_ERROR_UNIQUE_PTR(ExecuteError::EXECUTE_ERROR, fmt.str()));
                     return;
@@ -146,7 +147,7 @@ void TransactionExecutor::nextBlockHeader(const bcos::protocol::BlockHeader::Con
             }
 
             m_blockContext = createBlockContext(blockHeader, stateStorage);
-            m_stateStorages.emplace_back(blockHeader->number(), std::move(stateStorage));
+            m_stateStorages.emplace_back(blockHeader->number(), stateStorage);
         }
 
         EXECUTOR_LOG(INFO) << "NextBlockHeader success";
@@ -617,29 +618,16 @@ void TransactionExecutor::call(bcos::protocol::ExecutionMessage::UniquePtr input
     {
     case protocol::ExecutionMessage::MESSAGE:
     {
+        bcos::protocol::BlockNumber number = m_lastCommitedBlockNumber;
         storage::StorageInterface::Ptr prev;
-        bcos::protocol::BlockNumber number;
-        {
-            std::shared_lock<std::shared_mutex> lock(m_stateStoragesMutex);
 
-            if (m_stateStorages.empty())
-            {
-                if (m_cachedStorage)
-                {
-                    prev = m_cachedStorage;
-                }
-                else
-                {
-                    prev = m_backendStorage;
-                }
-                number = m_lastCommitedBlockNumber;
-            }
-            else
-            {
-                auto& state = m_stateStorages.back();
-                prev = state.storage;
-                number = state.number;
-            }
+        if (m_cachedStorage)
+        {
+            prev = m_cachedStorage;
+        }
+        else
+        {
+            prev = m_backendStorage;
         }
 
         // Create a temp storage

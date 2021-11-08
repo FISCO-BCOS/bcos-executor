@@ -193,7 +193,7 @@ private:
     struct State
     {
         State(bcos::protocol::BlockNumber _number, bcos::storage::StateStorage::Ptr _storage)
-          : number(_number), storage(_storage)
+          : number(_number), storage(std::move(_storage))
         {}
         State(const State&) = delete;
         State& operator=(const State&) = delete;
