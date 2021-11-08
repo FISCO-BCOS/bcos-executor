@@ -28,7 +28,6 @@
 #include "../executive/BlockContext.h"
 #include "../executive/TransactionExecutive.h"
 #include "../precompiled/CNSPrecompiled.h"
-#include "../precompiled/CRUDPrecompiled.h"
 #include "../precompiled/Common.h"
 #include "../precompiled/ConsensusPrecompiled.h"
 #include "../precompiled/CryptoPrecompiled.h"
@@ -1379,14 +1378,12 @@ void TransactionExecutor::initPrecompiled()
         m_constantPrecompiled.insert({CONSENSUS_NAME, consensusPrecompiled});
         m_constantPrecompiled.insert({CNS_NAME, cnsPrecompiled});
         m_constantPrecompiled.insert({PARALLEL_CONFIG_NAME, parallelConfigPrecompiled});
-        m_constantPrecompiled.insert({TABLE_FACTORY_NAME, tableFactoryPrecompiled});
-        m_constantPrecompiled.insert({KV_TABLE_FACTORY_NAME, kvTableFactoryPrecompiled});
+        m_constantPrecompiled.insert({TABLE_NAME, tableFactoryPrecompiled});
+        m_constantPrecompiled.insert({KV_TABLE_NAME, kvTableFactoryPrecompiled});
         m_constantPrecompiled.insert(
             {DAG_TRANSFER_NAME, std::make_shared<precompiled::DagTransferPrecompiled>(m_hashImpl)});
         m_constantPrecompiled.insert(
             {CRYPTO_NAME, std::make_shared<CryptoPrecompiled>(m_hashImpl)});
-        m_constantPrecompiled.insert(
-            {CRUD_NAME, std::make_shared<precompiled::CRUDPrecompiled>(m_hashImpl)});
         m_constantPrecompiled.insert(
             {BFS_NAME, std::make_shared<precompiled::FileSystemPrecompiled>(m_hashImpl)});
         m_constantPrecompiled.insert({CONTRACT_AUTH_NAME,
@@ -1401,14 +1398,12 @@ void TransactionExecutor::initPrecompiled()
         m_constantPrecompiled.insert({CONSENSUS_ADDRESS, consensusPrecompiled});
         m_constantPrecompiled.insert({CNS_ADDRESS, cnsPrecompiled});
         m_constantPrecompiled.insert({PARALLEL_CONFIG_ADDRESS, parallelConfigPrecompiled});
-        m_constantPrecompiled.insert({TABLE_FACTORY_ADDRESS, tableFactoryPrecompiled});
-        m_constantPrecompiled.insert({KV_TABLE_FACTORY_ADDRESS, kvTableFactoryPrecompiled});
+        m_constantPrecompiled.insert({TABLE_ADDRESS, tableFactoryPrecompiled});
+        m_constantPrecompiled.insert({KV_TABLE_ADDRESS, kvTableFactoryPrecompiled});
         m_constantPrecompiled.insert({DAG_TRANSFER_ADDRESS,
             std::make_shared<precompiled::DagTransferPrecompiled>(m_hashImpl)});
         m_constantPrecompiled.insert(
             {CRYPTO_ADDRESS, std::make_shared<CryptoPrecompiled>(m_hashImpl)});
-        m_constantPrecompiled.insert(
-            {CRUD_ADDRESS, std::make_shared<precompiled::CRUDPrecompiled>(m_hashImpl)});
         m_constantPrecompiled.insert(
             {BFS_ADDRESS, std::make_shared<precompiled::FileSystemPrecompiled>(m_hashImpl)});
         m_constantPrecompiled.insert({CONTRACT_AUTH_ADDRESS,
@@ -1533,7 +1528,7 @@ std::shared_ptr<std::vector<std::string>> TransactionExecutor::getTxCriticals(
         // Precompile transaction
         if (p->isParallelPrecompiled())
         {
-            auto ret = make_shared<vector<string>>(p->getParallelTag(_tx->input()));
+            auto ret = make_shared<vector<string>>(p->getParallelTag(_tx->input(), m_isWasm));
             for (string& critical : *ret)
             {
                 critical += _tx->to();

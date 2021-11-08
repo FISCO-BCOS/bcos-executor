@@ -152,7 +152,7 @@ public:
         const std::string& _origin, const std::string& _sender) = 0;
 
     virtual bool isParallelPrecompiled() { return false; }
-    virtual std::vector<std::string> getParallelTag(bytesConstRef /*param*/)
+    virtual std::vector<std::string> getParallelTag(bytesConstRef,bool)
     {
         return {};
     }

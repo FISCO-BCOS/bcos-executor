@@ -453,7 +453,10 @@ CallParameters::UniquePtr TransactionExecutive::go(
             auto code = hostContext.code();
             if (code.empty())
             {
-                BOOST_THROW_EXCEPTION(BCOS_ERROR(-1, "Code not found! " + m_contractAddress));
+                auto callResult = hostContext.takeCallParameters();
+                callResult->type = CallParameters::REVERT;
+                callResult->status = (int32_t)TransactionStatus::CallAddressError;
+                return callResult;
             }
 
             auto vmKind = VMKind::evmone;
@@ -587,35 +590,20 @@ std::shared_ptr<precompiled::PrecompiledExecResult> TransactionExecutive::execPr
     }
 }
 
-string TransactionExecutive::registerPrecompiled(std::shared_ptr<precompiled::Precompiled> p)
-{
-    auto count = ++m_addressCount;
-    std::stringstream stream;
-    stream << std::setfill('0') << std::setw(40) << std::hex << count;
-    auto address = stream.str();
-    m_dynamicPrecompiled.insert(std::make_pair(address, p));
-    return address;
-}
-
 bool TransactionExecutive::isPrecompiled(const std::string& address) const
 {
-    return (m_constantPrecompiled.count(address) > 0 || m_dynamicPrecompiled.count(address) > 0);
+    return m_constantPrecompiled.count(address) > 0;
 }
 
 std::shared_ptr<Precompiled> TransactionExecutive::getPrecompiled(const std::string& address) const
 {
     auto constantPrecompiled = m_constantPrecompiled.find(address);
-    auto dynamicPrecompiled = m_dynamicPrecompiled.find(address);
 
     if (constantPrecompiled != m_constantPrecompiled.end())
     {
         return constantPrecompiled->second;
     }
-    if (dynamicPrecompiled != m_dynamicPrecompiled.end())
-    {
-        return dynamicPrecompiled->second;
-    }
-    return std::shared_ptr<precompiled::Precompiled>();
+    return {};
 }
 
 bool TransactionExecutive::isBuiltInPrecompiled(const std::string& _a) const

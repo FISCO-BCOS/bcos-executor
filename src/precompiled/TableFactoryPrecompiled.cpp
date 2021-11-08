@@ -21,10 +21,8 @@
 #include "TableFactoryPrecompiled.h"
 #include "Common.h"
 #include "PrecompiledResult.h"
-#include "TablePrecompiled.h"
 #include "Utilities.h"
 #include <bcos-framework/interfaces/protocol/Exceptions.h>
-#include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
 #include <boost/throw_exception.hpp>
@@ -36,24 +34,28 @@ using namespace bcos::storage;
 using namespace bcos::precompiled;
 using namespace bcos::protocol;
 
-const char* const TABLE_METHOD_OPT_STR = "openTable(string)";
-const char* const TABLE_METHOD_CRT_STR_STR = "createTable(string,string,string)";
+const char* const TABLE_METHOD_CREATE = "createTable(string,string,string)";
+const char* const TABLE_METHOD_SELECT = "select(string,((string,string,uint8)[]))";
+const char* const TABLE_METHOD_INSERT = "insert(string,((string,string)[]))";
+const char* const TABLE_METHOD_UPDATE =
+    "update(string,((string,string)[]),((string,string,uint8)[]))";
+const char* const TABLE_METHOD_REMOVE = "remove(string,((string,string,uint8)[]))";
+const char* const TABLE_METHOD_DESC = "desc(string)";
 
 TableFactoryPrecompiled::TableFactoryPrecompiled(crypto::Hash::Ptr _hashImpl)
   : Precompiled(_hashImpl)
 {
-    name2Selector[TABLE_METHOD_OPT_STR] = getFuncSelector(TABLE_METHOD_OPT_STR, _hashImpl);
-    name2Selector[TABLE_METHOD_CRT_STR_STR] = getFuncSelector(TABLE_METHOD_CRT_STR_STR, _hashImpl);
-}
-
-std::string TableFactoryPrecompiled::toString()
-{
-    return "StateStorage";
+    name2Selector[TABLE_METHOD_CREATE] = getFuncSelector(TABLE_METHOD_CREATE, _hashImpl);
+    name2Selector[TABLE_METHOD_SELECT] = getFuncSelector(TABLE_METHOD_SELECT, _hashImpl);
+    name2Selector[TABLE_METHOD_INSERT] = getFuncSelector(TABLE_METHOD_INSERT, _hashImpl);
+    name2Selector[TABLE_METHOD_UPDATE] = getFuncSelector(TABLE_METHOD_UPDATE, _hashImpl);
+    name2Selector[TABLE_METHOD_REMOVE] = getFuncSelector(TABLE_METHOD_REMOVE, _hashImpl);
+    name2Selector[TABLE_METHOD_DESC] = getFuncSelector(TABLE_METHOD_DESC, _hashImpl);
 }
 
 std::shared_ptr<PrecompiledExecResult> TableFactoryPrecompiled::call(
     std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _param,
-    const std::string& _origin, const std::string& _sender)
+    const std::string&, const std::string&)
 {
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
@@ -61,139 +63,98 @@ std::shared_ptr<PrecompiledExecResult> TableFactoryPrecompiled::call(
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
     gasPricer->setMemUsed(_param.size());
 
-    if (func == name2Selector[TABLE_METHOD_OPT_STR])
-    {
-        // openTable(string)
-        openTable(_executive, data, callResult, gasPricer);
-    }
-    else if (func == name2Selector[TABLE_METHOD_CRT_STR_STR])
+    if (func == name2Selector[TABLE_METHOD_CREATE])
     {
         // createTable(string,string,string)
-        createTable(_executive, data, callResult, _origin, _sender, gasPricer);
+        createTable(_executive, data, callResult, gasPricer);
+    }
+    else if (func == name2Selector[TABLE_METHOD_SELECT])
+    {
+        // select(string,((string,string,uint8)[]))
+        select(_executive, data, callResult, gasPricer);
+    }
+    else if (func == name2Selector[TABLE_METHOD_INSERT])
+    {
+        // insert(string,((string,string)[]))
+        insert(_executive, data, callResult, gasPricer);
+    }
+    else if (func == name2Selector[TABLE_METHOD_UPDATE])
+    {
+        // update(string,((string,string)[]),((string,string,uint8)[]))
+        update(_executive, data, callResult, gasPricer);
+    }
+    else if (func == name2Selector[TABLE_METHOD_REMOVE])
+    {
+        // remove(string,((string,string,uint8)[]))
+        remove(_executive, data, callResult, gasPricer);
+    }
+    else if (func == name2Selector[TABLE_METHOD_DESC])
+    {
+        // desc(string)
+        desc(_executive, data, callResult, gasPricer);
     }
     else
     {
-        STORAGE_LOG(ERROR) << LOG_BADGE("TableFactoryPrecompiled")
-                           << LOG_DESC("call undefined function!");
+        STORAGE_LOG(ERROR) << LOG_BADGE("TablePrecompiled") << LOG_DESC("call undefined function!");
     }
     gasPricer->updateMemUsed(callResult->m_execResult.size());
     callResult->setGas(gasPricer->calTotalGas());
     return callResult;
 }
 
-void TableFactoryPrecompiled::checkCreateTableParam(
-    const std::string& _tableName, std::string& _keyField, std::string& _valueField)
+std::tuple<std::string, std::string> TableFactoryPrecompiled::getTableField(
+    const std::shared_ptr<executor::TransactionExecutive>& _executive,
+    const std::string& _tableName)
 {
-    std::vector<std::string> keyNameList;
-    boost::split(keyNameList, _keyField, boost::is_any_of(","));
-    std::vector<std::string> fieldNameList;
-    boost::split(fieldNameList, _valueField, boost::is_any_of(","));
-
-    if (_keyField.size() > (size_t)SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH)
-    {  // mysql TableName and fieldName length limit is 64
-        BOOST_THROW_EXCEPTION(protocol::PrecompiledError() << errinfo_comment(
-                                  "table field name length overflow " +
-                                  std::to_string(SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH)));
-    }
-    for (auto& str : keyNameList)
-    {
-        boost::trim(str);
-        if (str.size() > (size_t)SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH)
-        {  // mysql TableName and fieldName length limit is 64
-            BOOST_THROW_EXCEPTION(
-                protocol::PrecompiledError()
-                << errinfo_comment("errorCode: " + std::to_string(CODE_TABLE_FIELD_LENGTH_OVERFLOW))
-                << errinfo_comment(std::string("table key name length overflow ") +
-                                   std::to_string(SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH)));
-        }
-    }
-
-    for (auto& str : fieldNameList)
-    {
-        boost::trim(str);
-        if (str.size() > (size_t)SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH)
-        {  // mysql TableName and fieldName length limit is 64
-            BOOST_THROW_EXCEPTION(
-                protocol::PrecompiledError()
-                << errinfo_comment("errorCode: " + std::to_string(CODE_TABLE_FIELD_LENGTH_OVERFLOW))
-                << errinfo_comment(std::string("table field name length overflow ") +
-                                   std::to_string(SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH)));
-        }
-    }
-
-    checkNameValidate(_tableName, keyNameList, fieldNameList);
-
-    _keyField = boost::join(keyNameList, ",");
-    _valueField = boost::join(fieldNameList, ",");
-    if (_keyField.size() > (size_t)SYS_TABLE_KEY_FIELD_MAX_LENGTH)
-    {
-        BOOST_THROW_EXCEPTION(protocol::PrecompiledError() << errinfo_comment(
-                                  std::string("total table key name length overflow ") +
-                                  std::to_string(SYS_TABLE_KEY_FIELD_MAX_LENGTH)));
-    }
-    if (_valueField.size() > (size_t)SYS_TABLE_VALUE_FIELD_MAX_LENGTH)
-    {
-        BOOST_THROW_EXCEPTION(protocol::PrecompiledError() << errinfo_comment(
-                                  std::string("total table field name length overflow ") +
-                                  std::to_string(SYS_TABLE_VALUE_FIELD_MAX_LENGTH)));
-    }
-
-    auto tableName = precompiled::getTableName(_tableName);
-    if (tableName.size() > (size_t)USER_TABLE_NAME_MAX_LENGTH ||
-        (tableName.size() > (size_t)USER_TABLE_NAME_MAX_LENGTH_S))
-    {
-        // mysql TableName and fieldName length limit is 64
-        BOOST_THROW_EXCEPTION(
-            protocol::PrecompiledError()
-            << errinfo_comment("errorCode: " + std::to_string(CODE_TABLE_NAME_LENGTH_OVERFLOW))
-            << errinfo_comment(std::string("tableName length overflow ") +
-                               std::to_string(USER_TABLE_NAME_MAX_LENGTH)));
-    }
-}
-
-void TableFactoryPrecompiled::openTable(
-    const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& data,
-    const std::shared_ptr<PrecompiledExecResult>& callResult, const PrecompiledGas::Ptr& gasPricer)
-{
-    // openTable(string)
-    std::string tableName;
-    auto blockContext = _executive->blockContext().lock();
-    auto codec =
-        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
-    codec->decode(data, tableName);
-    tableName = getTableName(tableName);
-    auto table = _executive->storage().openTable(tableName);
-    gasPricer->appendOperation(InterfaceOpcode::OpenTable);
+    auto table = _executive->storage().openTable(_tableName);
     auto sysTable = _executive->storage().openTable(storage::StorageInterface::SYS_TABLES);
-    auto sysEntry = sysTable->getRow(tableName);
+    auto sysEntry = sysTable->getRow(_tableName);
     if (!table || !sysEntry)
     {
         PRECOMPILED_LOG(WARNING) << LOG_BADGE("TableFactoryPrecompiled")
-                                 << LOG_DESC("Open new table failed")
-                                 << LOG_KV("table name", tableName);
-        BOOST_THROW_EXCEPTION(PrecompiledError() << errinfo_comment(tableName + " does not exist"));
+                                 << LOG_DESC("Open table failed")
+                                 << LOG_KV("tableName", _tableName);
+        BOOST_THROW_EXCEPTION(
+            PrecompiledError() << errinfo_comment(_tableName + " does not exist"));
     }
     auto valueKey = sysEntry->getField(StorageInterface::SYS_TABLE_VALUE_FIELDS);
-    auto keyField = valueKey.substr(valueKey.find_last_of(',') + 1);
-    auto tablePrecompiled = std::make_shared<TablePrecompiled>(m_hashImpl);
-    tablePrecompiled->setTable(std::make_shared<Table>(table.value()));
-    tablePrecompiled->setKeyField(keyField);
-    if (blockContext->isWasm())
+    auto keyField = std::string(valueKey.substr(valueKey.find_last_of(',') + 1));
+    auto valueFields = std::string(valueKey.substr(0, valueKey.find_last_of(',')));
+    return {std::move(keyField), std::move(valueFields)};
+}
+
+bool TableFactoryPrecompiled::buildConditionCtx(const precompiled::Condition::Ptr& _condition,
+    const precompiled::ConditionTuple& _tuple, std::shared_ptr<storage::Condition>& _keyCondition,
+    std::vector<std::string>& _eqKeyList, const std::string& _keyFiled)
+{
+    bool flag = false;
+    for (const auto& compareTuple : std::get<0>(_tuple))
     {
-        auto address = _executive->registerPrecompiled(tablePrecompiled);
-        callResult->setExecResult(codec->encode(address));
+        auto k = std::get<0>(compareTuple);
+        auto v = std::get<1>(compareTuple);
+        auto cmp = (Comparator)(static_cast<int>(std::get<2>(compareTuple)));
+
+        if (k == _keyFiled)
+        {
+            flag = true;
+            if (cmp == precompiled::Comparator::EQ)
+            {
+                _eqKeyList.emplace_back(v);
+            }
+            else
+            {
+                transferKeyCond(cmp, v, _keyCondition);
+            }
+        }
+        CompareTriple cmpTriple(std::move(k), std::move(v), cmp);
+        _condition->m_conditions.emplace_back(std::move(cmpTriple));
     }
-    else
-    {
-        auto address = Address(_executive->registerPrecompiled(tablePrecompiled));
-        callResult->setExecResult(codec->encode(address));
-    }
+    return flag;
 }
 
 void TableFactoryPrecompiled::createTable(
     const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& data,
-    const std::shared_ptr<PrecompiledExecResult>& callResult, const std::string& _origin,
-    const std::string&, const PrecompiledGas::Ptr& gasPricer)
+    const std::shared_ptr<PrecompiledExecResult>& callResult, const PrecompiledGas::Ptr& gasPricer)
 {
     // createTable(string,string,string)
     std::string tableName;
@@ -212,7 +173,7 @@ void TableFactoryPrecompiled::createTable(
         BOOST_THROW_EXCEPTION(PrecompiledError() << errinfo_comment("Table name error."));
     }
 
-    checkCreateTableParam(tableName, keyField, valueField);
+    precompiled::checkCreateTableParam(tableName, keyField, valueField);
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("StateStorage") << LOG_KV("createTable", tableName)
                            << LOG_KV("keyField", keyField) << LOG_KV("valueFiled", valueField);
     // /tables + tableName
@@ -261,4 +222,257 @@ void TableFactoryPrecompiled::createTable(
         }
     }
     getErrorCodeOut(callResult->mutableExecResult(), result, codec);
+}
+
+void TableFactoryPrecompiled::select(
+    const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& data,
+    const std::shared_ptr<PrecompiledExecResult>& callResult, const PrecompiledGas::Ptr& gasPricer)
+{
+    // select(string,((string,string,uint8)[]))
+    std::string tableName;
+    precompiled::ConditionTuple conditions;
+    auto blockContext = _executive->blockContext().lock();
+    auto codec =
+        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
+    codec->decode(data, tableName, conditions);
+    tableName = getTableName(tableName);
+    PRECOMPILED_LOG(DEBUG) << LOG_DESC("Table select") << LOG_KV("tableName", tableName);
+
+    std::string keyField, valueFields;
+    std::tie(keyField, valueFields) = getTableField(_executive, tableName);
+    std::vector<std::string> valueFieldList;
+    boost::split(valueFieldList, valueFields, boost::is_any_of(","));
+
+    auto entryCondition = std::make_shared<precompiled::Condition>();
+    std::shared_ptr<storage::Condition> keyCondition = std::make_shared<storage::Condition>();
+    std::vector<std::string> eqKeyList;
+    bool findKeyFlag =
+        buildConditionCtx(entryCondition, conditions, keyCondition, eqKeyList, keyField);
+    if (!findKeyFlag)
+    {
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("TablePrecompiled") << LOG_BADGE("SELECT")
+                               << LOG_DESC("can't get any primary key in condition");
+        callResult->setExecResult(codec->encode(EntryTuple()));
+        return;
+    }
+
+    // merge keys from storage and eqKeys
+    auto tableKeyList = _executive->storage().getPrimaryKeys(tableName, *keyCondition);
+    std::set<std::string> tableKeySet{tableKeyList.begin(), tableKeyList.end()};
+    tableKeySet.insert(eqKeyList.begin(), eqKeyList.end());
+    std::vector<EntryTuple> entries({});
+    for (auto& key : tableKeySet)
+    {
+        auto entry = _executive->storage().getRow(tableName, key);
+        if (entryCondition->filter(entry))
+        {
+            std::vector<std::tuple<std::string, std::string>> kvEntry({});
+            for (const auto& keyName : valueFieldList)
+            {
+                kvEntry.emplace_back(
+                    std::make_tuple(keyName, std::string(entry->getField(keyName))));
+            }
+            entries.emplace_back(std::make_tuple(std::move(kvEntry)));
+        }
+    }
+    PRECOMPILED_LOG(DEBUG) << LOG_DESC("Table select") << LOG_KV("entries.size", entries.size());
+    // update the memory gas and the computation gas
+    gasPricer->updateMemUsed(entries.size());
+    gasPricer->appendOperation(InterfaceOpcode::Select, entries.size());
+    callResult->setExecResult(codec->encode(entries));
+}
+
+void TableFactoryPrecompiled::insert(
+    const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& data,
+    const std::shared_ptr<PrecompiledExecResult>& callResult, const PrecompiledGas::Ptr& gasPricer)
+{
+    // insert(string,((string,string)[]))
+    std::string tableName;
+    precompiled::EntryTuple insertEntry;
+    auto blockContext = _executive->blockContext().lock();
+    auto codec =
+        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
+    codec->decode(data, tableName, insertEntry);
+    tableName = getTableName(tableName);
+    PRECOMPILED_LOG(DEBUG) << LOG_DESC("Table insert") << LOG_KV("tableName", tableName);
+
+    std::string keyField, valueFields;
+    std::tie(keyField, valueFields) = getTableField(_executive, tableName);
+    auto table = _executive->storage().openTable(tableName);
+
+    std::string keyValue;
+    for (auto const& entryValue : std::get<0>(insertEntry))
+    {
+        checkLengthValidate(std::get<1>(entryValue), USER_TABLE_FIELD_VALUE_MAX_LENGTH,
+            CODE_TABLE_KEY_VALUE_LENGTH_OVERFLOW);
+        if (std::get<0>(entryValue) == keyField)
+        {
+            keyValue = std::get<1>(entryValue);
+        }
+    }
+    if (keyValue.empty())
+    {
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("TablePrecompiled") << LOG_BADGE("INSERT")
+                               << LOG_DESC("can't get any primary key in entry string")
+                               << LOG_KV("primaryKeyField", keyField);
+        getErrorCodeOut(callResult->mutableExecResult(), CODE_KEY_NOT_EXIST_IN_ENTRY, codec);
+    }
+    PRECOMPILED_LOG(DEBUG) << LOG_DESC("Table insert") << LOG_KV("key", keyValue);
+    auto checkExistEntry = table->getRow(keyValue);
+    if (checkExistEntry)
+    {
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("TablePrecompiled") << LOG_BADGE("INSERT")
+                               << LOG_DESC("key already exist in table, please use UPDATE method")
+                               << LOG_KV("primaryKey", keyField) << LOG_KV("existKey", keyValue);
+        getErrorCodeOut(callResult->mutableExecResult(), CODE_INSERT_KEY_EXIST, codec);
+    }
+    else
+    {
+        auto entry = table->newEntry();
+        transferEntry(insertEntry, entry);
+        gasPricer->appendOperation(InterfaceOpcode::Insert, 1);
+        gasPricer->updateMemUsed(entry.capacityOfHashField());
+        table->setRow(keyValue, std::move(entry));
+        callResult->setExecResult(codec->encode(u256(1)));
+    }
+}
+
+void TableFactoryPrecompiled::update(
+    const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& data,
+    const std::shared_ptr<PrecompiledExecResult>& callResult, const PrecompiledGas::Ptr& gasPricer)
+{
+    // update(string,((string,string)[]),((string,string,uint8)[]))
+    std::string tableName;
+    precompiled::EntryTuple entry;
+    precompiled::ConditionTuple conditions;
+    auto blockContext = _executive->blockContext().lock();
+    auto codec =
+        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
+    codec->decode(data, tableName, entry, conditions);
+    tableName = getTableName(tableName);
+    PRECOMPILED_LOG(DEBUG) << LOG_DESC("Table update") << LOG_KV("tableName", tableName);
+
+    std::string keyField;
+    std::tie(keyField, std::ignore) = getTableField(_executive, tableName);
+
+    auto entryCondition = std::make_shared<precompiled::Condition>();
+    std::shared_ptr<storage::Condition> keyCondition = std::make_shared<storage::Condition>();
+    std::vector<std::string> eqKeyList;
+    bool findKeyFlag =
+        buildConditionCtx(entryCondition, conditions, keyCondition, eqKeyList, keyField);
+    if (!findKeyFlag)
+    {
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("TablePrecompiled") << LOG_BADGE("UPDATE")
+                               << LOG_DESC("can't get any primary key in condition");
+        callResult->setExecResult(codec->encode(EntryTuple()));
+        return;
+    }
+    // check eq key exist in table
+    for (auto& key : eqKeyList)
+    {
+        auto checkExistEntry = _executive->storage().getRow(tableName, key);
+        if (checkExistEntry == std::nullopt)
+        {
+            PRECOMPILED_LOG(ERROR) << LOG_BADGE("TablePrecompiled") << LOG_BADGE("UPDATE")
+                                   << LOG_DESC("key not exist in table, please use INSERT method")
+                                   << LOG_KV("primaryKey", keyField) << LOG_KV("notExistKey", key);
+            getErrorCodeOut(callResult->mutableExecResult(), CODE_UPDATE_KEY_NOT_EXIST, codec);
+            return;
+        }
+    }
+    auto table = _executive->storage().openTable(tableName);
+    auto tableKeyList = table->getPrimaryKeys(*keyCondition);
+
+    std::set<std::string> tableKeySet{tableKeyList.begin(), tableKeyList.end()};
+    tableKeySet.insert(eqKeyList.begin(), eqKeyList.end());
+    u256 updateCount = 0;
+    auto updateEntry = table->newEntry();
+    precompiled::transferEntry(entry, updateEntry);
+    for (auto& tableKey : tableKeySet)
+    {
+        auto tableEntry = table->getRow(tableKey);
+        if (entryCondition->filter(tableEntry))
+        {
+            for (auto const& field : updateEntry.tableInfo()->fields())
+            {
+                auto value = updateEntry.getField(field);
+                if (value.empty())
+                    continue;
+                tableEntry->setField(field, std::string(value));
+            }
+            table->setRow(tableKey, std::move(tableEntry.value()));
+            PRECOMPILED_LOG(DEBUG) << LOG_DESC("Table update") << LOG_KV("key", tableKey);
+            updateCount++;
+        }
+    }
+    gasPricer->setMemUsed(updateEntry.capacityOfHashField());
+    gasPricer->appendOperation(InterfaceOpcode::Update, (unsigned int)updateCount);
+    callResult->setExecResult(codec->encode(updateCount));
+}
+
+void TableFactoryPrecompiled::remove(
+    const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& data,
+    const std::shared_ptr<PrecompiledExecResult>& callResult, const PrecompiledGas::Ptr& gasPricer)
+{
+    std::string tableName;
+    precompiled::ConditionTuple conditions;
+    auto blockContext = _executive->blockContext().lock();
+    auto codec =
+        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
+    codec->decode(data, tableName, conditions);
+    tableName = getTableName(tableName);
+    PRECOMPILED_LOG(DEBUG) << LOG_DESC("Table remove") << LOG_KV("tableName", tableName);
+
+    std::string keyField;
+    std::tie(keyField, std::ignore) = getTableField(_executive, tableName);
+
+    auto entryCondition = std::make_shared<precompiled::Condition>();
+    std::shared_ptr<storage::Condition> keyCondition = std::make_shared<storage::Condition>();
+    std::vector<std::string> eqKeyList;
+    bool findKeyFlag =
+        buildConditionCtx(entryCondition, conditions, keyCondition, eqKeyList, keyField);
+    if (!findKeyFlag)
+    {
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("TablePrecompiled") << LOG_BADGE("REMOVE")
+                               << LOG_DESC("can't get any primary key in condition");
+        callResult->setExecResult(codec->encode(EntryTuple()));
+        return;
+    }
+    auto tableKeyList = _executive->storage().getPrimaryKeys(tableName, *keyCondition);
+    std::set<std::string> tableKeySet{tableKeyList.begin(), tableKeyList.end()};
+    tableKeySet.insert(eqKeyList.begin(), eqKeyList.end());
+
+    auto table = _executive->storage().openTable(tableName);
+    for (auto& tableKey : tableKeySet)
+    {
+        auto entry = table->getRow(tableKey);
+        // Note: entry maybe nullptr
+        if (entryCondition->filter(entry))
+        {
+            table->setRow(tableKey, table->newDeletedEntry());
+            PRECOMPILED_LOG(DEBUG) << LOG_DESC("Table remove") << LOG_KV("removeKey", tableKey);
+        }
+    }
+    gasPricer->appendOperation(InterfaceOpcode::Remove, 1);
+    callResult->setExecResult(codec->encode(u256(1)));
+}
+
+void TableFactoryPrecompiled::desc(
+    const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& data,
+    const std::shared_ptr<PrecompiledExecResult>& callResult, const PrecompiledGas::Ptr& gasPricer)
+{
+    std::string tableName;
+    auto blockContext = _executive->blockContext().lock();
+    auto codec =
+        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
+    codec->decode(data, tableName);
+    tableName = getTableName(tableName);
+    PRECOMPILED_LOG(DEBUG) << LOG_DESC("Table desc") << LOG_KV("tableName", tableName);
+
+    std::string keyField;
+    std::string valueFields;
+    std::tie(keyField, valueFields) = getTableField(_executive, tableName);
+
+    gasPricer->appendOperation(InterfaceOpcode::OpenTable);
+    callResult->setExecResult(codec->encode(keyField, valueFields));
 }

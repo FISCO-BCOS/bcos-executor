@@ -19,7 +19,6 @@
  */
 
 #include "ContractAuthPrecompiled.h"
-#include <json/json.h>
 
 using namespace bcos;
 using namespace bcos::precompiled;

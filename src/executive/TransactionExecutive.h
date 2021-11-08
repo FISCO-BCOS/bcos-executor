@@ -47,7 +47,6 @@ class StateStorage;
 
 namespace executor
 {
-class Block;
 class Result;
 
 }  // namespace executor
@@ -74,19 +73,18 @@ public:
 
     TransactionExecutive(std::weak_ptr<BlockContext> blockContext, std::string contractAddress,
         int64_t contextID, int64_t seq,
-        std::function<void(std::shared_ptr<BlockContext> blockContext,
-            std::shared_ptr<TransactionExecutive> executive,
-            std::unique_ptr<CallParameters> callResults,
-            std::function<void(Error::UniquePtr, std::unique_ptr<CallParameters>)> callback)>
+        std::function<void(std::shared_ptr<BlockContext>, std::shared_ptr<TransactionExecutive>,
+            std::unique_ptr<CallParameters>,
+            std::function<void(Error::UniquePtr, std::unique_ptr<CallParameters>)>)>
             externalCallCallback)
       : m_blockContext(std::move(blockContext)),
-        m_addressCount(0x10000),
         m_contractAddress(std::move(contractAddress)),
         m_contextID(contextID),
         m_seq(seq),
         m_externalCallFunction(std::move(externalCallCallback)),
         m_gasInjector(std::make_shared<wasm::GasInjector>(wasm::GetInstructionTable()))
     {
+
         m_recoder = m_blockContext.lock()->storage()->newRecoder();
         m_hashImpl = m_blockContext.lock()->hashHandler();
     }
@@ -96,7 +94,7 @@ public:
     TransactionExecutive(TransactionExecutive&&) = delete;
     TransactionExecutive& operator=(TransactionExecutive&&) = delete;
 
-    virtual ~TransactionExecutive() {}
+    virtual ~TransactionExecutive() = default;
 
     void start(CallParameters::UniquePtr input);  // start a new coroutine to execute
 
@@ -127,8 +125,6 @@ public:
     CallParameters::UniquePtr execute(
         CallParameters::UniquePtr callParameters);  // execute parameters in
                                                     // current corouitine
-
-    std::string registerPrecompiled(std::shared_ptr<precompiled::Precompiled> p);
 
     bool isPrecompiled(const std::string& _address) const;
 
@@ -199,22 +195,20 @@ private:
     bool buildBfsPath(std::string const& _absoluteDir);
 
     std::weak_ptr<BlockContext> m_blockContext;  ///< Information on the runtime environment.
-    tbb::concurrent_unordered_map<std::string, std::shared_ptr<precompiled::Precompiled>,
-        std::hash<std::string>>
-        m_dynamicPrecompiled;
     std::map<std::string, std::shared_ptr<precompiled::Precompiled>> m_constantPrecompiled;
     std::shared_ptr<const std::map<std::string, std::shared_ptr<PrecompiledContract>>>
         m_evmPrecompiled;
     std::shared_ptr<const std::set<std::string>> m_builtInPrecompiled;
-    std::atomic<int> m_addressCount;
 
     std::string m_contractAddress;
     int64_t m_contextID;
     int64_t m_seq;
     crypto::Hash::Ptr m_hashImpl;
 
-    int64_t m_baseGasRequired = 0;  ///< The base amount of gas required for executing
-                                    ///< this transaction.
+    ///< The base amount of gas required for executing this transaction.
+    // TODO: not used
+    //int64_t m_baseGasRequired = 0;
+
 
     std::function<void(std::shared_ptr<BlockContext> blockContext,
         std::shared_ptr<TransactionExecutive> executive,

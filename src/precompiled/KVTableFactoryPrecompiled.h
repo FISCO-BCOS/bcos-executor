@@ -24,9 +24,7 @@
 #include <bcos-framework/interfaces/crypto/CommonType.h>
 #include <bcos-framework/interfaces/storage/Table.h>
 
-namespace bcos
-{
-namespace precompiled
+namespace bcos::precompiled
 {
 #if 0
 contract KVTableFactory {
@@ -42,23 +40,20 @@ public:
     KVTableFactoryPrecompiled(crypto::Hash::Ptr _hashImpl);
     virtual ~KVTableFactoryPrecompiled(){};
 
-    std::string toString() override;
-
     std::shared_ptr<PrecompiledExecResult> call(
         std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _param,
         const std::string& _origin, const std::string& _sender) override;
 
 private:
-    void openTable(const std::shared_ptr<executor::TransactionExecutive>& _executive,
-        bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
-        const PrecompiledGas::Ptr& gasPricer);
     void createTable(const std::shared_ptr<executor::TransactionExecutive>& _executive,
         bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
-        const std::string& _origin, const std::string& _sender,
         const PrecompiledGas::Ptr& gasPricer);
-    void checkCreateTableParam(
-        const std::string& _tableName, std::string& _keyField, std::string& _valueField);
+    void get(const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& data,
+        const std::shared_ptr<PrecompiledExecResult>& callResult,
+        const PrecompiledGas::Ptr& gasPricer);
+    void set(const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& data,
+        const std::shared_ptr<PrecompiledExecResult>& callResult,
+        const PrecompiledGas::Ptr& gasPricer);
 };
 
-}  // namespace precompiled
-}  // namespace bcos
+}  // namespace bcos::precompiled

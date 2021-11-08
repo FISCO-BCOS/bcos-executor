@@ -35,10 +35,13 @@ namespace bcos
 {
 namespace precompiled
 {
+using ConditionTuple = std::tuple<std::vector<std::tuple<std::string, std::string, u256>>>;
+using EntryTuple = std::tuple<std::vector<std::tuple<std::string, std::string>>>;
+
 static const std::string USER_TABLE_PREFIX = "/tables/";
 static const std::string USER_APPS_PREFIX = "/apps/";
 
-enum class Comparator
+enum class Comparator : int
 {
     EQ,
     NE,
@@ -50,8 +53,8 @@ enum class Comparator
 struct CompareTriple
 {
     using Ptr = std::shared_ptr<Comparator>;
-    CompareTriple(const std::string& _left, const std::string& _right, Comparator _cmp)
-      : left(_left), right(_right), cmp(_cmp){};
+    CompareTriple(std::string _left, std::string _right, Comparator _cmp)
+      : left(std::move(_left)), right(std::move(_right)), cmp(_cmp){};
 
     std::string left;
     std::string right;
@@ -81,7 +84,10 @@ struct Condition : public std::enable_shared_from_this<Condition>
 void addCondition(const std::string& key, const std::string& value,
     std::vector<CompareTriple>& _cond, Comparator _cmp);
 
-void transferKeyCond(CompareTriple& _entryCond, std::shared_ptr<storage::Condition>& _keyCond);
+void transferKeyCond(
+    Comparator& _cmp, const std::string& _value, std::shared_ptr<storage::Condition>& _keyCond);
+
+bool transferEntry(const EntryTuple& _entryTuple, storage::Entry& _storageEntry);
 
 inline void getErrorCodeOut(bytes& out, int const& result, const PrecompiledCodec::Ptr& _codec)
 {
@@ -101,6 +107,9 @@ inline std::string getTableName(const std::string& _tableName)
 void checkNameValidate(std::string_view tableName, std::vector<std::string>& keyFieldList,
     std::vector<std::string>& valueFieldList);
 int checkLengthValidate(std::string_view field_value, int32_t max_length, int32_t errorCode);
+
+void checkCreateTableParam(
+    const std::string& _tableName, std::string& _keyFiled, std::string& _valueField);
 
 uint32_t getFuncSelector(std::string const& _functionName, const crypto::Hash::Ptr& _hashImpl);
 uint32_t getParamFunc(bytesConstRef _param);

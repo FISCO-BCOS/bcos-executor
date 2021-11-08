@@ -19,6 +19,7 @@
  */
 
 #include "DagTransferPrecompiled.h"
+#include "../PrecompiledCodec.h"
 #include "../PrecompiledResult.h"
 #include "../TableFactoryPrecompiled.h"
 #include "../Utilities.h"
@@ -46,7 +47,7 @@ const char* const DAG_TRANSFER_METHOD_TRS_STR2_UINT = "userTransfer(string,strin
 const char* const DAG_TRANSFER_METHOD_BAL_STR = "userBalance(string)";
 
 // fields of table '_dag_transfer_'
-const char* const DAG_TRANSFER_FIELD_NAME = "user_name";
+// const char* const DAG_TRANSFER_FIELD_NAME = "user_name";
 const char* const DAG_TRANSFER_FIELD_BALANCE = "user_balance";
 
 DagTransferPrecompiled::DagTransferPrecompiled(crypto::Hash::Ptr _hashImpl) : Precompiled(_hashImpl)
@@ -63,21 +64,20 @@ DagTransferPrecompiled::DagTransferPrecompiled(crypto::Hash::Ptr _hashImpl) : Pr
         getFuncSelector(DAG_TRANSFER_METHOD_BAL_STR, _hashImpl);
 }
 
-std::vector<std::string> DagTransferPrecompiled::getParallelTag(bytesConstRef _param)
+std::vector<std::string> DagTransferPrecompiled::getParallelTag(bytesConstRef _param, bool _isWasm)
 {
     // parse function name
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
 
     std::vector<std::string> results;
-    // FIXME: this codec should adapt scale
-    codec::abi::ContractABICodec abi(m_hashImpl);
+    auto codec = std::make_shared<PrecompiledCodec>(m_hashImpl, _isWasm);
     // user_name user_balance 2 fields in table, the key of table is user_name field
     if (func == name2Selector[DAG_TRANSFER_METHOD_ADD_STR_UINT])
     {  // userAdd(string,uint256)
         std::string user;
         u256 amount;
-        abi.abiOut(data, user, amount);
+        codec->decode(data, user, amount);
         // if params is invalid , parallel process can be done
         if (!user.empty())
         {
@@ -88,8 +88,7 @@ std::vector<std::string> DagTransferPrecompiled::getParallelTag(bytesConstRef _p
     {  // userSave(string,uint256)
         std::string user;
         u256 amount;
-
-        abi.abiOut(data, user, amount);
+        codec->decode(data, user, amount);
         // if params is invalid , parallel process can be done
         if (!user.empty())
         {
@@ -100,8 +99,7 @@ std::vector<std::string> DagTransferPrecompiled::getParallelTag(bytesConstRef _p
     {  // userDraw(string,uint256)
         std::string user;
         u256 amount;
-
-        abi.abiOut(data, user, amount);
+        codec->decode(data, user, amount);
         // if params is invalid , parallel process can be done
         if (!user.empty())
         {
@@ -113,8 +111,7 @@ std::vector<std::string> DagTransferPrecompiled::getParallelTag(bytesConstRef _p
         // userTransfer(string,string,uint256)
         std::string fromUser, toUser;
         u256 amount;
-
-        abi.abiOut(data, fromUser, toUser, amount);
+        codec->decode(data, fromUser, toUser, amount);
         // if params is invalid , parallel process can be done
         if (!fromUser.empty() && !toUser.empty())
         {
