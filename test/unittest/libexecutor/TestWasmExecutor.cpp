@@ -487,7 +487,7 @@ BOOST_AUTO_TEST_CASE(externalCall)
         params->setType(NativeExecutionMessage::MESSAGE);
 
         auto blockHeader = std::make_shared<bcos::protocol::PBBlockHeader>(cryptoSuite);
-        blockHeader->setNumber(2);
+        blockHeader->setNumber(3);
 
         std::promise<void> nextPromise;
         executor->nextBlockHeader(blockHeader, [&](bcos::Error::Ptr&& error) {
