@@ -624,7 +624,14 @@ void TransactionExecutor::call(bcos::protocol::ExecutionMessage::UniquePtr input
 
             if (m_stateStorages.empty())
             {
-                prev = m_backendStorage;
+                if (m_cachedStorage)
+                {
+                    prev = m_cachedStorage;
+                }
+                else
+                {
+                    prev = m_backendStorage;
+                }
                 number = m_lastCommitedBlockNumber;
             }
             else
@@ -1432,10 +1439,14 @@ void TransactionExecutor::removeCommittedState()
 
     if (m_cachedStorage)
     {
+        EXECUTOR_LOG(INFO) << "Merge state number: " << it->number << " to cachedStorage start";
         m_cachedStorage->merge(true, *(it->storage));
+        EXECUTOR_LOG(INFO) << "Merge state number: " << it->number << " to cachedStorage end";
+
         it = m_stateStorages.erase(it);
         if (it != m_stateStorages.end())
         {
+            EXECUTOR_LOG(INFO) << "Set state number: " << it->number << " prev to cachedStroage";
             it->storage->setPrev(m_cachedStorage);
         }
     }
