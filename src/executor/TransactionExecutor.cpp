@@ -1427,31 +1427,41 @@ void TransactionExecutor::initPrecompiled()
 
 void TransactionExecutor::removeCommittedState()
 {
-    std::unique_lock<std::shared_mutex> lock(m_stateStoragesMutex);
-
     if (m_stateStorages.empty())
     {
         EXECUTOR_LOG(ERROR) << "Remove committed state failed, empty states";
         return;
     }
 
-    auto it = m_stateStorages.begin();
+    bcos::protocol::BlockNumber number;
+    bcos::storage::StateStorage::Ptr storage;
+
+    {
+        std::unique_lock<std::shared_mutex> lock(m_stateStoragesMutex);
+        auto it = m_stateStorages.begin();
+        number = it->number;
+        storage = it->storage;
+    }
 
     if (m_cachedStorage)
     {
-        EXECUTOR_LOG(INFO) << "Merge state number: " << it->number << " to cachedStorage start";
-        m_cachedStorage->merge(true, *(it->storage));
-        EXECUTOR_LOG(INFO) << "Merge state number: " << it->number << " to cachedStorage end";
+        EXECUTOR_LOG(INFO) << "Merge state number: " << number << " to cachedStorage start";
+        m_cachedStorage->merge(true, *storage);
+        EXECUTOR_LOG(INFO) << "Merge state number: " << number << " to cachedStorage end";
 
+        std::unique_lock<std::shared_mutex> lock(m_stateStoragesMutex);
+        auto it = m_stateStorages.begin();
         it = m_stateStorages.erase(it);
         if (it != m_stateStorages.end())
         {
-            EXECUTOR_LOG(INFO) << "Set state number: " << it->number << " prev to cachedStroage";
+            EXECUTOR_LOG(INFO) << "Set state number: " << it->number << " prev to cachedStorage";
             it->storage->setPrev(m_cachedStorage);
         }
     }
     else if (m_backendStorage)
     {
+        std::unique_lock<std::shared_mutex> lock(m_stateStoragesMutex);
+        auto it = m_stateStorages.begin();
         it = m_stateStorages.erase(it);
         if (it != m_stateStorages.end())
         {
