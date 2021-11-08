@@ -77,8 +77,6 @@ const int CODE_TABLE_INVALIDATE_FIELD = -50008;
 
 const int TX_COUNT_LIMIT_MIN = 1;
 const int TX_GAS_LIMIT_MIN = 100000;
-const unsigned SYSTEM_CONSENSUS_TIMEOUT_MIN = 3;
-const unsigned SYSTEM_CONSENSUS_TIMEOUT_MAX = (UINT_MAX / 1000);
 
 enum PrecompiledErrorCode : int
 {

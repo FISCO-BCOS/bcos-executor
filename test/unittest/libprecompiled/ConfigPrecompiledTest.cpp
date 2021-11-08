@@ -417,18 +417,6 @@ BOOST_AUTO_TEST_CASE(sysConfig_test)
         simpleSetFunc(5, 103, ledger::SYSTEM_KEY_TX_COUNT_LIMIT, std::string("error"),
             CODE_INVALID_CONFIGURATION_VALUES);
     }
-
-    // simple set SYSTEM_KEY_CONSENSUS_TIMEOUT
-    {
-        simpleSetFunc(6, 104, ledger::SYSTEM_KEY_CONSENSUS_TIMEOUT, std::string("1000"));
-    }
-
-    // set SYSTEM_KEY_CONSENSUS_TIMEOUT error
-    {
-        simpleSetFunc(7, 105, ledger::SYSTEM_KEY_CONSENSUS_TIMEOUT, std::string("error"),
-            CODE_INVALID_CONFIGURATION_VALUES);
-    }
-
     // set error key
     {
         simpleSetFunc(8, 106, std::string("errorKey"), std::string("1000"),
