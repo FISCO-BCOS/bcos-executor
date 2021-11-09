@@ -134,7 +134,7 @@ int ConsensusPrecompiled::addSealer(
 
     auto& storage = _executive->storage();
 
-    ConsensusList consensusList;
+    ConsensusNodeList consensusList;
     auto entry = storage.getRow(SYS_CONSENSUS, "key");
     if (entry)
     {
@@ -147,7 +147,7 @@ int ConsensusPrecompiled::addSealer(
     }
 
     auto it = std::find_if(consensusList.begin(), consensusList.end(),
-        [&nodeID](const Node& node) { return node.nodeID == nodeID; });
+        [&nodeID](const ConsensusNode& node) { return node.nodeID == nodeID; });
     if (it != consensusList.end())
     {
         it->weight = weight;
@@ -194,7 +194,7 @@ int ConsensusPrecompiled::addObserver(
 
     auto entry = storage.getRow(SYS_CONSENSUS, "key");
 
-    ConsensusList consensusList;
+    ConsensusNodeList consensusList;
     if (entry)
     {
         auto value = entry->getField(0);
@@ -205,7 +205,7 @@ int ConsensusPrecompiled::addObserver(
         entry.emplace(Entry());
     }
     auto it = std::find_if(consensusList.begin(), consensusList.end(),
-        [&nodeID](const Node& node) { return node.nodeID == nodeID; });
+        [&nodeID](const ConsensusNode& node) { return node.nodeID == nodeID; });
     if (it != consensusList.end())
     {
         it->weight = 0;
@@ -259,7 +259,7 @@ int ConsensusPrecompiled::removeNode(
 
     auto& storage = _executive->storage();
 
-    ConsensusList consensusList;
+    ConsensusNodeList consensusList;
     auto entry = storage.getRow(SYS_CONSENSUS, "key");
     if (entry)
     {
@@ -272,7 +272,7 @@ int ConsensusPrecompiled::removeNode(
         entry.emplace(Entry());
     }
     auto it = std::find_if(consensusList.begin(), consensusList.end(),
-        [&nodeID](const Node& node) { return node.nodeID == nodeID; });
+        [&nodeID](const ConsensusNode& node) { return node.nodeID == nodeID; });
     if (it != consensusList.end())
     {
         it = consensusList.erase(it);
@@ -328,7 +328,7 @@ int ConsensusPrecompiled::setWeight(
 
     auto entry = storage.getRow(SYS_CONSENSUS, "key");
 
-    ConsensusList consensusList;
+    ConsensusNodeList consensusList;
     if (entry)
     {
         auto value = entry->getField(0);
@@ -336,7 +336,7 @@ int ConsensusPrecompiled::setWeight(
         consensusList = decodeConsensusList(value);
     }
     auto it = std::find_if(consensusList.begin(), consensusList.end(),
-        [&nodeID](const Node& node) { return node.nodeID == nodeID; });
+        [&nodeID](const ConsensusNode& node) { return node.nodeID == nodeID; });
     if (it != consensusList.end())
     {
         it->weight = 0;
@@ -390,31 +390,4 @@ void ConsensusPrecompiled::showConsensusTable(
     }
     PRECOMPILED_LOG(TRACE) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("showConsensusTable")
                            << LOG_KV("consensusTable", s.str());
-}
-
-ConsensusPrecompiled::ConsensusList ConsensusPrecompiled::decodeConsensusList(
-    const std::string_view& value)
-{
-    boost::iostreams::stream<boost::iostreams::array_source> inputStream(
-        value.data(), value.size());
-    boost::archive::binary_iarchive archive(inputStream,
-        boost::archive::no_header | boost::archive::no_codecvt | boost::archive::no_tracking);
-
-    ConsensusList consensusList;
-    archive >> consensusList;
-
-    return consensusList;
-}
-
-std::string ConsensusPrecompiled::encodeConsensusList(const ConsensusList& consensusList)
-{
-    std::string value;
-    boost::iostreams::stream<boost::iostreams::back_insert_device<std::string>> outputStream(value);
-    boost::archive::binary_oarchive archive(outputStream,
-        boost::archive::no_header | boost::archive::no_codecvt | boost::archive::no_tracking);
-
-    archive << consensusList;
-    outputStream.flush();
-
-    return value;
 }

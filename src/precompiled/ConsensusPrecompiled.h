@@ -24,7 +24,9 @@
 #include "Common.h"
 #include <bcos-framework/interfaces/storage/Common.h>
 #include <bcos-framework/interfaces/storage/Table.h>
+#include <bcos-framework/libtool/ConsensusNode.h>
 #include <boost/core/ignore_unused.hpp>
+
 namespace bcos
 {
 namespace precompiled
@@ -65,35 +67,6 @@ private:
     void showConsensusTable(const std::shared_ptr<executor::TransactionExecutive>& _executive);
 
     void checkTable(executor::TransactionExecutive& executive);
-
-    struct Node
-    {
-        Node(){};
-        Node(std::string _nodeID, u256 _weight, std::string _type, std::string _enableNumber)
-          : nodeID(std::move(_nodeID)),
-            weight(_weight),
-            type(std::move(_type)),
-            enableNumber(std::move(_enableNumber))
-        {}
-
-        std::string nodeID;
-        u256 weight;
-        std::string type;
-        std::string enableNumber;
-
-        template <typename Archive>
-        void serialize(Archive& ar, const unsigned int version)
-        {
-            boost::ignore_unused(version);
-            ar& nodeID;
-            ar& weight;
-            ar& type;
-            ar& enableNumber;
-        }
-    };
-    using ConsensusList = std::vector<Node>;
-    ConsensusList decodeConsensusList(const std::string_view& value);
-    std::string encodeConsensusList(const ConsensusList& consensusList);
 };
 }  // namespace precompiled
 }  // namespace bcos
