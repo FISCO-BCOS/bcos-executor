@@ -39,9 +39,6 @@ SystemConfigPrecompiled::SystemConfigPrecompiled(crypto::Hash::Ptr _hashImpl)
     name2Selector[SYSCONFIG_METHOD_GET_STR] = getFuncSelector(SYSCONFIG_METHOD_GET_STR, _hashImpl);
     m_sysValueCmp.insert(std::make_pair(
         SYSTEM_KEY_TX_GAS_LIMIT, [](int64_t _v) -> bool { return _v > TX_GAS_LIMIT_MIN; }));
-    m_sysValueCmp.insert(std::make_pair(SYSTEM_KEY_CONSENSUS_TIMEOUT, [](int64_t _v) -> bool {
-        return (_v >= SYSTEM_CONSENSUS_TIMEOUT_MIN && _v < SYSTEM_CONSENSUS_TIMEOUT_MAX);
-    }));
     m_sysValueCmp.insert(std::make_pair(
         SYSTEM_KEY_CONSENSUS_LEADER_PERIOD, [](int64_t _v) -> bool { return (_v >= 1); }));
     m_sysValueCmp.insert(std::make_pair(
