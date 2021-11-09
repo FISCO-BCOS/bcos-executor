@@ -26,6 +26,7 @@
 #include "../vm/Precompiled.h"
 #include "../vm/VMFactory.h"
 #include "../vm/VMInstance.h"
+#include "../vm/gas_meter/GasInjector.h"
 #include "BlockContext.h"
 #include "bcos-executor/TransactionExecutor.h"
 #include "bcos-framework/interfaces/protocol/Exceptions.h"

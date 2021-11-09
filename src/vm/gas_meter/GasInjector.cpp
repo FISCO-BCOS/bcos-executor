@@ -33,6 +33,7 @@ using namespace wabt;
 
 #define METER_LOG(LEVEL) BCOS_LOG(LEVEL) << "[METER]"
 
+namespace bcos{
 namespace wasm
 {
 const char* const MODULE_NAME = "bcos";
@@ -548,3 +549,4 @@ GasInjector::Result GasInjector::InjectMeter(const std::vector<uint8_t>& byteCod
 
 
 }  // namespace wasm
+}
