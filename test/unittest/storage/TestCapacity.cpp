@@ -61,11 +61,11 @@ BOOST_FIXTURE_TEST_SUITE(TestLRUStorage, LRUStorageFixture)
 
 BOOST_AUTO_TEST_CASE(capacity)
 {
-    tableFactory->setMaxCapacity(0);
+    tableFactory->setMaxCapacity(100);
     tableFactory->asyncCreateTable("table", "value",
         [](Error::UniquePtr error, std::optional<Table>) { BOOST_CHECK(!error); });
 
-    for (size_t i = 0; i < 100 * 1000; ++i)
+    for (size_t i = 0; i < 10 * 100; ++i)
     {
         std::string key = "key" + boost::lexical_cast<std::string>(i);
 

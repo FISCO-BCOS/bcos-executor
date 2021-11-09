@@ -22,6 +22,7 @@
 #include "../mock/MockTransactionalStorage.h"
 #include "../mock/MockTxPool.h"
 #include "Common.h"
+#include "bcos-executor/LRUStorage.h"
 #include "bcos-executor/TransactionExecutor.h"
 #include "interfaces/crypto/CommonType.h"
 #include "interfaces/crypto/CryptoSuite.h"
@@ -31,7 +32,6 @@
 #include "libprotocol/protobuf/PBBlockHeader.h"
 #include "libstorage/StateStorage.h"
 #include "precompiled/PrecompiledCodec.h"
-#include "bcos-executor/LRUStorage.h"
 #include <bcos-framework/libexecutor/NativeExecutionMessage.h>
 #include <bcos-framework/testutils/crypto/HashImpl.h>
 #include <bcos-framework/testutils/crypto/SignatureImpl.h>
@@ -572,6 +572,13 @@ BOOST_AUTO_TEST_CASE(externalCall)
         BOOST_CHECK_NE(hash.hex(), h256().hex());
     });
 
+    // commit the state
+    bcos::executor::ParallelTransactionExecutorInterface::TwoPCParams commitParams;
+    commitParams.number = 1;
+
+    executor->prepare(commitParams, [](bcos::Error::Ptr error) { BOOST_CHECK(!error); });
+    executor->commit(commitParams, [](bcos::Error::Ptr error) { BOOST_CHECK(!error); });
+
     // execute a call request
     auto callParam = std::make_unique<NativeExecutionMessage>();
     callParam->setType(executor::NativeExecutionMessage::MESSAGE);
@@ -600,10 +607,10 @@ BOOST_AUTO_TEST_CASE(externalCall)
     BOOST_CHECK(callResult->data().toBytes() == expectResult);
 
     // commit the state, and call
-    bcos::executor::TransactionExecutor::TwoPCParams commitParams;
-    commitParams.number = 1;
-    executor->prepare(commitParams, [&](bcos::Error::Ptr error) { BOOST_CHECK(!error); });
-    executor->commit(commitParams, [&](bcos::Error::Ptr error) { BOOST_CHECK(!error); });
+    // bcos::executor::TransactionExecutor::TwoPCParams commitParams;
+    // commitParams.number = 1;
+    // executor->prepare(commitParams, [&](bcos::Error::Ptr error) { BOOST_CHECK(!error); });
+    // executor->commit(commitParams, [&](bcos::Error::Ptr error) { BOOST_CHECK(!error); });
 
     auto callParam2 = std::make_unique<NativeExecutionMessage>();
     callParam2->setType(executor::NativeExecutionMessage::MESSAGE);
