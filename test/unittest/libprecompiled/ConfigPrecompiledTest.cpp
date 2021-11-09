@@ -535,6 +535,11 @@ BOOST_AUTO_TEST_CASE(consensus_test)
             });
         auto result3 = executePromise3.get_future().get();
         BOOST_CHECK(result3->data().toBytes() == codec->encode(s256(_errorCode)));
+        if (result3->data().toBytes() != codec->encode(s256(_errorCode)))
+        {
+            PRECOMPILED_LOG(TRACE) << "Mismatch result: " << toHex(result3->data().toBytes())
+                                   << " expect: " << toHex(codec->encode(s256(_errorCode)));
+        }
         commitBlock(_number);
     };
 

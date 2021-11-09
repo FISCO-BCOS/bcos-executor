@@ -24,7 +24,16 @@
 #include <bcos-framework/interfaces/ledger/LedgerTypeDef.h>
 #include <bcos-framework/interfaces/protocol/CommonError.h>
 #include <boost/algorithm/string.hpp>
+#include <boost/archive/basic_archive.hpp>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/binary_oarchive.hpp>
+#include <boost/archive/text_oarchive.hpp>
+#include <boost/core/ignore_unused.hpp>
+#include <boost/iostreams/device/back_inserter.hpp>
+#include <boost/iostreams/stream.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/serialization/vector.hpp>
+#include <tuple>
 #include <utility>
 
 using namespace bcos;
@@ -59,35 +68,36 @@ std::shared_ptr<PrecompiledExecResult> ConsensusPrecompiled::call(
 
     showConsensusTable(_executive);
 
+    auto blockContext = _executive->blockContext().lock();
+    auto codec = PrecompiledCodec(blockContext->hashHandler(), blockContext->isWasm());
+
     int result = 0;
     if (func == name2Selector[CSS_METHOD_ADD_SEALER])
     {
         // addSealer(string, uint256)
-        result = addSealer(_executive, data);
+        result = addSealer(_executive, data, codec);
     }
     else if (func == name2Selector[CSS_METHOD_ADD_SER])
     {
         // addObserver(string)
-        result = addObserver(_executive, data);
+        result = addObserver(_executive, data, codec);
     }
     else if (func == name2Selector[CSS_METHOD_REMOVE])
     {
         // remove(string)
-        result = removeNode(_executive, data);
+        result = removeNode(_executive, data, codec);
     }
     else if (func == name2Selector[CSS_METHOD_SET_WEIGHT])
     {
         // setWeight(string,uint256)
-        result = setWeight(_executive, data);
+        result = setWeight(_executive, data, codec);
     }
     else
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("ConsensusPrecompiled")
                                << LOG_DESC("call undefined function") << LOG_KV("func", func);
     }
-    auto blockContext = _executive->blockContext().lock();
-    auto codec =
-        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
+
     getErrorCodeOut(callResult->mutableExecResult(), result, codec);
     gasPricer->updateMemUsed(callResult->m_execResult.size());
     callResult->setGas(gasPricer->calTotalGas());
@@ -95,15 +105,14 @@ std::shared_ptr<PrecompiledExecResult> ConsensusPrecompiled::call(
 }
 
 int ConsensusPrecompiled::addSealer(
-    const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& _data)
+    const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& _data,
+    const PrecompiledCodec& codec)
 {
     // addSealer(string, uint256)
     std::string nodeID;
     u256 weight;
     auto blockContext = _executive->blockContext().lock();
-    auto codec =
-        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
-    codec->decode(_data, nodeID, weight);
+    codec.decode(_data, nodeID, weight);
     // Uniform lowercase nodeID
     boost::to_lower(nodeID);
 
@@ -123,13 +132,39 @@ int ConsensusPrecompiled::addSealer(
         return CODE_INVALID_WEIGHT;
     }
 
-    auto table = _executive->storage().openTable(SYS_CONSENSUS);
-    auto newEntry = table->newEntry();
-    newEntry.setField(NODE_TYPE, ledger::CONSENSUS_SEALER);
-    newEntry.setField(
-        NODE_ENABLE_NUMBER, boost::lexical_cast<std::string>(blockContext->number() + 1));
-    newEntry.setField(NODE_WEIGHT, boost::lexical_cast<std::string>(weight));
-    table->setRow(nodeID, std::move(newEntry));
+    auto& storage = _executive->storage();
+
+    ConsensusList consensusList;
+    auto entry = storage.getRow(SYS_CONSENSUS, "key");
+    if (entry)
+    {
+        auto value = entry->getField(0);
+        consensusList = decodeConsensusList(value);
+    }
+    else
+    {
+        entry.emplace(Entry());
+    }
+
+    auto it = std::find_if(consensusList.begin(), consensusList.end(),
+        [&nodeID](const Node& node) { return node.nodeID == nodeID; });
+    if (it != consensusList.end())
+    {
+        it->weight = weight;
+        it->type = ledger::CONSENSUS_SEALER;
+        it->enableNumber = boost::lexical_cast<std::string>(blockContext->number() + 1);
+    }
+    else
+    {
+        consensusList.emplace_back(nodeID, weight, ledger::CONSENSUS_SEALER,
+            boost::lexical_cast<std::string>(blockContext->number() + 1));
+    }
+
+    auto encodedValue = encodeConsensusList(consensusList);
+    entry->importFields({std::move(encodedValue)});
+
+    storage.setRow(SYS_CONSENSUS, "key", std::move(*entry));
+
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
                            << LOG_DESC("addSealer successfully insert") << LOG_KV("nodeID", nodeID)
                            << LOG_KV("weight", weight);
@@ -137,14 +172,13 @@ int ConsensusPrecompiled::addSealer(
 }
 
 int ConsensusPrecompiled::addObserver(
-    const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& _data)
+    const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& _data,
+    const PrecompiledCodec& codec)
 {
     // addObserver(string)
     std::string nodeID;
     auto blockContext = _executive->blockContext().lock();
-    auto codec =
-        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
-    codec->decode(_data, nodeID);
+    codec.decode(_data, nodeID);
     // Uniform lowercase nodeID
     boost::to_lower(nodeID);
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("addObserver func")
@@ -156,36 +190,62 @@ int ConsensusPrecompiled::addObserver(
         return CODE_INVALID_NODE_ID;
     }
 
-    auto table = _executive->storage().openTable(SYS_CONSENSUS);
+    auto& storage = _executive->storage();
 
-    auto nodeIdList = table->getPrimaryKeys(std::nullopt);
+    auto entry = storage.getRow(SYS_CONSENSUS, "key");
 
-    auto newEntry = table->newEntry();
-    newEntry.setField(NODE_TYPE, ledger::CONSENSUS_OBSERVER);
-    newEntry.setField(
-        NODE_ENABLE_NUMBER, boost::lexical_cast<std::string>(blockContext->number() + 1));
-    newEntry.setField(NODE_WEIGHT, "0");
-    if (checkIsLastSealer(table, nodeID))
+    ConsensusList consensusList;
+    if (entry)
+    {
+        auto value = entry->getField(0);
+        consensusList = decodeConsensusList(value);
+    }
+    else
+    {
+        entry.emplace(Entry());
+    }
+    auto it = std::find_if(consensusList.begin(), consensusList.end(),
+        [&nodeID](const Node& node) { return node.nodeID == nodeID; });
+    if (it != consensusList.end())
+    {
+        it->weight = 0;
+        it->type = ledger::CONSENSUS_OBSERVER;
+        it->enableNumber = boost::lexical_cast<std::string>(blockContext->number() + 1);
+    }
+    else
+    {
+        consensusList.emplace_back(nodeID, 0, ledger::CONSENSUS_OBSERVER,
+            boost::lexical_cast<std::string>(blockContext->number() + 1));
+    }
+
+    auto sealerCount = std::count_if(consensusList.begin(), consensusList.end(),
+        [](auto&& node) { return node.type == ledger::CONSENSUS_SEALER; });
+
+    if (sealerCount == 0)
     {
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
                                << LOG_DESC("addObserver failed, because last sealer");
         return CODE_LAST_SEALER;
     }
-    table->setRow(nodeID, std::move(newEntry));
+
+    auto encodedValue = encodeConsensusList(consensusList);
+    entry->importFields({std::move(encodedValue)});
+
+    storage.setRow(SYS_CONSENSUS, "key", std::move(*entry));
+
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
                            << LOG_DESC("addObserver successfully insert");
     return 0;
 }
 
 int ConsensusPrecompiled::removeNode(
-    const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& _data)
+    const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& _data,
+    const PrecompiledCodec& codec)
 {
     // remove(string)
     std::string nodeID;
     auto blockContext = _executive->blockContext().lock();
-    auto codec =
-        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
-    codec->decode(_data, nodeID);
+    codec.decode(_data, nodeID);
     // Uniform lowercase nodeID
     boost::to_lower(nodeID);
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("remove func")
@@ -197,29 +257,55 @@ int ConsensusPrecompiled::removeNode(
         return CODE_INVALID_NODE_ID;
     }
 
-    auto table = _executive->storage().openTable(ledger::SYS_CONSENSUS);
-    if (checkIsLastSealer(table, nodeID))
+    auto& storage = _executive->storage();
+
+    ConsensusList consensusList;
+    auto entry = storage.getRow(SYS_CONSENSUS, "key");
+    if (entry)
+    {
+        auto value = entry->getField(0);
+
+        consensusList = decodeConsensusList(value);
+    }
+    else
+    {
+        entry.emplace(Entry());
+    }
+    auto it = std::find_if(consensusList.begin(), consensusList.end(),
+        [&nodeID](const Node& node) { return node.nodeID == nodeID; });
+    if (it != consensusList.end())
+    {
+        it = consensusList.erase(it);
+    }
+
+    auto sealerSize = std::count_if(consensusList.begin(), consensusList.end(),
+        [](auto&& node) { return node.type == ledger::CONSENSUS_SEALER; });
+
+    if (sealerSize == 0)
     {
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
-                               << LOG_DESC("remove failed, because last sealer");
+                               << LOG_DESC("addObserver failed, because last sealer");
         return CODE_LAST_SEALER;
     }
-    // remove nodeID
-    table->setRow(nodeID, table->newDeletedEntry());
+
+    auto encodedValue = encodeConsensusList(consensusList);
+    entry->importFields({std::move(encodedValue)});
+
+    storage.setRow(SYS_CONSENSUS, "key", std::move(*entry));
+
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("remove successfully");
     return 0;
 }
 
 int ConsensusPrecompiled::setWeight(
-    const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& _data)
+    const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& _data,
+    const PrecompiledCodec& codec)
 {
     // setWeight(string,uint256)
     std::string nodeID;
     u256 weight;
     auto blockContext = _executive->blockContext().lock();
-    auto codec =
-        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
-    codec->decode(_data, nodeID, weight);
+    codec.decode(_data, nodeID, weight);
     // Uniform lowercase nodeID
     boost::to_lower(nodeID);
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("setWeight func")
@@ -232,23 +318,40 @@ int ConsensusPrecompiled::setWeight(
     }
     if (weight == 0)
     {
-        // u256 weight be then 0
+        // u256 weight must greater then 0
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("weight is 0")
                                << LOG_KV("nodeID", nodeID);
         return CODE_INVALID_WEIGHT;
     }
-    auto table = _executive->storage().openTable(ledger::SYS_CONSENSUS);
-    auto entry = table->getRow(nodeID);
-    if (!entry)
+
+    auto& storage = _executive->storage();
+
+    auto entry = storage.getRow(SYS_CONSENSUS, "key");
+
+    ConsensusList consensusList;
+    if (entry)
     {
-        PRECOMPILED_LOG(ERROR) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("nodeID not exists")
-                               << LOG_KV("nodeID", nodeID);
-        return CODE_NODE_NOT_EXIST;
+        auto value = entry->getField(0);
+
+        consensusList = decodeConsensusList(value);
     }
-    entry->setField(NODE_WEIGHT, boost::lexical_cast<std::string>(weight));
-    entry->setField(
-        NODE_ENABLE_NUMBER, boost::lexical_cast<std::string>(blockContext->number() + 1));
-    table->setRow(nodeID, std::move(entry.value()));
+    auto it = std::find_if(consensusList.begin(), consensusList.end(),
+        [&nodeID](const Node& node) { return node.nodeID == nodeID; });
+    if (it != consensusList.end())
+    {
+        it->weight = 0;
+        it->enableNumber = boost::lexical_cast<std::string>(blockContext->number() + 1);
+    }
+    else
+    {
+        return CODE_NODE_NOT_EXIST;  // Not found
+    }
+
+    auto encodedValue = encodeConsensusList(consensusList);
+    entry->importFields({std::move(encodedValue)});
+
+    storage.setRow(SYS_CONSENSUS, "key", std::move(*entry));
+
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ConsensusPrecompiled")
                            << LOG_DESC("setWeight successfully");
     return 0;
@@ -257,68 +360,61 @@ int ConsensusPrecompiled::setWeight(
 void ConsensusPrecompiled::showConsensusTable(
     const std::shared_ptr<executor::TransactionExecutive>& _executive)
 {
-    auto table = _executive->storage().openTable(ledger::SYS_CONSENSUS);
-    if (!table)
+    auto& storage = _executive->storage();
+    if (!storage.openTable(SYS_CONSENSUS))
     {
-        _executive->storage().createTable(ledger::SYS_CONSENSUS, "type,weight,enable_number");
+        storage.createTable(SYS_CONSENSUS, "type,weight,enable_number");
+    }
+
+    auto entry = storage.getRow(SYS_CONSENSUS, "key");
+
+    if (!entry)
+    {
+        PRECOMPILED_LOG(TRACE) << LOG_BADGE("ConsensusPrecompiled")
+                               << LOG_DESC("showConsensusTable") << " No consensus";
         return;
     }
-    auto nodeIdList = _executive->storage().getPrimaryKeys(ledger::SYS_CONSENSUS, std::nullopt);
+
+    auto value = entry->getField(0);
+
+    auto consensusList = decodeConsensusList(value);
 
     std::stringstream s;
     s << "ConsensusPrecompiled show table:\n";
-    for (auto& nodeId : nodeIdList)
+    for (auto& it : consensusList)
     {
-        auto entry = table->getRow(nodeId);
-        if (!entry)
-        {
-            continue;
-        }
-        auto type = entry->getField(NODE_TYPE);
-        auto enableNumber = entry->getField(NODE_ENABLE_NUMBER);
-        auto weight = entry->getField(NODE_WEIGHT);
-        s << "ConsensusPrecompiled: " << nodeId << "," << type << "," << enableNumber << ","
+        auto& [nodeID, weight, type, enableNumber] = it;
+
+        s << "ConsensusPrecompiled: " << nodeID << "," << type << "," << enableNumber << ","
           << weight << "\n";
     }
     PRECOMPILED_LOG(TRACE) << LOG_BADGE("ConsensusPrecompiled") << LOG_DESC("showConsensusTable")
                            << LOG_KV("consensusTable", s.str());
 }
 
-std::shared_ptr<std::map<std::string, std::optional<storage::Entry>>>
-ConsensusPrecompiled::getRowsByNodeType(
-    std::optional<bcos::storage::Table> _table, std::string const& _nodeType)
+ConsensusPrecompiled::ConsensusList ConsensusPrecompiled::decodeConsensusList(
+    const std::string_view& value)
 {
-    auto result = std::make_shared<std::map<std::string, std::optional<storage::Entry>>>();
-    auto keys = _table->getPrimaryKeys(std::nullopt);
-    for (const auto& key : keys)
-    {
-        auto entry = _table->getRow(key);
-        if (!entry)
-        {
-            continue;
-        }
-        if (entry->getField(NODE_TYPE) == _nodeType)
-        {
-            result->insert({key, entry});
-        }
-    }
-    return result;
+    boost::iostreams::stream<boost::iostreams::array_source> inputStream(
+        value.data(), value.size());
+    boost::archive::binary_iarchive archive(inputStream,
+        boost::archive::no_header | boost::archive::no_codecvt | boost::archive::no_tracking);
+
+    ConsensusList consensusList;
+    archive >> consensusList;
+
+    return consensusList;
 }
 
-bool ConsensusPrecompiled::checkIsLastSealer(
-    std::optional<storage::Table> _table, std::string const& nodeID)
+std::string ConsensusPrecompiled::encodeConsensusList(const ConsensusList& consensusList)
 {
-    // Check is last sealer or not.
-    auto entryMap = getRowsByNodeType(std::move(_table), ledger::CONSENSUS_SEALER);
-    if (entryMap->size() == 1u && entryMap->cbegin()->first == nodeID)
-    {
-        // The nodeID in param is the last sealer, cannot be deleted.
-        PRECOMPILED_LOG(WARNING) << LOG_BADGE("ConsensusPrecompiled")
-                                 << LOG_DESC(
-                                        "ConsensusPrecompiled the nodeID in param is the last "
-                                        "sealer, cannot be deleted.")
-                                 << LOG_KV("nodeID", nodeID);
-        return true;
-    }
-    return false;
+    std::string value;
+    boost::iostreams::stream<boost::iostreams::back_insert_device<std::string>> outputStream(value);
+    boost::archive::binary_oarchive archive(outputStream,
+        boost::archive::no_header | boost::archive::no_codecvt | boost::archive::no_tracking);
+
+    archive << consensusList;
+    outputStream.flush();
+
+    return value;
 }

@@ -113,7 +113,7 @@ void FileSystemPrecompiled::makeDir(
                                << LOG_KV("path", absolutePath);
         auto buildResult = recursiveBuildDir(_executive, absolutePath);
         auto result = buildResult ? CODE_SUCCESS : CODE_FILE_BUILD_DIR_FAILED;
-        getErrorCodeOut(callResult->mutableExecResult(), result, codec);
+        getErrorCodeOut(callResult->mutableExecResult(), result, *codec);
     }
 }
 
@@ -205,6 +205,6 @@ void FileSystemPrecompiled::listDir(
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("FileSystemPrecompiled")
                                << LOG_DESC("can't open table of file path")
                                << LOG_KV("path", absolutePath);
-        getErrorCodeOut(callResult->mutableExecResult(), CODE_FILE_NOT_EXIST, codec);
+        getErrorCodeOut(callResult->mutableExecResult(), CODE_FILE_NOT_EXIST, *codec);
     }
 }

@@ -117,7 +117,7 @@ void KVTableFactoryPrecompiled::createTable(
     {
         // table already exist
         result = CODE_TABLE_NAME_ALREADY_EXIST;
-        getErrorCodeOut(callResult->mutableExecResult(), result, codec);
+        getErrorCodeOut(callResult->mutableExecResult(), result, *codec);
         return;
     }
     auto parentDirAndBaseName = getParentDirAndBaseName(newTableName);
@@ -135,7 +135,7 @@ void KVTableFactoryPrecompiled::createTable(
         if (!ret || !sysEntry)
         {
             result = CODE_TABLE_CREATE_ERROR;
-            getErrorCodeOut(callResult->mutableExecResult(), result, codec);
+            getErrorCodeOut(callResult->mutableExecResult(), result, *codec);
             return;
         }
         sysEntry->setField(StorageInterface::SYS_TABLE_VALUE_FIELDS, valueField + "," + keyField);
@@ -151,7 +151,7 @@ void KVTableFactoryPrecompiled::createTable(
         newEntry.setField(FS_FIELD_EXTRA, "");
         parentTable->setRow(tableBaseName, newEntry);
     }
-    getErrorCodeOut(callResult->mutableExecResult(), result, codec);
+    getErrorCodeOut(callResult->mutableExecResult(), result, *codec);
 }
 
 void KVTableFactoryPrecompiled::get(

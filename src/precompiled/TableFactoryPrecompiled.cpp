@@ -184,7 +184,7 @@ void TableFactoryPrecompiled::createTable(
     {
         // table already exist
         result = CODE_TABLE_NAME_ALREADY_EXIST;
-        getErrorCodeOut(callResult->mutableExecResult(), result, codec);
+        getErrorCodeOut(callResult->mutableExecResult(), result, *codec);
         return;
     }
     else
@@ -204,7 +204,7 @@ void TableFactoryPrecompiled::createTable(
             if (!ret || !sysEntry)
             {
                 result = CODE_TABLE_CREATE_ERROR;
-                getErrorCodeOut(callResult->mutableExecResult(), result, codec);
+                getErrorCodeOut(callResult->mutableExecResult(), result, *codec);
                 return;
             }
             sysEntry->setField(
@@ -221,7 +221,7 @@ void TableFactoryPrecompiled::createTable(
             parentTable->setRow(tableBaseName, std::move(newEntry));
         }
     }
-    getErrorCodeOut(callResult->mutableExecResult(), result, codec);
+    getErrorCodeOut(callResult->mutableExecResult(), result, *codec);
 }
 
 void TableFactoryPrecompiled::select(
@@ -315,7 +315,7 @@ void TableFactoryPrecompiled::insert(
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("TablePrecompiled") << LOG_BADGE("INSERT")
                                << LOG_DESC("can't get any primary key in entry string")
                                << LOG_KV("primaryKeyField", keyField);
-        getErrorCodeOut(callResult->mutableExecResult(), CODE_KEY_NOT_EXIST_IN_ENTRY, codec);
+        getErrorCodeOut(callResult->mutableExecResult(), CODE_KEY_NOT_EXIST_IN_ENTRY, *codec);
     }
     PRECOMPILED_LOG(DEBUG) << LOG_DESC("Table insert") << LOG_KV("key", keyValue);
     auto checkExistEntry = table->getRow(keyValue);
@@ -324,7 +324,7 @@ void TableFactoryPrecompiled::insert(
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("TablePrecompiled") << LOG_BADGE("INSERT")
                                << LOG_DESC("key already exist in table, please use UPDATE method")
                                << LOG_KV("primaryKey", keyField) << LOG_KV("existKey", keyValue);
-        getErrorCodeOut(callResult->mutableExecResult(), CODE_INSERT_KEY_EXIST, codec);
+        getErrorCodeOut(callResult->mutableExecResult(), CODE_INSERT_KEY_EXIST, *codec);
     }
     else
     {
@@ -376,7 +376,7 @@ void TableFactoryPrecompiled::update(
             PRECOMPILED_LOG(ERROR) << LOG_BADGE("TablePrecompiled") << LOG_BADGE("UPDATE")
                                    << LOG_DESC("key not exist in table, please use INSERT method")
                                    << LOG_KV("primaryKey", keyField) << LOG_KV("notExistKey", key);
-            getErrorCodeOut(callResult->mutableExecResult(), CODE_UPDATE_KEY_NOT_EXIST, codec);
+            getErrorCodeOut(callResult->mutableExecResult(), CODE_UPDATE_KEY_NOT_EXIST, *codec);
             return;
         }
     }

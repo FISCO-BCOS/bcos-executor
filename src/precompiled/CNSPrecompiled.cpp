@@ -211,7 +211,7 @@ void CNSPrecompiled::insert(const std::shared_ptr<executor::TransactionExecutive
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("CNSPrecompiled") << LOG_DESC("insert successfully");
         result = CODE_SUCCESS;
     }
-    getErrorCodeOut(callResult->mutableExecResult(), result, codec);
+    getErrorCodeOut(callResult->mutableExecResult(), result, *codec);
 }
 
 void CNSPrecompiled::selectByName(const std::shared_ptr<executor::TransactionExecutive>& _executive,

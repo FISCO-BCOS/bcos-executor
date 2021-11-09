@@ -24,6 +24,7 @@
 #include "Common.h"
 #include <bcos-framework/interfaces/storage/Common.h>
 #include <bcos-framework/interfaces/storage/Table.h>
+#include <boost/core/ignore_unused.hpp>
 namespace bcos
 {
 namespace precompiled
@@ -48,23 +49,51 @@ public:
         const std::string& _origin, const std::string& _sender) override;
 
 private:
-    int addSealer(
-        const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& _data);
+    int addSealer(const std::shared_ptr<executor::TransactionExecutive>& _executive,
+        bytesConstRef& _data, const PrecompiledCodec& codec);
 
-    int addObserver(
-        const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& _data);
+    int addObserver(const std::shared_ptr<executor::TransactionExecutive>& _executive,
+        bytesConstRef& _data, const PrecompiledCodec& codec);
 
-    int removeNode(
-        const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& _data);
+    int removeNode(const std::shared_ptr<executor::TransactionExecutive>& _executive,
+        bytesConstRef& _data, const PrecompiledCodec& codec);
 
-    int setWeight(
-        const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& _data);
+    int setWeight(const std::shared_ptr<executor::TransactionExecutive>& _executive,
+        bytesConstRef& _data, const PrecompiledCodec& codec);
 
 private:
     void showConsensusTable(const std::shared_ptr<executor::TransactionExecutive>& _executive);
-    bool checkIsLastSealer(std::optional<bcos::storage::Table> table, std::string const& nodeID);
-    std::shared_ptr<std::map<std::string, std::optional<storage::Entry>>> getRowsByNodeType(
-        std::optional<bcos::storage::Table> _table, std::string const& _nodeType);
+
+    void checkTable(executor::TransactionExecutive& executive);
+
+    struct Node
+    {
+        Node(){};
+        Node(std::string _nodeID, u256 _weight, std::string _type, std::string _enableNumber)
+          : nodeID(std::move(_nodeID)),
+            weight(_weight),
+            type(std::move(_type)),
+            enableNumber(std::move(_enableNumber))
+        {}
+
+        std::string nodeID;
+        u256 weight;
+        std::string type;
+        std::string enableNumber;
+
+        template <typename Archive>
+        void serialize(Archive& ar, const unsigned int version)
+        {
+            boost::ignore_unused(version);
+            ar& nodeID;
+            ar& weight;
+            ar& type;
+            ar& enableNumber;
+        }
+    };
+    using ConsensusList = std::vector<Node>;
+    ConsensusList decodeConsensusList(const std::string_view& value);
+    std::string encodeConsensusList(const ConsensusList& consensusList);
 };
 }  // namespace precompiled
 }  // namespace bcos

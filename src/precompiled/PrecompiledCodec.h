@@ -37,12 +37,12 @@ class PrecompiledCodec
 {
 public:
     using Ptr = std::shared_ptr<PrecompiledCodec>;
-    PrecompiledCodec(crypto::Hash::Ptr _hash, bool _isWasm) : m_hash(_hash)
+    PrecompiledCodec(crypto::Hash::Ptr _hash, bool _isWasm) : m_hash(std::move(_hash))
     {
         m_type = _isWasm ? VMType::WASM : VMType::EVM;
     }
     template <typename... Args>
-    bytes encode(Args&&... _args)
+    bytes encode(Args&&... _args) const
     {
         assert(m_type != VMType::UNDEFINED);
         if (m_type == VMType::EVM)
@@ -59,7 +59,7 @@ public:
         }
     }
     template <typename... Args>
-    bytes encodeWithSig(const std::string& _sig, Args&&... _args)
+    bytes encodeWithSig(const std::string& _sig, Args&&... _args) const
     {
         assert(m_type != VMType::UNDEFINED);
         if (m_type == VMType::EVM)
@@ -76,7 +76,7 @@ public:
         }
     }
 
-    bytes encodeWithSig(const std::string& _sig)
+    bytes encodeWithSig(const std::string& _sig) const
     {
         assert(m_type != VMType::UNDEFINED);
         if (m_type == VMType::EVM)
@@ -93,7 +93,7 @@ public:
     }
 
     template <typename... T>
-    void decode(bytesConstRef _data, T&... _t)
+    void decode(bytesConstRef _data, T&... _t) const
     {
         assert(m_type != VMType::UNDEFINED);
         if (m_type == VMType::EVM)
@@ -109,18 +109,18 @@ public:
         }
     }
     template <typename T, typename... U>
-    void decodeScale(codec::scale::ScaleDecoderStream& _s, T& _t, U&... _u)
+    void decodeScale(codec::scale::ScaleDecoderStream& _s, T& _t, U&... _u) const
     {
         _s >> _t;
         decodeScale(_s, _u...);
     }
     template <typename T>
-    void decodeScale(codec::scale::ScaleDecoderStream& _s, T& _t)
+    void decodeScale(codec::scale::ScaleDecoderStream& _s, T& _t) const
     {
         _s >> _t;
     }
 
-    void decodeScale(codec::scale::ScaleDecoderStream&) { return; }
+    void decodeScale(codec::scale::ScaleDecoderStream&) const { return; }
 
     VMType getVMType() const { return m_type; }
     void setVMType(bool _isWasm) { m_type = _isWasm ? VMType::WASM : VMType::EVM; }

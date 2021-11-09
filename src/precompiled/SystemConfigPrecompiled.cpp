@@ -79,7 +79,7 @@ std::shared_ptr<PrecompiledExecResult> SystemConfigPrecompiled::call(
                 << LOG_BADGE("SystemConfigPrecompiled") << LOG_DESC("set invalid value")
                 << LOG_KV("configKey", configKey) << LOG_KV("configValue", configValue);
             getErrorCodeOut(
-                callResult->mutableExecResult(), CODE_INVALID_CONFIGURATION_VALUES, codec);
+                callResult->mutableExecResult(), CODE_INVALID_CONFIGURATION_VALUES, *codec);
             return callResult;
         }
 
@@ -95,7 +95,7 @@ std::shared_ptr<PrecompiledExecResult> SystemConfigPrecompiled::call(
                               << LOG_DESC("set system config") << LOG_KV("configKey", configKey)
                               << LOG_KV("configValue", configValue);
         result = 0;
-        getErrorCodeOut(callResult->mutableExecResult(), result, codec);
+        getErrorCodeOut(callResult->mutableExecResult(), result, *codec);
     }
     else if (func == name2Selector[SYSCONFIG_METHOD_GET_STR])
     {

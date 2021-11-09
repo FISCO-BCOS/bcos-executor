@@ -89,14 +89,14 @@ void transferKeyCond(
 
 bool transferEntry(const EntryTuple& _entryTuple, storage::Entry& _storageEntry);
 
-inline void getErrorCodeOut(bytes& out, int const& result, const PrecompiledCodec::Ptr& _codec)
+inline void getErrorCodeOut(bytes& out, int const& result, const PrecompiledCodec& _codec)
 {
     if (result >= 0 && result < 128)
     {
-        out = _codec->encode(u256(result));
+        out = _codec.encode(u256(result));
         return;
     }
-    out = _codec->encode(s256(result));
+    out = _codec.encode(s256(result));
 }
 inline std::string getTableName(const std::string& _tableName)
 {

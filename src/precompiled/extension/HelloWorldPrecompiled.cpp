@@ -88,7 +88,7 @@ std::shared_ptr<PrecompiledExecResult> HelloWorldPrecompiled::call(
         {
             PRECOMPILED_LOG(ERROR) << LOG_BADGE("HelloWorldPrecompiled") << LOG_DESC("set")
                                    << LOG_DESC("open table failed.");
-            getErrorCodeOut(callResult->mutableExecResult(), CODE_NO_AUTHORIZED, codec);
+            getErrorCodeOut(callResult->mutableExecResult(), CODE_NO_AUTHORIZED, *codec);
             return callResult;
         }
     }
@@ -122,7 +122,7 @@ std::shared_ptr<PrecompiledExecResult> HelloWorldPrecompiled::call(
         table->setRow(HELLO_WORLD_KEY_FIELD_NAME, *entry);
         gasPricer->appendOperation(InterfaceOpcode::Update, 1);
         gasPricer->updateMemUsed(entry->capacityOfHashField());
-        getErrorCodeOut(callResult->mutableExecResult(), 1, codec);
+        getErrorCodeOut(callResult->mutableExecResult(), 1, *codec);
     }
     else
     {  // unknown function call

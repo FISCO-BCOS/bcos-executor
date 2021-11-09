@@ -138,7 +138,7 @@ void ContractAuthPrecompiled::resetAdmin(
     // check _sender from /sys/
     if (!checkSender(_sender))
     {
-        getErrorCodeOut(callResult->mutableExecResult(), CODE_NO_AUTHORIZED, codec);
+        getErrorCodeOut(callResult->mutableExecResult(), CODE_NO_AUTHORIZED, *codec);
         return;
     }
     path = getAuthTableName(path);
@@ -147,7 +147,7 @@ void ContractAuthPrecompiled::resetAdmin(
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled") << LOG_DESC("path not found")
                                << LOG_KV("path", path);
-        getErrorCodeOut(callResult->mutableExecResult(), CODE_TABLE_AGENT_ROW_NOT_EXIST, codec);
+        getErrorCodeOut(callResult->mutableExecResult(), CODE_TABLE_AGENT_ROW_NOT_EXIST, *codec);
         return;
     }
     auto newEntry = table->newEntry();
@@ -155,7 +155,7 @@ void ContractAuthPrecompiled::resetAdmin(
     table->setRow(ADMIN_FIELD, std::move(newEntry));
     gasPricer->updateMemUsed(1);
     gasPricer->appendOperation(InterfaceOpcode::Set);
-    getErrorCodeOut(callResult->mutableExecResult(), CODE_SUCCESS, codec);
+    getErrorCodeOut(callResult->mutableExecResult(), CODE_SUCCESS, *codec);
 }
 
 void ContractAuthPrecompiled::setMethodAuthType(
@@ -176,7 +176,7 @@ void ContractAuthPrecompiled::setMethodAuthType(
     // check _sender from /sys/
     if (!checkSender(_sender))
     {
-        getErrorCodeOut(callResult->mutableExecResult(), CODE_NO_AUTHORIZED, codec);
+        getErrorCodeOut(callResult->mutableExecResult(), CODE_NO_AUTHORIZED, *codec);
         return;
     }
     path = getAuthTableName(path);
@@ -185,7 +185,7 @@ void ContractAuthPrecompiled::setMethodAuthType(
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled") << LOG_DESC("path not found")
                                << LOG_KV("path", path);
-        getErrorCodeOut(callResult->mutableExecResult(), CODE_TABLE_NOT_EXIST, codec);
+        getErrorCodeOut(callResult->mutableExecResult(), CODE_TABLE_NOT_EXIST, *codec);
         return;
     }
     auto entry = table->getRow(METHOD_AUTH_TYPE);
@@ -194,7 +194,7 @@ void ContractAuthPrecompiled::setMethodAuthType(
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled")
                                << LOG_DESC("method_auth_type row not found")
                                << LOG_KV("path", path);
-        getErrorCodeOut(callResult->mutableExecResult(), CODE_TABLE_AUTH_ROW_NOT_EXIST, codec);
+        getErrorCodeOut(callResult->mutableExecResult(), CODE_TABLE_AUTH_ROW_NOT_EXIST, *codec);
         return;
     }
     std::string authTypeStr = std::string(entry->getField(SYS_VALUE));
@@ -209,7 +209,7 @@ void ContractAuthPrecompiled::setMethodAuthType(
     table->setRow(METHOD_AUTH_TYPE, std::move(entry.value()));
     gasPricer->updateMemUsed(1);
     gasPricer->appendOperation(InterfaceOpcode::Set);
-    getErrorCodeOut(callResult->mutableExecResult(), CODE_SUCCESS, codec);
+    getErrorCodeOut(callResult->mutableExecResult(), CODE_SUCCESS, *codec);
 }
 
 void ContractAuthPrecompiled::openMethodAuth(
@@ -314,7 +314,7 @@ void ContractAuthPrecompiled::setMethodAuth(
     // check _sender from /sys/
     if (!checkSender(_sender))
     {
-        getErrorCodeOut(callResult->mutableExecResult(), CODE_NO_AUTHORIZED, codec);
+        getErrorCodeOut(callResult->mutableExecResult(), CODE_NO_AUTHORIZED, *codec);
         return;
     }
     path = getAuthTableName(path);
@@ -323,7 +323,7 @@ void ContractAuthPrecompiled::setMethodAuth(
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled") << LOG_DESC("path not found")
                                << LOG_KV("path", path);
-        getErrorCodeOut(callResult->mutableExecResult(), CODE_TABLE_NOT_EXIST, codec);
+        getErrorCodeOut(callResult->mutableExecResult(), CODE_TABLE_NOT_EXIST, *codec);
         return;
     }
     s256 authType = getMethodAuthType(table, ref(func));
@@ -342,7 +342,7 @@ void ContractAuthPrecompiled::setMethodAuth(
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled")
                                << LOG_DESC("error auth type") << LOG_KV("path", path)
                                << LOG_KV("type", authType);
-        getErrorCodeOut(callResult->mutableExecResult(), CODE_TABLE_ERROR_AUTH_TYPE, codec);
+        getErrorCodeOut(callResult->mutableExecResult(), CODE_TABLE_ERROR_AUTH_TYPE, *codec);
         return;
     }
     auto entry = table->getRow(getTypeStr);
@@ -350,7 +350,7 @@ void ContractAuthPrecompiled::setMethodAuth(
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled")
                                << LOG_DESC("auth row not found") << LOG_KV("path", path);
-        getErrorCodeOut(callResult->mutableExecResult(), CODE_TABLE_AUTH_ROW_NOT_EXIST, codec);
+        getErrorCodeOut(callResult->mutableExecResult(), CODE_TABLE_AUTH_ROW_NOT_EXIST, *codec);
         return;
     }
 
@@ -360,7 +360,7 @@ void ContractAuthPrecompiled::setMethodAuth(
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled")
                                << LOG_DESC("auth map parse error") << LOG_KV("path", path);
-        getErrorCodeOut(callResult->mutableExecResult(), CODE_TABLE_AUTH_ROW_NOT_EXIST, codec);
+        getErrorCodeOut(callResult->mutableExecResult(), CODE_TABLE_AUTH_ROW_NOT_EXIST, *codec);
         return;
     }
     bool access = _isClose ? (authType == 2) : (authType == 1);
@@ -379,7 +379,7 @@ void ContractAuthPrecompiled::setMethodAuth(
     table->setRow(getTypeStr, std::move(entry.value()));
     gasPricer->updateMemUsed(1);
     gasPricer->appendOperation(InterfaceOpcode::Set);
-    getErrorCodeOut(callResult->mutableExecResult(), CODE_SUCCESS, codec);
+    getErrorCodeOut(callResult->mutableExecResult(), CODE_SUCCESS, *codec);
 }
 
 
