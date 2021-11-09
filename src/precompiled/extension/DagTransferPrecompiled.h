@@ -43,7 +43,7 @@ public:
 public:
     // is this precompiled need parallel processing, default false.
     virtual bool isParallelPrecompiled() override { return true; }
-    virtual std::vector<std::string> getParallelTag(bytesConstRef param) override;
+    virtual std::vector<std::string> getParallelTag(bytesConstRef param, bool _isWasm) override;
 
 protected:
     std::optional<storage::Table> openTable(

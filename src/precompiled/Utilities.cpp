@@ -143,6 +143,77 @@ int bcos::precompiled::checkLengthValidate(
     }
     return 0;
 }
+
+void bcos::precompiled::checkCreateTableParam(
+    const std::string& _tableName, std::string& _keyField, std::string& _valueField)
+{
+    std::vector<std::string> keyNameList;
+    boost::split(keyNameList, _keyField, boost::is_any_of(","));
+    std::vector<std::string> fieldNameList;
+    boost::split(fieldNameList, _valueField, boost::is_any_of(","));
+
+    if (_keyField.size() > (size_t)SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH)
+    {  // mysql TableName and fieldName length limit is 64
+        BOOST_THROW_EXCEPTION(protocol::PrecompiledError() << errinfo_comment(
+                                  "table field name length overflow " +
+                                  std::to_string(SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH)));
+    }
+    for (auto& str : keyNameList)
+    {
+        boost::trim(str);
+        if (str.size() > (size_t)SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH)
+        {  // mysql TableName and fieldName length limit is 64
+            BOOST_THROW_EXCEPTION(
+                protocol::PrecompiledError()
+                << errinfo_comment("errorCode: " + std::to_string(CODE_TABLE_FIELD_LENGTH_OVERFLOW))
+                << errinfo_comment(std::string("table key name length overflow ") +
+                                   std::to_string(SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH)));
+        }
+    }
+
+    for (auto& str : fieldNameList)
+    {
+        boost::trim(str);
+        if (str.size() > (size_t)SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH)
+        {  // mysql TableName and fieldName length limit is 64
+            BOOST_THROW_EXCEPTION(
+                protocol::PrecompiledError()
+                << errinfo_comment("errorCode: " + std::to_string(CODE_TABLE_FIELD_LENGTH_OVERFLOW))
+                << errinfo_comment(std::string("table field name length overflow ") +
+                                   std::to_string(SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH)));
+        }
+    }
+
+    checkNameValidate(_tableName, keyNameList, fieldNameList);
+
+    _keyField = boost::join(keyNameList, ",");
+    _valueField = boost::join(fieldNameList, ",");
+    if (_keyField.size() > (size_t)SYS_TABLE_KEY_FIELD_MAX_LENGTH)
+    {
+        BOOST_THROW_EXCEPTION(protocol::PrecompiledError() << errinfo_comment(
+                                  std::string("total table key name length overflow ") +
+                                  std::to_string(SYS_TABLE_KEY_FIELD_MAX_LENGTH)));
+    }
+    if (_valueField.size() > (size_t)SYS_TABLE_VALUE_FIELD_MAX_LENGTH)
+    {
+        BOOST_THROW_EXCEPTION(protocol::PrecompiledError() << errinfo_comment(
+                                  std::string("total table field name length overflow ") +
+                                  std::to_string(SYS_TABLE_VALUE_FIELD_MAX_LENGTH)));
+    }
+
+    auto tableName = precompiled::getTableName(_tableName);
+    if (tableName.size() > (size_t)USER_TABLE_NAME_MAX_LENGTH ||
+        (tableName.size() > (size_t)USER_TABLE_NAME_MAX_LENGTH_S))
+    {
+        // mysql TableName and fieldName length limit is 64
+        BOOST_THROW_EXCEPTION(
+            protocol::PrecompiledError()
+            << errinfo_comment("errorCode: " + std::to_string(CODE_TABLE_NAME_LENGTH_OVERFLOW))
+            << errinfo_comment(std::string("tableName length overflow ") +
+                               std::to_string(USER_TABLE_NAME_MAX_LENGTH)));
+    }
+}
+
 uint32_t bcos::precompiled::getFuncSelector(
     std::string const& _functionName, const crypto::Hash::Ptr& _hashImpl)
 {
@@ -368,28 +439,49 @@ void Condition::limit(size_t start, size_t end)
 }
 
 void precompiled::transferKeyCond(
-    CompareTriple& _entryCond, std::shared_ptr<storage::Condition>& _keyCond)
+    Comparator& _cmp, const std::string& _value, std::shared_ptr<storage::Condition>& _keyCond)
 {
-    switch (_entryCond.cmp)
+    switch (_cmp)
     {
     case Comparator::EQ:
         break;
     case Comparator::NE:
-        _keyCond->NE(_entryCond.right);
+        _keyCond->NE(_value);
         break;
     case Comparator::GT:
-        _keyCond->GT(_entryCond.right);
+        _keyCond->GT(_value);
         break;
     case Comparator::GE:
-        _keyCond->GE(_entryCond.right);
+        _keyCond->GE(_value);
         break;
     case Comparator::LT:
-        _keyCond->LT(_entryCond.right);
+        _keyCond->LT(_value);
         break;
     case Comparator::LE:
-        _keyCond->LE(_entryCond.right);
+        _keyCond->LE(_value);
         break;
     }
+}
+
+bool precompiled::transferEntry(const EntryTuple& _entryTuple, storage::Entry& _storageEntry)
+{
+    // _storageEntry must be a table new entry
+    bool transferFlag = true;
+    for (const auto& kvValue : std::get<0>(_entryTuple))
+    {
+        try
+        {
+            _storageEntry.setField(std::get<0>(kvValue), std::get<1>(kvValue));
+        }
+        catch (...)
+        {
+            PRECOMPILED_LOG(WARNING) << LOG_DESC("entry set field fail, field name doesnt exist.")
+                                     << LOG_KV("keyField", std::get<0>(kvValue));
+            transferFlag = false;
+            continue;
+        }
+    }
+    return transferFlag;
 }
 
 void precompiled::addCondition(const std::string& key, const std::string& value,

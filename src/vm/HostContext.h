@@ -84,7 +84,7 @@ public:
     evmc_result callBuiltInPrecompiled(
         std::unique_ptr<CallParameters> const& _request, bool _isEvmPrecompiled);
 
-    void setCode(bytes code);
+    bool setCode(bytes code);
 
     void setCodeAndAbi(bytes code, std::string abi);
 

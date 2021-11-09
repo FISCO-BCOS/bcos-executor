@@ -12,9 +12,9 @@ endif()
 
 execute_process(COMMAND ${RUSTC_COMMAND} -V OUTPUT_VARIABLE RUSTC_VERSION_INFO OUTPUT_STRIP_TRAILING_WHITESPACE)
 STRING(REGEX MATCH "[0-9]+\\.[0-9]+\\.[0-9]+" RUSTC_VERSION ${RUSTC_VERSION_INFO})
-# if (${RUSTC_VERSION} VERSION_LESS "1.52.0")
-    # message(STATUS "rustc ${RUSTC_VERSION} is too old, executing `rustup update` to update it.")
-    # execute_process(COMMAND rustup update)
+# if (${RUSTC_VERSION} VERSION_LESS "1.53.0")
+#     message(STATUS "rustc ${RUSTC_VERSION} is too old, executing `rustup update` to update it.")
+#     execute_process(COMMAND rustup update)
 # endif()
 
 # same as https://github.com/WeBankBlockchain/WeDPR-Lab-Crypto/blob/main/rust-toolchain
@@ -39,7 +39,7 @@ ExternalProject_Add(hera_project
         DOWNLOAD_NO_PROGRESS 1
         GIT_REPOSITORY https://${URL_BASE}/FISCO-BCOS/hera.git
         GIT_SHALLOW false
-        GIT_TAG 71c412724cf64532a3a9fe4258e4bbe7a70779d8
+        GIT_TAG 239ee88007a4431f8cd844c84618002181361f3d
         CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
                    -DBUILD_SHARED_LIBS=OFF
                    -DHERA_WASMTIME=${USE_WASMTIME}

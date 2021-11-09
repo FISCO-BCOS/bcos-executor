@@ -261,25 +261,33 @@ evmc_result HostContext::callBuiltInPrecompiled(
     return preResult;
 }
 
-void HostContext::setCode(bytes code)
+bool HostContext::setCode(bytes code)
 {
-    Entry codeHashEntry;
-    auto codeHash = hashImpl()->hash(code);
-    codeHashEntry.importFields({codeHash.asBytes()});
-    m_executive->storage().setRow(m_tableName, ACCOUNT_CODE_HASH, std::move(codeHashEntry));
+    // set code will cause exception when exec revert
+    auto table = m_executive->storage().openTable(m_tableName);
+    if (table)
+    {
+        Entry codeHashEntry;
+        auto codeHash = hashImpl()->hash(code);
+        codeHashEntry.importFields({codeHash.asBytes()});
+        m_executive->storage().setRow(m_tableName, ACCOUNT_CODE_HASH, std::move(codeHashEntry));
 
-    Entry codeEntry;
-    codeEntry.importFields({std::move(code)});
-    m_executive->storage().setRow(m_tableName, ACCOUNT_CODE, std::move(codeEntry));
+        Entry codeEntry;
+        codeEntry.importFields({std::move(code)});
+        m_executive->storage().setRow(m_tableName, ACCOUNT_CODE, std::move(codeEntry));
+        return true;
+    }
+    return false;
 }
 
 void HostContext::setCodeAndAbi(bytes code, string abi)
 {
-    setCode(code);
-
-    Entry abiEntry;
-    abiEntry.importFields({std::move(abi)});
-    m_executive->storage().setRow(m_tableName, ACCOUNT_ABI, abiEntry);
+    if (setCode(std::move(code)))
+    {
+        Entry abiEntry;
+        abiEntry.importFields({std::move(abi)});
+        m_executive->storage().setRow(m_tableName, ACCOUNT_ABI, abiEntry);
+    }
 }
 
 size_t HostContext::codeSizeAt(const std::string_view& _a)

@@ -23,24 +23,12 @@
 #include "../executive/TransactionExecutive.h"
 #include "../vm/Precompiled.h"
 #include "Common.h"
+#include "Utilities.h"
 #include <bcos-framework/interfaces/crypto/CommonType.h>
 #include <bcos-framework/interfaces/storage/Table.h>
 
-namespace bcos
+namespace bcos::precompiled
 {
-namespace precompiled
-{
-#if 0
-{
-    "56004b6a": "createTable(string,string,string)",
-    "f23f63c9": "openTable(string)"
-}
-contract StateStorage {
-    function openTable(string) public constant returns (Table);
-    function createTable(string, string, string) public returns (int);
-}
-#endif
-
 class TableFactoryPrecompiled : public Precompiled
 {
 public:
@@ -48,22 +36,35 @@ public:
     TableFactoryPrecompiled(crypto::Hash::Ptr _hashImpl);
     virtual ~TableFactoryPrecompiled(){};
 
-    std::string toString() override;
-
     std::shared_ptr<PrecompiledExecResult> call(
         std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _param,
         const std::string& _origin, const std::string& _sender) override;
 
 private:
-    void openTable(const std::shared_ptr<executor::TransactionExecutive>& _executive,
-        bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
-        const PrecompiledGas::Ptr& gasPricer);
     void createTable(const std::shared_ptr<executor::TransactionExecutive>& _executive,
         bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
-        const std::string& _origin, const std::string& _sender,
         const PrecompiledGas::Ptr& gasPricer);
-    void checkCreateTableParam(
-        const std::string& _tableName, std::string& _keyFiled, std::string& _valueField);
+    void select(const std::shared_ptr<executor::TransactionExecutive>& _executive,
+        bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
+        const PrecompiledGas::Ptr& gasPricer);
+    void insert(const std::shared_ptr<executor::TransactionExecutive>& _executive,
+        bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
+        const PrecompiledGas::Ptr& gasPricer);
+    void update(const std::shared_ptr<executor::TransactionExecutive>& _executive,
+        bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
+        const PrecompiledGas::Ptr& gasPricer);
+    void remove(const std::shared_ptr<executor::TransactionExecutive>& _executive,
+        bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
+        const PrecompiledGas::Ptr& gasPricer);
+    void desc(const std::shared_ptr<executor::TransactionExecutive>& _executive,
+        bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
+        const PrecompiledGas::Ptr& gasPricer);
+    std::tuple<std::string, std::string> getTableField(
+        const std::shared_ptr<executor::TransactionExecutive>& _executive,
+        const std::string& _tableName);
+    bool buildConditionCtx(const precompiled::Condition::Ptr& _condition,
+        const precompiled::ConditionTuple& _tuple,
+        std::shared_ptr<storage::Condition>& _keyCondition, std::vector<std::string>& _eqKeyList,
+        const std::string& _keyFiled);
 };
-}  // namespace precompiled
-}  // namespace bcos
+}  // namespace bcos::precompiled
