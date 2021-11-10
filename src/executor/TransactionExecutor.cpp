@@ -41,6 +41,7 @@
 #include "../precompiled/extension/ContractAuthPrecompiled.h"
 #include "../precompiled/extension/DagTransferPrecompiled.h"
 #include "../vm/Precompiled.h"
+#include "../vm/gas_meter/GasInjector.h"
 #include "bcos-framework/interfaces/dispatcher/SchedulerInterface.h"
 #include "bcos-framework/interfaces/executor/PrecompiledTypeDef.h"
 #include "bcos-framework/interfaces/ledger/LedgerTypeDef.h"
@@ -76,6 +77,7 @@
 using namespace bcos;
 using namespace std;
 using namespace bcos::executor;
+using namespace bcos::wasm;
 using namespace bcos::protocol;
 using namespace bcos::storage;
 using namespace bcos::precompiled;
@@ -104,6 +106,7 @@ TransactionExecutor::TransactionExecutor(txpool::TxPoolInterface::Ptr txpool,
     assert(m_builtInPrecompiled);
     GlobalHashImpl::g_hashImpl = m_hashImpl;
     m_abiCache = make_shared<ClockCache<bcos::bytes, FunctionAbi>>(32);
+    m_gasInjector = std::make_shared<wasm::GasInjector>(wasm::GetInstructionTable());
 }
 
 void TransactionExecutor::nextBlockHeader(const bcos::protocol::BlockHeader::ConstPtr& blockHeader,
@@ -1311,7 +1314,7 @@ TransactionExecutive::Ptr TransactionExecutor::createExecutive(
     auto executive =
         std::make_shared<TransactionExecutive>(_blockContext, _contractAddress, contextID, seq,
             std::bind(&TransactionExecutor::externalCall, this, std::placeholders::_1,
-                std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+                std::placeholders::_2, std::placeholders::_3, std::placeholders::_4), m_gasInjector);
 
     executive->setConstantPrecompiled(m_constantPrecompiled);
     executive->setEVMPrecompiled(m_precompiledContract);

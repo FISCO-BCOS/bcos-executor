@@ -18,32 +18,33 @@
  *  @date 20200921
  */
 #pragma once
-#include <string>
 #include <array>
+#include <string>
 
 // #define WASM_FLOAT_ENABLE
-
-namespace wasm{
-
-struct Instruction{
+namespace bcos
+{
+namespace wasm
+{
+struct Instruction
+{
     std::string Name;
     uint8_t Opcode;
     uint32_t Cost;
     Instruction() = default;
 
-  enum Enum : uint32_t {
+    enum Enum : uint32_t
+    {
 #define WABT_OPCODE(rtype, type1, type2, type3, mem_size, prefix, code, Name, text, decomp) \
-  Name=code,
+    Name = code,
 #include "src/opcode.def"
 #undef WABT_OPCODE
-  };
-
+    };
 };
 
 using InstructionTable = std::array<Instruction, 256>;
 
 InstructionTable GetInstructionTable();
 
-}
-
-
+}  // namespace wasm
+}  // namespace bcos

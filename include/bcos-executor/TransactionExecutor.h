@@ -48,6 +48,7 @@
 #include <stack>
 #include <thread>
 
+
 namespace bcos
 {
 namespace precompiled
@@ -55,7 +56,10 @@ namespace precompiled
 class Precompiled;
 struct PrecompiledExecResult;
 }  // namespace precompiled
-
+namespace wasm
+{
+class GasInjector;
+}
 namespace executor
 {
 enum ExecutorVersion : int32_t
@@ -235,6 +239,7 @@ private:
     std::map<std::string, std::shared_ptr<precompiled::Precompiled>> m_constantPrecompiled;
     std::shared_ptr<const std::set<std::string>> m_builtInPrecompiled;
     unsigned int m_threadNum = std::max(std::thread::hardware_concurrency(), (unsigned int)1);
+    std::shared_ptr<wasm::GasInjector> m_gasInjector = nullptr;
 };
 
 }  // namespace executor

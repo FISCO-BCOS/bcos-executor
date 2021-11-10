@@ -20,6 +20,8 @@
 #include "Metric.h"
 #include <limits>
 
+namespace bcos
+{
 namespace wasm
 {
 InstructionTable GetInstructionTable()
@@ -200,7 +202,7 @@ InstructionTable GetInstructionTable()
     defaultInstructionTable[Instruction::Enum::F32DemoteF64].Cost = 1;
     defaultInstructionTable[Instruction::Enum::F32ReinterpretI32].Cost = 2;
 
-   // 64-bit Float operators
+    // 64-bit Float operators
     defaultInstructionTable[Instruction::Enum::F64Load].Cost = 3;
     defaultInstructionTable[Instruction::Enum::F64Store].Cost = 3;
     defaultInstructionTable[Instruction::Enum::F64Const].Cost = 0;
@@ -243,3 +245,4 @@ InstructionTable GetInstructionTable()
 }
 
 }  // namespace wasm
+}  // namespace bcos

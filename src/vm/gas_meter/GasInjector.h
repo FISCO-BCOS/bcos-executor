@@ -30,7 +30,8 @@ template <typename T>
 class intrusive_list;
 typedef intrusive_list<Expr> ExprList;
 }  // namespace wabt
-
+namespace bcos
+{
 namespace wasm
 {
 class GasInjector
@@ -68,16 +69,16 @@ public:
     Result InjectMeter(const std::vector<uint8_t>& byteCode);
 
 private:
-    struct ImportsInfo{
+    struct ImportsInfo
+    {
         bool foundGasFunction = false;
         uint32_t gasFuncIndex;
         uint32_t globalGasIndex;
         uint32_t tempVarForMemoryGasIndex;
         uint32_t originSize;
     };
-    void InjectMeterExprList(
-        wabt::ExprList* exprs, const ImportsInfo & info);
+    void InjectMeterExprList(wabt::ExprList* exprs, const ImportsInfo& info);
     const InstructionTable m_costTable;
 };
-
 }  // namespace wasm
+}  // namespace bcos

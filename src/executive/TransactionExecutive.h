@@ -23,7 +23,6 @@
 
 #include "../Common.h"
 #include "../precompiled/PrecompiledResult.h"
-#include "../vm/gas_meter/GasInjector.h"
 #include "BlockContext.h"
 #include "CoroutineStorageWrapper.h"
 #include "bcos-executor/TransactionExecutor.h"
@@ -76,13 +75,14 @@ public:
         std::function<void(std::shared_ptr<BlockContext>, std::shared_ptr<TransactionExecutive>,
             std::unique_ptr<CallParameters>,
             std::function<void(Error::UniquePtr, std::unique_ptr<CallParameters>)>)>
-            externalCallCallback)
+            externalCallCallback, std::shared_ptr<wasm::GasInjector>& gasInjector)
       : m_blockContext(std::move(blockContext)),
         m_contractAddress(std::move(contractAddress)),
         m_contextID(contextID),
         m_seq(seq),
         m_externalCallFunction(std::move(externalCallCallback)),
-        m_gasInjector(std::make_shared<wasm::GasInjector>(wasm::GetInstructionTable()))
+        m_gasInjector(gasInjector)
+        // m_gasInjector(std::make_shared<wasm::GasInjector>(wasm::GetInstructionTable()))
     {
 
         m_recoder = m_blockContext.lock()->storage()->newRecoder();
@@ -216,7 +216,7 @@ private:
         std::function<void(Error::UniquePtr, std::unique_ptr<CallParameters>)> callback)>
         m_externalCallFunction;
 
-    std::shared_ptr<wasm::GasInjector> m_gasInjector;
+    std::shared_ptr<wasm::GasInjector> m_gasInjector = nullptr;
 
     std::unique_ptr<Coroutine::push_type> m_pushMessage;
     std::unique_ptr<Coroutine::pull_type> m_pullMessage;
