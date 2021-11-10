@@ -339,7 +339,7 @@ int ConsensusPrecompiled::setWeight(
         [&nodeID](const ConsensusNode& node) { return node.nodeID == nodeID; });
     if (it != consensusList.end())
     {
-        it->weight = 0;
+        it->weight = weight;
         it->enableNumber = boost::lexical_cast<std::string>(blockContext->number() + 1);
     }
     else
