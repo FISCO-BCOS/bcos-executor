@@ -399,6 +399,11 @@ CallParameters::UniquePtr TransactionExecutive::go(
             auto ret = vm.exec(hostContext, mode, &evmcMessage, code.data(), code.size());
 
             auto callResults = hostContext.takeCallParameters();
+            // clear unnecessary logs
+            if (callResults->origin != callResults->senderAddress)
+            {
+                callResults->logEntries.clear();
+            }
             callResults = parseEVMCResult(std::move(callResults), ret);
 
             auto outputRef = ret.output();
@@ -463,6 +468,7 @@ CallParameters::UniquePtr TransactionExecutive::go(
                 auto callResult = hostContext.takeCallParameters();
                 callResult->type = CallParameters::REVERT;
                 callResult->status = (int32_t)TransactionStatus::CallAddressError;
+                callResult->message = "Error contract address.";
                 return callResult;
             }
 

@@ -348,10 +348,9 @@ void HostContext::log(h256s&& _topics, bytesConstRef _data)
     //     m_sub.logs->push_back(
     //         protocol::LogEntry(asBytes(hexAddress), std::move(_topics), _data.toBytes()));
     // }
-
-    m_sub.logs->push_back(
-        protocol::LogEntry(bytes(myAddress().data(), myAddress().data() + myAddress().size()),
-            std::move(_topics), _data.toBytes()));
+    m_callParameters->logEntries.emplace_back(
+        bytes(myAddress().data(), myAddress().data() + myAddress().size()), std::move(_topics),
+        _data.toBytes());
 }
 
 h256 HostContext::blockHash() const

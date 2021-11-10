@@ -15,11 +15,11 @@ contract TableTest {
     }
     function select(string memory id) public view returns (string memory,string memory){
         CompareTriple memory compareTriple1 = CompareTriple("id",id,Comparator.EQ);
-        CompareTriple[] memory compareFileds = new CompareTriple[](1);
-        compareFileds[0] = compareTriple1;
+        CompareTriple[] memory compareFields = new CompareTriple[](1);
+        compareFields[0] = compareTriple1;
 
         Condition memory condition;
-        condition.condFields = compareFileds;
+        condition.condFields = compareFields;
 
         Entry[] memory entries = table.select("t_test", condition);
         string memory name;
@@ -53,11 +53,11 @@ contract TableTest {
         Entry memory entry1 = Entry(KVFields);
 
         CompareTriple memory compareTriple1 = CompareTriple("id",id,Comparator.EQ);
-        CompareTriple[] memory compareFileds = new CompareTriple[](1);
-        compareFileds[0] = compareTriple1;
+        CompareTriple[] memory compareFields = new CompareTriple[](1);
+        compareFields[0] = compareTriple1;
 
         Condition memory condition;
-        condition.condFields = compareFileds;
+        condition.condFields = compareFields;
         int256 result1 = table.update("t_test",entry1, condition);
 
         return result1;
@@ -65,11 +65,11 @@ contract TableTest {
 
     function remove(string memory id) public returns(int256){
         CompareTriple memory compareTriple1 = CompareTriple("id",id,Comparator.EQ);
-        CompareTriple[] memory compareFileds = new CompareTriple[](1);
-        compareFileds[0] = compareTriple1;
+        CompareTriple[] memory compareFields = new CompareTriple[](1);
+        compareFields[0] = compareTriple1;
 
         Condition memory condition;
-        condition.condFields = compareFileds;
+        condition.condFields = compareFields;
         int256 result1 = table.remove("t_test", condition);
 
         return result1;
