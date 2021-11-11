@@ -725,8 +725,7 @@ void TransactionExecutor::executeTransaction(bcos::protocol::ExecutionMessage::U
 {
     EXECUTOR_LOG(TRACE) << "ExecuteTransaction request" << LOG_KV("ContextID", input->contextID())
                         << LOG_KV("seq", input->seq()) << LOG_KV("message type", input->type())
-                        << LOG_KV("to", input->to()) << LOG_KV("create", input->create())
-                        << LOG_KV("data", toHexStringWithPrefix(input->data()));
+                        << LOG_KV("to", input->to()) << LOG_KV("create", input->create());
 
     if (!m_blockContext)
     {
@@ -1314,7 +1313,8 @@ TransactionExecutive::Ptr TransactionExecutor::createExecutive(
     auto executive =
         std::make_shared<TransactionExecutive>(_blockContext, _contractAddress, contextID, seq,
             std::bind(&TransactionExecutor::externalCall, this, std::placeholders::_1,
-                std::placeholders::_2, std::placeholders::_3, std::placeholders::_4), m_gasInjector);
+                std::placeholders::_2, std::placeholders::_3, std::placeholders::_4),
+            m_gasInjector);
 
     executive->setConstantPrecompiled(m_constantPrecompiled);
     executive->setEVMPrecompiled(m_precompiledContract);

@@ -99,6 +99,27 @@ public:
         BOOST_CHECK_EQUAL(result->from(), cryptoAddress);
         BOOST_CHECK(result->to() == sender);
         BOOST_CHECK_LT(result->gasAvailable(), gas);
+
+        // --------------------------------
+        // Create contract twice to avoid address used in wasm
+        // --------------------------------
+
+        paramsBak.setSeq(1001);
+        std::promise<bcos::protocol::ExecutionMessage::UniquePtr> executePromise2;
+        executor->executeTransaction(std::make_unique<decltype(paramsBak)>(paramsBak),
+            [&](bcos::Error::UniquePtr&& error,
+                bcos::protocol::ExecutionMessage::UniquePtr&& result) {
+                BOOST_CHECK(!error);
+                executePromise2.set_value(std::move(result));
+            });
+
+        auto result2 = executePromise2.get_future().get();
+        BOOST_CHECK(result2);
+        BOOST_CHECK_EQUAL(result2->type(), ExecutionMessage::REVERT);
+        BOOST_CHECK_EQUAL(
+            result2->status(), (int32_t)TransactionStatus::ContractAddressAlreadyUsed);
+
+        BOOST_CHECK_EQUAL(result2->contextID(), 99);
         commitBlock(1);
     }
 

@@ -283,11 +283,22 @@ std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionE
 
     // Create the table first
     auto tableName = getContractTableName(newAddress);
-    m_storageWrapper->createTable(tableName, STORAGE_VALUE);
-    EXECUTIVE_LOG(INFO) << "create contract table " << tableName;
-    // Create auth table
-    creatAuthTable(tableName, callParameters->origin, callParameters->senderAddress);
-
+    try
+    {
+        m_storageWrapper->createTable(tableName, STORAGE_VALUE);
+        EXECUTIVE_LOG(INFO) << "create contract table " << tableName;
+        // Create auth table
+        creatAuthTable(tableName, callParameters->origin, callParameters->senderAddress);
+    }
+    catch (exception const& e)
+    {
+        revert();
+        callParameters->status = (int32_t)TransactionStatus::ContractAddressAlreadyUsed;
+        callParameters->type = CallParameters::REVERT;
+        callParameters->message = e.what();
+        EXECUTIVE_LOG(ERROR) << callParameters->message << LOG_KV("tableName", tableName);
+        return {nullptr, std::move(callParameters)};
+    }
     auto hostContext =
         std::make_unique<HostContext>(std::move(callParameters), shared_from_this(), tableName);
 
@@ -300,8 +311,8 @@ std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionE
             auto callResults = std::move(callParameters);
             callResults->type = CallParameters::REVERT;
             callResults->status = (int32_t)TransactionStatus::RevertInstruction;
-            callResults->message = "error occurs in build BFS dir";
-            EXECUTIVE_LOG(ERROR) << callResults->message;
+            callResults->message = "Error occurs in build BFS dir";
+            EXECUTIVE_LOG(ERROR) << callResults->message << LOG_KV("tableName", tableName);
             return {nullptr, std::move(callResults)};
         }
         auto extraData = std::make_unique<CallParameters>(CallParameters::MESSAGE);
