@@ -32,6 +32,7 @@
 #include "bcos-framework/interfaces/protocol/Exceptions.h"
 #include "bcos-framework/interfaces/storage/Table.h"
 #include "bcos-framework/libcodec/abi/ContractABICodec.h"
+#include "libprotocol/TransactionStatus.h"
 #include "libutilities/Common.h"
 #include <limits.h>
 #include <boost/algorithm/hex.hpp>
@@ -530,6 +531,14 @@ CallParameters::UniquePtr TransactionExecutive::go(
         auto callResults = hostContext.takeCallParameters();
         callResults->type = CallParameters::REVERT;
         callResults->status = (int32_t)TransactionStatus::PrecompiledError;
+        revert();
+    }
+    catch (bcos::Error& e)
+    {
+        auto callResults = hostContext.takeCallParameters();
+        callResults->type = CallParameters::REVERT;
+        callResults->status = (int32_t)TransactionStatus::Unknown;
+        callResults->message = e.errorMessage();
         revert();
     }
     catch (InternalVMError const& _e)

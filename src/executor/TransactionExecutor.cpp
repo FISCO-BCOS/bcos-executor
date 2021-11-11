@@ -171,6 +171,7 @@ void TransactionExecutor::dagExecuteTransactions(
 {
     auto txHashes = make_shared<HashList>();
     txHashes->reserve(inputs.size());
+
     for (auto& execution_params : inputs)
     {
         assert(execution_params->type() == ExecutionMessage::TXHASH);
