@@ -30,11 +30,9 @@ using namespace bcos::executor;
 #define DAG_LOG(LEVEL) BCOS_LOG(LEVEL) << LOG_BADGE("DAG")
 
 // Generate DAG according with given transactions
-void TxDAG::init(const bcos::protocol::TransactionsPtr& _transactions,
-    const std::vector<std::shared_ptr<std::vector<std::string>>>& _txsCriticals)
+void TxDAG::init(size_t count, const std::vector<std::vector<std::string>>& _txsCriticals)
 {
-    m_transactions = _transactions;
-    auto txsSize = m_transactions->size();
+    auto txsSize = count;
     DAG_LOG(TRACE) << LOG_DESC("Begin init transaction DAG") << LOG_KV("transactionNum", txsSize);
     m_dag.init(txsSize);
 
@@ -43,13 +41,13 @@ void TxDAG::init(const bcos::protocol::TransactionsPtr& _transactions,
     for (ID id = 0; id < txsSize; ++id)
     {
         auto criticals = _txsCriticals[id];
-        if (criticals)
+        if (!criticals.empty())
         {
             // DAG transaction: Conflict with certain critical fields
             // Get critical field
 
             // Add edge between critical transaction
-            for (string const& c : *criticals)
+            for (string const& c : criticals)
             {
                 ID pId = latestCriticals.get(c);
                 if (pId != INVALID_ID)
@@ -58,7 +56,7 @@ void TxDAG::init(const bcos::protocol::TransactionsPtr& _transactions,
                 }
             }
 
-            for (string const& c : *criticals)
+            for (string const& c : criticals)
             {
                 latestCriticals.update(c, id);
             }

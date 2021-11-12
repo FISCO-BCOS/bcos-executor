@@ -66,8 +66,7 @@ public:
     virtual ~TxDAG() {}
 
     // Generate DAG according with given transactions
-    void init(const bcos::protocol::TransactionsPtr& _block,
-        const std::vector<std::shared_ptr<std::vector<std::string>>>& _txsCriticals);
+    void init(size_t count, const std::vector<std::vector<std::string>>& _txsCriticals);
 
     // Set transaction execution function
     void setTxExecuteFunc(ExecuteTxFunc const& _f);

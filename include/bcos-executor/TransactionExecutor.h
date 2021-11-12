@@ -33,6 +33,7 @@
 #include "bcos-framework/interfaces/txpool/TxPoolInterface.h"
 #include "bcos-framework/libstorage/StateStorage.h"
 #include "interfaces/crypto/Hash.h"
+#include "interfaces/executor/ExecutionMessage.h"
 #include "interfaces/protocol/ProtocolTypeDef.h"
 #include "tbb/concurrent_unordered_map.h"
 #include <tbb/concurrent_hash_map.h>
@@ -132,8 +133,7 @@ public:
     // drop all status
     void reset(std::function<void(bcos::Error::Ptr)> callback) override;
 
-    std::shared_ptr<std::vector<std::string>> getTxCriticals(
-        const protocol::Transaction::ConstPtr& _tx);
+    std::vector<std::string> getTxCriticals(const CallParameters& params);
 
 private:
     std::shared_ptr<BlockContext> createBlockContext(
@@ -162,24 +162,21 @@ private:
         bcos::protocol::ExecutionMessage&& inputs, bool staticCall);
 
     std::unique_ptr<CallParameters> createCallParameters(
-        bcos::protocol::ExecutionMessage&& input, bcos::protocol::Transaction::Ptr&& tx);
+        bcos::protocol::ExecutionMessage&& input, bcos::protocol::Transaction&& tx);
 
     std::optional<std::vector<bcos::bytes>> decodeConflictFields(
-        const FunctionAbi& functionAbi, bcos::protocol::Transaction* transaction);
+        const FunctionAbi& functionAbi, const CallParameters& prams);
 
     void initPrecompiled();
 
     void removeCommittedState();
 
-    void dagExecuteTransactionsForEvm(gsl::span<bcos::protocol::ExecutionMessage::UniquePtr> inputs,
-        bcos::protocol::TransactionsPtr transactions,
+    void dagExecuteTransactionsForEvm(gsl::span<std::unique_ptr<CallParameters>> inputs,
         std::function<void(
             bcos::Error::UniquePtr, std::vector<bcos::protocol::ExecutionMessage::UniquePtr>)>
             callback);
 
-    void dagExecuteTransactionsForWasm(
-        gsl::span<bcos::protocol::ExecutionMessage::UniquePtr> inputs,
-        bcos::protocol::TransactionsPtr transactions,
+    void dagExecuteTransactionsForWasm(gsl::span<std::unique_ptr<CallParameters>> inputs,
         std::function<void(
             bcos::Error::UniquePtr, std::vector<bcos::protocol::ExecutionMessage::UniquePtr>)>
             callback);
@@ -238,7 +235,7 @@ private:
         m_precompiledContract;
     std::map<std::string, std::shared_ptr<precompiled::Precompiled>> m_constantPrecompiled;
     std::shared_ptr<const std::set<std::string>> m_builtInPrecompiled;
-    unsigned int m_threadNum = std::max(std::thread::hardware_concurrency(), (unsigned int)1);
+    unsigned int m_DAGThreadNum = std::max(std::thread::hardware_concurrency(), (unsigned int)1);
     std::shared_ptr<wasm::GasInjector> m_gasInjector = nullptr;
 };
 

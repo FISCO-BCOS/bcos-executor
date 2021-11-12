@@ -57,6 +57,7 @@ enum ExecuteError : int32_t
     PREPARE_ERROR,
     COMMIT_ERROR,
     ROLLBACK_ERROR,
+    DAG_ERROR,
     DEAD_LOCK,
 };
 
