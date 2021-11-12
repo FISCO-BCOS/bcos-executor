@@ -179,7 +179,7 @@ void TransactionExecutor::dagExecuteTransactions(
     std::vector<size_t> indexes;
     auto fillInputs = std::make_shared<std::vector<bcos::protocol::ExecutionMessage::UniquePtr>>();
 
-    // finally result
+    // final result
     auto callParametersList =
         std::make_shared<std::vector<CallParameters::UniquePtr>>(inputs.size());
 
@@ -302,8 +302,8 @@ void TransactionExecutor::dagExecuteTransactionsForEvm(gsl::span<CallParameters:
         }
 
         auto& input = inputs[i];
-        auto contextID = i;
-        auto seq = 0;
+        auto contextID = input->contextID;
+        auto seq = input->seq;
 
         auto executive = createExecutive(m_blockContext, input->codeAddress, contextID, seq);
         m_blockContext->insertExecutive(contextID, seq,
@@ -475,7 +475,7 @@ void TransactionExecutor::dagExecuteTransactionsForWasm(
                             // the cache will take charge of life time management of the
                             // object. After this object being eliminated, the cache will
                             // delete its memory storage.
-                            functionAbi.release();
+                            std::ignore = functionAbi.release();
                         }
                         conflictFields = decodeConflictFields(*abiPtr, *params);
                     }
@@ -527,8 +527,8 @@ void TransactionExecutor::dagExecuteTransactionsForWasm(
         }
 
         auto& input = inputs[i];
-        auto contextID = i;
-        auto seq = 0;
+        auto contextID = input->contextID;
+        auto seq = input->seq;
 
         auto executive = createExecutive(m_blockContext, input->receiveAddress, contextID, seq);
         m_blockContext->insertExecutive(contextID, seq,
@@ -1508,6 +1508,9 @@ std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
     bcos::protocol::ExecutionMessage&& input, bool staticCall)
 {
     auto callParameters = std::make_unique<CallParameters>(CallParameters::MESSAGE);
+
+    callParameters->contextID = input.contextID();
+    callParameters->seq = input.seq();
     callParameters->origin = input.origin();
     callParameters->senderAddress = input.from();
     callParameters->receiveAddress = input.to();
@@ -1536,10 +1539,12 @@ std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
 }
 
 std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
-    bcos::protocol::ExecutionMessage&& input, bcos::protocol::Transaction&& tx)
+    bcos::protocol::ExecutionMessage&& input, const bcos::protocol::Transaction& tx)
 {
     auto callParameters = std::make_unique<CallParameters>(CallParameters::MESSAGE);
 
+    callParameters->contextID = input.contextID();
+    callParameters->seq = input.seq();
     callParameters->origin = toHex(tx.sender());
     callParameters->senderAddress = callParameters->origin;
     callParameters->receiveAddress = input.to();
