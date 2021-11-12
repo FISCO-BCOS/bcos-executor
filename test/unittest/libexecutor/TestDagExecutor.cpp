@@ -781,6 +781,240 @@ BOOST_AUTO_TEST_CASE(callEvmConcurrentlyTransfer)
             }
         });
 }
+
+BOOST_AUTO_TEST_CASE(callEvmConcurrentlyTransferByMessage)
+{
+    size_t count = 100;
+    auto executionResultFactory = std::make_shared<NativeExecutionMessageFactory>();
+    auto executor = std::make_shared<TransactionExecutor>(
+        txpool, nullptr, backend, executionResultFactory, hashImpl, false);
+    auto codec = std::make_unique<bcos::precompiled::PrecompiledCodec>(hashImpl, false);
+
+    std::string bin =
+        "608060405234801561001057600080fd5b506105db806100206000396000f30060806040526004361061006257"
+        "6000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806335ee"
+        "5f87146100675780638a42ebe9146100e45780639b80b05014610157578063fad42f8714610210575b600080fd"
+        "5b34801561007357600080fd5b506100ce60048036038101908080359060200190820180359060200190808060"
+        "1f0160208091040260200160405190810160405280939291908181526020018383808284378201915050505050"
+        "5091929192905050506102c9565b6040518082815260200191505060405180910390f35b3480156100f0576000"
+        "80fd5b50610155600480360381019080803590602001908201803590602001908080601f016020809104026020"
+        "016040519081016040528093929190818152602001838380828437820191505050505050919291929080359060"
+        "20019092919050505061033d565b005b34801561016357600080fd5b5061020e60048036038101908080359060"
+        "2001908201803590602001908080601f0160208091040260200160405190810160405280939291908181526020"
+        "018383808284378201915050505050509192919290803590602001908201803590602001908080601f01602080"
+        "910402602001604051908101604052809392919081815260200183838082843782019150505050505091929192"
+        "90803590602001909291905050506103b1565b005b34801561021c57600080fd5b506102c76004803603810190"
+        "80803590602001908201803590602001908080601f016020809104026020016040519081016040528093929190"
+        "818152602001838380828437820191505050505050919291929080359060200190820180359060200190808060"
+        "1f0160208091040260200160405190810160405280939291908181526020018383808284378201915050505050"
+        "509192919290803590602001909291905050506104a8565b005b60008082604051808280519060200190808383"
+        "5b60208310151561030257805182526020820191506020810190506020830392506102dd565b60018360200361"
+        "01000a038019825116818451168082178552505050505050905001915050908152602001604051809103902054"
+        "9050919050565b806000836040518082805190602001908083835b602083101515610376578051825260208201"
+        "9150602081019050602083039250610351565b6001836020036101000a03801982511681845116808217855250"
+        "50505050509050019150509081526020016040518091039020819055505050565b806000846040518082805190"
+        "602001908083835b6020831015156103ea57805182526020820191506020810190506020830392506103c5565b"
+        "6001836020036101000a0380198251168184511680821785525050505050509050019150509081526020016040"
+        "51809103902060008282540392505081905550806000836040518082805190602001908083835b602083101515"
+        "610463578051825260208201915060208101905060208303925061043e565b6001836020036101000a03801982"
+        "511681845116808217855250505050505090500191505090815260200160405180910390206000828254019250"
+        "5081905550505050565b806000846040518082805190602001908083835b6020831015156104e1578051825260"
+        "20820191506020810190506020830392506104bc565b6001836020036101000a03801982511681845116808217"
+        "855250505050505090500191505090815260200160405180910390206000828254039250508190555080600083"
+        "6040518082805190602001908083835b60208310151561055a5780518252602082019150602081019050602083"
+        "039250610535565b6001836020036101000a038019825116818451168082178552505050505050905001915050"
+        "908152602001604051809103902060008282540192505081905550606481111515156105aa57600080fd5b5050"
+        "505600a165627a7a723058205669c1a68cebcef35822edcec77a15792da5c32a8aa127803290253b3d5f627200"
+        "29";
+
+    bytes input;
+    boost::algorithm::unhex(bin, std::back_inserter(input));
+    auto tx = fakeTransaction(cryptoSuite, keyPair, "", input, 101, 100001, "1", "1");
+    auto sender = boost::algorithm::hex_lower(std::string(tx->sender()));
+
+    auto hash = tx->hash();
+    txpool->hash2Transaction.emplace(hash, tx);
+
+    auto params = std::make_unique<NativeExecutionMessage>();
+    params->setContextID(99);
+    params->setSeq(1000);
+    params->setDepth(0);
+
+    params->setOrigin(std::string(sender));
+    params->setFrom(std::string(sender));
+
+    // The contract address
+    h256 addressCreate("ff6f30856ad3bae00b1169808488502786a13e3c174d85682135ffd51310310e");
+    std::string addressString = addressCreate.hex().substr(0, 40);
+    // toChecksumAddress(addressString, hashImpl);
+    params->setTo(std::move(addressString));
+
+    params->setStaticCall(false);
+    params->setGasAvailable(gas);
+    params->setData(input);
+    params->setType(NativeExecutionMessage::TXHASH);
+    params->setTransactionHash(hash);
+    params->setCreate(true);
+
+    NativeExecutionMessage paramsBak = *params;
+
+    auto blockHeader = std::make_shared<bcos::protocol::PBBlockHeader>(cryptoSuite);
+    blockHeader->setNumber(1);
+
+    std::promise<void> nextPromise;
+    executor->nextBlockHeader(blockHeader, [&](bcos::Error::Ptr&& error) {
+        BOOST_CHECK(!error);
+        nextPromise.set_value();
+    });
+    nextPromise.get_future().get();
+
+    // --------------------------------
+    // Create contract ParallelOk
+    // --------------------------------
+    std::promise<bcos::protocol::ExecutionMessage::UniquePtr> executePromise;
+    executor->executeTransaction(std::move(params),
+        [&](bcos::Error::UniquePtr&& error, bcos::protocol::ExecutionMessage::UniquePtr&& result) {
+            BOOST_CHECK(!error);
+            executePromise.set_value(std::move(result));
+        });
+
+    auto result = executePromise.get_future().get();
+
+    auto address = result->newEVMContractAddress();
+
+    // Set user
+    for (size_t i = 0; i < count; ++i)
+    {
+        params = std::make_unique<NativeExecutionMessage>();
+        params->setContextID(i);
+        params->setSeq(5000);
+        params->setDepth(0);
+        params->setFrom(std::string(sender));
+        params->setTo(std::string(address));
+        params->setOrigin(std::string(sender));
+        params->setStaticCall(false);
+        params->setGasAvailable(gas);
+        params->setCreate(false);
+
+        std::string user = "user" + boost::lexical_cast<std::string>(i);
+        bcos::u256 value(1000000);
+        params->setData(codec->encodeWithSig("set(string,uint256)", user, value));
+        params->setType(NativeExecutionMessage::MESSAGE);
+
+        std::promise<ExecutionMessage::UniquePtr> executePromise2;
+        executor->executeTransaction(std::move(params),
+            [&](bcos::Error::UniquePtr&& error, NativeExecutionMessage::UniquePtr&& result) {
+                if (error)
+                {
+                    std::cout << "Error!" << boost::diagnostic_information(*error);
+                }
+                executePromise2.set_value(std::move(result));
+            });
+        auto result2 = executePromise2.get_future().get();
+        // BOOST_CHECK_EQUAL(result->status(), 0);
+    }
+
+    std::vector<ExecutionMessage::UniquePtr> requests;
+    requests.reserve(count);
+    // Transfer
+    for (size_t i = 0; i < count; ++i)
+    {
+        std::string from = "user" + boost::lexical_cast<std::string>(i);
+        std::string to = "user" + boost::lexical_cast<std::string>(count - 1);
+        bcos::u256 value(10);
+
+        auto input = codec->encodeWithSig("transfer(string,string,uint256)", from, to, value);
+        auto sender = boost::algorithm::hex_lower(std::string(tx->sender()));
+
+        params = std::make_unique<NativeExecutionMessage>();
+        params->setContextID(i);
+        params->setSeq(6000);
+        params->setDepth(0);
+        params->setFrom(std::string(sender));
+        params->setTo(std::string(address));
+        params->setOrigin(std::string(sender));
+        params->setStaticCall(false);
+        params->setGasAvailable(gas);
+        params->setCreate(false);
+        params->setType(NativeExecutionMessage::MESSAGE);
+        params->setData(std::move(input));
+        params->setFrom(sender);
+
+        requests.emplace_back(std::move(params));
+    }
+
+    std::promise<std::optional<Table>> tablePromise;
+    backend->asyncCreateTable("cp_ff6f30856ad3bae00b1169808488502786a13e3c", PARA_VALUE_NAMES,
+        [&](Error::UniquePtr&& error, std::optional<Table>&& table) {
+            BOOST_CHECK(!error);
+            BOOST_CHECK(table);
+            tablePromise.set_value(std::move(*table));
+        });
+    auto table = tablePromise.get_future().get();
+
+    Entry entry = table->newEntry();
+    entry.setField(PARA_FUNC_NAME, "transfer(string,string,uint256)");
+    entry.setField(PARA_CRITICAL_SIZE, boost::lexical_cast<std::string>(2));
+    auto selector = getFuncSelector("transfer(string,string,uint256)", hashImpl);
+    table->setRow(to_string(selector), entry);
+
+    executor->dagExecuteTransactions(
+        requests, [&](bcos::Error::UniquePtr error,
+                      std::vector<bcos::protocol::ExecutionMessage::UniquePtr> results) {
+            BOOST_CHECK(!error);
+
+            for (size_t i = 0; i < results.size(); ++i)
+            {
+                auto& result = results[i];
+                BOOST_CHECK_EQUAL(result->status(), 0);
+                BOOST_CHECK(result->message().empty());
+            }
+
+            // Check result
+            for (size_t i = 0; i < count; ++i)
+            {
+                params = std::make_unique<NativeExecutionMessage>();
+                params->setContextID(i);
+                params->setSeq(7000);
+                params->setDepth(0);
+                params->setFrom(std::string(sender));
+                params->setTo(std::string(address));
+                params->setOrigin(std::string(sender));
+                params->setStaticCall(false);
+                params->setGasAvailable(gas);
+                params->setCreate(false);
+
+                std::string account = "user" + boost::lexical_cast<std::string>(i);
+                params->setData(codec->encodeWithSig("balanceOf(string)", account));
+                params->setType(NativeExecutionMessage::MESSAGE);
+
+                std::optional<ExecutionMessage::UniquePtr> output;
+                executor->executeTransaction(
+                    std::move(params), [&output](bcos::Error::UniquePtr&& error,
+                                           NativeExecutionMessage::UniquePtr&& result) {
+                        if (error)
+                        {
+                            std::cout << "Error!" << boost::diagnostic_information(*error);
+                        }
+                        // BOOST_CHECK(!error);
+                        output = std::move(result);
+                    });
+                auto& balanceResult = *output;
+
+                bcos::u256 value(0);
+                codec->decode(balanceResult->data(), value);
+
+                if (i < count - 1)
+                {
+                    BOOST_CHECK_EQUAL(value, u256(1000000 - 10));
+                }
+                else
+                {
+                    BOOST_CHECK_EQUAL(value, u256(1000000 + 10 * (count - 1)));
+                }
+            }
+        });
+}
 BOOST_AUTO_TEST_SUITE_END()
 }  // namespace test
 }  // namespace bcos
