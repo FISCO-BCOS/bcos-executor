@@ -308,7 +308,7 @@ void TransactionExecutor::dagExecuteTransactionsForEvm(gsl::span<CallParameters:
         auto executive = createExecutive(m_blockContext, input->codeAddress, contextID, seq);
         m_blockContext->insertExecutive(contextID, seq,
             {executive,
-                [i, &executionResults, &counter](bcos::Error::UniquePtr&& error,
+                [this, i, &executionResults, &counter](bcos::Error::UniquePtr&& error,
                     bcos::protocol::ExecutionMessage::UniquePtr&& response) {
                     if (response->status() != 0 || error)
                     {
@@ -318,6 +318,7 @@ void TransactionExecutor::dagExecuteTransactionsForEvm(gsl::span<CallParameters:
                     else
                     {
                         EXECUTOR_LOG(DEBUG) << "Transaction executed";
+                        executionResults[i] = m_executionMessageFactory->createExecutionMessage();
                         executionResults[i]->setNewEVMContractAddress(
                             std::string(response->newEVMContractAddress()));
                         executionResults[i]->setLogEntries(response->takeLogEntries());
@@ -410,16 +411,16 @@ void TransactionExecutor::dagExecuteTransactionsForWasm(
 
                 const auto& params = inputs[i];
 
-                auto to = params->receiveAddress;
-                auto input = params->data;
+                const auto& to = params->receiveAddress;
+                const auto& input = params->data;
 
-                if (input[0] == 0)
+                if (params->create)
                 {
                     executionResults[i]->setType(ExecutionMessage::SEND_BACK);
                     continue;
                 }
 
-                auto selector = ref(input).getCroppedData(1, 4);
+                auto selector = ref(input).getCroppedData(0, 4);
                 auto abiKey = bytes(to.cbegin(), to.cend());
                 abiKey.insert(abiKey.end(), selector.begin(), selector.end());
 
@@ -1208,7 +1209,7 @@ optional<ConflictFields> TransactionExecutor::decodeConflictFields(
             assert(!conflictField.accessPath.empty());
             const ParameterAbi* paramAbi = nullptr;
             auto components = &functionAbi.inputs;
-            auto inputData = ref(params.data).getCroppedData(5).toBytes();
+            auto inputData = ref(params.data).getCroppedData(4).toBytes();
 
             auto startPos = 0u;
             for (auto segment : conflictField.accessPath)
