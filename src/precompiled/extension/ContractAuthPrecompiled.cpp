@@ -19,6 +19,7 @@
  */
 
 #include "ContractAuthPrecompiled.h"
+#include <boost/core/ignore_unused.hpp>
 
 using namespace bcos;
 using namespace bcos::precompiled;
@@ -233,6 +234,8 @@ void ContractAuthPrecompiled::checkMethodAuth(
     const std::shared_ptr<PrecompiledExecResult>& callResult, const std::string& _sender,
     const PrecompiledGas::Ptr&)
 {
+    boost::ignore_unused(_sender);
+
     std::string path;
     bytes func;
     Address account;

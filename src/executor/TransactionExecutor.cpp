@@ -450,7 +450,8 @@ void TransactionExecutor::dagExecuteTransactionsForWasm(
                         auto table = storage->openTable(tableName);
                         assert(table.has_value());
 
-                        auto abiStr = table->getRow(ACCOUNT_ABI)->getField(SYS_VALUE);
+                        auto entry = table->getRow(ACCOUNT_ABI);
+                        auto abiStr = entry->getField(0);
 
                         EXECUTOR_LOG(DEBUG) << LOG_BADGE("dagExecuteTransactionsForWasm")
                                             << LOG_DESC("ABI loaded") << LOG_KV("ABI", abiStr);
@@ -795,7 +796,6 @@ void TransactionExecutor::executeTransaction(bcos::protocol::ExecutionMessage::U
                 return;
             }
 
-            // EXECUTOR_LOG(DEBUG) << "ExecuteTransaction success";
             callback(std::move(error), std::move(result));
         });
 }
@@ -867,7 +867,7 @@ void TransactionExecutor::prepare(
     storageParams.number = params.number;
 
     m_backendStorage->asyncPrepare(
-        storageParams, first->storage, [callback = std::move(callback)](auto&& error, uint64_t) {
+        storageParams, *(first->storage), [callback = std::move(callback)](auto&& error, uint64_t) {
             if (error)
             {
                 auto errorMessage = "Prepare error: " + boost::diagnostic_information(*error);

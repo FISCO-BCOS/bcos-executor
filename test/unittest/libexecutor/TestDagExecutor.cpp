@@ -231,11 +231,11 @@ BOOST_AUTO_TEST_CASE(callWasmConcurrentlyTransfer)
 
     auto entry = table.getRow("code");
     BOOST_CHECK(entry);
-    BOOST_CHECK_GT(entry->getField(STORAGE_VALUE).size(), 0);
+    BOOST_CHECK_GT(entry->getField(0).size(), 0);
 
     entry = table.getRow("abi");
     BOOST_CHECK(entry);
-    BOOST_CHECK_GT(entry->getField(STORAGE_VALUE).size(), 0);
+    BOOST_CHECK_GT(entry->getField(0).size(), 0);
 
     std::vector<ExecutionMessage::UniquePtr> requests;
     auto cases = vector<tuple<string, string, uint32_t>>();
@@ -448,11 +448,11 @@ BOOST_AUTO_TEST_CASE(callWasmConcurrentlyHelloWorld)
 
     auto entry = table.getRow("code");
     BOOST_CHECK(entry);
-    BOOST_CHECK_GT(entry->getField(STORAGE_VALUE).size(), 0);
+    BOOST_CHECK_GT(entry->getField(0).size(), 0);
 
     entry = table.getRow("abi");
     BOOST_CHECK(entry);
-    BOOST_CHECK_GT(entry->getField(STORAGE_VALUE).size(), 0);
+    BOOST_CHECK_GT(entry->getField(0).size(), 0);
 
     std::vector<ExecutionMessage::UniquePtr> requests;
     auto cases = vector<string>();

@@ -690,7 +690,7 @@ void TransactionExecutive::revert()
         BOOST_THROW_EXCEPTION(BCOS_ERROR(-1, "blockContext is null!"));
     }
 
-    blockContext->storage()->rollback(m_recoder);
+    blockContext->storage()->rollback(*m_recoder);
 }
 
 CallParameters::UniquePtr TransactionExecutive::parseEVMCResult(
@@ -835,11 +835,11 @@ void TransactionExecutive::creatAuthTable(
     {
         auto senderAuthTable = getContractTableName(_sender).append(CONTRACT_SUFFIX);
         auto entry = m_storageWrapper->getRow(std::move(senderAuthTable), ADMIN_FIELD);
-        admin = entry->getField(STORAGE_VALUE);
+        admin = entry->getField(0);
     }
     auto table = m_storageWrapper->createTable(authTableName, STORAGE_VALUE);
     auto adminEntry = table->newEntry();
-    adminEntry.setField(STORAGE_VALUE, std::string(admin));
+    adminEntry.importFields({std::string(admin)});
     m_storageWrapper->setRow(authTableName, ADMIN_FIELD, std::move(adminEntry));
     m_storageWrapper->setRow(authTableName, METHOD_AUTH_TYPE, table->newEntry());
     m_storageWrapper->setRow(authTableName, METHOD_AUTH_WHITE, table->newEntry());

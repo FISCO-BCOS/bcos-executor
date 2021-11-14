@@ -8,58 +8,59 @@
 
 using namespace bcos::executor;
 
-void LRUStorage::asyncGetPrimaryKeys(const std::string_view& table,
+void LRUStorage::asyncGetPrimaryKeys(std::string_view table,
     const std::optional<bcos::storage::Condition const>& _condition,
     std::function<void(Error::UniquePtr, std::vector<std::string>)> _callback)
 {
     storage::StateStorage::asyncGetPrimaryKeys(table, _condition, std::move(_callback));
 }
 
-void LRUStorage::asyncGetRow(const std::string_view& table, const std::string_view& _key,
+void LRUStorage::asyncGetRow(std::string_view table, std::string_view _key,
     std::function<void(Error::UniquePtr, std::optional<bcos::storage::Entry>)> _callback)
 {
     storage::StateStorage::asyncGetRow(table, _key,
-        [this, callback = std::move(_callback), table, key = _key](
+        [this, callback = std::move(_callback), table = std::string(table),
+            key = std::string(_key)](
             Error::UniquePtr error, std::optional<bcos::storage::Entry> entry) {
             if (!error && entry)
             {
-                updateMRU(EntryKeyWrapper(table, std::string(key)));
+                updateMRU(EntryKeyWrapper(std::move(table), std::move(key)));
             }
             callback(std::move(error), std::move(entry));
         });
 }
 
-void LRUStorage::asyncGetRows(const std::string_view& table,
+void LRUStorage::asyncGetRows(std::string_view table,
     const std::variant<const gsl::span<std::string_view const>, const gsl::span<std::string const>>&
         _keys,
     std::function<void(Error::UniquePtr, std::vector<std::optional<bcos::storage::Entry>>)>
         _callback)
 {
-    std::vector<std::string> keys;
+    auto keys = std::make_shared<std::vector<std::string>>();
 
     std::visit(
         [&keys](auto&& input) {
-            keys.reserve(input.size());
+            keys->reserve(input.size());
             for (auto& it : input)
             {
-                keys.emplace_back(it);
+                keys->emplace_back(it);
             }
         },
         _keys);
 
-    storage::StateStorage::asyncGetRows(table, _keys,
-        [this, table, keys = std::move(keys), callback = std::move(_callback)](
+    storage::StateStorage::asyncGetRows(table, *keys,
+        [this, table = std::string(table), keys, callback = std::move(_callback)](
             Error::UniquePtr error, std::vector<std::optional<bcos::storage::Entry>> entries) {
-            if (!error && keys.size() == entries.size())
+            if (!error && keys->size() == entries.size())
             {
-                for (size_t i = 0; i < keys.size(); ++i)
+                for (size_t i = 0; i < keys->size(); ++i)
                 {
-                    auto& key = keys[i];
+                    auto& key = keys->at(i);
                     auto& entry = entries[i];
 
                     if (entry)
                     {
-                        updateMRU(EntryKeyWrapper(table, key));
+                        updateMRU(EntryKeyWrapper(std::move(table), std::move(key)));
                     }
                 }
             }
@@ -68,10 +69,10 @@ void LRUStorage::asyncGetRows(const std::string_view& table,
         });
 }
 
-void LRUStorage::asyncSetRow(const std::string_view& table, const std::string_view& key,
+void LRUStorage::asyncSetRow(std::string_view table, std::string_view key,
     bcos::storage::Entry entry, std::function<void(Error::UniquePtr)> callback)
 {
-    updateMRU(EntryKeyWrapper(table, std::string(key)));
+    updateMRU(EntryKeyWrapper(std::string(table), std::string(key)));
     storage::StateStorage::asyncSetRow(table, key, std::move(entry), std::move(callback));
 }
 

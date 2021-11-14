@@ -20,22 +20,22 @@ public:
     LRUStorage(std::shared_ptr<StorageInterface> prev) : StateStorage(std::move(prev)) {}
     ~LRUStorage() noexcept override { stop(); }
 
-    void asyncGetPrimaryKeys(const std::string_view& table,
+    void asyncGetPrimaryKeys(std::string_view table,
         const std::optional<bcos::storage::Condition const>& _condition,
         std::function<void(Error::UniquePtr, std::vector<std::string>)> _callback) override;
 
-    void asyncGetRow(const std::string_view& table, const std::string_view& _key,
+    void asyncGetRow(std::string_view table, std::string_view _key,
         std::function<void(Error::UniquePtr, std::optional<bcos::storage::Entry>)> _callback)
         override;
 
-    void asyncGetRows(const std::string_view& table,
+    void asyncGetRows(std::string_view table,
         const std::variant<const gsl::span<std::string_view const>,
             const gsl::span<std::string const>>& _keys,
         std::function<void(Error::UniquePtr, std::vector<std::optional<bcos::storage::Entry>>)>
             _callback) override;
 
-    void asyncSetRow(const std::string_view& table, const std::string_view& key,
-        bcos::storage::Entry entry, std::function<void(Error::UniquePtr)> callback) override;
+    void asyncSetRow(std::string_view table, std::string_view key, bcos::storage::Entry entry,
+        std::function<void(Error::UniquePtr)> callback) override;
 
     void merge(bool onlyDirty, const TraverseStorageInterface& source) override;
 
@@ -50,7 +50,8 @@ private:
     struct EntryKeyWrapper : public EntryKey
     {
         EntryKeyWrapper() : EntryKey() {}
-        EntryKeyWrapper(std::string_view table, std::string key) : EntryKey(table, std::move(key))
+        EntryKeyWrapper(std::string table, std::string key)
+          : EntryKey(std::move(table), std::move(key))
         {}
 
         EntryKeyWrapper(const EntryKeyWrapper&) = default;

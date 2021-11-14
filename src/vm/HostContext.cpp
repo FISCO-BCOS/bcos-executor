@@ -104,7 +104,7 @@ std::string_view HostContext::get(const std::string_view& _key)
     auto entry = m_executive->storage().getRow(m_tableName, _key);
     if (entry)
     {
-        return entry->getField(STORAGE_VALUE);
+        return entry->getField(0);
     }
 
     return std::string_view();
@@ -310,7 +310,7 @@ u256 HostContext::store(const u256& _n)
     auto entry = m_executive->storage().getRow(m_tableName, keyView);
     if (entry)
     {
-        return fromBigEndian<u256>(entry->getField(STORAGE_VALUE));
+        return fromBigEndian<u256>(entry->getField(0));
     }
 
     return u256();
