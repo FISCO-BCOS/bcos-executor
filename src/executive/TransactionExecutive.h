@@ -75,16 +75,15 @@ public:
         std::function<void(std::shared_ptr<BlockContext>, std::shared_ptr<TransactionExecutive>,
             std::unique_ptr<CallParameters>,
             std::function<void(Error::UniquePtr, std::unique_ptr<CallParameters>)>)>
-            externalCallCallback, std::shared_ptr<wasm::GasInjector>& gasInjector)
+            externalCallCallback,
+        std::shared_ptr<wasm::GasInjector>& gasInjector)
       : m_blockContext(std::move(blockContext)),
         m_contractAddress(std::move(contractAddress)),
         m_contextID(contextID),
         m_seq(seq),
         m_externalCallFunction(std::move(externalCallCallback)),
         m_gasInjector(gasInjector)
-        // m_gasInjector(std::make_shared<wasm::GasInjector>(wasm::GetInstructionTable()))
     {
-
         m_recoder = m_blockContext.lock()->storage()->newRecoder();
         m_hashImpl = m_blockContext.lock()->hashHandler();
     }
@@ -110,7 +109,8 @@ public:
     // External request key locks
     void externalAcquireKeyLocks(std::string acquireKeyLock);
 
-    CoroutineStorageWrapper<CoroutineMessage>& storage() {
+    CoroutineStorageWrapper<CoroutineMessage>& storage()
+    {
         assert(m_storageWrapper);
         return *m_storageWrapper;
     }
@@ -156,6 +156,11 @@ public:
 
     std::shared_ptr<precompiled::PrecompiledExecResult> execPrecompiled(const std::string& address,
         bytesConstRef param, const std::string& origin, const std::string& sender);
+
+    void setInitKeyLocks(std::vector<std::string> initKeyLocks)
+    {
+        m_initKeyLocks = std::move(initKeyLocks);
+    }
 
 private:
     std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> call(
@@ -207,14 +212,15 @@ private:
 
     ///< The base amount of gas required for executing this transaction.
     // TODO: not used
-    //int64_t m_baseGasRequired = 0;
-
+    // int64_t m_baseGasRequired = 0;
 
     std::function<void(std::shared_ptr<BlockContext> blockContext,
         std::shared_ptr<TransactionExecutive> executive,
         std::unique_ptr<CallParameters> callResults,
         std::function<void(Error::UniquePtr, std::unique_ptr<CallParameters>)> callback)>
         m_externalCallFunction;
+
+    std::vector<std::string> m_initKeyLocks;
 
     std::shared_ptr<wasm::GasInjector> m_gasInjector = nullptr;
 

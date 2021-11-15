@@ -159,10 +159,10 @@ private:
         std::function<void(Error::UniquePtr, std::unique_ptr<CallParameters>)> callback);
 
     std::unique_ptr<CallParameters> createCallParameters(
-        bcos::protocol::ExecutionMessage&& inputs, bool staticCall);
+        bcos::protocol::ExecutionMessage& inputs, bool staticCall);
 
     std::unique_ptr<CallParameters> createCallParameters(
-        bcos::protocol::ExecutionMessage&& input, const bcos::protocol::Transaction& tx);
+        bcos::protocol::ExecutionMessage& input, const bcos::protocol::Transaction& tx);
 
     std::optional<std::vector<bcos::bytes>> decodeConflictFields(
         const FunctionAbi& functionAbi, const CallParameters& prams);

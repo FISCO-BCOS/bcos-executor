@@ -71,6 +71,11 @@ void TransactionExecutive::start(CallParameters::UniquePtr input)
             std::bind(&TransactionExecutive::externalAcquireKeyLocks, this, std::placeholders::_1),
             m_recoder);
 
+        if (!m_initKeyLocks.empty())
+        {
+            m_storageWrapper->setExistsKeyLocks(m_initKeyLocks);
+        }
+
         execute(std::move(std::get<CallParameters::UniquePtr>(callParameters)));
     });
 
@@ -81,22 +86,35 @@ CallParameters::UniquePtr TransactionExecutive::externalCall(CallParameters::Uni
 {
     input->keyLocks = m_storageWrapper->exportKeyLocks();
 
+    CallParameters::UniquePtr externalResponse;
     m_externalCallFunction(m_blockContext.lock(), shared_from_this(), std::move(input),
-        [this]([[maybe_unused]] Error::UniquePtr error, CallParameters::UniquePtr response) {
-            EXECUTOR_LOG(TRACE) << "Invoke external call callback";
-            (*m_pushMessage)(CallMessage(std::move(response)));
+        [this, &externalResponse](
+            [[maybe_unused]] Error::UniquePtr error, CallParameters::UniquePtr response) {
+            EXECUTOR_LOG(TRACE) << "Invoke external call callback by keylocks";
+            // if (*m_pushMessage)
+            if (false)
+            {
+                externalResponse = std::move(response);
+            }
+            else
+            {
+                (*m_pushMessage)(CallMessage(std::move(response)));
+            }
         });
 
-    (*m_pullMessage)();  // move to the main coroutine
-    auto output = std::get<CallMessage>(m_pullMessage->get());
+    if (!externalResponse)
+    {
+        (*m_pullMessage)();  // move to the main coroutine
+        externalResponse = std::get<CallMessage>(m_pullMessage->get());
+    }
 
     // After coroutine switch, set the recoder
     m_storageWrapper->setRecoder(m_recoder);
 
     // Set the keyLocks
-    m_storageWrapper->setExistsKeyLocks(output->keyLocks);
+    m_storageWrapper->setExistsKeyLocks(externalResponse->keyLocks);
 
-    return output;
+    return externalResponse;
 }
 
 void TransactionExecutive::externalAcquireKeyLocks(std::string acquireKeyLock)

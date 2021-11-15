@@ -202,7 +202,7 @@ void TransactionExecutor::dagExecuteTransactions(
                 }
                 case ExecutionMessage::MESSAGE:
                 {
-                    callParametersList->at(i) = createCallParameters(std::move(*params), false);
+                    callParametersList->at(i) = createCallParameters(*params, false);
                     break;
                 }
                 default:
@@ -235,8 +235,8 @@ void TransactionExecutor::dagExecuteTransactions(
 
                 for (size_t i = 0; i < transactions->size(); ++i)
                 {
-                    callParametersList->at(indexes[i]) = createCallParameters(
-                        std::move(*fillInputs->at(i)), std::move(*transactions->at(i)));
+                    callParametersList->at(indexes[i]) =
+                        createCallParameters(*fillInputs->at(i), std::move(*transactions->at(i)));
                 }
 
                 if (m_isWasm)
@@ -1033,10 +1033,11 @@ void TransactionExecutor::asyncExecute(std::shared_ptr<BlockContext> blockContex
 
                 auto contextID = input->contextID();
                 auto seq = input->seq();
-                auto callParameters = createCallParameters(std::move(*input), std::move(*tx));
+                auto callParameters = createCallParameters(*input, std::move(*tx));
 
                 auto executive =
                     createExecutive(blockContext, callParameters->codeAddress, contextID, seq);
+                executive->setInitKeyLocks(input->takeKeyLocks());
 
                 blockContext->insertExecutive(contextID, seq, {executive, callback, {}});
 
@@ -1058,7 +1059,7 @@ void TransactionExecutor::asyncExecute(std::shared_ptr<BlockContext> blockContex
     {
         auto contextID = input->contextID();
         auto seq = input->seq();
-        auto callParameters = createCallParameters(std::move(*input), staticCall);
+        auto callParameters = createCallParameters(*input, staticCall);
 
         auto it = blockContext->getExecutive(contextID, seq);
         if (it)
@@ -1077,6 +1078,7 @@ void TransactionExecutor::asyncExecute(std::shared_ptr<BlockContext> blockContex
             // new external call MESSAGE
             auto executive =
                 createExecutive(blockContext, callParameters->codeAddress, contextID, seq);
+            executive->setInitKeyLocks(input->takeKeyLocks());
 
             blockContext->insertExecutive(contextID, seq, {executive, callback, {}});
 
@@ -1505,7 +1507,7 @@ void TransactionExecutor::removeCommittedState()
 }
 
 std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
-    bcos::protocol::ExecutionMessage&& input, bool staticCall)
+    bcos::protocol::ExecutionMessage& input, bool staticCall)
 {
     auto callParameters = std::make_unique<CallParameters>(CallParameters::MESSAGE);
 
@@ -1539,7 +1541,7 @@ std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
 }
 
 std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
-    bcos::protocol::ExecutionMessage&& input, const bcos::protocol::Transaction& tx)
+    bcos::protocol::ExecutionMessage& input, const bcos::protocol::Transaction& tx)
 {
     auto callParameters = std::make_unique<CallParameters>(CallParameters::MESSAGE);
 
