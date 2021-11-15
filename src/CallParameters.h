@@ -15,7 +15,7 @@ struct CallParameters
     enum Type : int8_t
     {
         MESSAGE = 0,
-        WAIT_KEY,
+        KEY_LOCK,
         FINISHED,
         REVERT,
     };

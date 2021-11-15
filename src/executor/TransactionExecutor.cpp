@@ -1095,6 +1095,26 @@ void TransactionExecutor::asyncExecute(std::shared_ptr<BlockContext> blockContex
 
         break;
     }
+    case bcos::protocol::ExecutionMessage::KEY_LOCK:
+    {
+        auto contextID = input->contextID();
+        auto seq = input->seq();
+
+        auto it = blockContext->getExecutive(contextID, seq);
+        if (it)
+        {
+            // REVERT or FINISHED
+            [[maybe_unused]] auto& [executive, externalCallFunc, responseFunc] = *it;
+            it->requestFunction = std::move(callback);
+
+            // Call callback
+            responseFunc(nullptr, nullptr);
+        }
+        else
+        {
+        }
+        break;
+    }
     default:
     {
         EXECUTOR_LOG(ERROR) << "Unknown message type: " << input->type();
@@ -1285,9 +1305,9 @@ void TransactionExecutor::externalCall(std::shared_ptr<BlockContext> blockContex
         message->setTo(std::move(params->receiveAddress));
         message->setType(ExecutionMessage::MESSAGE);
         break;
-    case CallParameters::WAIT_KEY:
+    case CallParameters::KEY_LOCK:
         message->setFrom(std::move(params->senderAddress));
-        message->setType(ExecutionMessage::WAIT_KEY);
+        message->setType(ExecutionMessage::KEY_LOCK);
         message->setKeyLockAcquired(std::move(params->acquireKeyLock));
 
         break;

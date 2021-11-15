@@ -1014,6 +1014,7 @@ BOOST_AUTO_TEST_CASE(multiDeploy)
 }
 
 BOOST_AUTO_TEST_CASE(keyLock) {
+    
 }
 
 BOOST_AUTO_TEST_SUITE_END()
