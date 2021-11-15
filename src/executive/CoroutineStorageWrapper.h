@@ -301,13 +301,11 @@ private:
         {
             m_externalAcquireKeyLocks(std::string(key));
         }
-        else
+
+        auto it = m_myKeyLocks.lower_bound(key);
+        if (it == m_myKeyLocks.end() || *it != key)
         {
-            auto it = m_myKeyLocks.lower_bound(key);
-            if (it == m_myKeyLocks.end() || *it != key)
-            {
-                m_myKeyLocks.emplace_hint(it, key);
-            }
+            m_myKeyLocks.emplace_hint(it, key);
         }
     }
 
