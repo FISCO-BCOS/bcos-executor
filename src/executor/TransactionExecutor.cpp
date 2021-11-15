@@ -1307,7 +1307,8 @@ void TransactionExecutor::externalCall(std::shared_ptr<BlockContext> blockContex
         message->setType(ExecutionMessage::MESSAGE);
         break;
     case CallParameters::KEY_LOCK:
-        message->setFrom(std::move(params->senderAddress));
+        message->setFrom(params->senderAddress);
+        message->setTo(std::move(params->senderAddress));
         message->setType(ExecutionMessage::KEY_LOCK);
         message->setKeyLockAcquired(std::move(params->acquireKeyLock));
 
