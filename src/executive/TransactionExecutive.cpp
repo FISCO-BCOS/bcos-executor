@@ -136,7 +136,8 @@ void TransactionExecutive::externalAcquireKeyLocks(std::string acquireKeyLock)
     if (output->status == CallParameters::REVERT)
     {
         // Dead lock, revert
-        BOOST_THROW_EXCEPTION(BCOS_ERROR(ExecuteError::DEAD_LOCK, "Dead lock detected"));
+        BOOST_THROW_EXCEPTION(
+            BCOS_ERROR(ExecuteError::DEAD_LOCK, "Dead lock detected, revert transaction"));
     }
 
     // After coroutine switch, set the recoder

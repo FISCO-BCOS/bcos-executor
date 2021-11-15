@@ -1099,6 +1099,7 @@ void TransactionExecutor::asyncExecute(std::shared_ptr<BlockContext> blockContex
     {
         auto contextID = input->contextID();
         auto seq = input->seq();
+        auto callParameters = createCallParameters(*input, staticCall);
 
         auto it = blockContext->getExecutive(contextID, seq);
         if (it)
@@ -1108,7 +1109,7 @@ void TransactionExecutor::asyncExecute(std::shared_ptr<BlockContext> blockContex
             it->requestFunction = std::move(callback);
 
             // Call callback
-            responseFunc(nullptr, nullptr);
+            responseFunc(nullptr, TransactionExecutive::CallMessage(std::move(callParameters)));
         }
         else
         {
