@@ -271,10 +271,6 @@ public:
     void setExistsKeyLocks(gsl::span<std::string> keyLocks)
     {
         m_existsKeyLocks.clear();
-        if (m_existsKeyLocks.capacity() < (size_t)keyLocks.size())
-        {
-            m_existsKeyLocks.reserve(keyLocks.size());
-        }
 
         for (auto& it : keyLocks)
         {
@@ -297,7 +293,7 @@ public:
 private:
     void acquireKeyLock(const std::string_view& key)
     {
-        if (m_existsKeyLocks.contains(key))
+        if (m_existsKeyLocks.find(key) != m_existsKeyLocks.end())
         {
             m_externalAcquireKeyLocks(std::string(key));
         }
@@ -315,7 +311,7 @@ private:
     std::function<void(std::string)> m_externalAcquireKeyLocks;
     bcos::storage::StateStorage::Recoder::Ptr m_recoder;
 
-    boost::container::flat_set<std::string, std::less<>> m_existsKeyLocks;
+    std::set<std::string, std::less<>> m_existsKeyLocks;
     std::set<std::string, std::less<>> m_myKeyLocks;
 };
 }  // namespace bcos::executor
