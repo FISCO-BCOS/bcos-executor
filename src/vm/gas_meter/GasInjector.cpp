@@ -33,7 +33,8 @@ using namespace wabt;
 
 #define METER_LOG(LEVEL) BCOS_LOG(LEVEL) << "[METER]"
 
-namespace bcos{
+namespace bcos
+{
 namespace wasm
 {
 const char* const MODULE_NAME = "bcos";
@@ -268,6 +269,8 @@ void GasInjector::InjectMeterExprList(ExprList* exprs, const ImportsInfo& info)
         }
         case ExprType::MemoryGrow:
         {
+#if 0
+// TODO: memoryGrow is not charged for now
             auto localTee = MakeUnique<LocalTeeExpr>(Var(info.tempVarForMemoryGasIndex));
             exprs->insert(it, std::move(localTee));
             auto getGas = MakeUnique<GlobalGetExpr>(Var(info.globalGasIndex));
@@ -282,6 +285,7 @@ void GasInjector::InjectMeterExprList(ExprList* exprs, const ImportsInfo& info)
             auto i64Convert = MakeUnique<ConvertExpr>(Opcode::I64ExtendI32S);
             exprs->insert(it, std::move(i64Convert));
             subAndCheck(it);
+#endif
             break;
         }
         case ExprType::MemorySize:
@@ -500,6 +504,14 @@ GasInjector::Result GasInjector::InjectMeter(const std::vector<uint8_t>& byteCod
     module.fields.push_back(MakeUnique<ImportModuleField>(std::move(globalGas)));
     // module.AppendField(MakeUnique<ImportModuleField>(std::move(globalGas)));
 
+    // set memory limit
+    auto memory = module.memories[0];
+    if (memory->page_limits.initial < WASM_MEMORY_PAGES_INIT)
+    {
+        memory->page_limits.initial = WASM_MEMORY_PAGES_INIT;
+    }
+    memory->page_limits.max = WASM_MEMORY_PAGES_MAX;
+    memory->page_limits.has_max = true;
     try
     {
         ImportsInfo info{foundGasFunction, outOfGasIndex, 0, 0, originImportSize};
@@ -549,4 +561,4 @@ GasInjector::Result GasInjector::InjectMeter(const std::vector<uint8_t>& byteCod
 
 
 }  // namespace wasm
-}
+}  // namespace bcos

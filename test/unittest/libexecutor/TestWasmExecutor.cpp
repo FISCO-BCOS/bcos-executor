@@ -338,6 +338,214 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
     BOOST_CHECK_EQUAL(output, "fisco bcos");
 }
 
+
+BOOST_AUTO_TEST_CASE(deployAndCall_100)
+{
+    bytes input;
+    input.push_back(0);
+
+    input.insert(input.end(), helloWorldBin.begin(), helloWorldBin.end());
+
+    bytes constructorParam = codec->encode(string("alice"));
+    constructorParam = codec->encode(constructorParam);
+    input.insert(input.end(), constructorParam.begin(), constructorParam.end());
+
+    string selfAddress = "/usr/alice/hello_world";
+
+    input.insert(input.end(), helloWorldAbi.begin(), helloWorldAbi.end());
+
+    auto tx = fakeTransaction(cryptoSuite, keyPair, "", input, 101, 100001, "1", "1");
+    auto sender = *toHexString(string_view((char*)tx->sender().data(), tx->sender().size()));
+
+    auto hash = tx->hash();
+    txpool->hash2Transaction.emplace(hash, tx);
+
+    auto params = std::make_unique<NativeExecutionMessage>();
+    params->setType(bcos::protocol::ExecutionMessage::TXHASH);
+    params->setContextID(100);
+    params->setSeq(1000);
+    params->setDepth(0);
+    params->setTo(selfAddress);
+    params->setStaticCall(false);
+    params->setGasAvailable(gas);
+    params->setType(ExecutionMessage::TXHASH);
+    params->setTransactionHash(hash);
+    params->setCreate(true);
+
+    NativeExecutionMessage paramsBak = *params;
+
+    auto blockHeader = std::make_shared<bcos::protocol::PBBlockHeader>(cryptoSuite);
+    blockHeader->setNumber(1);
+
+    std::promise<void> nextPromise;
+    executor->nextBlockHeader(blockHeader, [&](bcos::Error::Ptr&& error) {
+        BOOST_CHECK(!error);
+        nextPromise.set_value();
+    });
+    nextPromise.get_future().get();
+
+    std::promise<bcos::protocol::ExecutionMessage::UniquePtr> executePromise;
+    executor->executeTransaction(std::move(params),
+        [&](bcos::Error::UniquePtr&& error, bcos::protocol::ExecutionMessage::UniquePtr&& result) {
+            BOOST_CHECK(!error);
+            executePromise.set_value(std::move(result));
+        });
+
+    auto result = executePromise.get_future().get();
+    BOOST_CHECK_EQUAL(result->status(), 0);
+    BOOST_CHECK_EQUAL(result->origin(), sender);
+    BOOST_CHECK_EQUAL(result->from(), paramsBak.to());
+    BOOST_CHECK_EQUAL(result->to(), sender);
+
+    BOOST_CHECK(result->message().empty());
+    BOOST_CHECK(!result->newEVMContractAddress().empty());
+    BOOST_CHECK_EQUAL(result->gasAvailable(), 2995637422);
+
+    auto address = result->newEVMContractAddress();
+    BOOST_CHECK_EQUAL(result->newEVMContractAddress(), selfAddress);
+    bcos::executor::TransactionExecutor::TwoPCParams commitParams;
+    commitParams.number = 1;
+
+    std::promise<void> preparePromise;
+    executor->prepare(commitParams, [&](bcos::Error::Ptr&& error) {
+        BOOST_CHECK(!error);
+        preparePromise.set_value();
+    });
+    preparePromise.get_future().get();
+
+    std::promise<void> commitPromise;
+    executor->commit(commitParams, [&](bcos::Error::Ptr&& error) {
+        BOOST_CHECK(!error);
+        commitPromise.set_value();
+    });
+    commitPromise.get_future().get();
+    auto tableName = std::string("/apps") + std::string(result->newEVMContractAddress());
+
+    EXECUTOR_LOG(TRACE) << "Checking table: " << tableName;
+    std::promise<Table> tablePromise;
+    backend->asyncOpenTable(tableName, [&](Error::UniquePtr&& error, std::optional<Table>&& table) {
+        BOOST_CHECK(!error);
+        BOOST_CHECK(table);
+        tablePromise.set_value(std::move(*table));
+    });
+    auto table = tablePromise.get_future().get();
+
+    auto entry = table.getRow("code");
+    BOOST_CHECK(entry);
+    BOOST_CHECK_GT(entry->getField(STORAGE_VALUE).size(), 0);
+
+    // start new block
+    auto blockHeader2 = std::make_shared<bcos::protocol::PBBlockHeader>(cryptoSuite);
+    blockHeader2->setNumber(2);
+
+    std::promise<void> nextPromise2;
+    executor->nextBlockHeader(std::move(blockHeader2), [&](bcos::Error::Ptr&& error) {
+        BOOST_CHECK(!error);
+
+        nextPromise2.set_value();
+    });
+
+    nextPromise2.get_future().get();
+    char inputBytes[] = "4ed3885e28666973636f2062636f73";
+
+    auto helloSet = [&](size_t i) -> int64_t {
+        // set "fisco bcos"
+        bytes txInput;
+        txInput.push_back(1);
+        boost::algorithm::unhex(
+            &inputBytes[0], inputBytes + sizeof(inputBytes) - 1, std::back_inserter(txInput));
+        auto params2 = std::make_unique<NativeExecutionMessage>();
+        params2->setContextID(i);
+        params2->setSeq(1000);
+        params2->setDepth(0);
+        params2->setFrom(std::string(sender));
+        params2->setTo(std::string(address));
+        params2->setOrigin(std::string(sender));
+        params2->setStaticCall(false);
+        params2->setGasAvailable(gas);
+        params2->setData(std::move(txInput));
+        params2->setType(NativeExecutionMessage::MESSAGE);
+        cout << ">>>>>>>>>>>>Executing set id=" << i << endl;
+        std::promise<ExecutionMessage::UniquePtr> executePromise2;
+        executor->executeTransaction(std::move(params2),
+            [&](bcos::Error::UniquePtr&& error, ExecutionMessage::UniquePtr&& result) {
+                BOOST_CHECK(!error);
+                executePromise2.set_value(std::move(result));
+            });
+        auto result2 = executePromise2.get_future().get();
+
+        BOOST_CHECK(result2);
+        BOOST_CHECK_EQUAL(result2->status(), 0);
+        BOOST_CHECK_EQUAL(result2->message(), "");
+        BOOST_CHECK_EQUAL(result2->newEVMContractAddress(), "");
+        return result2->gasAvailable();
+    };
+
+    auto helloGet = [&](size_t i, const string& ret = string("fisco bcos")) -> int64_t {
+        // read "fisco bcos"
+        bytes queryBytes;
+        queryBytes.push_back(1);
+
+        char inputBytes2[] = "6d4ce63c";
+        boost::algorithm::unhex(
+            &inputBytes2[0], inputBytes2 + sizeof(inputBytes2) - 1, std::back_inserter(queryBytes));
+
+        auto params3 = std::make_unique<NativeExecutionMessage>();
+        params3->setContextID(i);
+        params3->setSeq(1000);
+        params3->setDepth(0);
+        params3->setFrom(std::string(sender));
+        params3->setTo(std::string(address));
+        params3->setOrigin(std::string(sender));
+        params3->setStaticCall(false);
+        params3->setGasAvailable(gas);
+        params3->setData(std::move(queryBytes));
+        params3->setType(ExecutionMessage::MESSAGE);
+        cout << ">>>>>>>>>>>>Executing get id=" << i << endl;
+        std::promise<ExecutionMessage::UniquePtr> executePromise3;
+        executor->executeTransaction(std::move(params3),
+            [&](bcos::Error::UniquePtr&& error, ExecutionMessage::UniquePtr&& result) {
+                BOOST_CHECK(!error);
+                executePromise3.set_value(std::move(result));
+            });
+        auto result3 = executePromise3.get_future().get();
+
+        BOOST_CHECK(result3);
+        BOOST_CHECK_EQUAL(result3->status(), 0);
+        BOOST_CHECK_EQUAL(result3->message(), "");
+        BOOST_CHECK_EQUAL(result3->newEVMContractAddress(), "");
+        std::string output;
+        codec->decode(result3->data(), output);
+        BOOST_CHECK_EQUAL(output, "fisco bcos");
+        return result3->gasAvailable();
+    };
+    int64_t getGas = 2999991316;
+    int64_t setGas = 2999982946;
+    size_t id = 101;
+    BOOST_CHECK_EQUAL(helloSet(id++), 2999983215);
+    BOOST_CHECK_EQUAL(helloSet(id++), setGas);
+    BOOST_CHECK_EQUAL(helloGet(id++), getGas);
+    BOOST_CHECK_EQUAL(helloSet(id++), setGas);
+    BOOST_CHECK_EQUAL(helloSet(id++), setGas);
+
+    for (size_t i = 899; i < 1001; ++i)
+    {
+        if (i % 3 == 0)
+        {
+            BOOST_CHECK_EQUAL(helloSet(i), setGas);
+        }
+        else if (i % 3 == 1)
+        {
+            BOOST_CHECK_EQUAL(helloGet(i), getGas);
+        }
+        else
+        {
+            BOOST_CHECK_EQUAL(helloSet(i), setGas);
+        }
+    }
+    BOOST_CHECK_EQUAL(helloGet(id++), 2999991316);
+}
+
 BOOST_AUTO_TEST_CASE(externalCall)
 {
     string aliceAddress = "/usr/alice/hello_world";

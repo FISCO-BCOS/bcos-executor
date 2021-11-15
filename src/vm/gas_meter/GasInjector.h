@@ -34,6 +34,8 @@ namespace bcos
 {
 namespace wasm
 {
+const uint64_t WASM_MEMORY_PAGES_INIT = 16;
+const uint64_t WASM_MEMORY_PAGES_MAX = 1024;
 class GasInjector
 {
 public:
