@@ -86,27 +86,13 @@ CallParameters::UniquePtr TransactionExecutive::externalCall(CallParameters::Uni
 {
     input->keyLocks = m_storageWrapper->getKeyLocks();
 
-    CallParameters::UniquePtr externalResponse;
     m_externalCallFunction(m_blockContext.lock(), shared_from_this(), std::move(input),
-        [this, &externalResponse](
-            [[maybe_unused]] Error::UniquePtr error, CallParameters::UniquePtr response) {
-            EXECUTOR_LOG(TRACE) << "Invoke external call callback by keylocks";
-            // if (*m_pushMessage)
-            if (false)
-            {
-                externalResponse = std::move(response);
-            }
-            else
-            {
-                (*m_pushMessage)(CallMessage(std::move(response)));
-            }
+        [this]([[maybe_unused]] Error::UniquePtr error, CallParameters::UniquePtr response) {
+            (*m_pushMessage)(CallMessage(std::move(response)));
         });
 
-    if (!externalResponse)
-    {
-        (*m_pullMessage)();  // move to the main coroutine
-        externalResponse = std::get<CallMessage>(m_pullMessage->get());
-    }
+    (*m_pullMessage)();  // move to the main coroutine
+    auto externalResponse = std::get<CallMessage>(m_pullMessage->get());
 
     // After coroutine switch, set the recoder
     m_storageWrapper->setRecoder(m_recoder);
@@ -126,7 +112,6 @@ void TransactionExecutive::externalAcquireKeyLocks(std::string acquireKeyLock)
 
     m_externalCallFunction(m_blockContext.lock(), shared_from_this(), std::move(callParameters),
         [this]([[maybe_unused]] Error::UniquePtr error, CallParameters::UniquePtr response) {
-            EXECUTOR_LOG(TRACE) << "Invoke external call callback";
             (*m_pushMessage)(CallMessage(std::move(response)));
         });
 
