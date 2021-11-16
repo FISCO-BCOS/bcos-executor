@@ -87,13 +87,25 @@ CallParameters::UniquePtr TransactionExecutive::externalCall(CallParameters::Uni
 {
     input->keyLocks = m_storageWrapper->exportKeyLocks();
 
+    std::unique_ptr<CallParameters> externalResponse;
     m_externalCallFunction(m_blockContext.lock(), shared_from_this(), std::move(input),
-        [this]([[maybe_unused]] Error::UniquePtr error, CallParameters::UniquePtr response) {
-            (*m_pushMessage)(CallMessage(std::move(response)));
+        [this, &externalResponse](
+            [[maybe_unused]] Error::UniquePtr error, CallParameters::UniquePtr response) {
+            if (*m_pushMessage)
+            {
+                externalResponse = std::move(response);
+            }
+            else
+            {
+                (*m_pushMessage)(CallMessage(std::move(response)));
+            }
         });
 
-    (*m_pullMessage)();  // move to the main coroutine
-    auto externalResponse = std::get<CallMessage>(m_pullMessage->get());
+    if (!externalResponse)
+    {
+        (*m_pullMessage)();  // move to the main coroutine
+        externalResponse = std::get<CallMessage>(m_pullMessage->get());
+    }
 
     // After coroutine switch, set the recoder
     m_storageWrapper->setRecoder(m_recoder);
@@ -113,15 +125,27 @@ void TransactionExecutive::externalAcquireKeyLocks(std::string acquireKeyLock)
     callParameters->keyLocks = m_storageWrapper->exportKeyLocks();
     callParameters->acquireKeyLock = std::move(acquireKeyLock);
 
+    std::unique_ptr<CallParameters> externalResponse;
     m_externalCallFunction(m_blockContext.lock(), shared_from_this(), std::move(callParameters),
-        [this]([[maybe_unused]] Error::UniquePtr error, CallParameters::UniquePtr response) {
-            (*m_pushMessage)(CallMessage(std::move(response)));
+        [this, &externalResponse](
+            [[maybe_unused]] Error::UniquePtr error, CallParameters::UniquePtr response) {
+            if (*m_pushMessage)
+            {
+                externalResponse = std::move(response);
+            }
+            else
+            {
+                (*m_pushMessage)(CallMessage(std::move(response)));
+            }
         });
 
-    (*m_pullMessage)();  // move to the main coroutine
-    auto output = std::get<CallMessage>(m_pullMessage->get());
+    if (!externalResponse)
+    {
+        (*m_pullMessage)();  // move to the main coroutine
+        externalResponse = std::get<CallMessage>(m_pullMessage->get());
+    }
 
-    if (output->status == CallParameters::REVERT)
+    if (externalResponse->status == CallParameters::REVERT)
     {
         // Dead lock, revert
         BOOST_THROW_EXCEPTION(
@@ -132,7 +156,7 @@ void TransactionExecutive::externalAcquireKeyLocks(std::string acquireKeyLock)
     m_storageWrapper->setRecoder(m_recoder);
 
     // Set the keyLocks
-    m_storageWrapper->importExistsKeyLocks(output->keyLocks);
+    m_storageWrapper->importExistsKeyLocks(externalResponse->keyLocks);
 }
 
 CallParameters::UniquePtr TransactionExecutive::execute(CallParameters::UniquePtr callParameters)
