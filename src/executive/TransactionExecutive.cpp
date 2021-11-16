@@ -91,7 +91,8 @@ CallParameters::UniquePtr TransactionExecutive::externalCall(CallParameters::Uni
     m_externalCallFunction(m_blockContext.lock(), shared_from_this(), std::move(input),
         [this, &externalResponse](
             [[maybe_unused]] Error::UniquePtr error, CallParameters::UniquePtr response) {
-            if (*m_pushMessage)
+            // if (*m_pushMessage)
+            if (false)
             {
                 externalResponse = std::move(response);
             }
@@ -129,7 +130,8 @@ void TransactionExecutive::externalAcquireKeyLocks(std::string acquireKeyLock)
     m_externalCallFunction(m_blockContext.lock(), shared_from_this(), std::move(callParameters),
         [this, &externalResponse](
             [[maybe_unused]] Error::UniquePtr error, CallParameters::UniquePtr response) {
-            if (*m_pushMessage)
+            // if (*m_pushMessage)
+            if (false)
             {
                 externalResponse = std::move(response);
             }
