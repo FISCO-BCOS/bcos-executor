@@ -632,16 +632,18 @@ std::shared_ptr<Precompiled> TransactionExecutive::getPrecompiled(const std::str
 
 bool TransactionExecutive::isBuiltInPrecompiled(const std::string& _a) const
 {
-    // TODO: check _a prefix first, is it necessary?
+    std::stringstream prefix;
+    prefix << std::setfill('0') << std::setw(36);
+    if (_a.find(prefix.str()) != 0)
+        return false;
     return m_builtInPrecompiled->find(_a) != m_builtInPrecompiled->end();
 }
 
 bool TransactionExecutive::isEthereumPrecompiled(const string& _a) const
 {
-    // TODO: make it static
     std::stringstream prefix;
     prefix << std::setfill('0') << std::setw(39);
-    if (_a.rfind(prefix.str()) != 0)
+    if (_a.find(prefix.str()) != 0)
         return false;
     return m_evmPrecompiled->find(_a) != m_evmPrecompiled->end();
 }
