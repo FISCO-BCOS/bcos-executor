@@ -38,8 +38,8 @@ namespace bcos
 namespace executor
 {
 class TransactionExecutive;
-using ExecuteTxFunc = std::function<void(
-    bcos::executor::TransactionExecutive::Ptr, bcos::executor::CallParameters::UniquePtr)>;
+using ExecuteTxFunc = std::function<void(bcos::executor::TransactionExecutive::Ptr,
+    bcos::executor::CallParameters::UniquePtr, gsl::index)>;
 
 enum ConflictFieldKind : std::uint8_t
 {
@@ -82,7 +82,8 @@ public:
     // Execute a unit in DAG
     // This function can be parallel
     int executeUnit(const std::vector<TransactionExecutive::Ptr>& allExecutives,
-        std::vector<std::unique_ptr<CallParameters>>& allCallParameters);
+        std::vector<std::unique_ptr<CallParameters>>& allCallParameters,
+        const std::vector<gsl::index>& allIndex);
 
     ID paraTxsNumber() { return m_totalParaTxs; }
 

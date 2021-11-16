@@ -79,9 +79,6 @@ public:
     struct ExecutiveState
     {
         std::shared_ptr<TransactionExecutive> executive;
-        std::function<void(bcos::Error::UniquePtr&&, bcos::protocol::ExecutionMessage::UniquePtr&&)>
-            requestFunction;
-        std::function<void(bcos::Error::UniquePtr&&, CallParameters::UniquePtr)> responseFunction;
     };
 
     void insertExecutive(int64_t contextID, int64_t seq, ExecutiveState state);

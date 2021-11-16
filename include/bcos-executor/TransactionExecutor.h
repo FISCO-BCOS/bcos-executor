@@ -153,10 +153,8 @@ private:
         std::function<void(bcos::Error::UniquePtr&&, bcos::protocol::ExecutionMessage::UniquePtr&&)>
             callback);
 
-    void externalCall(std::shared_ptr<BlockContext> blockContext,
-        std::shared_ptr<TransactionExecutive> executive,
-        std::unique_ptr<CallParameters> callResults,
-        std::function<void(Error::UniquePtr, std::unique_ptr<CallParameters>)> callback);
+    std::unique_ptr<protocol::ExecutionMessage> toExecutionResult(
+        const TransactionExecutive& executive, std::unique_ptr<CallParameters> params);
 
     std::unique_ptr<CallParameters> createCallParameters(
         bcos::protocol::ExecutionMessage& inputs, bool staticCall);

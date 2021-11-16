@@ -82,7 +82,8 @@ void TxDAG::setTxExecuteFunc(ExecuteTxFunc const& _f)
 }
 
 int TxDAG::executeUnit(const vector<TransactionExecutive::Ptr>& allExecutives,
-    vector<std::unique_ptr<CallParameters>>& allCallParameters)
+    vector<std::unique_ptr<CallParameters>>& allCallParameters,
+    const std::vector<gsl::index>& allIndex)
 {
     int exeCnt = 0;
     ID id = m_dag.waitPop();
@@ -92,7 +93,7 @@ int TxDAG::executeUnit(const vector<TransactionExecutive::Ptr>& allExecutives,
         {
             exeCnt += 1;
             assert(allExecutives[id] && allCallParameters.at(id));
-            f_executeTx(allExecutives[id], std::move(allCallParameters.at(id)));
+            f_executeTx(allExecutives[id], std::move(allCallParameters.at(id)), allIndex[id]);
             id = m_dag.consume(id);
         } while (id != INVALID_ID);
         id = m_dag.waitPop();

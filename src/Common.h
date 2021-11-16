@@ -117,32 +117,6 @@ struct SubState
     }
 };
 
-/**
- * @brief : execute the opcode of evm
- *
- */
-
-inline bcos::protocol::ExecutionMessage::UniquePtr toExecutionResult(
-    bcos::protocol::ExecutionMessageFactory& factory, CallParameters::UniquePtr callResults)
-{
-    auto executionResult = factory.createExecutionMessage();
-
-    executionResult->setStatus(callResults->status);
-    executionResult->setMessage(std::move(callResults->message));
-    // executionResult->setStaticCall(callResults->status)
-    if (callResults->createSalt)
-    {
-        executionResult->setCreateSalt(std::move(*callResults->createSalt));
-    }
-    executionResult->setGasAvailable(callResults->gas);
-    executionResult->setLogEntries(std::move(callResults->logEntries));
-    executionResult->setData(std::move(callResults->data));
-    executionResult->setTo(std::move(callResults->receiveAddress));
-    executionResult->setNewEVMContractAddress(std::move(callResults->newEVMContractAddress));
-
-    return executionResult;
-}
-
 struct EVMSchedule
 {
     EVMSchedule() : tierStepGas(std::array<unsigned, 8>{{0, 2, 3, 5, 8, 10, 20, 0}}) {}

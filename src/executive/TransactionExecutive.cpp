@@ -40,6 +40,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/throw_exception.hpp>
 #include <functional>
+#include <memory>
 #include <string>
 #include <thread>
 
@@ -54,20 +55,22 @@ using namespace bcos::precompiled;
 /// Error info for VMInstance status code.
 using errinfo_evmcStatusCode = boost::error_info<struct tag_evmcStatusCode, evmc_status_code>;
 
-void TransactionExecutive::start(CallParameters::UniquePtr input)
+CallParameters::UniquePtr TransactionExecutive::start(CallParameters::UniquePtr input)
 {
-    m_pushMessage = std::make_unique<Coroutine::push_type>([this](Coroutine::pull_type& source) {
-        m_pullMessage = std::make_unique<Coroutine::pull_type>(std::move(source));
-        auto callParameters = m_pullMessage->get();
+    CallParameters::UniquePtr output;
+    m_pullMessage.emplace([this, input = input.release(), &output](Coroutine::push_type& dest) {
+        m_pushMessage.emplace(std::move(dest));
 
+        auto callParameters = std::unique_ptr<CallParameters>(input);
         auto blockContext = m_blockContext.lock();
         if (!blockContext)
         {
             BOOST_THROW_EXCEPTION(BCOS_ERROR(-1, "blockContext is null"));
         }
 
-        m_storageWrapper = std::make_unique<CoroutineStorageWrapper<CoroutineMessage>>(
-            blockContext->storage(), *m_pushMessage, *m_pullMessage,
+        m_storageWrapper = std::make_unique<CoroutineStorageWrapper<ResumeHandler>>(
+            blockContext->storage(),
+            std::bind(&TransactionExecutive::spawnAndCall, this, std::placeholders::_1),
             std::bind(&TransactionExecutive::externalAcquireKeyLocks, this, std::placeholders::_1),
             m_recoder);
 
@@ -77,43 +80,62 @@ void TransactionExecutive::start(CallParameters::UniquePtr input)
             m_initKeyLocks.clear();
         }
 
-        execute(std::move(std::get<CallParameters::UniquePtr>(callParameters)));
+        output = execute(std::move(callParameters));
     });
 
-    pushMessage(std::move(input));
+    while (m_pullMessage)
+    {
+        // Switch to main coroutine
+        auto message = m_pullMessage->get();
+        if (output)
+        {
+            EXECUTOR_LOG(TRACE) << "Context switch to main coroutine, finished";
+
+            // Ensure pushMessage die early before pullMessage
+            m_pushMessage.reset();
+            m_pullMessage.reset();
+
+            m_finished = true;
+            return output;
+        }
+
+        switch (message.index())
+        {
+        case 0:  // Message
+        {
+            EXECUTOR_LOG(TRACE) << "Context switch to main coroutine, return output";
+            auto [callParams, outputRef] = std::move(std::get<0>(message));
+
+            m_outputRef = outputRef;
+            return std::move(callParams);
+        }
+        case 1:  // Func
+        {
+            EXECUTOR_LOG(TRACE) << "Context switch to main coroutine, call func";
+            auto func = std::move(std::get<1>(message));
+            func(ResumeHandler(*m_pullMessage));
+            break;
+        }
+        }
+    }
+
+    return nullptr;
 }
 
 CallParameters::UniquePtr TransactionExecutive::externalCall(CallParameters::UniquePtr input)
 {
     input->keyLocks = m_storageWrapper->exportKeyLocks();
 
-    std::unique_ptr<CallParameters> externalResponse;
-    m_externalCallFunction(m_blockContext.lock(), shared_from_this(), std::move(input),
-        [this, &externalResponse](
-            [[maybe_unused]] Error::UniquePtr error, CallParameters::UniquePtr response) {
-            if (*m_pushMessage)
-            {
-                externalResponse = std::move(response);
-            }
-            else
-            {
-                (*m_pushMessage)(CallMessage(std::move(response)));
-            }
-        });
-
-    if (!externalResponse)
-    {
-        (*m_pullMessage)();  // move to the main coroutine
-        externalResponse = std::get<CallMessage>(m_pullMessage->get());
-    }
+    std::unique_ptr<CallParameters> output;
+    (*m_pushMessage)(std::make_tuple(std::move(input), &output));
 
     // After coroutine switch, set the recoder
     m_storageWrapper->setRecoder(m_recoder);
 
     // Set the keyLocks
-    m_storageWrapper->importExistsKeyLocks(externalResponse->keyLocks);
+    m_storageWrapper->importExistsKeyLocks(output->keyLocks);
 
-    return externalResponse;
+    return output;
 }
 
 void TransactionExecutive::externalAcquireKeyLocks(std::string acquireKeyLock)
@@ -125,27 +147,10 @@ void TransactionExecutive::externalAcquireKeyLocks(std::string acquireKeyLock)
     callParameters->keyLocks = m_storageWrapper->exportKeyLocks();
     callParameters->acquireKeyLock = std::move(acquireKeyLock);
 
-    std::unique_ptr<CallParameters> externalResponse;
-    m_externalCallFunction(m_blockContext.lock(), shared_from_this(), std::move(callParameters),
-        [this, &externalResponse](
-            [[maybe_unused]] Error::UniquePtr error, CallParameters::UniquePtr response) {
-            if (*m_pushMessage)
-            {
-                externalResponse = std::move(response);
-            }
-            else
-            {
-                (*m_pushMessage)(CallMessage(std::move(response)));
-            }
-        });
+    std::unique_ptr<CallParameters> output;
+    (*m_pushMessage)(std::make_tuple(std::move(callParameters), &output));
 
-    if (!externalResponse)
-    {
-        (*m_pullMessage)();  // move to the main coroutine
-        externalResponse = std::get<CallMessage>(m_pullMessage->get());
-    }
-
-    if (externalResponse->status == CallParameters::REVERT)
+    if (output->status == CallParameters::REVERT)
     {
         // Dead lock, revert
         BOOST_THROW_EXCEPTION(
@@ -156,7 +161,7 @@ void TransactionExecutive::externalAcquireKeyLocks(std::string acquireKeyLock)
     m_storageWrapper->setRecoder(m_recoder);
 
     // Set the keyLocks
-    m_storageWrapper->importExistsKeyLocks(externalResponse->keyLocks);
+    m_storageWrapper->importExistsKeyLocks(output->keyLocks);
 }
 
 CallParameters::UniquePtr TransactionExecutive::execute(CallParameters::UniquePtr callParameters)
@@ -185,11 +190,7 @@ CallParameters::UniquePtr TransactionExecutive::execute(CallParameters::UniquePt
             hostContext->evmSchedule().suicideRefundGas * hostContext->sub().suicides.size();
     }
 
-    // Current executive is finished
-    m_finished = true;
-    m_externalCallFunction(m_blockContext.lock(), shared_from_this(), std::move(callResults), {});
-
-    return nullptr;
+    return callResults;
 }
 
 std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionExecutive::call(
@@ -491,7 +492,6 @@ CallParameters::UniquePtr TransactionExecutive::go(
                 hostContext.setCode(outputRef.toBytes());
             }
 
-
             callResults->gas -= outputRef.size() * hostContext.evmSchedule().createDataGas;
             callResults->newEVMContractAddress = callResults->codeAddress;
 
@@ -616,6 +616,11 @@ CallParameters::UniquePtr TransactionExecutive::go(
     }
 
     return nullptr;
+}
+
+void TransactionExecutive::spawnAndCall(std::function<void(ResumeHandler)> function)
+{
+    (*m_pushMessage)(std::move(function));
 }
 
 std::shared_ptr<precompiled::PrecompiledExecResult> TransactionExecutive::execPrecompiled(

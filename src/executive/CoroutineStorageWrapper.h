@@ -22,18 +22,16 @@ using OpenTableResponse = std::tuple<Error::UniquePtr, std::optional<storage::Ta
 using KeyLockResponse = SetRowResponse;
 using AcquireKeyLockResponse = std::tuple<Error::UniquePtr, std::vector<std::string>>;
 
-template <class T>
+template <class Resume>
 class CoroutineStorageWrapper
 {
 public:
     CoroutineStorageWrapper(storage::StateStorage::Ptr storage,
-        typename boost::coroutines2::coroutine<T>::push_type& push,
-        typename boost::coroutines2::coroutine<T>::pull_type& pull,
+        std::function<void(std::function<void(Resume)>)> spawnAndCall,
         std::function<void(std::string)> externalAcquireKeyLocks,
         bcos::storage::StateStorage::Recoder::Ptr recoder)
       : m_storage(std::move(storage)),
-        m_push(push),
-        m_pull(pull),
+        m_spawnAndCall(std::move(spawnAndCall)),
         m_externalAcquireKeyLocks(std::move(externalAcquireKeyLocks)),
         m_recoder(recoder)
     {}
@@ -46,30 +44,19 @@ public:
     std::vector<std::string> getPrimaryKeys(
         const std::string_view& table, const std::optional<storage::Condition const>& _condition)
     {
-        std::optional<GetPrimaryKeysReponse> value;
+        GetPrimaryKeysReponse value;
+        m_spawnAndCall([this, &table, &_condition, &value](Resume resume) mutable {
+            m_storage->asyncGetPrimaryKeys(
+                table, _condition, [this, &value, &resume](auto&& error, auto&& keys) mutable {
+                    value = {std::move(error), std::move(keys)};
+                    resume();
+                });
+        });
 
-        m_storage->asyncGetPrimaryKeys(
-            table, _condition, [this, value = &value](auto&& error, auto&& keys) {
-                if (m_push)
-                {
-                    value->emplace(std::tuple{std::move(error), std::move(keys)});
-                }
-                else
-                {
-                    m_push(GetPrimaryKeysReponse{std::move(error), std::move(keys)});
-                }
-            });
+        // After coroutine switch, set the recoder
+        setRecoder(m_recoder);
 
-        if (!value)
-        {
-            m_pull();
-            value.emplace(std::get<GetPrimaryKeysReponse>(m_pull.get()));
-
-            // After coroutine switch, set the recoder
-            setRecoder(m_recoder);
-        }
-
-        auto& [error, keys] = *value;
+        auto& [error, keys] = value;
 
         if (error)
         {
@@ -84,29 +71,16 @@ public:
     {
         acquireKeyLock(_key);
 
-        std::optional<GetRowResponse> value;
-
-        m_storage->asyncGetRow(table, _key, [this, value = &value](auto&& error, auto&& entry) {
-            if (m_push)
-            {
-                value->emplace(GetRowResponse{std::move(error), std::move(entry)});
-            }
-            else
-            {
-                m_push(GetRowResponse{std::move(error), std::move(entry)});
-            }
+        GetRowResponse value;
+        m_spawnAndCall([this, &table, &_key, &value](Resume resume) mutable {
+            m_storage->asyncGetRow(
+                table, _key, [this, &value, &resume](auto&& error, auto&& entry) mutable {
+                    value = std::tuple{std::move(error), std::move(entry)};
+                    resume();
+                });
         });
 
-        if (!value)
-        {
-            m_pull();
-            value.emplace(std::get<GetRowResponse>(m_pull.get()));
-
-            // After coroutine switch, set the recoder
-            setRecoder(m_recoder);
-        }
-
-        auto& [error, entry] = *value;
+        auto& [error, entry] = value;
 
         if (error)
         {
@@ -129,29 +103,17 @@ public:
             },
             _keys);
 
-        std::optional<GetRowsResponse> value;
-
-        m_storage->asyncGetRows(table, _keys, [this, value = &value](auto&& error, auto&& entries) {
-            if (m_push)
-            {
-                value->emplace(GetRowsResponse{std::move(error), std::move(entries)});
-            }
-            else
-            {
-                m_push(GetRowsResponse{std::move(error), std::move(entries)});
-            }
+        GetRowsResponse value;
+        m_spawnAndCall([this, &table, &_keys, &value](Resume resume) mutable {
+            m_storage->asyncGetRows(
+                table, _keys, [this, &value, &resume](auto&& error, auto&& entries) mutable {
+                    value = std::tuple{std::move(error), std::move(entries)};
+                    resume();
+                });
         });
 
-        if (!value)
-        {
-            m_pull();
-            value.emplace(std::get<GetRowsResponse>(m_pull.get()));
 
-            // After coroutine switch, set the recoder
-            setRecoder(m_recoder);
-        }
-
-        auto& [error, entries] = *value;
+        auto& [error, entries] = value;
 
         if (error)
         {
@@ -165,29 +127,17 @@ public:
     {
         acquireKeyLock(key);
 
-        std::optional<SetRowResponse> value;
+        SetRowResponse value;
 
-        m_storage->asyncSetRow(table, key, std::move(entry), [this, value = &value](auto&& error) {
-            if (m_push)
-            {
-                value->emplace(SetRowResponse{std::move(error)});
-            }
-            else
-            {
-                m_push(SetRowResponse{std::move(error)});
-            }
+        m_spawnAndCall([this, &table, &key, &value, &entry](Resume resume) mutable {
+            m_storage->asyncSetRow(
+                table, key, std::move(entry), [this, &value, &resume](auto&& error) mutable {
+                    value = std::tuple{std::move(error)};
+                    resume();
+                });
         });
 
-        if (!value)
-        {
-            m_pull();
-            value.emplace(std::get<SetRowResponse>(m_pull.get()));
-
-            // After coroutine switch, set the recoder
-            setRecoder(m_recoder);
-        }
-
-        auto& [error] = *value;
+        auto& [error] = value;
 
         if (error)
         {
@@ -197,63 +147,36 @@ public:
 
     std::optional<storage::Table> createTable(std::string _tableName, std::string _valueFields)
     {
-        std::optional<OpenTableResponse> value;
+        OpenTableResponse value;
 
-        m_storage->asyncCreateTable(std::move(_tableName), std::move(_valueFields),
-            [this, value = &value](Error::UniquePtr&& error, auto&& table) {
-                if (m_push)
-                {
-                    value->emplace(OpenTableResponse{std::move(error), std::move(table)});
-                }
-                else
-                {
-                    m_push(OpenTableResponse{std::move(error), std::move(table)});
-                }
-            });
+        m_spawnAndCall([this, &_tableName, &_valueFields, &value](Resume resume) mutable {
+            m_storage->asyncCreateTable(std::move(_tableName), std::move(_valueFields),
+                [this, &value, &resume](Error::UniquePtr&& error, auto&& table) mutable {
+                    value = std::tuple{std::move(error), std::move(table)};
+                    resume();
+                });
+        });
 
-        if (!value)
-        {
-            m_pull();
-            value.emplace(std::get<OpenTableResponse>(m_pull.get()));
 
-            // After coroutine switch, set the recoder
-            setRecoder(m_recoder);
-        }
-
-        auto& [error, table] = *value;
-
-        if (error)
-        {
-            BOOST_THROW_EXCEPTION(*(error));
-        }
+        auto& [error, table] = value;
 
         return std::move(table);
     }
 
     std::optional<storage::Table> openTable(std::string_view tableName)
     {
-        std::optional<OpenTableResponse> value;
+        OpenTableResponse value;
 
-        m_storage->asyncOpenTable(tableName, [this, value = &value](auto&& error, auto&& table) {
-            if (m_push)
-            {
-                value->emplace(OpenTableResponse{std::move(error), std::move(table)});
-            }
-            else
-            {
-                m_push(OpenTableResponse{std::move(error), std::move(table)});
-            }
+        m_spawnAndCall([this, &tableName, &value](Resume resume) mutable {
+            m_storage->asyncOpenTable(
+                tableName, [this, &value, &resume](auto&& error, auto&& table) mutable {
+                    value = std::tuple{std::move(error), std::move(table)};
+                    resume();
+                });
         });
 
-        if (!value)
-        {
-            m_pull();
-            value.emplace(std::get<OpenTableResponse>(m_pull.get()));
 
-            // After coroutine switch, set the recoder
-            setRecoder(m_recoder);
-        }
-        auto& [error, table] = *value;
+        auto& [error, table] = value;
 
         if (error)
         {
@@ -308,8 +231,7 @@ private:
     }
 
     storage::StateStorage::Ptr m_storage;
-    typename boost::coroutines2::coroutine<T>::push_type& m_push;
-    typename boost::coroutines2::coroutine<T>::pull_type& m_pull;
+    std::function<void(std::function<void(Resume)>)> m_spawnAndCall;
     std::function<void(std::string)> m_externalAcquireKeyLocks;
     bcos::storage::StateStorage::Recoder::Ptr m_recoder;
 
