@@ -383,7 +383,6 @@ BOOST_AUTO_TEST_CASE(externalCall)
     // The contract address
     h256 addressCreate("ff6f30856ad3bae00b1169808488502786a13e3c174d85682135ffd51310310e");
     std::string addressString = addressCreate.hex().substr(0, 40);
-    // toChecksumAddress(addressString, hashImpl);
     params->setTo(std::move(addressString));
 
     params->setStaticCall(false);
@@ -421,6 +420,7 @@ BOOST_AUTO_TEST_CASE(externalCall)
     BOOST_CHECK_EQUAL(result->type(), NativeExecutionMessage::FINISHED);
     BOOST_CHECK_EQUAL(result->status(), 0);
     BOOST_CHECK_GT(address.size(), 0);
+    BOOST_CHECK(result->keyLocks().empty());
 
     // --------------------------------
     // Call A createAndCallB(int256)
@@ -459,6 +459,8 @@ BOOST_AUTO_TEST_CASE(externalCall)
     BOOST_CHECK_EQUAL(result2->from(), std::string(address));
     BOOST_CHECK(result2->to().empty());
     BOOST_CHECK_LT(result2->gasAvailable(), gas);
+    BOOST_CHECK_EQUAL(result2->keyLocks().size(), 1);
+    BOOST_CHECK_EQUAL(result2->keyLocks()[0], "code");
 
     // --------------------------------
     // Message 1: Create contract B, set new seq 1002
@@ -490,6 +492,7 @@ BOOST_AUTO_TEST_CASE(externalCall)
     BOOST_CHECK_EQUAL(result3->create(), false);
     BOOST_CHECK_EQUAL(result3->status(), 0);
     BOOST_CHECK(result3->logEntries().size() == 0);
+    BOOST_CHECK(result3->keyLocks().empty());
 
     // --------------------------------
     // Message 2: Create contract B success return, set previous seq 1001
@@ -513,7 +516,8 @@ BOOST_AUTO_TEST_CASE(externalCall)
     BOOST_CHECK_EQUAL(result4->seq(), 1001);
     BOOST_CHECK_EQUAL(result4->from(), std::string(address));
     BOOST_CHECK_EQUAL(result4->to(), boost::algorithm::to_lower_copy(std::string(addressString2)));
-    BOOST_CHECK_GT(result4->keyLocks().size(), 1);
+    BOOST_CHECK_EQUAL(result4->keyLocks().size(), 1);
+    BOOST_CHECK_EQUAL(toHex(result4->keyLocks()[0]), h256(0).hex());  // first member
 
     // Request message without status
     // BOOST_CHECK_EQUAL(result4->status(), 0);
@@ -546,6 +550,7 @@ BOOST_AUTO_TEST_CASE(externalCall)
     BOOST_CHECK_EQUAL(result5->to(), std::string(address));
     BOOST_CHECK_EQUAL(result5->status(), 0);
     BOOST_CHECK(result5->message().empty());
+    BOOST_CHECK_EQUAL(result5->keyLocks().size(), 0);
 
     // --------------------------------
     // Message 4: A call B's success return, set previous seq 1001
@@ -571,6 +576,7 @@ BOOST_AUTO_TEST_CASE(externalCall)
     BOOST_CHECK_EQUAL(result6->status(), 0);
     BOOST_CHECK(result6->message().empty());
     BOOST_CHECK(result6->logEntries().size() == 1);
+    BOOST_CHECK_EQUAL(result6->keyLocks().size(), 0);
 
     executor->getHash(1, [&](bcos::Error::UniquePtr&& error, crypto::HashType&& hash) {
         BOOST_CHECK(!error);
@@ -1013,9 +1019,7 @@ BOOST_AUTO_TEST_CASE(multiDeploy)
     }
 }
 
-BOOST_AUTO_TEST_CASE(keyLock) {
-    
-}
+BOOST_AUTO_TEST_CASE(keyLock) {}
 
 BOOST_AUTO_TEST_SUITE_END()
 }  // namespace test

@@ -85,7 +85,7 @@ void TransactionExecutive::start(CallParameters::UniquePtr input)
 
 CallParameters::UniquePtr TransactionExecutive::externalCall(CallParameters::UniquePtr input)
 {
-    input->keyLocks = m_storageWrapper->getKeyLocks();
+    input->keyLocks = m_storageWrapper->takeKeyLocks();
 
     m_externalCallFunction(m_blockContext.lock(), shared_from_this(), std::move(input),
         [this]([[maybe_unused]] Error::UniquePtr error, CallParameters::UniquePtr response) {
@@ -108,7 +108,7 @@ void TransactionExecutive::externalAcquireKeyLocks(std::string acquireKeyLock)
 {
     auto callParameters = std::make_unique<CallParameters>(CallParameters::KEY_LOCK);
     callParameters->senderAddress = m_contractAddress;
-    callParameters->keyLocks = m_storageWrapper->getKeyLocks();
+    callParameters->keyLocks = m_storageWrapper->takeKeyLocks();
     callParameters->acquireKeyLock = std::move(acquireKeyLock);
 
     m_externalCallFunction(m_blockContext.lock(), shared_from_this(), std::move(callParameters),

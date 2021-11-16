@@ -1305,12 +1305,14 @@ void TransactionExecutor::externalCall(std::shared_ptr<BlockContext> blockContex
         message->setFrom(std::move(params->senderAddress));
         message->setTo(std::move(params->receiveAddress));
         message->setType(ExecutionMessage::MESSAGE);
+        message->setKeyLocks(std::move(params->keyLocks));
         break;
     case CallParameters::KEY_LOCK:
         message->setFrom(params->senderAddress);
         message->setTo(std::move(params->senderAddress));
         message->setType(ExecutionMessage::KEY_LOCK);
         message->setKeyLockAcquired(std::move(params->acquireKeyLock));
+        message->setKeyLocks(std::move(params->keyLocks));
 
         break;
     case CallParameters::FINISHED:
@@ -1353,8 +1355,6 @@ void TransactionExecutor::externalCall(std::shared_ptr<BlockContext> blockContex
     message->setMessage(std::move(params->message));
     message->setLogEntries(std::move(params->logEntries));
     message->setNewEVMContractAddress(std::move(params->newEVMContractAddress));
-
-    message->setKeyLocks(std::move(params->keyLocks));
 
     it->requestFunction(nullptr, std::move(message));
 }

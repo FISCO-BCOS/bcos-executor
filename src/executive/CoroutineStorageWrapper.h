@@ -278,14 +278,16 @@ public:
         }
     }
 
-    std::vector<std::string> getKeyLocks() const
+    std::vector<std::string> takeKeyLocks()
     {
         std::vector<std::string> keyLocks;
         keyLocks.reserve(m_myKeyLocks.size());
         for (auto& it : m_myKeyLocks)
         {
-            keyLocks.emplace_back(it);
+            keyLocks.emplace_back(std::move(it));
         }
+
+        m_myKeyLocks.clear();
 
         return keyLocks;
     }
