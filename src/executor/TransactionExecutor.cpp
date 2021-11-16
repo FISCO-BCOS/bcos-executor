@@ -1113,6 +1113,12 @@ void TransactionExecutor::asyncExecute(std::shared_ptr<BlockContext> blockContex
         }
         else
         {
+            EXECUTOR_LOG(ERROR) << "KEY LOCK not found executive, contextID: " << contextID
+                                << " seq: " << seq;
+            callback(
+                BCOS_ERROR_UNIQUE_PTR(ExecuteError::EXECUTE_ERROR, "KEY LOCK not found executive"),
+                nullptr);
+            return;
         }
         break;
     }
