@@ -93,11 +93,11 @@ CallParameters::UniquePtr TransactionExecutive::externalCall(CallParameters::Uni
             [[maybe_unused]] Error::UniquePtr error, CallParameters::UniquePtr response) {
             if (*m_pushMessage)
             {
-                (*m_pushMessage)(CallMessage(std::move(response)));
+                externalResponse = std::move(response);
             }
             else
             {
-                externalResponse = std::move(response);
+                (*m_pushMessage)(CallMessage(std::move(response)));
             }
         });
 
@@ -131,11 +131,11 @@ void TransactionExecutive::externalAcquireKeyLocks(std::string acquireKeyLock)
             [[maybe_unused]] Error::UniquePtr error, CallParameters::UniquePtr response) {
             if (*m_pushMessage)
             {
-                (*m_pushMessage)(CallMessage(std::move(response)));
+                externalResponse = std::move(response);
             }
             else
             {
-                externalResponse = std::move(response);
+                (*m_pushMessage)(CallMessage(std::move(response)));
             }
         });
 
