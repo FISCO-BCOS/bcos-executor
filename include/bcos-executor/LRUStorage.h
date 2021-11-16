@@ -4,7 +4,6 @@
 #include <bcos-framework/libstorage/StateStorage.h>
 #include <tbb/concurrent_queue.h>
 #include <tbb/task_group.h>
-#include <tbb/tbb_thread.h>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/mem_fun.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
@@ -82,7 +81,7 @@ private:
     std::unique_ptr<std::thread> m_worker;
     std::atomic_bool m_running = false;
 
-    tbb::atomic<uint64_t> m_hitTimes;
-    tbb::atomic<uint64_t> m_queryTimes;
+    std::atomic<uint64_t> m_hitTimes;
+    std::atomic<uint64_t> m_queryTimes;
 };
 }  // namespace bcos::executor
