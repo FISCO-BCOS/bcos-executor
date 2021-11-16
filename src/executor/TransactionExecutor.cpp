@@ -1037,6 +1037,12 @@ void TransactionExecutor::asyncExecute(std::shared_ptr<BlockContext> blockContex
 
                 auto executive =
                     createExecutive(blockContext, callParameters->codeAddress, contextID, seq);
+
+                EXECUTOR_LOG(TRACE) << "Import key locks size: " << input->keyLocks().size();
+                for (auto& it : input->keyLocks())
+                {
+                    EXECUTOR_LOG(TRACE) << toHex(it);
+                }
                 executive->setInitKeyLocks(input->takeKeyLocks());
 
                 blockContext->insertExecutive(contextID, seq, {executive, callback, {}});
