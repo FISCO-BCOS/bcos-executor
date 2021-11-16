@@ -74,6 +74,7 @@ void TransactionExecutive::start(CallParameters::UniquePtr input)
         if (!m_initKeyLocks.empty())
         {
             m_storageWrapper->setExistsKeyLocks(m_initKeyLocks);
+            m_initKeyLocks.clear();
         }
 
         execute(std::move(std::get<CallParameters::UniquePtr>(callParameters)));
@@ -99,6 +100,7 @@ CallParameters::UniquePtr TransactionExecutive::externalCall(CallParameters::Uni
 
     // Set the keyLocks
     m_storageWrapper->setExistsKeyLocks(externalResponse->keyLocks);
+    externalResponse->keyLocks.clear();
 
     return externalResponse;
 }
@@ -130,6 +132,7 @@ void TransactionExecutive::externalAcquireKeyLocks(std::string acquireKeyLock)
 
     // Set the keyLocks
     m_storageWrapper->setExistsKeyLocks(output->keyLocks);
+    output->keyLocks.clear();
 }
 
 CallParameters::UniquePtr TransactionExecutive::execute(CallParameters::UniquePtr callParameters)
