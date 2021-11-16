@@ -63,12 +63,9 @@ class TransactionExecutive : public std::enable_shared_from_this<TransactionExec
 public:
     using Ptr = std::shared_ptr<TransactionExecutive>;
 
-    using CallMessage = CallParameters::UniquePtr;
-
     class ResumeHandler;
 
-    using CoroutineMessage = std::variant<std::tuple<CallMessage, CallMessage*>,
-        std::function<void(ResumeHandler resume)>>;
+    using CoroutineMessage = std::function<void(ResumeHandler resume)>;
     using Coroutine = boost::coroutines2::coroutine<CoroutineMessage>;
 
     class ResumeHandler
@@ -92,7 +89,6 @@ public:
         m_contractAddress(std::move(contractAddress)),
         m_contextID(contextID),
         m_seq(seq),
-        // m_externalCallFunction(std::move(externalCallCallback)),
         m_gasInjector(gasInjector)
     {
         m_recoder = m_blockContext.lock()->storage()->newRecoder();
@@ -171,7 +167,14 @@ public:
 
     void setOutput(CallParameters::UniquePtr callParameters)
     {
-        *m_outputRef = std::move(callParameters);
+        m_outputRef = std::move(callParameters);
+    }
+
+    void setExternalCallFunction(
+        std::function<void(const TransactionExecutive& executive, CallParameters::UniquePtr)>
+            externalCallFunction)
+    {
+        m_externalCallFunction = std::move(externalCallFunction);
     }
 
     void resume()
@@ -236,11 +239,13 @@ private:
 
     std::optional<Coroutine::pull_type> m_pullMessage;
     std::optional<Coroutine::push_type> m_pushMessage;
+    std::function<void(const TransactionExecutive& executive, CallParameters::UniquePtr input)>
+        m_externalCallFunction;
 
     bcos::storage::StateStorage::Recoder::Ptr m_recoder;
     std::unique_ptr<CoroutineStorageWrapper<ResumeHandler>> m_storageWrapper;
 
-    CallParameters::UniquePtr* m_outputRef = nullptr;
+    CallParameters::UniquePtr m_outputRef = nullptr;
     bool m_finished = false;
 };
 

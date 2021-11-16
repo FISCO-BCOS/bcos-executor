@@ -86,7 +86,7 @@ CallParameters::UniquePtr TransactionExecutive::start(CallParameters::UniquePtr 
     while (m_pullMessage)
     {
         // Switch to main coroutine
-        auto message = m_pullMessage->get();
+        auto func = m_pullMessage->get();
         if (output)
         {
             EXECUTOR_LOG(TRACE) << "Context switch to main coroutine, finished";
@@ -99,24 +99,8 @@ CallParameters::UniquePtr TransactionExecutive::start(CallParameters::UniquePtr 
             return output;
         }
 
-        switch (message.index())
-        {
-        case 0:  // Message
-        {
-            EXECUTOR_LOG(TRACE) << "Context switch to main coroutine, return output";
-            auto [callParams, outputRef] = std::move(std::get<0>(message));
-
-            m_outputRef = outputRef;
-            return std::move(callParams);
-        }
-        case 1:  // Func
-        {
-            EXECUTOR_LOG(TRACE) << "Context switch to main coroutine, call func";
-            auto func = std::move(std::get<1>(message));
-            func(ResumeHandler(*m_pullMessage));
-            break;
-        }
-        }
+        EXECUTOR_LOG(TRACE) << "Context switch to main coroutine, call func";
+        func(ResumeHandler(*m_pullMessage));
     }
 
     return nullptr;
@@ -126,8 +110,13 @@ CallParameters::UniquePtr TransactionExecutive::externalCall(CallParameters::Uni
 {
     input->keyLocks = m_storageWrapper->exportKeyLocks();
 
-    std::unique_ptr<CallParameters> output;
-    (*m_pushMessage)(std::make_tuple(std::move(input), &output));
+    spawnAndCall([this, inputPtr = input.release()](ResumeHandler) {
+        auto input = CallParameters::UniquePtr(inputPtr);
+
+        m_externalCallFunction(*this, std::move(input));
+    });
+
+    auto output = std::move(m_outputRef);
 
     // After coroutine switch, set the recoder
     m_storageWrapper->setRecoder(m_recoder);
@@ -147,9 +136,13 @@ void TransactionExecutive::externalAcquireKeyLocks(std::string acquireKeyLock)
     callParameters->keyLocks = m_storageWrapper->exportKeyLocks();
     callParameters->acquireKeyLock = std::move(acquireKeyLock);
 
-    std::unique_ptr<CallParameters> output;
-    (*m_pushMessage)(std::make_tuple(std::move(callParameters), &output));
+    spawnAndCall([this, inputPtr = callParameters.release()](ResumeHandler) {
+        auto input = CallParameters::UniquePtr(inputPtr);
 
+        m_externalCallFunction(*this, std::move(input));
+    });
+
+    auto output = std::move(m_outputRef);
     if (output->status == CallParameters::REVERT)
     {
         // Dead lock, revert

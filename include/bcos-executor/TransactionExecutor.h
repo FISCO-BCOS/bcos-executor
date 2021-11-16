@@ -165,6 +165,11 @@ private:
     std::optional<std::vector<bcos::bytes>> decodeConflictFields(
         const FunctionAbi& functionAbi, const CallParameters& prams);
 
+    std::function<void(
+        const TransactionExecutive& executive, std::unique_ptr<CallParameters> input)>
+    createExternalFunctionCall(std::function<void(
+            bcos::Error::UniquePtr&&, bcos::protocol::ExecutionMessage::UniquePtr&&)>& callback);
+
     void initPrecompiled();
 
     void removeCommittedState();

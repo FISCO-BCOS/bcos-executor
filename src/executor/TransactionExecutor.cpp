@@ -958,7 +958,7 @@ void TransactionExecutor::asyncExecute(std::shared_ptr<BlockContext> blockContex
 
         m_txpool->asyncFillBlock(std::move(txHashes),
             [this, inputPtr = input.release(), blockContext = std::move(blockContext), callback](
-                Error::Ptr error, bcos::protocol::TransactionsPtr transactions) {
+                Error::Ptr error, bcos::protocol::TransactionsPtr transactions) mutable {
                 auto input = std::unique_ptr<bcos::protocol::ExecutionMessage>(inputPtr);
 
                 if (error)
@@ -995,6 +995,7 @@ void TransactionExecutor::asyncExecute(std::shared_ptr<BlockContext> blockContex
                     createExecutive(blockContext, callParameters->codeAddress, contextID, seq);
 
                 executive->setInitKeyLocks(input->takeKeyLocks());
+                executive->setExternalCallFunction(createExternalFunctionCall(callback));
 
                 blockContext->insertExecutive(contextID, seq, {executive});
 
@@ -1032,6 +1033,7 @@ void TransactionExecutor::asyncExecute(std::shared_ptr<BlockContext> blockContex
             // Call callback
             EXECUTOR_LOG(TRACE) << "Entering responseFunc";
             executive->setOutput(std::move(callParameters));
+            executive->setExternalCallFunction(createExternalFunctionCall(callback));
             executive->resume();
             EXECUTOR_LOG(TRACE) << "Exiting responseFunc";
         }
@@ -1041,6 +1043,7 @@ void TransactionExecutor::asyncExecute(std::shared_ptr<BlockContext> blockContex
             auto executive =
                 createExecutive(blockContext, callParameters->codeAddress, contextID, seq);
             executive->setInitKeyLocks(input->takeKeyLocks());
+            executive->setExternalCallFunction(createExternalFunctionCall(callback));
 
             blockContext->insertExecutive(contextID, seq, {executive});
 
@@ -1074,6 +1077,7 @@ void TransactionExecutor::asyncExecute(std::shared_ptr<BlockContext> blockContex
             auto& [executive] = *it;
 
             executive->setOutput(std::move(callParameters));
+            executive->setExternalCallFunction(createExternalFunctionCall(callback));
             executive->resume();
         }
         else
@@ -1250,6 +1254,18 @@ optional<ConflictFields> TransactionExecutor::decodeConflictFields(
         conflictFields.emplace_back(std::move(key));
     }
     return {conflictFields};
+}
+
+std::function<void(const TransactionExecutive& executive, std::unique_ptr<CallParameters> input)>
+TransactionExecutor::createExternalFunctionCall(
+    std::function<void(bcos::Error::UniquePtr&&, bcos::protocol::ExecutionMessage::UniquePtr&&)>&
+        callback)
+{
+    return
+        [this, &callback](const TransactionExecutive& executive, CallParameters::UniquePtr input) {
+            auto message = toExecutionResult(executive, std::move(input));
+            callback(nullptr, std::move(message));
+        };
 }
 
 std::unique_ptr<ExecutionMessage> TransactionExecutor::toExecutionResult(
