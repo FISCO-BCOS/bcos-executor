@@ -268,7 +268,7 @@ public:
         m_storage->setRecoder(std::move(recoder));
     }
 
-    void setExistsKeyLocks(gsl::span<std::string> keyLocks)
+    void importExistsKeyLocks(gsl::span<std::string> keyLocks)
     {
         m_existsKeyLocks.clear();
 
@@ -278,7 +278,7 @@ public:
         }
     }
 
-    std::vector<std::string> takeKeyLocks()
+    std::vector<std::string> exportKeyLocks()
     {
         std::vector<std::string> keyLocks;
         keyLocks.reserve(m_myKeyLocks.size());

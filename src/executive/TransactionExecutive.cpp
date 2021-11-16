@@ -73,7 +73,7 @@ void TransactionExecutive::start(CallParameters::UniquePtr input)
 
         if (!m_initKeyLocks.empty())
         {
-            m_storageWrapper->setExistsKeyLocks(m_initKeyLocks);
+            m_storageWrapper->importExistsKeyLocks(m_initKeyLocks);
             m_initKeyLocks.clear();
         }
 
@@ -85,7 +85,7 @@ void TransactionExecutive::start(CallParameters::UniquePtr input)
 
 CallParameters::UniquePtr TransactionExecutive::externalCall(CallParameters::UniquePtr input)
 {
-    input->keyLocks = m_storageWrapper->takeKeyLocks();
+    input->keyLocks = m_storageWrapper->exportKeyLocks();
 
     m_externalCallFunction(m_blockContext.lock(), shared_from_this(), std::move(input),
         [this]([[maybe_unused]] Error::UniquePtr error, CallParameters::UniquePtr response) {
@@ -99,16 +99,18 @@ CallParameters::UniquePtr TransactionExecutive::externalCall(CallParameters::Uni
     m_storageWrapper->setRecoder(m_recoder);
 
     // Set the keyLocks
-    m_storageWrapper->setExistsKeyLocks(externalResponse->keyLocks);
+    m_storageWrapper->importExistsKeyLocks(externalResponse->keyLocks);
 
     return externalResponse;
 }
 
 void TransactionExecutive::externalAcquireKeyLocks(std::string acquireKeyLock)
 {
+    EXECUTOR_LOG(TRACE) << "Executor acquire key lock: " << acquireKeyLock;
+
     auto callParameters = std::make_unique<CallParameters>(CallParameters::KEY_LOCK);
     callParameters->senderAddress = m_contractAddress;
-    callParameters->keyLocks = m_storageWrapper->takeKeyLocks();
+    callParameters->keyLocks = m_storageWrapper->exportKeyLocks();
     callParameters->acquireKeyLock = std::move(acquireKeyLock);
 
     m_externalCallFunction(m_blockContext.lock(), shared_from_this(), std::move(callParameters),
@@ -130,7 +132,7 @@ void TransactionExecutive::externalAcquireKeyLocks(std::string acquireKeyLock)
     m_storageWrapper->setRecoder(m_recoder);
 
     // Set the keyLocks
-    m_storageWrapper->setExistsKeyLocks(output->keyLocks);
+    m_storageWrapper->importExistsKeyLocks(output->keyLocks);
 }
 
 CallParameters::UniquePtr TransactionExecutive::execute(CallParameters::UniquePtr callParameters)
