@@ -49,10 +49,11 @@ public:
 
     BlockContext(std::shared_ptr<storage::StateStorage> storage, crypto::Hash::Ptr _hashImpl,
         bcos::protocol::BlockNumber blockNumber, h256 blockHash, uint64_t timestamp,
-        int32_t blockVersion, const EVMSchedule& _schedule, bool _isWasm);
+        int32_t blockVersion, const EVMSchedule& _schedule, bool _isWasm, bool _isAuthCheck);
 
     BlockContext(std::shared_ptr<storage::StateStorage> storage, crypto::Hash::Ptr _hashImpl,
-        protocol::BlockHeader::ConstPtr _current, const EVMSchedule& _schedule, bool _isWasm);
+        protocol::BlockHeader::ConstPtr _current, const EVMSchedule& _schedule, bool _isWasm,
+        bool _isAuthCheck);
 
     using getTxCriticalsHandler = std::function<std::shared_ptr<std::vector<std::string>>(
         const protocol::Transaction::ConstPtr& _tx)>;
@@ -68,6 +69,7 @@ public:
 
     crypto::Hash::Ptr hashHandler() const { return m_hashImpl; }
     bool isWasm() const { return m_isWasm; }
+    bool isAuthCheck() const { return m_isAuthCheck; }
     int64_t number() const { return m_blockNumber; }
     h256 hash() const { return m_blockHash; }
     uint64_t timestamp() const { return m_timeStamp; }
@@ -115,6 +117,7 @@ private:
     EVMSchedule m_schedule;
     u256 m_gasLimit;
     bool m_isWasm = false;
+    bool m_isAuthCheck = false;
 
     uint64_t m_txGasLimit = 300000000;
     std::shared_ptr<storage::StateStorage> m_storage;

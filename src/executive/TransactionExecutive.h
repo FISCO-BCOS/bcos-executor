@@ -75,16 +75,16 @@ public:
         std::function<void(std::shared_ptr<BlockContext>, std::shared_ptr<TransactionExecutive>,
             std::unique_ptr<CallParameters>,
             std::function<void(Error::UniquePtr, std::unique_ptr<CallParameters>)>)>
-            externalCallCallback, std::shared_ptr<wasm::GasInjector>& gasInjector)
+            externalCallCallback,
+        std::shared_ptr<wasm::GasInjector>& gasInjector)
       : m_blockContext(std::move(blockContext)),
         m_contractAddress(std::move(contractAddress)),
         m_contextID(contextID),
         m_seq(seq),
         m_externalCallFunction(std::move(externalCallCallback)),
         m_gasInjector(gasInjector)
-        // m_gasInjector(std::make_shared<wasm::GasInjector>(wasm::GetInstructionTable()))
+    // m_gasInjector(std::make_shared<wasm::GasInjector>(wasm::GetInstructionTable()))
     {
-
         m_recoder = m_blockContext.lock()->storage()->newRecoder();
         m_hashImpl = m_blockContext.lock()->hashHandler();
     }
@@ -110,7 +110,8 @@ public:
     // External request key locks
     void externalAcquireKeyLocks(std::string acquireKeyLock);
 
-    CoroutineStorageWrapper<CoroutineMessage>& storage() {
+    CoroutineStorageWrapper<CoroutineMessage>& storage()
+    {
         assert(m_storageWrapper);
         return *m_storageWrapper;
     }
@@ -189,6 +190,8 @@ private:
         return std::string("/apps/").append(address);
     }
 
+    bool checkAuth(const CallParameters::UniquePtr& callParameters);
+
     void creatAuthTable(
         std::string_view _tableName, std::string_view _origin, std::string_view _sender);
 
@@ -207,7 +210,7 @@ private:
 
     ///< The base amount of gas required for executing this transaction.
     // TODO: not used
-    //int64_t m_baseGasRequired = 0;
+    // int64_t m_baseGasRequired = 0;
 
 
     std::function<void(std::shared_ptr<BlockContext> blockContext,

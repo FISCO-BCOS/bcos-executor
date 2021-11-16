@@ -154,7 +154,7 @@ enum PrecompiledErrorCode : int
     CODE_INVALID_WEIGHT = -51102,
     CODE_NODE_NOT_EXIST = -51103,
 
-    // PermissionPrecompiled -51099 ~ -51000
+    // AuthPrecompiledTest -51099 ~ -51000
     CODE_TABLE_AUTH_TYPE_DECODE_ERROR = -51004,
     CODE_TABLE_ERROR_AUTH_TYPE = -51003,
     CODE_TABLE_AUTH_TYPE_NOT_EXIST = -51002,

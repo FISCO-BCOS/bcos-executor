@@ -20,7 +20,7 @@
  */
 
 #include "TransactionExecutive.h"
-#include "../Common.h"
+#include "../precompiled/extension/ContractAuthPrecompiled.h"
 #include "../vm/EVMHostInterface.h"
 #include "../vm/HostContext.h"
 #include "../vm/Precompiled.h"
@@ -28,20 +28,16 @@
 #include "../vm/VMInstance.h"
 #include "../vm/gas_meter/GasInjector.h"
 #include "BlockContext.h"
-#include "bcos-executor/TransactionExecutor.h"
 #include "bcos-framework/interfaces/protocol/Exceptions.h"
-#include "bcos-framework/interfaces/storage/Table.h"
 #include "bcos-framework/libcodec/abi/ContractABICodec.h"
 #include "libprotocol/TransactionStatus.h"
 #include "libutilities/Common.h"
-#include <limits.h>
 #include <boost/algorithm/hex.hpp>
 #include <boost/exception/diagnostic_information.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/throw_exception.hpp>
 #include <functional>
 #include <string>
-#include <thread>
 
 using namespace std;
 using namespace bcos;
@@ -177,6 +173,19 @@ std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionE
     else
     {
         auto tableName = getContractTableName(callParameters->codeAddress);
+        // check permission first
+        if (blockContext->isAuthCheck())
+        {
+            if (!checkAuth(callParameters))
+            {
+                revert();
+                callParameters->status = (int32_t)TransactionStatus::PermissionDenied;
+                callParameters->type = CallParameters::REVERT;
+                callParameters->message = "Permission deny.";
+                EXECUTIVE_LOG(ERROR) << callParameters->message << LOG_KV("tableName", tableName);
+                return {nullptr, std::move(callParameters)};
+            }
+        }
         auto hostContext = make_unique<HostContext>(
             std::move(callParameters), shared_from_this(), std::move(tableName));
 
@@ -288,8 +297,11 @@ std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionE
     {
         m_storageWrapper->createTable(tableName, STORAGE_VALUE);
         EXECUTIVE_LOG(INFO) << "create contract table " << tableName;
-        // Create auth table
-        creatAuthTable(tableName, callParameters->origin, callParameters->senderAddress);
+        if (blockContext->isAuthCheck())
+        {
+            // Create auth table
+            creatAuthTable(tableName, callParameters->origin, callParameters->senderAddress);
+        }
     }
     catch (exception const& e)
     {
@@ -418,6 +430,16 @@ CallParameters::UniquePtr TransactionExecutive::go(
             }
             callResults = parseEVMCResult(std::move(callResults), ret);
 
+            if (callResults->status != (int32_t)TransactionStatus::None)
+            {
+                callResults->type = CallParameters::REVERT;
+                // Clear the creation flag
+                callResults->create = false;
+                // Clear the data
+                callResults->data.clear();
+                return callResults;
+            }
+
             auto outputRef = ret.output();
             if (outputRef.size() > hostContext.evmSchedule().maxCodeSize)
             {
@@ -464,7 +486,7 @@ CallParameters::UniquePtr TransactionExecutive::go(
             callResults->gas -= outputRef.size() * hostContext.evmSchedule().createDataGas;
             callResults->newEVMContractAddress = callResults->codeAddress;
 
-            // Clear the create flag
+            // Clear the creation flag
             callResults->create = false;
 
             // Clear the data
@@ -501,51 +523,20 @@ CallParameters::UniquePtr TransactionExecutive::go(
             return callResults;
         }
     }
-    catch (RevertInstruction& _e)
-    {
-        // writeErrInfoToOutput(_e.what());
-        auto callResults = hostContext.takeCallParameters();
-        callResults->type = CallParameters::REVERT;
-        callResults->status = (int32_t)TransactionStatus::RevertInstruction;
-        revert();
-    }
     catch (OutOfGas& _e)
     {
         auto callResults = hostContext.takeCallParameters();
         callResults->type = CallParameters::REVERT;
         callResults->status = (int32_t)TransactionStatus::OutOfGas;
-        revert();
-    }
-    catch (GasOverflow const& _e)
-    {
-        auto callResults = hostContext.takeCallParameters();
-        callResults->type = CallParameters::REVERT;
-        callResults->status = (int32_t)TransactionStatus::GasOverflow;
-        revert();
-    }
-    catch (PermissionDenied const& _e)
-    {
-        auto callResults = hostContext.takeCallParameters();
-        callResults->type = CallParameters::REVERT;
-        callResults->status = (int32_t)TransactionStatus::PermissionDenied;
-        revert();
-    }
-    catch (NotEnoughCash const& _e)
-    {
-        auto callResults = hostContext.takeCallParameters();
-        callResults->type = CallParameters::REVERT;
-        callResults->status = (int32_t)TransactionStatus::NotEnoughCash;
-        revert();
-    }
-    catch (PrecompiledError const& _e)
-    {
-        auto callResults = hostContext.takeCallParameters();
-        callResults->type = CallParameters::REVERT;
-        callResults->status = (int32_t)TransactionStatus::PrecompiledError;
-        revert();
+        EXECUTIVE_LOG(ERROR) << "Out of gas (" << *boost::get_error_info<errinfo_evmcStatusCode>(_e)
+                             << ")\n"
+                             << diagnostic_information(_e);
     }
     catch (bcos::Error& e)
     {
+        EXECUTIVE_LOG(ERROR) << "bcos::Error: ("
+                             << *boost::get_error_info<errinfo_evmcStatusCode>(e) << ")\n"
+                             << diagnostic_information(e);
         auto callResults = hostContext.takeCallParameters();
         callResults->type = CallParameters::REVERT;
         callResults->status = (int32_t)TransactionStatus::Unknown;
@@ -731,6 +722,7 @@ CallParameters::UniquePtr TransactionExecutive::parseEVMCResult(
     {
         revert();
         callResults->status = (int32_t)TransactionStatus::OutOfGas;
+        callResults->gas = _result.gasLeft();
         break;
     }
 
@@ -839,11 +831,18 @@ void TransactionExecutive::creatAuthTable(
     }
     auto table = m_storageWrapper->createTable(authTableName, STORAGE_VALUE);
     auto adminEntry = table->newEntry();
-    adminEntry.importFields({std::string(admin)});
+
+    adminEntry.setField(STORAGE_VALUE, std::string(admin));
+    auto typeEntry = table->newEntry();
+    typeEntry.setField(STORAGE_VALUE, std::string(""));
+    auto whiteEntry = table->newEntry();
+    typeEntry.setField(STORAGE_VALUE, std::string(""));
+    auto blackEntry = table->newEntry();
+    typeEntry.setField(STORAGE_VALUE, std::string(""));
     m_storageWrapper->setRow(authTableName, ADMIN_FIELD, std::move(adminEntry));
-    m_storageWrapper->setRow(authTableName, METHOD_AUTH_TYPE, table->newEntry());
-    m_storageWrapper->setRow(authTableName, METHOD_AUTH_WHITE, table->newEntry());
-    m_storageWrapper->setRow(authTableName, METHOD_AUTH_BLACK, table->newEntry());
+    m_storageWrapper->setRow(authTableName, METHOD_AUTH_TYPE, std::move(typeEntry));
+    m_storageWrapper->setRow(authTableName, METHOD_AUTH_WHITE, std::move(whiteEntry));
+    m_storageWrapper->setRow(authTableName, METHOD_AUTH_BLACK, std::move(blackEntry));
 }
 
 bool TransactionExecutive::buildBfsPath(std::string const& _absoluteDir)
@@ -915,4 +914,16 @@ bool TransactionExecutive::buildBfsPath(std::string const& _absoluteDir)
     newFileEntry.setField(FS_FIELD_EXTRA, "");
     table->setRow(baseName, std::move(newFileEntry));
     return true;
+}
+
+bool TransactionExecutive::checkAuth(const CallParameters::UniquePtr& callParameters)
+{
+    auto path = string(callParameters->codeAddress);
+    EXECUTIVE_LOG(DEBUG) << "check call auth" << LOG_KV("path", path);
+    Address address(callParameters->origin);
+    bytesRef func = ref(callParameters->data).getCroppedData(0, 4);
+    auto blockContext = m_blockContext.lock();
+    auto contractAuthPrecompiled =
+        std::make_shared<ContractAuthPrecompiled>(blockContext->hashHandler());
+    return contractAuthPrecompiled->checkMethodAuth(shared_from_this(), path, func, address);
 }

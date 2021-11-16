@@ -13,14 +13,14 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  *
- * @file PermissionPrecompiled.cpp
+ * @file AuthPrecompiledTest.cpp
  * @author: kyonRay
  * @date 2021-09-03
  */
 
-#include "PermissionPrecompiled.h"
 #include "../PrecompiledResult.h"
 #include "../Utilities.h"
+#include "AuthPrecompiledTest.h"
 
 using namespace bcos;
 using namespace bcos::executor;
@@ -34,7 +34,7 @@ call(string userPath, string origin, string to,  bytes params) => <s256 code, st
 sendTransaction(string userPath, string origin, string to, bytes params) => <s256 code, string message>
 #endif
 
-PermissionPrecompiled::PermissionPrecompiled(crypto::Hash::Ptr _hashImpl)
+AuthPrecompiledTest::AuthPrecompiledTest(crypto::Hash::Ptr _hashImpl)
   : PermissionPrecompiledInterface(_hashImpl)
 {
     name2Selector[PER_METHOD_LOGIN] = getFuncSelector(PER_METHOD_LOGIN, _hashImpl);
@@ -44,19 +44,19 @@ PermissionPrecompiled::PermissionPrecompiled(crypto::Hash::Ptr _hashImpl)
     name2Selector[PER_METHOD_SEND] = getFuncSelector(PER_METHOD_SEND, _hashImpl);
 }
 
-std::string PermissionPrecompiled::toString()
+std::string AuthPrecompiledTest::toString()
 {
     return "Permission";
 }
 
-std::shared_ptr<PrecompiledExecResult> PermissionPrecompiled::call(
+std::shared_ptr<PrecompiledExecResult> AuthPrecompiledTest::call(
     std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _param,
     const std::string&, const std::string&)
 {
     // parse function name
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
-    PRECOMPILED_LOG(TRACE) << LOG_BADGE("PermissionPrecompiled") << LOG_DESC("call")
+    PRECOMPILED_LOG(TRACE) << LOG_BADGE("AuthPrecompiledTest") << LOG_DESC("call")
                            << LOG_KV("func", func);
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
@@ -132,37 +132,36 @@ std::shared_ptr<PrecompiledExecResult> PermissionPrecompiled::call(
     }
     else
     {
-        PRECOMPILED_LOG(ERROR) << LOG_BADGE("PermissionPrecompiled")
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("AuthPrecompiledTest")
                                << LOG_DESC("call undefined function") << LOG_KV("func", func);
     }
     gasPricer->updateMemUsed(callResult->m_execResult.size());
     callResult->setGas(gasPricer->calTotalGas());
     return callResult;
 }
-PermissionRet::Ptr PermissionPrecompiled::login(const std::string&, const std::vector<std::string>&)
+PermissionRet::Ptr AuthPrecompiledTest::login(const std::string&, const std::vector<std::string>&)
 {
     /// do something...
     return std::make_shared<PermissionRet>(s256((int)CODE_SUCCESS), "success", "/usr/test");
 }
-PermissionRet::Ptr PermissionPrecompiled::logout(
-    const std::string&, const std::vector<std::string>&)
+PermissionRet::Ptr AuthPrecompiledTest::logout(const std::string&, const std::vector<std::string>&)
 {
     /// do something...
     return std::make_shared<PermissionRet>(s256((int)CODE_SUCCESS), "success");
 }
-PermissionRet::Ptr PermissionPrecompiled::create(
+PermissionRet::Ptr AuthPrecompiledTest::create(
     const std::string&, const std::string&, const std::string&, bytesConstRef)
 {
     /// do something...
     return std::make_shared<PermissionRet>(s256((int)CODE_SUCCESS), "success");
 }
-PermissionRet::Ptr PermissionPrecompiled::call(
+PermissionRet::Ptr AuthPrecompiledTest::call(
     const std::string&, const std::string&, const std::string&, bytesConstRef)
 {
     /// do something...
     return std::make_shared<PermissionRet>(s256((int)CODE_SUCCESS), "success");
 }
-PermissionRet::Ptr PermissionPrecompiled::sendTransaction(
+PermissionRet::Ptr AuthPrecompiledTest::sendTransaction(
     const std::string&, const std::string&, const std::string&, bytesConstRef)
 {
     /// do something...

@@ -77,7 +77,7 @@ struct WasmExecutorFixture
         auto executionResultFactory = std::make_shared<NativeExecutionMessageFactory>();
 
         executor = std::make_shared<TransactionExecutor>(
-            txpool, nullptr, backend, executionResultFactory, hashImpl, true);
+            txpool, nullptr, backend, executionResultFactory, hashImpl, true, false);
 
         keyPair = cryptoSuite->signatureImpl()->generateKeyPair();
         memcpy(keyPair->secretKey()->mutableData(),

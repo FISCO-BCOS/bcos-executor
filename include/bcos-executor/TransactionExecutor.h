@@ -92,7 +92,7 @@ public:
         storage::MergeableStorageInterface::Ptr cachedStorage,
         storage::TransactionalStorageInterface::Ptr backendStorage,
         protocol::ExecutionMessageFactory::Ptr executionMessageFactory,
-        bcos::crypto::Hash::Ptr hashImpl, bool isWasm);
+        bcos::crypto::Hash::Ptr hashImpl, bool isWasm, bool isAuthCheck);
 
     virtual ~TransactionExecutor() {}
 
@@ -188,6 +188,7 @@ private:
     std::shared_ptr<BlockContext> m_blockContext;
     crypto::Hash::Ptr m_hashImpl;
     bool m_isWasm = false;
+    bool m_isAuthCheck = false;
     const ExecutorVersion m_version;
     std::shared_ptr<ClockCache<bcos::bytes, FunctionAbi>> m_abiCache;
 

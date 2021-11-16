@@ -76,7 +76,7 @@ struct TransactionExecutorFixture
         auto lruStorage = std::make_shared<bcos::executor::LRUStorage>(backend);
 
         executor = std::make_shared<TransactionExecutor>(
-            txpool, lruStorage, backend, executionResultFactory, hashImpl, false);
+            txpool, lruStorage, backend, executionResultFactory, hashImpl, false, false);
 
         keyPair = cryptoSuite->signatureImpl()->generateKeyPair();
         memcpy(keyPair->secretKey()->mutableData(),
@@ -1014,6 +1014,107 @@ BOOST_AUTO_TEST_CASE(multiDeploy)
 }
 
 BOOST_AUTO_TEST_CASE(keyLock) {}
+
+BOOST_AUTO_TEST_CASE(deployErrorCode)
+{
+    // an infinity-loop constructor
+    std::string errorBin =
+        "608060405234801561001057600080fd5b505b60011561006a576040518060400160405280600381526020017f"
+        "313233000000000000000000000000000000000000000000000000000000000081525060009080519060200190"
+        "61006492919061006f565b50610012565b610114565b8280546001816001161561010002031660029004906000"
+        "52602060002090601f016020900481019282601f106100b057805160ff19168380011785556100de565b828001"
+        "600101855582156100de579182015b828111156100dd5782518255916020019190600101906100c2565b5b5090"
+        "506100eb91906100ef565b5090565b61011191905b8082111561010d5760008160009055506001016100f5565b"
+        "5090565b90565b6101f8806101236000396000f3fe608060405234801561001057600080fd5b50600436106100"
+        "365760003560e01c806344733ae11461003b5780638e397a0314610059575b600080fd5b610043610063565b60"
+        "40516100509190610140565b60405180910390f35b610061610105565b005b6060600080546001816001161561"
+        "01000203166002900480601f016020809104026020016040519081016040528092919081815260200182805460"
+        "0181600116156101000203166002900480156100fb5780601f106100d057610100808354040283529160200191"
+        "6100fb565b820191906000526020600020905b8154815290600101906020018083116100de57829003601f1682"
+        "01915b5050505050905090565b565b600061011282610162565b61011c818561016d565b935061012c81856020"
+        "860161017e565b610135816101b1565b840191505092915050565b600060208201905081810360008301526101"
+        "5a8184610107565b905092915050565b600081519050919050565b600082825260208201905092915050565b60"
+        "005b8381101561019c578082015181840152602081019050610181565b838111156101ab576000848401525b50"
+        "505050565b6000601f19601f830116905091905056fea2646970667358221220e4e19dff46d31f82111f9261d8"
+        "687c52312c9221962991e27bbddc409dfbd7c564736f6c634300060a0033";
+    bytes input;
+    boost::algorithm::unhex(errorBin, std::back_inserter(input));
+    auto tx = fakeTransaction(cryptoSuite, keyPair, "", input, 101, 100001, "1", "1");
+    auto sender = boost::algorithm::hex_lower(std::string(tx->sender()));
+    h256 addressCreate("ff6f30856ad3bae00b1169808488502786a13e3c174d85682135ffd51310310e");
+    std::string addressString = addressCreate.hex().substr(0, 40);
+
+    auto hash = tx->hash();
+    txpool->hash2Transaction.emplace(hash, tx);
+
+    auto params = std::make_unique<NativeExecutionMessage>();
+    params->setContextID(99);
+    params->setSeq(1000);
+    params->setDepth(0);
+
+    params->setOrigin(sender);
+    params->setFrom(sender);
+
+    // toChecksumAddress(addressString, hashImpl);
+    params->setTo(addressString);
+    params->setStaticCall(false);
+    params->setGasAvailable(gas);
+    params->setData(input);
+    params->setType(NativeExecutionMessage::TXHASH);
+    params->setTransactionHash(hash);
+    params->setCreate(true);
+
+    NativeExecutionMessage paramsBak = *params;
+
+    auto blockHeader = std::make_shared<bcos::protocol::PBBlockHeader>(cryptoSuite);
+    blockHeader->setNumber(1);
+
+    std::promise<void> nextPromise;
+    executor->nextBlockHeader(blockHeader, [&](bcos::Error::Ptr&& error) {
+        BOOST_CHECK(!error);
+        nextPromise.set_value();
+    });
+    nextPromise.get_future().get();
+    // --------------------------------
+    // Create contract
+    // --------------------------------
+
+    std::promise<bcos::protocol::ExecutionMessage::UniquePtr> executePromise;
+    executor->executeTransaction(std::move(params),
+        [&](bcos::Error::UniquePtr&& error, bcos::protocol::ExecutionMessage::UniquePtr&& result) {
+            BOOST_CHECK(!error);
+            executePromise.set_value(std::move(result));
+        });
+
+    auto result = executePromise.get_future().get();
+    BOOST_CHECK(result);
+    BOOST_CHECK_EQUAL(result->type(), ExecutionMessage::REVERT);
+    BOOST_CHECK_EQUAL(result->status(), (int32_t)TransactionStatus::OutOfGas);
+    BOOST_CHECK_EQUAL(result->contextID(), 99);
+    BOOST_CHECK_EQUAL(result->seq(), 1000);
+    BOOST_CHECK_EQUAL(result->create(), false);
+    BOOST_CHECK_EQUAL(result->newEVMContractAddress(), "");
+    BOOST_CHECK_EQUAL(result->origin(), sender);
+    BOOST_CHECK_EQUAL(result->from(), addressString);
+    BOOST_CHECK(result->to() == sender);
+
+    bcos::executor::TransactionExecutor::TwoPCParams commitParams{};
+    commitParams.number = 1;
+
+    std::promise<void> preparePromise;
+    executor->prepare(commitParams, [&](bcos::Error::Ptr&& error) {
+        BOOST_CHECK(!error);
+        preparePromise.set_value();
+    });
+    preparePromise.get_future().get();
+
+    std::promise<void> commitPromise;
+    executor->commit(commitParams, [&](bcos::Error::Ptr&& error) {
+        BOOST_CHECK(!error);
+        commitPromise.set_value();
+    });
+    commitPromise.get_future().get();
+}
 
 BOOST_AUTO_TEST_SUITE_END()
 }  // namespace test

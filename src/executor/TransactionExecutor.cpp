@@ -93,13 +93,14 @@ TransactionExecutor::TransactionExecutor(txpool::TxPoolInterface::Ptr txpool,
     storage::MergeableStorageInterface::Ptr cachedStorage,
     storage::TransactionalStorageInterface::Ptr backendStorage,
     protocol::ExecutionMessageFactory::Ptr executionMessageFactory,
-    bcos::crypto::Hash::Ptr hashImpl, bool isWasm)
+    bcos::crypto::Hash::Ptr hashImpl, bool isWasm, bool isAuthCheck)
   : m_txpool(std::move(txpool)),
     m_cachedStorage(std::move(cachedStorage)),
     m_backendStorage(std::move(backendStorage)),
     m_executionMessageFactory(std::move(executionMessageFactory)),
     m_hashImpl(std::move(hashImpl)),
     m_isWasm(isWasm),
+    m_isAuthCheck(isAuthCheck),
     m_version(Version_3_0_0)  // current executor version, will set as new block's version
 {
     assert(m_backendStorage);
@@ -1339,7 +1340,7 @@ BlockContext::Ptr TransactionExecutor::createBlockContext(
     const protocol::BlockHeader::ConstPtr& currentHeader, storage::StateStorage::Ptr storage)
 {
     BlockContext::Ptr context = make_shared<BlockContext>(
-        storage, m_hashImpl, currentHeader, FiscoBcosScheduleV3, m_isWasm);
+        storage, m_hashImpl, currentHeader, FiscoBcosScheduleV3, m_isWasm, m_isAuthCheck);
 
     return context;
 }
@@ -1349,7 +1350,7 @@ std::shared_ptr<BlockContext> TransactionExecutor::createBlockContext(
     int32_t blockVersion, storage::StateStorage::Ptr storage)
 {
     BlockContext::Ptr context = make_shared<BlockContext>(storage, m_hashImpl, blockNumber,
-        blockHash, timestamp, blockVersion, FiscoBcosScheduleV3, m_isWasm);
+        blockHash, timestamp, blockVersion, FiscoBcosScheduleV3, m_isWasm, m_isAuthCheck);
 
     return context;
 }
