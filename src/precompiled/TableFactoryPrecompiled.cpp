@@ -298,7 +298,9 @@ void TableFactoryPrecompiled::insert(
 
     std::string keyField, valueFields;
     std::tie(keyField, valueFields) = getTableField(_executive, tableName);
+    // auto table = _executive->storage().openTable(tableName);
     auto table = _executive->storage().openTable(tableName);
+    auto tableInfo = table->tableInfo();
 
     std::string keyValue;
     for (auto const& entryValue : std::get<0>(insertEntry))
@@ -318,7 +320,8 @@ void TableFactoryPrecompiled::insert(
         getErrorCodeOut(callResult->mutableExecResult(), CODE_KEY_NOT_EXIST_IN_ENTRY, *codec);
     }
     PRECOMPILED_LOG(DEBUG) << LOG_DESC("Table insert") << LOG_KV("key", keyValue);
-    auto checkExistEntry = table->getRow(keyValue);
+    // auto checkExistEntry = table->getRow(keyValue);
+    auto checkExistEntry = _executive->storage().getRow(tableName, keyValue);
     if (checkExistEntry)
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("TablePrecompiled") << LOG_BADGE("INSERT")
@@ -328,11 +331,13 @@ void TableFactoryPrecompiled::insert(
     }
     else
     {
-        auto entry = table->newEntry();
+        // auto entry = table->newEntry();
+        Entry entry(tableInfo);
         transferEntry(insertEntry, entry);
         gasPricer->appendOperation(InterfaceOpcode::Insert, 1);
         gasPricer->updateMemUsed(entry.capacityOfHashField());
-        table->setRow(keyValue, std::move(entry));
+        // table->setRow(keyValue, std::move(entry));
+        _executive->storage().setRow(tableName, keyValue, std::move(entry));
         callResult->setExecResult(codec->encode(u256(1)));
     }
 }
