@@ -143,7 +143,6 @@ evmc_result HostContext::externalRequest(const evmc_message* _msg)
             request->receiveAddress.reserve(receiveAddressBytes.size() * 2);
             boost::algorithm::hex_lower(receiveAddressBytes.begin(), receiveAddressBytes.end(),
                 std::back_inserter(request->receiveAddress));
-            // TODO: to checksum address
         }
 
         request->codeAddress = request->receiveAddress;
