@@ -13,7 +13,7 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  *
- * @file PermissionPrecompiled.h
+ * @file AuthPrecompiledTest.h
  * @author: kyonRay
  * @date 2021-09-03
  */
@@ -24,12 +24,12 @@
 
 namespace bcos::precompiled
 {
-class PermissionPrecompiled : public PermissionPrecompiledInterface
+class AuthPrecompiledTest : public PermissionPrecompiledInterface
 {
 public:
-    typedef std::shared_ptr<PermissionPrecompiled> Ptr;
-    PermissionPrecompiled(crypto::Hash::Ptr _hashImpl);
-    virtual ~PermissionPrecompiled(){};
+    typedef std::shared_ptr<AuthPrecompiledTest> Ptr;
+    AuthPrecompiledTest(crypto::Hash::Ptr _hashImpl);
+    virtual ~AuthPrecompiledTest(){};
 
     std::string toString() override;
 

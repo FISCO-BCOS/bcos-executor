@@ -65,7 +65,7 @@ public:
     virtual ~PrecompiledFixture() {}
 
     /// must set isWasm
-    void setIsWasm(bool _isWasm)
+    void setIsWasm(bool _isWasm, bool _isCheckAuth = false)
     {
         isWasm = _isWasm;
         storage = std::make_shared<MockTransactionalStorage>(hashImpl);
@@ -77,7 +77,7 @@ public:
 
         auto executionResultFactory = std::make_shared<NativeExecutionMessageFactory>();
         executor = std::make_shared<TransactionExecutor>(
-            txpool, nullptr, storage, executionResultFactory, hashImpl, _isWasm);
+            txpool, nullptr, storage, executionResultFactory, hashImpl, _isWasm, _isCheckAuth);
         createSysTable();
         codec = std::make_shared<PrecompiledCodec>(hashImpl, _isWasm);
         keyPair = cryptoSuite->signatureImpl()->generateKeyPair();
@@ -105,7 +105,7 @@ public:
 
         auto executionResultFactory = std::make_shared<NativeExecutionMessageFactory>();
         executor = std::make_shared<TransactionExecutor>(
-            txpool, nullptr, storage, executionResultFactory, smHashImpl, _isWasm);
+            txpool, nullptr, storage, executionResultFactory, smHashImpl, _isWasm, false);
         createSysTable();
         codec = std::make_shared<PrecompiledCodec>(smHashImpl, _isWasm);
 

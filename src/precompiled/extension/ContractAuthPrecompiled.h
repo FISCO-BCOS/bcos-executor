@@ -34,6 +34,11 @@ namespace bcos::precompiled
 {
 using MethodAuthMap = std::map<bytes, std::map<bcos::Address, bool>>;
 
+enum AuthType : int
+{
+    WHITE_LIST_MODE = 1,
+    BLACK_LIST_MODE = 2
+};
 
 class ContractAuthPrecompiled : public bcos::precompiled::Precompiled
 {
@@ -45,6 +50,9 @@ public:
     std::shared_ptr<PrecompiledExecResult> call(
         std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _param,
         const std::string& _origin, const std::string& _sender) override;
+
+    bool checkMethodAuth(const std::shared_ptr<executor::TransactionExecutive>& _executive,
+        const std::string& path, bytesRef func, const Address& account);
 
 private:
     void getAdmin(const std::shared_ptr<executor::TransactionExecutive>& _executive,
@@ -67,9 +75,8 @@ private:
         bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
         const std::string& _sender, const PrecompiledGas::Ptr& gasPricer);
 
-    void checkMethodAuth(const std::shared_ptr<executor::TransactionExecutive>& _executive,
-        bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
-        const std::string& _sender, const PrecompiledGas::Ptr& gasPricer);
+    bool checkMethodAuth(
+        const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& data);
 
     void setMethodAuth(const std::shared_ptr<executor::TransactionExecutive>& _executive,
         bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
@@ -77,7 +84,7 @@ private:
 
     s256 getMethodAuthType(std::optional<storage::Table> _table, bytesConstRef _func);
 
-    inline bool checkSender(std::string_view _sender) { return (_sender.substr(0, 5) != "/sys/"); }
+    inline bool checkSender(std::string_view _sender) { return (_sender.substr(0, 5) == "/sys/"); }
 
     inline std::string getAuthTableName(const std::string& _name)
     {

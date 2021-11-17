@@ -41,22 +41,24 @@ using namespace std;
 
 BlockContext::BlockContext(std::shared_ptr<storage::StateStorage> storage,
     crypto::Hash::Ptr _hashImpl, bcos::protocol::BlockNumber blockNumber, h256 blockHash,
-    uint64_t timestamp, int32_t blockVersion, const EVMSchedule& _schedule, bool _isWasm)
+    uint64_t timestamp, int32_t blockVersion, const EVMSchedule& _schedule, bool _isWasm,
+    bool _isAuthCheck)
   : m_blockNumber(blockNumber),
     m_blockHash(blockHash),
     m_timeStamp(timestamp),
     m_blockVersion(blockVersion),
     m_schedule(_schedule),
     m_isWasm(_isWasm),
+    m_isAuthCheck(_isAuthCheck),
     m_storage(std::move(storage)),
     m_hashImpl(_hashImpl)
 {}
 
 BlockContext::BlockContext(std::shared_ptr<storage::StateStorage> storage,
     crypto::Hash::Ptr _hashImpl, protocol::BlockHeader::ConstPtr _current,
-    const EVMSchedule& _schedule, bool _isWasm)
+    const EVMSchedule& _schedule, bool _isWasm, bool _isAuthCheck)
   : BlockContext(storage, _hashImpl, _current->number(), _current->hash(), _current->timestamp(),
-        _current->version(), _schedule, _isWasm)
+        _current->version(), _schedule, _isWasm, _isAuthCheck)
 {}
 
 void BlockContext::insertExecutive(int64_t contextID, int64_t seq, ExecutiveState state)

@@ -33,6 +33,7 @@
 #include <iostream>
 
 using namespace std;
+using namespace bcos;
 using namespace wabt;
 
 static std::unique_ptr<FileStream> s_log_stream;

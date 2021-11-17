@@ -131,7 +131,7 @@ BOOST_AUTO_TEST_CASE(callWasmConcurrentlyTransfer)
 {
     auto executionResultFactory = std::make_shared<NativeExecutionMessageFactory>();
     auto executor = std::make_shared<TransactionExecutor>(
-        txpool, nullptr, backend, executionResultFactory, hashImpl, true);
+        txpool, nullptr, backend, executionResultFactory, hashImpl, true, false);
     auto codec = std::make_unique<bcos::precompiled::PrecompiledCodec>(hashImpl, true);
 
     bytes transferBin(transfer_wasm, transfer_wasm + transfer_wasm_len);
@@ -345,7 +345,7 @@ BOOST_AUTO_TEST_CASE(callWasmConcurrentlyHelloWorld)
 {
     auto executionResultFactory = std::make_shared<NativeExecutionMessageFactory>();
     auto executor = std::make_shared<TransactionExecutor>(
-        txpool, nullptr, backend, executionResultFactory, hashImpl, true);
+        txpool, nullptr, backend, executionResultFactory, hashImpl, true, false);
     auto codec = std::make_unique<bcos::precompiled::PrecompiledCodec>(hashImpl, true);
 
     bytes helloWorldBin(hello_world_wasm, hello_world_wasm + hello_world_wasm_len);
@@ -550,7 +550,7 @@ BOOST_AUTO_TEST_CASE(callEvmConcurrentlyTransfer)
     size_t count = 100;
     auto executionResultFactory = std::make_shared<NativeExecutionMessageFactory>();
     auto executor = std::make_shared<TransactionExecutor>(
-        txpool, nullptr, backend, executionResultFactory, hashImpl, false);
+        txpool, nullptr, backend, executionResultFactory, hashImpl, false, false);
     auto codec = std::make_unique<bcos::precompiled::PrecompiledCodec>(hashImpl, false);
 
     std::string bin =
@@ -787,7 +787,7 @@ BOOST_AUTO_TEST_CASE(callEvmConcurrentlyTransferByMessage)
     size_t count = 100;
     auto executionResultFactory = std::make_shared<NativeExecutionMessageFactory>();
     auto executor = std::make_shared<TransactionExecutor>(
-        txpool, nullptr, backend, executionResultFactory, hashImpl, false);
+        txpool, nullptr, backend, executionResultFactory, hashImpl, false, false);
     auto codec = std::make_unique<bcos::precompiled::PrecompiledCodec>(hashImpl, false);
 
     std::string bin =
