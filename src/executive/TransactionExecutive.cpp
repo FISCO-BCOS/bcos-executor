@@ -39,6 +39,7 @@
 #include <boost/exception/diagnostic_information.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/throw_exception.hpp>
+#include <exception>
 #include <functional>
 #include <memory>
 #include <string>
@@ -57,20 +58,20 @@ using errinfo_evmcStatusCode = boost::error_info<struct tag_evmcStatusCode, evmc
 
 CallParameters::UniquePtr TransactionExecutive::start(CallParameters::UniquePtr input)
 {
-    CallParameters::UniquePtr output;
-    m_pullMessage.emplace([this, input = input.release(), &output](Coroutine::push_type& dest) {
+    m_pullMessage.emplace([this, inputPtr = input.release()](Coroutine::push_type& dest) {
+        COROUTINE_TRACE_LOG(TRACE, m_contextID, m_seq) << "Create new coroutine";
+
         m_pushMessage.emplace(std::move(dest));
 
-        auto callParameters = std::unique_ptr<CallParameters>(input);
+        auto callParameters = std::unique_ptr<CallParameters>(inputPtr);
         auto blockContext = m_blockContext.lock();
         if (!blockContext)
         {
             BOOST_THROW_EXCEPTION(BCOS_ERROR(-1, "blockContext is null"));
         }
 
-        m_storageWrapper = std::make_unique<CoroutineStorageWrapper<ResumeHandler>>(
+        m_storageWrapper = std::make_unique<SyncStorageWrapper<ResumeHandler>>(
             blockContext->storage(),
-            std::bind(&TransactionExecutive::spawnAndCall, this, std::placeholders::_1),
             std::bind(&TransactionExecutive::externalAcquireKeyLocks, this, std::placeholders::_1),
             m_recoder);
 
@@ -80,29 +81,43 @@ CallParameters::UniquePtr TransactionExecutive::start(CallParameters::UniquePtr 
             m_initKeyLocks.clear();
         }
 
-        output = execute(std::move(callParameters));
+        m_exchangeMessage = execute(std::move(callParameters));
+        COROUTINE_TRACE_LOG(TRACE, m_contextID, m_seq) << "Finish coroutine executing";
     });
 
-    while (m_pullMessage)
+    return dispatcher();
+}
+
+CallParameters::UniquePtr TransactionExecutive::dispatcher()
+{
+    try
     {
-        // Switch to main coroutine
-        auto func = m_pullMessage->get();
-        if (output)
+        for (auto it = std::begin(*m_pullMessage); it != std::end(*m_pullMessage); ++it)
         {
-            EXECUTOR_LOG(TRACE) << "Context switch to main coroutine, finished";
+            if (*it)
+            {
+                COROUTINE_TRACE_LOG(TRACE, m_contextID, m_seq)
+                    << "Context switch to main coroutine to call func";
+                (*it)(ResumeHandler(*this));
+                return nullptr;
+            }
 
-            // Ensure pushMessage die early before pullMessage
-            m_pushMessage.reset();
-            m_pullMessage.reset();
-
-            m_finished = true;
-            return output;
+            if (m_exchangeMessage)
+            {
+                COROUTINE_TRACE_LOG(TRACE, m_contextID, m_seq)
+                    << "Context switch to main coroutine to return output";
+                return std::move(m_exchangeMessage);
+            }
         }
-
-        EXECUTOR_LOG(TRACE) << "Context switch to main coroutine, call func";
-        func(ResumeHandler(*m_pullMessage));
+    }
+    catch (std::exception& e)
+    {
+        COROUTINE_TRACE_LOG(TRACE, m_contextID, m_seq)
+            << "Error while dispatch, " << boost::diagnostic_information(e);
+        BOOST_THROW_EXCEPTION(BCOS_ERROR_WITH_PREV(-1, "Error while dispatch", e));
     }
 
+    COROUTINE_TRACE_LOG(ERROR, m_contextID, m_seq) << "Unexpected dispatch end";
     return nullptr;
 }
 
@@ -110,13 +125,11 @@ CallParameters::UniquePtr TransactionExecutive::externalCall(CallParameters::Uni
 {
     input->keyLocks = m_storageWrapper->exportKeyLocks();
 
-    spawnAndCall([this, inputPtr = input.release()](ResumeHandler) {
-        auto input = CallParameters::UniquePtr(inputPtr);
+    spawnAndCall([this, inputPtr = input.release()](
+                     ResumeHandler) { m_exchangeMessage = CallParameters::UniquePtr(inputPtr); });
 
-        m_externalCallFunction(*this, std::move(input));
-    });
-
-    auto output = std::move(m_outputRef);
+    // When resume, exchangeMessage set to output
+    auto output = std::move(m_exchangeMessage);
 
     // After coroutine switch, set the recoder
     m_storageWrapper->setRecoder(m_recoder);
@@ -136,13 +149,10 @@ void TransactionExecutive::externalAcquireKeyLocks(std::string acquireKeyLock)
     callParameters->keyLocks = m_storageWrapper->exportKeyLocks();
     callParameters->acquireKeyLock = std::move(acquireKeyLock);
 
-    spawnAndCall([this, inputPtr = callParameters.release()](ResumeHandler) {
-        auto input = CallParameters::UniquePtr(inputPtr);
+    spawnAndCall([this, inputPtr = callParameters.release()](
+                     ResumeHandler) { m_exchangeMessage = CallParameters::UniquePtr(inputPtr); });
 
-        m_externalCallFunction(*this, std::move(input));
-    });
-
-    auto output = std::move(m_outputRef);
+    auto output = std::move(m_exchangeMessage);
     if (output->status == CallParameters::REVERT)
     {
         // Dead lock, revert

@@ -993,19 +993,18 @@ void TransactionExecutor::asyncExecute(std::shared_ptr<BlockContext> blockContex
 
                 auto executive =
                     createExecutive(blockContext, callParameters->codeAddress, contextID, seq);
-
                 executive->setInitKeyLocks(input->takeKeyLocks());
-                executive->setExternalCallFunction(createExternalFunctionCall(callback));
-
                 blockContext->insertExecutive(contextID, seq, {executive});
 
                 try
                 {
                     auto output = executive->start(std::move(callParameters));
 
-                    auto message = toExecutionResult(*executive, std::move(output));
-
-                    callback(nullptr, std::move(message));
+                    if (output)
+                    {
+                        auto message = toExecutionResult(*executive, std::move(output));
+                        callback(nullptr, std::move(message));
+                    }
                     return;
                 }
                 catch (std::exception& e)
@@ -1032,9 +1031,13 @@ void TransactionExecutor::asyncExecute(std::shared_ptr<BlockContext> blockContex
 
             // Call callback
             EXECUTOR_LOG(TRACE) << "Entering responseFunc";
-            executive->setOutput(std::move(callParameters));
-            executive->setExternalCallFunction(createExternalFunctionCall(callback));
-            executive->resume();
+            executive->setExchangeMessage(std::move(callParameters));
+            auto output = executive->resume();
+            auto message = toExecutionResult(*executive, std::move(output));
+
+            callback(nullptr, std::move(message));
+            return;
+
             EXECUTOR_LOG(TRACE) << "Exiting responseFunc";
         }
         else
@@ -1043,7 +1046,6 @@ void TransactionExecutor::asyncExecute(std::shared_ptr<BlockContext> blockContex
             auto executive =
                 createExecutive(blockContext, callParameters->codeAddress, contextID, seq);
             executive->setInitKeyLocks(input->takeKeyLocks());
-            executive->setExternalCallFunction(createExternalFunctionCall(callback));
 
             blockContext->insertExecutive(contextID, seq, {executive});
 
@@ -1076,9 +1078,13 @@ void TransactionExecutor::asyncExecute(std::shared_ptr<BlockContext> blockContex
             // REVERT or FINISHED
             auto& [executive] = *it;
 
-            executive->setOutput(std::move(callParameters));
-            executive->setExternalCallFunction(createExternalFunctionCall(callback));
-            executive->resume();
+            executive->setExchangeMessage(std::move(callParameters));
+            auto output = executive->resume();
+
+            auto message = toExecutionResult(*executive, std::move(output));
+
+            callback(nullptr, std::move(message));
+            return;
         }
         else
         {

@@ -24,7 +24,7 @@
 #include "../Common.h"
 #include "../precompiled/PrecompiledResult.h"
 #include "BlockContext.h"
-#include "CoroutineStorageWrapper.h"
+#include "SyncStorageWrapper.h"
 #include "bcos-executor/TransactionExecutor.h"
 #include "bcos-framework/interfaces/executor/ExecutionMessage.h"
 #include "bcos-framework/interfaces/protocol/BlockHeader.h"
@@ -71,16 +71,17 @@ public:
     class ResumeHandler
     {
     public:
-        ResumeHandler(Coroutine::pull_type& pull) : m_pull(pull) {}
+        ResumeHandler(TransactionExecutive& executive) : m_executive(executive) {}
 
         void operator()()
         {
-            EXECUTOR_LOG(TRACE) << "Context switch to executive coroutine, from ResumeHandler";
-            m_pull();
+            COROUTINE_TRACE_LOG(TRACE, m_executive.contextID(), m_executive.seq())
+                << "Context switch to executive coroutine, from ResumeHandler";
+            (*m_executive.m_pullMessage)();
         }
 
     private:
-        Coroutine::pull_type& m_pull;
+        TransactionExecutive& m_executive;
     };
 
     TransactionExecutive(std::weak_ptr<BlockContext> blockContext, std::string contractAddress,
@@ -165,25 +166,22 @@ public:
         m_initKeyLocks = std::move(initKeyLocks);
     }
 
-    void setOutput(CallParameters::UniquePtr callParameters)
+    void setExchangeMessage(CallParameters::UniquePtr callParameters)
     {
-        m_outputRef = std::move(callParameters);
+        m_exchangeMessage = std::move(callParameters);
     }
 
-    void setExternalCallFunction(
-        std::function<void(const TransactionExecutive& executive, CallParameters::UniquePtr)>
-            externalCallFunction)
-    {
-        m_externalCallFunction = std::move(externalCallFunction);
-    }
-
-    void resume()
+    CallParameters::UniquePtr resume()
     {
         EXECUTOR_LOG(TRACE) << "Context switch to executive coroutine, from resume";
         (*m_pullMessage)();
+
+        return dispatcher();
     }
 
 private:
+    CallParameters::UniquePtr dispatcher();
+
     std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> call(
         CallParameters::UniquePtr callParameters);
     std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> callPrecompiled(
@@ -239,13 +237,10 @@ private:
 
     std::optional<Coroutine::pull_type> m_pullMessage;
     std::optional<Coroutine::push_type> m_pushMessage;
-    std::function<void(const TransactionExecutive& executive, CallParameters::UniquePtr input)>
-        m_externalCallFunction;
 
     bcos::storage::StateStorage::Recoder::Ptr m_recoder;
-    std::unique_ptr<CoroutineStorageWrapper<ResumeHandler>> m_storageWrapper;
-
-    CallParameters::UniquePtr m_outputRef = nullptr;
+    std::unique_ptr<SyncStorageWrapper<ResumeHandler>> m_storageWrapper;
+    CallParameters::UniquePtr m_exchangeMessage = nullptr;
     bool m_finished = false;
 };
 

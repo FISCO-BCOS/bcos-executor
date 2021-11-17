@@ -45,6 +45,8 @@ DERIVE_BCOS_EXCEPTION(InvalidEncoding);
 namespace executor
 {
 #define EXECUTOR_LOG(LEVEL) BCOS_LOG(LEVEL) << LOG_BADGE("EXECUTOR")
+#define COROUTINE_TRACE_LOG(LEVEL, contextID, seq) \
+    BCOS_LOG(LEVEL) << LOG_BADGE("EXECUTOR") << "[" << contextID << "," << seq << "]"
 #define PARA_LOG(LEVEL) BCOS_LOG(LEVEL) << LOG_BADGE("PARA") << LOG_BADGE(utcTime())
 
 enum ExecuteError : int32_t
