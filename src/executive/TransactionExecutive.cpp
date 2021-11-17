@@ -78,6 +78,8 @@ CallParameters::UniquePtr TransactionExecutive::start(CallParameters::UniquePtr 
         }
 
         m_exchangeMessage = execute(std::move(callParameters));
+        // Execute is finished, erase the key locks
+        m_exchangeMessage->keyLocks.clear();
 
         // Return the ownership to input
         push = std::move(*m_pushMessage);
