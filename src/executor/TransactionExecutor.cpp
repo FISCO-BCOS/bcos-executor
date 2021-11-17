@@ -492,8 +492,6 @@ void TransactionExecutor::dagExecuteTransactionsForWasm(
     auto dependencies = unordered_map<bytes, vector<size_t>, boost::hash<bytes>>();
     auto slotUsage = unordered_map<size_t, size_t>();
 
-    boost::latch counter(allConflictFields.size());
-
     for (auto i = 0u; i < allConflictFields.size(); ++i)
     {
         auto& conflictFields = allConflictFields[i];
@@ -511,7 +509,7 @@ void TransactionExecutor::dagExecuteTransactionsForWasm(
         auto executive = createExecutive(m_blockContext, input->receiveAddress, contextID, seq);
         m_blockContext->insertExecutive(contextID, seq, {executive});
 
-        auto task = [this, i, &executive, &inputs, &executionResults](Msg) {
+        auto task = [this, i, executive, &inputs, &executionResults](Msg) {
             EXECUTOR_LOG(TRACE) << LOG_BADGE("dagExecuteTransactionsForWasm")
                                 << LOG_DESC("Start transaction")
                                 << LOG_KV("to", inputs[i]->receiveAddress) << LOG_KV("contextID", i)

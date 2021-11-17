@@ -880,9 +880,18 @@ void TransactionExecutive::creatAuthTable(
         Entry adminEntry(table->tableInfo());
         adminEntry.importFields({std::string(admin)});
         m_storageWrapper->setRow(authTableName, ADMIN_FIELD, std::move(adminEntry));
-        m_storageWrapper->setRow(authTableName, METHOD_AUTH_TYPE, Entry());
-        m_storageWrapper->setRow(authTableName, METHOD_AUTH_WHITE, Entry());
-        m_storageWrapper->setRow(authTableName, METHOD_AUTH_BLACK, Entry());
+
+        Entry emptyType;
+        emptyType.importFields({""});
+        m_storageWrapper->setRow(authTableName, METHOD_AUTH_TYPE, std::move(emptyType));
+
+        Entry emptyWhite;
+        emptyType.importFields({""});
+        m_storageWrapper->setRow(authTableName, METHOD_AUTH_WHITE, std::move(emptyWhite));
+
+        Entry emptyBlack;
+        emptyBlack.importFields({""});
+        m_storageWrapper->setRow(authTableName, METHOD_AUTH_BLACK, std::move(emptyBlack));
     }
 }
 
