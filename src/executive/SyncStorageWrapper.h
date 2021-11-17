@@ -4,10 +4,8 @@
 #include "bcos-framework/interfaces/storage/StorageInterface.h"
 #include "bcos-framework/interfaces/storage/Table.h"
 #include "bcos-framework/libstorage/StateStorage.h"
-#include <boost/container/flat_set.hpp>
-#include <boost/coroutine2/coroutine.hpp>
-#include <boost/coroutine2/fixedsize_stack.hpp>
 #include <boost/iterator/iterator_categories.hpp>
+#include <boost/throw_exception.hpp>
 #include <optional>
 #include <thread>
 #include <vector>
@@ -22,7 +20,6 @@ using OpenTableResponse = std::tuple<Error::UniquePtr, std::optional<storage::Ta
 using KeyLockResponse = SetRowResponse;
 using AcquireKeyLockResponse = std::tuple<Error::UniquePtr, std::vector<std::string>>;
 
-template <class Resume>
 class SyncStorageWrapper
 {
 public:
@@ -44,7 +41,7 @@ public:
     {
         GetPrimaryKeysReponse value;
         m_storage->asyncGetPrimaryKeys(
-            table, _condition, [this, &value](auto&& error, auto&& keys) mutable {
+            table, _condition, [&value](auto&& error, auto&& keys) mutable {
                 value = {std::move(error), std::move(keys)};
             });
 
@@ -67,8 +64,8 @@ public:
         acquireKeyLock(_key);
 
         GetRowResponse value;
-        m_storage->asyncGetRow(table, _key, [this, &value](auto&& error, auto&& entry) mutable {
-            value = std::tuple{std::move(error), std::move(entry)};
+        m_storage->asyncGetRow(table, _key, [&value](auto&& error, auto&& entry) mutable {
+            value = {std::move(error), std::move(entry)};
         });
 
         auto& [error, entry] = value;
@@ -95,8 +92,8 @@ public:
             _keys);
 
         GetRowsResponse value;
-        m_storage->asyncGetRows(table, _keys, [this, &value](auto&& error, auto&& entries) mutable {
-            value = std::tuple{std::move(error), std::move(entries)};
+        m_storage->asyncGetRows(table, _keys, [&value](auto&& error, auto&& entries) mutable {
+            value = {std::move(error), std::move(entries)};
         });
 
 
@@ -117,7 +114,7 @@ public:
         SetRowResponse value;
 
         m_storage->asyncSetRow(table, key, std::move(entry),
-            [this, &value](auto&& error) mutable { value = std::tuple{std::move(error)}; });
+            [&value](auto&& error) mutable { value = std::tuple{std::move(error)}; });
 
         auto& [error] = value;
 
@@ -132,12 +129,16 @@ public:
         OpenTableResponse value;
 
         m_storage->asyncCreateTable(std::move(_tableName), std::move(_valueFields),
-            [this, &value](Error::UniquePtr&& error, auto&& table) mutable {
-                value = std::tuple{std::move(error), std::move(table)};
+            [&value](Error::UniquePtr&& error, auto&& table) mutable {
+                value = {std::move(error), std::move(table)};
             });
 
-
         auto& [error, table] = value;
+
+        if (error)
+        {
+            BOOST_THROW_EXCEPTION(*error);
+        }
 
         return std::move(table);
     }
@@ -146,10 +147,9 @@ public:
     {
         OpenTableResponse value;
 
-        m_storage->asyncOpenTable(tableName, [this, &value](auto&& error, auto&& table) mutable {
-            value = std::tuple{std::move(error), std::move(table)};
+        m_storage->asyncOpenTable(tableName, [&value](auto&& error, auto&& table) mutable {
+            value = {std::move(error), std::move(table)};
         });
-
 
         auto& [error, table] = value;
 

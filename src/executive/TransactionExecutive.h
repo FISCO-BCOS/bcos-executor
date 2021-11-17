@@ -235,13 +235,13 @@ private:
 
     std::shared_ptr<wasm::GasInjector> m_gasInjector = nullptr;
 
-    std::optional<Coroutine::pull_type> m_pullMessage;
-    std::optional<Coroutine::push_type> m_pushMessage;
-
     bcos::storage::StateStorage::Recoder::Ptr m_recoder;
-    std::unique_ptr<SyncStorageWrapper<ResumeHandler>> m_storageWrapper;
+    std::unique_ptr<SyncStorageWrapper> m_storageWrapper;
     CallParameters::UniquePtr m_exchangeMessage = nullptr;
     bool m_finished = false;
+
+    std::optional<Coroutine::pull_type> m_pullMessage;
+    std::optional<Coroutine::push_type> m_pushMessage;
 };
 
 }  // namespace executor

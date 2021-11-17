@@ -943,10 +943,6 @@ void TransactionExecutor::asyncExecute(std::shared_ptr<BlockContext> blockContex
         callback)
 {
     EXECUTOR_LOG(TRACE) << "Import key locks size: " << input->keyLocks().size();
-    for (auto& it : input->keyLocks())
-    {
-        EXECUTOR_LOG(TRACE) << toHex(it);
-    }
 
     switch (input->type())
     {
@@ -1000,11 +996,8 @@ void TransactionExecutor::asyncExecute(std::shared_ptr<BlockContext> blockContex
                 {
                     auto output = executive->start(std::move(callParameters));
 
-                    if (output)
-                    {
-                        auto message = toExecutionResult(*executive, std::move(output));
-                        callback(nullptr, std::move(message));
-                    }
+                    auto message = toExecutionResult(*executive, std::move(output));
+                    callback(nullptr, std::move(message));
                     return;
                 }
                 catch (std::exception& e)

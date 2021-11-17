@@ -58,10 +58,11 @@ using errinfo_evmcStatusCode = boost::error_info<struct tag_evmcStatusCode, evmc
 
 CallParameters::UniquePtr TransactionExecutive::start(CallParameters::UniquePtr input)
 {
-    m_pullMessage.emplace([this, inputPtr = input.release()](Coroutine::push_type& dest) {
+    m_pullMessage.emplace([this, inputPtr = input.release()](Coroutine::push_type& push) {
         COROUTINE_TRACE_LOG(TRACE, m_contextID, m_seq) << "Create new coroutine";
 
-        m_pushMessage.emplace(std::move(dest));
+        // Take ownership from input
+        m_pushMessage.emplace(std::move(push));
 
         auto callParameters = std::unique_ptr<CallParameters>(inputPtr);
         auto blockContext = m_blockContext.lock();
@@ -70,8 +71,7 @@ CallParameters::UniquePtr TransactionExecutive::start(CallParameters::UniquePtr 
             BOOST_THROW_EXCEPTION(BCOS_ERROR(-1, "blockContext is null"));
         }
 
-        m_storageWrapper = std::make_unique<SyncStorageWrapper<ResumeHandler>>(
-            blockContext->storage(),
+        m_storageWrapper = std::make_unique<SyncStorageWrapper>(blockContext->storage(),
             std::bind(&TransactionExecutive::externalAcquireKeyLocks, this, std::placeholders::_1),
             m_recoder);
 
@@ -82,6 +82,10 @@ CallParameters::UniquePtr TransactionExecutive::start(CallParameters::UniquePtr 
         }
 
         m_exchangeMessage = execute(std::move(callParameters));
+
+        // Return the ownership to input
+        push = std::move(*m_pushMessage);
+
         COROUTINE_TRACE_LOG(TRACE, m_contextID, m_seq) << "Finish coroutine executing";
     });
 
@@ -99,7 +103,6 @@ CallParameters::UniquePtr TransactionExecutive::dispatcher()
                 COROUTINE_TRACE_LOG(TRACE, m_contextID, m_seq)
                     << "Context switch to main coroutine to call func";
                 (*it)(ResumeHandler(*this));
-                return nullptr;
             }
 
             if (m_exchangeMessage)
@@ -117,8 +120,8 @@ CallParameters::UniquePtr TransactionExecutive::dispatcher()
         BOOST_THROW_EXCEPTION(BCOS_ERROR_WITH_PREV(-1, "Error while dispatch", e));
     }
 
-    COROUTINE_TRACE_LOG(ERROR, m_contextID, m_seq) << "Unexpected dispatch end";
-    return nullptr;
+    COROUTINE_TRACE_LOG(TRACE, m_contextID, m_seq) << "Context switch to main coroutine, Finished!";
+    return std::move(m_exchangeMessage);
 }
 
 CallParameters::UniquePtr TransactionExecutive::externalCall(CallParameters::UniquePtr input)
@@ -877,12 +880,16 @@ void TransactionExecutive::creatAuthTable(
         admin = entry->getField(0);
     }
     auto table = m_storageWrapper->createTable(authTableName, STORAGE_VALUE);
-    auto adminEntry = table->newEntry();
-    adminEntry.importFields({std::string(admin)});
-    m_storageWrapper->setRow(authTableName, ADMIN_FIELD, std::move(adminEntry));
-    m_storageWrapper->setRow(authTableName, METHOD_AUTH_TYPE, table->newEntry());
-    m_storageWrapper->setRow(authTableName, METHOD_AUTH_WHITE, table->newEntry());
-    m_storageWrapper->setRow(authTableName, METHOD_AUTH_BLACK, table->newEntry());
+
+    if (table)
+    {
+        Entry adminEntry(table->tableInfo());
+        adminEntry.importFields({std::string(admin)});
+        m_storageWrapper->setRow(authTableName, ADMIN_FIELD, std::move(adminEntry));
+        m_storageWrapper->setRow(authTableName, METHOD_AUTH_TYPE, Entry());
+        m_storageWrapper->setRow(authTableName, METHOD_AUTH_WHITE, Entry());
+        m_storageWrapper->setRow(authTableName, METHOD_AUTH_BLACK, Entry());
+    }
 }
 
 bool TransactionExecutive::buildBfsPath(std::string const& _absoluteDir)
