@@ -170,7 +170,7 @@ struct EVMSchedule
     unsigned suicideRefundGas = 24000;
     unsigned memoryGas = 3;
     unsigned quadCoeffDiv = 512;
-    unsigned createDataGas = 200;
+    unsigned createDataGas = 20;
     /// transaction related gas
     unsigned txGas = 21000;
     unsigned txCreateGas = 53000;

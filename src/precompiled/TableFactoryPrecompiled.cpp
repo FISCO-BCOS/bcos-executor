@@ -165,14 +165,6 @@ void TableFactoryPrecompiled::createTable(
         std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     codec->decode(data, tableName, keyField, valueField);
 
-    if (blockContext->isWasm() && (tableName.empty() || tableName.at(0) != '/'))
-    {
-        PRECOMPILED_LOG(ERROR) << LOG_BADGE("TableFactoryPrecompiled")
-                               << LOG_DESC("create table in wasm env: error tableName")
-                               << LOG_KV("tableName", tableName);
-        BOOST_THROW_EXCEPTION(PrecompiledError() << errinfo_comment("Table name error."));
-    }
-
     precompiled::checkCreateTableParam(tableName, keyField, valueField);
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("StateStorage") << LOG_KV("createTable", tableName)
                            << LOG_KV("keyField", keyField) << LOG_KV("valueFiled", valueField);

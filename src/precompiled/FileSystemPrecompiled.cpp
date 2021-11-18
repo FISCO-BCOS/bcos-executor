@@ -98,6 +98,13 @@ void FileSystemPrecompiled::makeDir(
         callResult->setExecResult(codec->encode(s256((int)CODE_FILE_INVALID_PATH)));
         return;
     }
+    if (absolutePath.find("/sys/") == 0)
+    {
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("FileSystemPrecompiled")
+                               << LOG_DESC("can't mkdir in /sys/ dir");
+        callResult->setExecResult(codec->encode(s256((int)CODE_FILE_INVALID_PATH)));
+        return;
+    }
     auto table = _executive->storage().openTable(absolutePath);
     gasPricer->appendOperation(InterfaceOpcode::OpenTable);
     if (table)

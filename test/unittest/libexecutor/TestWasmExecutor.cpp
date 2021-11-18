@@ -399,7 +399,7 @@ BOOST_AUTO_TEST_CASE(deployAndCall_100)
 
     BOOST_CHECK(result->message().empty());
     BOOST_CHECK(!result->newEVMContractAddress().empty());
-    BOOST_CHECK_EQUAL(result->gasAvailable(), 2995637422);
+    BOOST_CHECK_EQUAL(result->gasAvailable(), 2999552602);
 
     auto address = result->newEVMContractAddress();
     BOOST_CHECK_EQUAL(result->newEVMContractAddress(), selfAddress);

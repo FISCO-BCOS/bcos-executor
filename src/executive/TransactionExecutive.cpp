@@ -352,8 +352,6 @@ std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionE
         EXECUTIVE_LOG(ERROR) << callParameters->message << LOG_KV("tableName", tableName);
         return {nullptr, std::move(callParameters)};
     }
-    auto hostContext =
-        std::make_unique<HostContext>(std::move(callParameters), shared_from_this(), tableName);
 
     if (blockContext->isWasm())
     {
@@ -371,10 +369,14 @@ std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionE
         auto extraData = std::make_unique<CallParameters>(CallParameters::MESSAGE);
         extraData->data = params;
         extraData->origin = abi;
+        auto hostContext =
+            std::make_unique<HostContext>(std::move(callParameters), shared_from_this(), tableName);
         return {std::move(hostContext), std::move(extraData)};
     }
     else
     {
+        auto hostContext =
+            std::make_unique<HostContext>(std::move(callParameters), shared_from_this(), tableName);
         return {std::move(hostContext), nullptr};
     }
 }
@@ -466,6 +468,9 @@ CallParameters::UniquePtr TransactionExecutive::go(
             // clear unnecessary logs
             if (callResults->origin != callResults->senderAddress)
             {
+                EXECUTIVE_LOG(TRACE)
+                    << "clear logEntries"
+                    << LOG_KV("beforeClearLogSize", callResults->logEntries.size());
                 callResults->logEntries.clear();
             }
             callResults = parseEVMCResult(std::move(callResults), ret);
@@ -559,8 +564,30 @@ CallParameters::UniquePtr TransactionExecutive::go(
             auto callResults = hostContext.takeCallParameters();
             callResults = parseEVMCResult(std::move(callResults), ret);
 
+            // clear unnecessary logs
+            if (callResults->origin != callResults->senderAddress)
+            {
+                EXECUTIVE_LOG(TRACE)
+                    << "clear logEntries"
+                    << LOG_KV("beforeClearLogSize", callResults->logEntries.size());
+                callResults->logEntries.clear();
+            }
             return callResults;
         }
+    }
+    catch (PermissionDenied const& _e)
+    {
+        auto callResults = hostContext.takeCallParameters();
+        callResults->type = CallParameters::REVERT;
+        callResults->status = (int32_t)TransactionStatus::PermissionDenied;
+        revert();
+    }
+    catch (PrecompiledError const& _e)
+    {
+        auto callResults = hostContext.takeCallParameters();
+        callResults->type = CallParameters::REVERT;
+        callResults->status = (int32_t)TransactionStatus::PrecompiledError;
+        revert();
     }
     catch (OutOfGas& _e)
     {
