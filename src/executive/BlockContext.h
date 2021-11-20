@@ -116,7 +116,7 @@ private:
     bool m_isWasm = false;
     bool m_isAuthCheck = false;
 
-    uint64_t m_txGasLimit = 300000000;
+    uint64_t m_txGasLimit = 3000000000;
     std::shared_ptr<storage::StateStorage> m_storage;
     crypto::Hash::Ptr m_hashImpl;
 };

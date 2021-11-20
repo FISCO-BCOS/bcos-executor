@@ -520,9 +520,16 @@ CallParameters::UniquePtr TransactionExecutive::go(
             {
                 if (outputRef.empty())
                 {
-                    EXECUTOR_LOG(ERROR) << "Create contract with empty code!";
-                    BOOST_THROW_EXCEPTION(BCOS_ERROR(bcos::executor::ExecuteError::EXECUTE_ERROR,
-                        "Create contract with empty code!"));
+                    EXECUTOR_LOG(ERROR) << "Create contract with empty code, wrong code input.";
+                    callResults->type = CallParameters::REVERT;
+                    callResults->status = (int32_t)TransactionStatus::Unknown;
+                    callResults->message = "Create contract with empty code, wrong code input.";
+                    // Clear the creation flag
+                    callResults->create = false;
+                    // Clear the data
+                    callResults->data.clear();
+                    revert();
+                    return callResults;
                 }
                 hostContext.setCode(outputRef.toBytes());
             }
@@ -600,13 +607,8 @@ CallParameters::UniquePtr TransactionExecutive::go(
     }
     catch (bcos::Error& e)
     {
-        EXECUTIVE_LOG(ERROR) << "bcos::Error: ("
-                             << *boost::get_error_info<errinfo_evmcStatusCode>(e) << ")\n"
+        EXECUTIVE_LOG(ERROR) << "bcos::Error: (" << e.errorMessage() << ")\n"
                              << diagnostic_information(e);
-        auto callResults = hostContext.takeCallParameters();
-        callResults->type = CallParameters::REVERT;
-        callResults->status = (int32_t)TransactionStatus::Unknown;
-        callResults->message = e.errorMessage();
         revert();
     }
     catch (InternalVMError const& _e)

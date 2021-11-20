@@ -315,7 +315,7 @@ void Condition::LE(const std::string& key, const std::string& value)
 
 bool Condition::filter(std::optional<storage::Entry> _entry)
 {
-    if (_entry == std::nullopt)
+    if (_entry == std::nullopt || _entry->tableInfo() == nullptr)
     {
         return false;
     }

@@ -1024,102 +1024,284 @@ BOOST_AUTO_TEST_CASE(keyLock) {}
 BOOST_AUTO_TEST_CASE(deployErrorCode)
 {
     // an infinity-loop constructor
-    std::string errorBin =
-        "608060405234801561001057600080fd5b505b60011561006a576040518060400160405280600381526020017f"
-        "313233000000000000000000000000000000000000000000000000000000000081525060009080519060200190"
-        "61006492919061006f565b50610012565b610114565b8280546001816001161561010002031660029004906000"
-        "52602060002090601f016020900481019282601f106100b057805160ff19168380011785556100de565b828001"
-        "600101855582156100de579182015b828111156100dd5782518255916020019190600101906100c2565b5b5090"
-        "506100eb91906100ef565b5090565b61011191905b8082111561010d5760008160009055506001016100f5565b"
-        "5090565b90565b6101f8806101236000396000f3fe608060405234801561001057600080fd5b50600436106100"
-        "365760003560e01c806344733ae11461003b5780638e397a0314610059575b600080fd5b610043610063565b60"
-        "40516100509190610140565b60405180910390f35b610061610105565b005b6060600080546001816001161561"
-        "01000203166002900480601f016020809104026020016040519081016040528092919081815260200182805460"
-        "0181600116156101000203166002900480156100fb5780601f106100d057610100808354040283529160200191"
-        "6100fb565b820191906000526020600020905b8154815290600101906020018083116100de57829003601f1682"
-        "01915b5050505050905090565b565b600061011282610162565b61011c818561016d565b935061012c81856020"
-        "860161017e565b610135816101b1565b840191505092915050565b600060208201905081810360008301526101"
-        "5a8184610107565b905092915050565b600081519050919050565b600082825260208201905092915050565b60"
-        "005b8381101561019c578082015181840152602081019050610181565b838111156101ab576000848401525b50"
-        "505050565b6000601f19601f830116905091905056fea2646970667358221220e4e19dff46d31f82111f9261d8"
-        "687c52312c9221962991e27bbddc409dfbd7c564736f6c634300060a0033";
-    bytes input;
-    boost::algorithm::unhex(errorBin, std::back_inserter(input));
-    auto tx = fakeTransaction(cryptoSuite, keyPair, "", input, 101, 100001, "1", "1");
-    auto sender = boost::algorithm::hex_lower(std::string(tx->sender()));
-    h256 addressCreate("ff6f30856ad3bae00b1169808488502786a13e3c174d85682135ffd51310310e");
-    std::string addressString = addressCreate.hex().substr(0, 40);
+    {
+        std::string errorBin =
+            "608060405234801561001057600080fd5b505b60011561006a576040518060400160405280600381526020017f"
+            "313233000000000000000000000000000000000000000000000000000000000081525060009080519060200190"
+            "61006492919061006f565b50610012565b610114565b8280546001816001161561010002031660029004906000"
+            "52602060002090601f016020900481019282601f106100b057805160ff19168380011785556100de565b828001"
+            "600101855582156100de579182015b828111156100dd5782518255916020019190600101906100c2565b5b5090"
+            "506100eb91906100ef565b5090565b61011191905b8082111561010d5760008160009055506001016100f5565b"
+            "5090565b90565b6101f8806101236000396000f3fe608060405234801561001057600080fd5b50600436106100"
+            "365760003560e01c806344733ae11461003b5780638e397a0314610059575b600080fd5b610043610063565b60"
+            "40516100509190610140565b60405180910390f35b610061610105565b005b6060600080546001816001161561"
+            "01000203166002900480601f016020809104026020016040519081016040528092919081815260200182805460"
+            "0181600116156101000203166002900480156100fb5780601f106100d057610100808354040283529160200191"
+            "6100fb565b820191906000526020600020905b8154815290600101906020018083116100de57829003601f1682"
+            "01915b5050505050905090565b565b600061011282610162565b61011c818561016d565b935061012c81856020"
+            "860161017e565b610135816101b1565b840191505092915050565b600060208201905081810360008301526101"
+            "5a8184610107565b905092915050565b600081519050919050565b600082825260208201905092915050565b60"
+            "005b8381101561019c578082015181840152602081019050610181565b838111156101ab576000848401525b50"
+            "505050565b6000601f19601f830116905091905056fea2646970667358221220e4e19dff46d31f82111f9261d8"
+            "687c52312c9221962991e27bbddc409dfbd7c564736f6c634300060a0033";
+        bytes input;
+        boost::algorithm::unhex(errorBin, std::back_inserter(input));
+        auto tx = fakeTransaction(cryptoSuite, keyPair, "", input, 101, 100001, "1", "1");
+        auto sender = boost::algorithm::hex_lower(std::string(tx->sender()));
+        h256 addressCreate("ff6f30856ad3bae00b1169808488502786a13e3c174d85682135ffd51310310e");
+        std::string addressString = addressCreate.hex().substr(0, 40);
 
-    auto hash = tx->hash();
-    txpool->hash2Transaction.emplace(hash, tx);
+        auto hash = tx->hash();
+        txpool->hash2Transaction.emplace(hash, tx);
 
-    auto params = std::make_unique<NativeExecutionMessage>();
-    params->setContextID(99);
-    params->setSeq(1000);
-    params->setDepth(0);
+        auto params = std::make_unique<NativeExecutionMessage>();
+        params->setContextID(99);
+        params->setSeq(1000);
+        params->setDepth(0);
 
-    params->setOrigin(sender);
-    params->setFrom(sender);
+        params->setOrigin(sender);
+        params->setFrom(sender);
 
-    // toChecksumAddress(addressString, hashImpl);
-    params->setTo(addressString);
-    params->setStaticCall(false);
-    params->setGasAvailable(gas);
-    params->setData(input);
-    params->setType(NativeExecutionMessage::TXHASH);
-    params->setTransactionHash(hash);
-    params->setCreate(true);
+        // toChecksumAddress(addressString, hashImpl);
+        params->setTo(addressString);
+        params->setStaticCall(false);
+        params->setGasAvailable(gas);
+        params->setData(input);
+        params->setType(NativeExecutionMessage::TXHASH);
+        params->setTransactionHash(hash);
+        params->setCreate(true);
 
-    NativeExecutionMessage paramsBak = *params;
+        NativeExecutionMessage paramsBak = *params;
 
-    auto blockHeader = std::make_shared<bcos::protocol::PBBlockHeader>(cryptoSuite);
-    blockHeader->setNumber(1);
+        auto blockHeader = std::make_shared<bcos::protocol::PBBlockHeader>(cryptoSuite);
+        blockHeader->setNumber(1);
 
-    std::promise<void> nextPromise;
-    executor->nextBlockHeader(blockHeader, [&](bcos::Error::Ptr&& error) {
-        BOOST_CHECK(!error);
-        nextPromise.set_value();
-    });
-    nextPromise.get_future().get();
-    // --------------------------------
-    // Create contract
-    // --------------------------------
-
-    std::promise<bcos::protocol::ExecutionMessage::UniquePtr> executePromise;
-    executor->executeTransaction(std::move(params),
-        [&](bcos::Error::UniquePtr&& error, bcos::protocol::ExecutionMessage::UniquePtr&& result) {
+        std::promise<void> nextPromise;
+        executor->nextBlockHeader(blockHeader, [&](bcos::Error::Ptr&& error) {
             BOOST_CHECK(!error);
-            executePromise.set_value(std::move(result));
+            nextPromise.set_value();
         });
+        nextPromise.get_future().get();
+        // --------------------------------
+        // Create contract
+        // --------------------------------
 
-    auto result = executePromise.get_future().get();
-    BOOST_CHECK(result);
-    BOOST_CHECK_EQUAL(result->type(), ExecutionMessage::REVERT);
-    BOOST_CHECK_EQUAL(result->status(), (int32_t)TransactionStatus::OutOfGas);
-    BOOST_CHECK_EQUAL(result->contextID(), 99);
-    BOOST_CHECK_EQUAL(result->seq(), 1000);
-    BOOST_CHECK_EQUAL(result->create(), false);
-    BOOST_CHECK_EQUAL(result->newEVMContractAddress(), "");
-    BOOST_CHECK_EQUAL(result->origin(), sender);
-    BOOST_CHECK_EQUAL(result->from(), addressString);
-    BOOST_CHECK(result->to() == sender);
+        std::promise<bcos::protocol::ExecutionMessage::UniquePtr> executePromise;
+        executor->executeTransaction(
+            std::move(params), [&](bcos::Error::UniquePtr&& error,
+                                   bcos::protocol::ExecutionMessage::UniquePtr&& result) {
+                BOOST_CHECK(!error);
+                executePromise.set_value(std::move(result));
+            });
 
-    bcos::executor::TransactionExecutor::TwoPCParams commitParams{};
-    commitParams.number = 1;
+        auto result = executePromise.get_future().get();
+        BOOST_CHECK(result);
+        BOOST_CHECK_EQUAL(result->type(), ExecutionMessage::REVERT);
+        BOOST_CHECK_EQUAL(result->status(), (int32_t)TransactionStatus::OutOfGas);
+        BOOST_CHECK_EQUAL(result->contextID(), 99);
+        BOOST_CHECK_EQUAL(result->seq(), 1000);
+        BOOST_CHECK_EQUAL(result->create(), false);
+        BOOST_CHECK_EQUAL(result->newEVMContractAddress(), "");
+        BOOST_CHECK_EQUAL(result->origin(), sender);
+        BOOST_CHECK_EQUAL(result->from(), addressString);
+        BOOST_CHECK(result->to() == sender);
 
-    std::promise<void> preparePromise;
-    executor->prepare(commitParams, [&](bcos::Error::Ptr&& error) {
-        BOOST_CHECK(!error);
-        preparePromise.set_value();
-    });
-    preparePromise.get_future().get();
+        bcos::executor::TransactionExecutor::TwoPCParams commitParams{};
+        commitParams.number = 1;
 
-    std::promise<void> commitPromise;
-    executor->commit(commitParams, [&](bcos::Error::Ptr&& error) {
-        BOOST_CHECK(!error);
-        commitPromise.set_value();
-    });
-    commitPromise.get_future().get();
+        std::promise<void> preparePromise;
+        executor->prepare(commitParams, [&](bcos::Error::Ptr&& error) {
+            BOOST_CHECK(!error);
+            preparePromise.set_value();
+        });
+        preparePromise.get_future().get();
+
+        std::promise<void> commitPromise;
+        executor->commit(commitParams, [&](bcos::Error::Ptr&& error) {
+            BOOST_CHECK(!error);
+            commitPromise.set_value();
+        });
+        commitPromise.get_future().get();
+    }
+
+    // wasm code in evm
+    {
+        std::string errorBin =
+            "0061736d01000000018b011660037f7f7f017f60027f7f017f60047f7f7f7f017f6000017f60017f006002"
+            "7f7f0060047f7f7f7f0060077f7f7f7f7f7f7f0060037f7e7e0060037e7f7f0060057f7f7f7f7f017f6003"
+            "7f7f7f0060017f017f60057f7f7f7e7e0060000060037e7e7f0060057f7f7f7f7f0060027f7f017e60027f"
+            "7e0060057f7e7e7e7e0060027e7e017e60017e017f02b0010a0462636f730463616c6c00020462636f7311"
+            "67657452657475726e4461746153697a6500030462636f730d67657452657475726e446174610004046263"
+            "6f730666696e69736800050462636f730a73657453746f7261676500060462636f73036c6f670007046263"
+            "6f730672657665727400050462636f730a67657453746f7261676500000462636f730f67657443616c6c44"
+            "61746153697a6500030462636f730b67657443616c6c44617461000403a601a4010808090a040404040507"
+            "01050b0005060b050605040b0b01040b0b0c0505050505050305040504040d0c0506040b06010201000400"
+            "01010b05050505030e0505050404040e0505050f050505040404060610021102060b120504050c05050505"
+            "0b050506050505050b050505040005040b05050b0b0b04050505010b01020602050b0605040b1005050505"
+            "0505000b010c0004131313000000001413151514140811121204050170010a0a05030100110609017f0141"
+            "8080c0000b072604066d656d6f7279020009686173685f747970650046066465706c6f790047046d61696e"
+            "004e0910010041010b0984010f17143b3d3e3f400a91fd01a401f90201027f23004180016b220324002000"
+            "4200370204200041002802908540360200200341cc006a418080c000360200200341033a00502003428080"
+            "808080043703302003200036024820034100360240200341003602382003412736027c200341186a200120"
+            "02100b200341206a2903002101200329031821022003290328200341d5006a200341fc006a100c02400240"
+            "02402002200184500d00200328027c2200416c6a220420004e0d01200341d5006a41146a4130200410a201"
+            "1a2003411436027c200320022001100b200341086a2903002102200329030021012003290310200341d500"
+            "6a200341fc006a100c2001200284500d00200328027c2200417f6a220420004e0d01200341d6006a413020"
+            "0410a2011a2003410036027c2001a741ff017141306a220041ff01712000470d01200320003a00550b4127"
+            "200328027c22006b220441284f0d00200341306a41d082c0004100200341d5006a20006a2004100d0d0120"
+            "034180016a24000f0b00000b4137100e000bfd0202017f047e230041d0006b220324000240024020024280"
+            "8020540d00200341206a2001420042d2e1aadaeda7c987f6004200109d01200341106a2001420042f3b2d8"
+            "c19e9ebdcc957f4200109d01200341c0006a2002420042d2e1aadaeda7c987f6004200109d01200341306a"
+            "2002420042f3b2d8c19e9ebdcc957f4200109d01200341c0006a41086a290300200341206a41086a290300"
+            "200341106a41086a290300220420032903207c2205200454ad7c220620032903407c2204200654ad7c2004"
+            "200341306a41086a290300200520032903307c200554ad7c7c2206200454ad7c2204423e8821052006423e"
+            "8820044202868421040c010b20014213882002422d868442bda282a38eab04802104420021050b20032004"
+            "2005428080a0cfc8e0c8e38a7f4200109d0102402001200329030022067d22072001562002200341086a29"
+            "03007d2001200654ad7d220120025620012002511b0d002000200437030020002007370310200020053703"
+            "08200341d0006a24000f0b00000bf00503027f017e017f0240200228020022034114480d00024002402000"
+            "42ffff83fea6dee111580d002002200341706a2204360200200320016a2203417e6a200042808084fea6de"
+            "e11182220542e40082a7410174418881c0006a2f00003b00002003417c6a200542e4008042e40082a74101"
+            "74418881c0006a2f00003b00002003417a6a20054290ce008042e40082a7410174418881c0006a2f00003b"
+            "0000200341786a200542c0843d8042e40082a7410174418881c0006a2f00003b0000200341766a20054280"
+            "c2d72f80a741e40070410174418881c0006a2f00003b0000200341746a20054280c8afa02580a741e40070"
+            "410174418881c0006a2f00003b0000200341726a20054280a094a58d1d80a741e40070410174418881c000"
+            "6a2f00003b0000200120046a2005428080e983b1de1680a741e40070410174418881c0006a2f00003b0000"
+            "200042808084fea6dee1118021000c010b024020004280c2d72f5a0d00200321040c010b2002200341786a"
+            "2204360200200320016a2206417e6a20004280c2d72f82a7220341e40070410174418881c0006a2f00003b"
+            "00002006417c6a200341e4006e41e40070410174418881c0006a2f00003b00002006417a6a20034190ce00"
+            "6e41e40070410174418881c0006a2f00003b0000200120046a200341c0843d6e41e40070410174418881c0"
+            "006a2f00003b000020004280c2d72f8021000b02402000a722034190ce00490d00200420016a417e6a2003"
+            "4190ce0070220641e40070410174418881c0006a2f00003b000020012004417c6a22046a200641e4006e41"
+            "0174418881c0006a2f00003b000020034190ce006e21030b0240200341ffff0371220641e400490d002001"
+            "2004417e6a22046a200641e40070410174418881c0006a2f00003b0000200641e4006e21030b0240200341"
+            "ffff037141094b0d0020022004417f6a2204360200200120046a200341306a3a00000f0b20022004417e6a"
+            "2204360200200120046a200341ffff0371410174418881c0006a2f00003b00000f0b00000bfa0301077f23"
+            "0041106b22052400418080c40021062004210702400240024020002802002208410171450d00200441016a"
+            "22072004490d01412b21060b0240024020084104710d0041002101200721090c010b20072001200120026a"
+            "1086016a22092007490d010b41012107024020002802084101460d0020002006200120021087010d022000"
+            "280218200320042000411c6a28020028020c11000021070c020b0240024020092000410c6a280200220a4f"
+            "0d0020084108710d01200a20096b2208200a4b0d0241012107200520002008410110880120052802002208"
+            "418080c400460d032005280204210920002006200120021087010d0320002802182201200320042000411c"
+            "6a280200220028020c1100000d03200820092001200010890121070c030b20002006200120021087010d02"
+            "2000280218200320042000411c6a28020028020c11000021070c020b200028020421082000413036020420"
+            "002d0020210b41012107200041013a002020002006200120021087010d01200a20096b2201200a4b0d0041"
+            "012107200541086a20002001410110880120052802082201418080c400460d01200528020c210220002802"
+            "182206200320042000411c6a280200220928020c1100000d0120012002200620091089010d012000200b3a"
+            "002020002008360204410021070c010b00000b200541106a240020070b040000000b0600200010100b2601"
+            "017f024020002802004100200028020422001b2201450d002000450d002001200010120b0b3901017f2000"
+            "10100240200041146a2d00004102460d00024020002802102201280200450d002001101020002802102101"
+            "0b2001410c10120b0bf90101037f02402000450d002001109a011a41002802a888402102200041786a2201"
+            "20012802002203417e713602000240024002402003417c71220420006b20044b0d00200041003602002000"
+            "417c6a280200417c712204450d0120042d00004101710d012001109c0120042802002100024020012d0000"
+            "410271450d002004200041027222003602000b200221012000417c71220020046b41786a20004d0d020b00"
+            "000b02402003417c712204450d004100200420034102711b2203450d0020032d00004101710d0020002003"
+            "280208417c7136020020032001410172360208200221010c010b200020023602000b410020013602a88840"
+            "0b0b990403077f017e067f024002402005417f6a220720054b0d0020012802082208417f6a210920052001"
+            "280210220a6b220b20054b210c2001280214210d2001290300210e0340200d20076a220f200d490d010240"
+            "200f2003490d00200120033602144100210f0c030b0240200e2002200f6a310000423f8388420183500d00"
+            "20082008200128021c221020061b200820104b1b220f2005200f20054b1b2111034002402011200f470d00"
+            "4100201020061b21112009210f034002402011200f41016a490d00200d20056a220f200d490d062001200f"
+            "360214024020060d002001410036021c0b2000200d360204200041086a200f3602004101210f0c070b200f"
+            "20054f0d05200d200f6a2212200d490d05201220034f0d052004200f6a2113200f417f6a210f20132d0000"
+            "41ff0171200220126a2d0000460d000b200d200a6a220f200d490d042001200f360214200f210d20060d03"
+            "200c0d042001200b36021c200f210d0c030b200d200f6a2212200d490d03201220034f0d032004200f6a21"
+            "13200f41016a2214210f20132d000041ff0171200220126a2d0000460d000b2014417f6a221220086b220f"
+            "20124b0d02200f41016a2212200f490d02200d20126a220f200d490d022001200f360214200f210d20060d"
+            "012001410036021c200f210d0c010b200d20056a220f200d490d012001200f360214200f210d20060d0020"
+            "01410036021c200f210d0c000b0b00000b2000200f3602000bad0201027f230041106b2202240002400240"
+            "024002400240200141ff004b0d000240200028020822032000280204470d00200041011015200028020821"
+            "030b200028020020036a20013a0000200341016a22012003490d01200020013602080c040b200241003602"
+            "0c2001418010490d0102402001418080044f0d0020022001413f71418001723a000e20022001410c7641e0"
+            "01723a000c20022001410676413f71418001723a000d410321010c030b20022001413f71418001723a000f"
+            "2002200141127641f001723a000c20022001410676413f71418001723a000e20022001410c76413f714180"
+            "01723a000d410421010c020b00000b20022001413f71418001723a000d2002200141067641c001723a000c"
+            "410221010b20002002410c6a200110160b200241106a240041000bb20101037f230041206b220224000240"
+            "024020002802042203200028020822046b20014f0d00200420016a22012004490d01200320036a22042003"
+            "490d0120042001200420014b1b22014108200141084b1b2101024002402003450d00200241106a41086a41"
+            "0136020020022003360214200220002802003602100c010b200241003602100b200220014101200241106a"
+            "101c20022802004101460d01200020022902043702000b200241206a24000f0b00000b3701017f20002002"
+            "10152000280200200028020822036a2001200210a0011a0240200320026a220220034f0d0000000b200020"
+            "023602080b0c00200020012002101641000bb00201047f230041306b220224000240024002402000280208"
+            "22032000280204470d0020";
+        bytes input;
+        boost::algorithm::unhex(errorBin, std::back_inserter(input));
+        auto tx = fakeTransaction(cryptoSuite, keyPair, "", input, 101, 100001, "1", "1");
+        auto sender = boost::algorithm::hex_lower(std::string(tx->sender()));
+        h256 addressCreate("ff6f30856ad3bae00b1169808488502786a13e3c174d85682135ffd51310310e");
+        std::string addressString = addressCreate.hex().substr(0, 40);
+
+        auto hash = tx->hash();
+        txpool->hash2Transaction.emplace(hash, tx);
+
+        auto params = std::make_unique<NativeExecutionMessage>();
+        params->setContextID(99);
+        params->setSeq(1000);
+        params->setDepth(0);
+
+        params->setOrigin(sender);
+        params->setFrom(sender);
+
+        // toChecksumAddress(addressString, hashImpl);
+        params->setTo(addressString);
+        params->setStaticCall(false);
+        params->setGasAvailable(gas);
+        params->setData(input);
+        params->setType(NativeExecutionMessage::TXHASH);
+        params->setTransactionHash(hash);
+        params->setCreate(true);
+
+        NativeExecutionMessage paramsBak = *params;
+
+        auto blockHeader = std::make_shared<bcos::protocol::PBBlockHeader>(cryptoSuite);
+        blockHeader->setNumber(2);
+
+        std::promise<void> nextPromise;
+        executor->nextBlockHeader(blockHeader, [&](bcos::Error::Ptr&& error) {
+            BOOST_CHECK(!error);
+            nextPromise.set_value();
+        });
+        nextPromise.get_future().get();
+        // --------------------------------
+        // Create contract
+        // --------------------------------
+
+        std::promise<bcos::protocol::ExecutionMessage::UniquePtr> executePromise;
+        executor->executeTransaction(
+            std::move(params), [&](bcos::Error::UniquePtr&& error,
+                                   bcos::protocol::ExecutionMessage::UniquePtr&& result) {
+                BOOST_CHECK(!error);
+                executePromise.set_value(std::move(result));
+            });
+
+        auto result = executePromise.get_future().get();
+        BOOST_CHECK(result);
+        BOOST_CHECK_EQUAL(result->type(), ExecutionMessage::REVERT);
+        BOOST_CHECK_EQUAL(result->status(), (int32_t)TransactionStatus::Unknown);
+        BOOST_CHECK_EQUAL(result->contextID(), 99);
+        BOOST_CHECK_EQUAL(result->seq(), 1000);
+        BOOST_CHECK_EQUAL(result->create(), false);
+        BOOST_CHECK_EQUAL(result->newEVMContractAddress(), "");
+        BOOST_CHECK_EQUAL(result->origin(), sender);
+        BOOST_CHECK_EQUAL(result->from(), addressString);
+        BOOST_CHECK(result->to() == sender);
+
+        bcos::executor::TransactionExecutor::TwoPCParams commitParams{};
+        commitParams.number = 2;
+
+        std::promise<void> preparePromise;
+        executor->prepare(commitParams, [&](bcos::Error::Ptr&& error) {
+            BOOST_CHECK(!error);
+            preparePromise.set_value();
+        });
+        preparePromise.get_future().get();
+
+        std::promise<void> commitPromise;
+        executor->commit(commitParams, [&](bcos::Error::Ptr&& error) {
+            BOOST_CHECK(!error);
+            commitPromise.set_value();
+        });
+        commitPromise.get_future().get();
+    }
 }
 
 BOOST_AUTO_TEST_SUITE_END()

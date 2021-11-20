@@ -122,8 +122,6 @@ std::shared_ptr<PrecompiledExecResult> CNSPrecompiled::call(
     // parse function name
     uint32_t func = getParamFunc(_param);
     bytesConstRef data = getParamData(_param);
-    PRECOMPILED_LOG(TRACE) << LOG_BADGE("CNSPrecompiled") << LOG_DESC("call")
-                           << LOG_KV("func", func);
 
     auto callResult = std::make_shared<PrecompiledExecResult>();
     auto gasPricer = m_precompiledGasFactory->createPrecompiledGas();
@@ -171,7 +169,10 @@ void CNSPrecompiled::insert(const std::shared_ptr<executor::TransactionExecutive
     auto codec =
         std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     codec->decode(data, contractName, contractVersion, contractAddress, contractAbi);
-
+    PRECOMPILED_LOG(DEBUG) << LOG_BADGE("CNSPrecompiled") << LOG_DESC("insert")
+                           << LOG_KV("contractName", contractName)
+                           << LOG_KV("contractVersion", contractVersion)
+                           << LOG_KV("contractAddress", contractAddress.hex());
     int validCode =
         checkCNSParam(_executive, contractAddress, contractName, contractVersion, contractAbi);
 
@@ -224,6 +225,9 @@ void CNSPrecompiled::selectByName(const std::shared_ptr<executor::TransactionExe
     auto codec =
         std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     codec->decode(data, contractName);
+    PRECOMPILED_LOG(TRACE) << LOG_BADGE("CNSPrecompiled") << LOG_DESC("selectByName")
+                           << LOG_KV("contractName", contractName);
+
     auto table = _executive->storage().openTable(SYS_CNS);
     gasPricer->appendOperation(InterfaceOpcode::OpenTable);
     if (!table)
@@ -237,7 +241,6 @@ void CNSPrecompiled::selectByName(const std::shared_ptr<executor::TransactionExe
     // the memory is not updated here
     gasPricer->appendOperation(InterfaceOpcode::Set, keys.size());
 
-    // TODO: add traverse gas
     for (auto& key : keys)
     {
         auto index = key.find(',');
@@ -261,6 +264,8 @@ void CNSPrecompiled::selectByName(const std::shared_ptr<executor::TransactionExe
     }
     Json::FastWriter fastWriter;
     std::string str = fastWriter.write(CNSInfos);
+    PRECOMPILED_LOG(TRACE) << LOG_BADGE("CNSPrecompiled") << LOG_DESC("selectByName")
+                           << LOG_KV("selectResult", str);
     callResult->setExecResult(codec->encode(str));
 }
 
@@ -274,6 +279,9 @@ void CNSPrecompiled::selectByNameAndVersion(
     auto codec =
         std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     codec->decode(data, contractName, contractVersion);
+    PRECOMPILED_LOG(DEBUG) << LOG_BADGE("CNSPrecompiled") << LOG_DESC("selectByNameAndVersion")
+                           << LOG_KV("contractName", contractName)
+                           << LOG_KV("contractVersion", contractVersion);
     auto table = _executive->storage().openTable(SYS_CNS);
     gasPricer->appendOperation(InterfaceOpcode::OpenTable);
     if (!table)
@@ -281,7 +289,6 @@ void CNSPrecompiled::selectByNameAndVersion(
         table = _executive->storage().createTable(
             SYS_CNS, SYS_CNS_FIELD_ADDRESS + "," + SYS_CNS_FIELD_ABI);
     }
-    Json::Value CNSInfos(Json::arrayValue);
     boost::trim(contractName);
     boost::trim(contractVersion);
     auto entry = table->getRow(contractName + "," + contractVersion);
@@ -298,6 +305,9 @@ void CNSPrecompiled::selectByNameAndVersion(
         gasPricer->appendOperation(InterfaceOpcode::Select, entry->capacityOfHashField());
         Address contractAddress = toAddress(std::string(entry->getField(SYS_CNS_FIELD_ADDRESS)));
         std::string abi = std::string(entry->getField(SYS_CNS_FIELD_ABI));
+        PRECOMPILED_LOG(TRACE) << LOG_BADGE("CNSPrecompiled") << LOG_DESC("selectByNameAndVersion")
+                   << LOG_KV("contractAddress", contractAddress.hex())
+                   << LOG_KV("abi", abi);
         callResult->setExecResult(codec->encode(contractAddress, abi));
     }
 }
@@ -312,6 +322,9 @@ void CNSPrecompiled::getContractAddress(
     auto codec =
         std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
     codec->decode(data, contractName, contractVersion);
+    PRECOMPILED_LOG(DEBUG) << LOG_BADGE("CNSPrecompiled") << LOG_DESC("getContractAddress")
+                           << LOG_KV("contractName", contractName)
+                           << LOG_KV("contractVersion", contractVersion);
     auto table = _executive->storage().openTable(SYS_CNS);
     if (!table)
     {
