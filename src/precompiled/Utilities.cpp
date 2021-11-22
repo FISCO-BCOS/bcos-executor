@@ -677,6 +677,9 @@ bool precompiled::recursiveBuildDir(
         // not exist, then create table and write in parent dir
         auto newFileEntry = table->newEntry();
         newFileEntry.setField(FS_FIELD_TYPE, FS_TYPE_DIR);
+        newFileEntry.setField(FS_ACL_TYPE, "0");
+        newFileEntry.setField(FS_ACL_WHITE, "");
+        newFileEntry.setField(FS_ACL_BLACK, "");
         newFileEntry.setField(FS_FIELD_EXTRA, "");
         table->setRow(dir, std::move(newFileEntry));
 

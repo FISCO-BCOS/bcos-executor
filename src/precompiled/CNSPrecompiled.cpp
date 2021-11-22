@@ -306,8 +306,8 @@ void CNSPrecompiled::selectByNameAndVersion(
         Address contractAddress = toAddress(std::string(entry->getField(SYS_CNS_FIELD_ADDRESS)));
         std::string abi = std::string(entry->getField(SYS_CNS_FIELD_ABI));
         PRECOMPILED_LOG(TRACE) << LOG_BADGE("CNSPrecompiled") << LOG_DESC("selectByNameAndVersion")
-                   << LOG_KV("contractAddress", contractAddress.hex())
-                   << LOG_KV("abi", abi);
+                               << LOG_KV("contractAddress", contractAddress.hex())
+                               << LOG_KV("abi", abi);
         callResult->setExecResult(codec->encode(contractAddress, abi));
     }
 }

@@ -80,11 +80,19 @@ const char METHOD_AUTH_TYPE[] = "method_auth_type";
 const char METHOD_AUTH_WHITE[] = "method_auth_white";
 const char METHOD_AUTH_BLACK[] = "method_auth_black";
 
+/// deploy auth
+const char DEPLOY_TYPE[] = "deploy_type";
+const char DEPLOY_AUTH_WHITE[] = "deploy_auth_white";
+const char DEPLOY_AUTH_BLACK[] = "deploy_auth_black";
+
 /// FileSystem table keys
 static const char* const FS_KEY_NAME = "name";
 static const char* const FS_FIELD_TYPE = "type";
+static const char* const FS_ACL_TYPE = "acl_type";
+static const char* const FS_ACL_WHITE = "acl_white";
+static const char* const FS_ACL_BLACK = "acl_black";
 static const char* const FS_FIELD_EXTRA = "extra";
-static const char* const FS_FIELD_COMBINED = "type,extra";
+static const char* const FS_FIELD_COMBINED = "type,acl_type,acl_white,acl_black,extra";
 
 /// FileSystem file type
 static const char* const FS_TYPE_DIR = "directory";

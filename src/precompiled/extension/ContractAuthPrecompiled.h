@@ -54,6 +54,9 @@ public:
     bool checkMethodAuth(const std::shared_ptr<executor::TransactionExecutive>& _executive,
         const std::string& path, bytesRef func, const Address& account);
 
+    bool checkDeployAuth(
+        const std::shared_ptr<executor::TransactionExecutive>& _executive, const Address& account);
+
 private:
     void getAdmin(const std::shared_ptr<executor::TransactionExecutive>& _executive,
         bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
@@ -82,9 +85,43 @@ private:
         bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
         bool _isClose, const std::string& _sender, const PrecompiledGas::Ptr& gasPricer);
 
+    void getDeployType(const std::shared_ptr<executor::TransactionExecutive>& _executive,
+        const std::shared_ptr<PrecompiledExecResult>& callResult,
+        const PrecompiledGas::Ptr& gasPricer);
+
+    void setDeployType(const std::shared_ptr<executor::TransactionExecutive>& _executive,
+        bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
+        const std::string& _sender, const PrecompiledGas::Ptr& gasPricer);
+
+    void openDeployAuth(const std::shared_ptr<executor::TransactionExecutive>& _executive,
+        bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
+        const std::string& _sender, const PrecompiledGas::Ptr& gasPricer);
+
+    void closeDeployAuth(const std::shared_ptr<executor::TransactionExecutive>& _executive,
+        bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
+        const std::string& _sender, const PrecompiledGas::Ptr& gasPricer);
+
+    void hasDeployAuth(const std::shared_ptr<executor::TransactionExecutive>& _executive,
+        bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult);
+
+    void setDeployAuth(const std::shared_ptr<executor::TransactionExecutive>& _executive,
+        bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
+        bool _isClose, const std::string& _sender, const PrecompiledGas::Ptr& gasPricer);
+
+    void initCommittee(std::shared_ptr<executor::TransactionExecutive> _executive,
+        bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
+        const std::string& _origin, const std::string& _sender,
+        const PrecompiledGas::Ptr& gasPricer);
+
     s256 getMethodAuthType(std::optional<storage::Table> _table, bytesConstRef _func);
 
-    inline bool checkSender(std::string_view _sender) { return (_sender.substr(0, 5) == "/sys/"); }
+    u256 getDeployAuthType(std::optional<storage::Table> _table);
+
+    // FIXME: move it to framework
+    inline bool checkSender(std::string_view _sender)
+    {
+        return _sender == "0000000000000000000000000000000000010001";
+    }
 
     inline std::string getAuthTableName(const std::string& _name)
     {

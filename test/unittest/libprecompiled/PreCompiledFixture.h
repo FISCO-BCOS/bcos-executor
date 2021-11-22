@@ -154,12 +154,26 @@ public:
                 promise3.set_value(std::move(_table));
             });
         promise3.get_future().get();
+
+        // create /apps table
+        std::promise<std::optional<Table>> promise4;
+        storage->asyncCreateTable("/apps", FS_FIELD_COMBINED,
+            [&](Error::UniquePtr&& _error, std::optional<Table>&& _table) {
+                BOOST_CHECK(!_error);
+                promise4.set_value(std::move(_table));
+            });
+        promise4.get_future().get();
+
         auto rootTable = promise2.get_future().get();
         assert(rootTable != std::nullopt);
         auto dirEntry = rootTable->newEntry();
         dirEntry.setField(FS_FIELD_TYPE, FS_TYPE_DIR);
+        dirEntry.setField(FS_ACL_TYPE , "0");
+        dirEntry.setField(FS_ACL_WHITE, "");
+        dirEntry.setField(FS_ACL_BLACK, "");
         dirEntry.setField(FS_FIELD_EXTRA, "");
         rootTable->setRow(getDirBaseName("/tables"), dirEntry);
+        rootTable->setRow(getDirBaseName("/apps"), dirEntry);
         rootTable->setRow("/", dirEntry);
     }
 

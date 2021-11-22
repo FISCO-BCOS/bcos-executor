@@ -113,6 +113,9 @@ struct DagExecutorFixture
         assert(rootTable != std::nullopt);
         auto dirEntry = rootTable->newEntry();
         dirEntry.setField(FS_FIELD_TYPE, FS_TYPE_DIR);
+        dirEntry.setField(FS_ACL_TYPE , "0");
+        dirEntry.setField(FS_ACL_WHITE, "");
+        dirEntry.setField(FS_ACL_BLACK, "");
         dirEntry.setField(FS_FIELD_EXTRA, "");
         rootTable->setRow("apps", dirEntry);
         rootTable->setRow("/", dirEntry);

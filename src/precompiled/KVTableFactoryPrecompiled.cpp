@@ -148,6 +148,9 @@ void KVTableFactoryPrecompiled::createTable(
         assert(parentTable != std::nullopt);
         auto newEntry = parentTable->newEntry();
         newEntry.setField(FS_FIELD_TYPE, FS_TYPE_CONTRACT);
+        newEntry.setField(FS_ACL_TYPE, "0");
+        newEntry.setField(FS_ACL_WHITE, "");
+        newEntry.setField(FS_ACL_BLACK, "");
         newEntry.setField(FS_FIELD_EXTRA, "");
         parentTable->setRow(tableBaseName, newEntry);
     }
@@ -173,7 +176,7 @@ void KVTableFactoryPrecompiled::get(
                                << LOG_KV("tableName", tableName);
         BOOST_THROW_EXCEPTION(PrecompiledError() << errinfo_comment(tableName + " does not exist"));
     }
-    auto entry = _executive->storage().getRow(tableName, key);
+    auto entry = table->getRow(key);
     gasPricer->appendOperation(InterfaceOpcode::Select, 1);
     EntryTuple entryTuple({});
     if (entry == std::nullopt)
@@ -219,7 +222,7 @@ void KVTableFactoryPrecompiled::set(
             CODE_TABLE_KEY_VALUE_LENGTH_OVERFLOW);
     }
     transferEntry(entryTuple, entry);
-    _executive->storage().setRow(tableName, key, entry);
+    table->setRow(key, entry);
     callResult->setExecResult(codec->encode(s256(1)));
     gasPricer->setMemUsed(entry.capacityOfHashField());
     gasPricer->appendOperation(InterfaceOpcode::Insert, 1);

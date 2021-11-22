@@ -209,6 +209,9 @@ void TableFactoryPrecompiled::createTable(
             auto parentTable = _executive->storage().openTable(parentDir);
             auto newEntry = parentTable->newEntry();
             newEntry.setField(FS_FIELD_TYPE, FS_TYPE_CONTRACT);
+            newEntry.setField(FS_ACL_TYPE, "0");
+            newEntry.setField(FS_ACL_WHITE, "");
+            newEntry.setField(FS_ACL_BLACK, "");
             newEntry.setField(FS_FIELD_EXTRA, "");
             parentTable->setRow(tableBaseName, std::move(newEntry));
         }
@@ -253,9 +256,10 @@ void TableFactoryPrecompiled::select(
     std::set<std::string> tableKeySet{tableKeyList.begin(), tableKeyList.end()};
     tableKeySet.insert(eqKeyList.begin(), eqKeyList.end());
     std::vector<EntryTuple> entries({});
+    auto table = _executive->storage().openTable(tableName);
     for (auto& key : tableKeySet)
     {
-        auto entry = _executive->storage().getRow(tableName, key);
+        auto entry = table->getRow(key);
         if (entryCondition->filter(entry))
         {
             std::vector<std::tuple<std::string, std::string>> kvEntry({});
@@ -290,7 +294,6 @@ void TableFactoryPrecompiled::insert(
 
     std::string keyField, valueFields;
     std::tie(keyField, valueFields) = getTableField(_executive, tableName);
-    // auto table = _executive->storage().openTable(tableName);
     auto table = _executive->storage().openTable(tableName);
     auto tableInfo = table->tableInfo();
 

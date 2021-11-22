@@ -104,7 +104,7 @@ public:
     int64_t timestamp() const;
     int64_t blockGasLimit() const
     {
-        return 30000000;  // TODO: add config
+        return 3000000000;  // TODO: add config
     }
 
     bool isPermitted();
