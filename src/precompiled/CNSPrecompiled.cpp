@@ -35,6 +35,8 @@ const char* const CNS_METHOD_SLT_STR = "selectByName(string)";
 const char* const CNS_METHOD_SLT_STR2 = "selectByNameAndVersion(string,string)";
 const char* const CNS_METHOD_GET_CONTRACT_ADDRESS = "getContractAddress(string,string)";
 
+const char* const CNS_METHOD_INS_STR4_WASM = "insert(string,string,string,string)";
+
 CNSPrecompiled::CNSPrecompiled(crypto::Hash::Ptr _hashImpl) : Precompiled(_hashImpl)
 {
     name2Selector[CNS_METHOD_INS_STR4] = getFuncSelector(CNS_METHOD_INS_STR4, _hashImpl);
@@ -42,6 +44,8 @@ CNSPrecompiled::CNSPrecompiled(crypto::Hash::Ptr _hashImpl) : Precompiled(_hashI
     name2Selector[CNS_METHOD_SLT_STR2] = getFuncSelector(CNS_METHOD_SLT_STR2, _hashImpl);
     name2Selector[CNS_METHOD_GET_CONTRACT_ADDRESS] =
         getFuncSelector(CNS_METHOD_GET_CONTRACT_ADDRESS, _hashImpl);
+
+    name2Selector[CNS_METHOD_INS_STR4_WASM] = getFuncSelector(CNS_METHOD_INS_STR4_WASM, _hashImpl);
 }
 
 std::string CNSPrecompiled::toString()
@@ -51,13 +55,13 @@ std::string CNSPrecompiled::toString()
 
 // check param of the cns
 int CNSPrecompiled::checkCNSParam(TransactionExecutive::Ptr _executive,
-    Address const& _contractAddress, std::string& _contractName, std::string& _contractVersion,
+    std::string const& _contractAddress, std::string& _contractName, std::string& _contractVersion,
     std::string const& _contractAbi)
 {
     boost::trim(_contractName);
     boost::trim(_contractVersion);
     // check the status of the contract(only print the error message to the log)
-    std::string tableName = USER_APPS_PREFIX + _contractAddress.hex();
+    std::string tableName = USER_APPS_PREFIX + _contractAddress;
     ContractStatus contractStatus = getContractStatus(_executive, tableName);
 
     if (contractStatus != ContractStatus::Available)
@@ -68,24 +72,24 @@ int CNSPrecompiled::checkCNSParam(TransactionExecutive::Ptr _executive,
         {
         case ContractStatus::Frozen:
             errorMessage << "\"" << _contractName
-                         << "\" has been frozen, contractAddress = " << _contractAddress.hex();
+                         << "\" has been frozen, contractAddress = " << _contractAddress;
             break;
         case ContractStatus::AddressNonExistent:
             errorMessage << "the contract \"" << _contractName << "\" with address "
-                         << _contractAddress.hex() << " does not exist";
+                         << _contractAddress<< " does not exist";
             break;
         case ContractStatus::NotContractAddress:
-            errorMessage << "invalid address " << _contractAddress.hex()
+            errorMessage << "invalid address " << _contractAddress
                          << ", please make sure it's a contract address";
             break;
         default:
             errorMessage << "invalid contract \"" << _contractName << "\" with address "
-                         << _contractAddress.hex()
+                         << _contractAddress
                          << ", error code:" << std::to_string(contractStatus);
             break;
         }
         PRECOMPILED_LOG(INFO) << LOG_BADGE("CNSPrecompiled") << LOG_DESC(errorMessage.str())
-                              << LOG_KV("contractAddress", _contractAddress.hex())
+                              << LOG_KV("contractAddress", _contractAddress)
                               << LOG_KV("contractName", _contractName);
     }
     if (_contractVersion.size() > CNS_VERSION_MAX_LENGTH)
@@ -93,7 +97,7 @@ int CNSPrecompiled::checkCNSParam(TransactionExecutive::Ptr _executive,
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("CNSPrecompiled")
                                << LOG_DESC("version length overflow 128")
                                << LOG_KV("contractName", _contractName)
-                               << LOG_KV("address", _contractAddress.hex())
+                               << LOG_KV("address", _contractAddress)
                                << LOG_KV("version", _contractVersion);
         return CODE_VERSION_LENGTH_OVERFLOW;
     }
@@ -128,7 +132,7 @@ std::shared_ptr<PrecompiledExecResult> CNSPrecompiled::call(
 
     gasPricer->setMemUsed(_param.size());
 
-    if (func == name2Selector[CNS_METHOD_INS_STR4])
+    if (func == name2Selector[CNS_METHOD_INS_STR4] || func == name2Selector[CNS_METHOD_INS_STR4_WASM])
     {
         // insert(name, version, address, abi), 4 fields in table, the key of table is name field
         insert(_executive, data, callResult, gasPricer);
@@ -164,15 +168,24 @@ void CNSPrecompiled::insert(const std::shared_ptr<executor::TransactionExecutive
 {
     // insert(name, version, address, abi), 4 fields in table, the key of table is name field
     std::string contractName, contractVersion, contractAbi;
-    Address contractAddress;
+    std::string contractAddress;
     auto blockContext = _executive->blockContext().lock();
     auto codec =
         std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
-    codec->decode(data, contractName, contractVersion, contractAddress, contractAbi);
+    if (blockContext->isWasm())
+    {
+        codec->decode(data, contractName, contractVersion, contractAddress, contractAbi);
+    }
+    else
+    {
+        Address address;
+        codec->decode(data, contractName, contractVersion, address, contractAbi);
+        contractAddress = address.hex();
+    }
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("CNSPrecompiled") << LOG_DESC("insert")
                            << LOG_KV("contractName", contractName)
                            << LOG_KV("contractVersion", contractVersion)
-                           << LOG_KV("contractAddress", contractAddress.hex());
+                           << LOG_KV("contractAddress", contractAddress);
     int validCode =
         checkCNSParam(_executive, contractAddress, contractName, contractVersion, contractAbi);
 
@@ -190,7 +203,7 @@ void CNSPrecompiled::insert(const std::shared_ptr<executor::TransactionExecutive
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("CNSPrecompiled")
                                << LOG_DESC("address and version exist")
                                << LOG_KV("contractName", contractName)
-                               << LOG_KV("address", contractAddress.hex())
+                               << LOG_KV("address", contractAddress)
                                << LOG_KV("version", contractVersion);
         gasPricer->appendOperation(InterfaceOpcode::Select, 1);
         result = CODE_ADDRESS_AND_VERSION_EXIST;
@@ -198,13 +211,13 @@ void CNSPrecompiled::insert(const std::shared_ptr<executor::TransactionExecutive
     else if (validCode < 0)
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("CNSPrecompiled") << LOG_DESC("address invalid")
-                               << LOG_KV("address", contractAddress.hex());
+                               << LOG_KV("address", contractAddress);
         result = validCode;
     }
     else
     {
         auto newEntry = table->newEntry();
-        newEntry.setField(SYS_CNS_FIELD_ADDRESS, contractAddress.hex());
+        newEntry.setField(SYS_CNS_FIELD_ADDRESS, contractAddress);
         newEntry.setField(SYS_CNS_FIELD_ABI, contractAbi);
         table->setRow(contractName + "," + contractVersion, newEntry);
         gasPricer->updateMemUsed(1);
@@ -274,6 +287,7 @@ void CNSPrecompiled::selectByNameAndVersion(
     const std::shared_ptr<PrecompiledExecResult>& callResult, const PrecompiledGas::Ptr& gasPricer)
 {
     // selectByNameAndVersion(string,string) returns(address,string)
+    // selectByNameAndVersion(string,string) returns(string,string) wasm
     std::string contractName, contractVersion;
     auto blockContext = _executive->blockContext().lock();
     auto codec =
@@ -298,17 +312,31 @@ void CNSPrecompiled::selectByNameAndVersion(
                                << LOG_DESC("can't get cns selectByNameAndVersion")
                                << LOG_KV("contractName", contractName)
                                << LOG_KV("contractVersion", contractVersion);
-        callResult->setExecResult(codec->encode(Address(), std::string("")));
+        if (blockContext->isWasm())
+        {
+            callResult->setExecResult(codec->encode(std::string(""), std::string("")));
+        }
+        else
+        {
+            callResult->setExecResult(codec->encode(Address(), std::string("")));
+        }
     }
     else
     {
         gasPricer->appendOperation(InterfaceOpcode::Select, entry->capacityOfHashField());
-        Address contractAddress = toAddress(std::string(entry->getField(SYS_CNS_FIELD_ADDRESS)));
         std::string abi = std::string(entry->getField(SYS_CNS_FIELD_ABI));
+        std::string contractAddress = std::string(entry->getField(SYS_CNS_FIELD_ADDRESS));
+        if (blockContext->isWasm())
+        {
+            callResult->setExecResult(codec->encode(contractAddress, abi));
+        }
+        else
+        {
+            callResult->setExecResult(codec->encode(toAddress(contractAddress), abi));
+        }
         PRECOMPILED_LOG(TRACE) << LOG_BADGE("CNSPrecompiled") << LOG_DESC("selectByNameAndVersion")
-                               << LOG_KV("contractAddress", contractAddress.hex())
+                               << LOG_KV("contractAddress", contractAddress)
                                << LOG_KV("abi", abi);
-        callResult->setExecResult(codec->encode(contractAddress, abi));
     }
 }
 
@@ -317,6 +345,7 @@ void CNSPrecompiled::getContractAddress(
     const std::shared_ptr<PrecompiledExecResult>& callResult, const PrecompiledGas::Ptr& gasPricer)
 {
     // getContractAddress(string,string) returns(address)
+    // getContractAddress(string,string) returns(string) wasm
     std::string contractName, contractVersion;
     auto blockContext = _executive->blockContext().lock();
     auto codec =
@@ -342,12 +371,26 @@ void CNSPrecompiled::getContractAddress(
                                << LOG_DESC("can't get cns selectByNameAndVersion")
                                << LOG_KV("contractName", contractName)
                                << LOG_KV("contractVersion", contractVersion);
-        callResult->setExecResult(codec->encode(Address()));
+        if (blockContext->isWasm())
+        {
+            callResult->setExecResult(codec->encode(std::string(""), std::string("")));
+        }
+        else
+        {
+            callResult->setExecResult(codec->encode(Address(), std::string("")));
+        }
     }
     else
     {
         gasPricer->appendOperation(InterfaceOpcode::Select, entry->capacityOfHashField());
-        Address contractAddress = toAddress(std::string(entry->getField(SYS_CNS_FIELD_ADDRESS)));
-        callResult->setExecResult(codec->encode(contractAddress));
+        std::string contractAddress = std::string(entry->getField(SYS_CNS_FIELD_ADDRESS));
+        if (blockContext->isWasm())
+        {
+            callResult->setExecResult(codec->encode(contractAddress));
+        }
+        else
+        {
+            callResult->setExecResult(codec->encode(toAddress(contractAddress)));
+        }
     }
 }
