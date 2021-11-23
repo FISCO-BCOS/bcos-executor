@@ -936,6 +936,51 @@ void TransactionExecutor::reset(std::function<void(bcos::Error::Ptr)> callback)
     callback(nullptr);
 }
 
+void TransactionExecutor::getCode(
+    std::string_view contract, std::function<void(bcos::Error::Ptr, bcos::bytes)> callback)
+{
+    EXECUTOR_LOG(INFO) << "Get code request" << LOG_KV("Contract", contract);
+
+    BlockContext::Ptr blockContext;
+
+    storage::StorageInterface::Ptr storage;
+
+    if (m_cachedStorage)
+    {
+        storage = m_cachedStorage;
+    }
+    else
+    {
+        storage = m_backendStorage;
+    }
+
+    auto tableName = getContractTableName(contract);
+    storage->asyncGetRow(tableName, "code",
+        [callback = std::move(callback)](Error::UniquePtr error, std::optional<Entry> entry) {
+            if (error)
+            {
+                EXECUTOR_LOG(ERROR) << "Get code error: " << boost::diagnostic_information(*error);
+
+                callback(BCOS_ERROR_WITH_PREV_UNIQUE_PTR(-1, "Get code error", *error), {});
+                return;
+            }
+
+            if (!entry)
+            {
+                EXECUTOR_LOG(WARNING) << "Get code success, empty code";
+
+                callback(nullptr, bcos::bytes());
+                return;
+            }
+
+            auto code = entry->getField(0);
+            EXECUTOR_LOG(INFO) << "Get code success" << LOG_KV("code size", code.size());
+
+            auto codeBytes = bcos::bytes(code.begin(), code.end());
+            callback(nullptr, std::move(codeBytes));
+        });
+}
+
 void TransactionExecutor::asyncExecute(std::shared_ptr<BlockContext> blockContext,
     bcos::protocol::ExecutionMessage::UniquePtr input, bool staticCall,
     std::function<void(bcos::Error::UniquePtr&&, bcos::protocol::ExecutionMessage::UniquePtr&&)>
