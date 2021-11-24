@@ -87,8 +87,6 @@ endfunction()
 
 add_subdirectory(src)
 
-set(EXECUTOR_TARGET "bcos-executor")
-
 install(
     DIRECTORY "include/bcos-executor/"
     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${CMAKE_PROJECT_NAME}"
