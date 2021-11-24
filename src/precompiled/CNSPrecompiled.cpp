@@ -373,11 +373,11 @@ void CNSPrecompiled::getContractAddress(
                                << LOG_KV("contractVersion", contractVersion);
         if (blockContext->isWasm())
         {
-            callResult->setExecResult(codec->encode(std::string(""), std::string("")));
+            callResult->setExecResult(codec->encode(std::string("")));
         }
         else
         {
-            callResult->setExecResult(codec->encode(Address(), std::string("")));
+            callResult->setExecResult(codec->encode(Address()));
         }
     }
     else

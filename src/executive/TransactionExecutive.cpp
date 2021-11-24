@@ -907,7 +907,7 @@ void TransactionExecutive::creatAuthTable(
 {
     // Create the access table
     //  /sys/ not create
-    if (_tableName.substr(0, 4) == "/sys/")
+    if (_tableName.substr(0, 5) == "/sys/")
         return;
     auto authTableName = std::string(_tableName).append(CONTRACT_SUFFIX);
     // if contract external create contract, then inheritance admin

@@ -48,9 +48,6 @@ const char* const AUTH_OPEN_DEPLOY_ACCOUNT = "openDeployAuth(address)";
 const char* const AUTH_CLOSE_DEPLOY_ACCOUNT = "closeDeployAuth(address)";
 const char* const AUTH_CHECK_DEPLOY_ACCESS = "hasDeployAuth(address)";
 
-/// initialize committee in first init, this method can only call once
-const char* const AUTH_INIT_COMMITTEE = "initCommittee()";
-
 ContractAuthPrecompiled::ContractAuthPrecompiled(crypto::Hash::Ptr _hashImpl)
   : Precompiled(_hashImpl)
 {
@@ -87,8 +84,6 @@ ContractAuthPrecompiled::ContractAuthPrecompiled(crypto::Hash::Ptr _hashImpl)
         getFuncSelector(AUTH_CLOSE_DEPLOY_ACCOUNT, _hashImpl);
     name2Selector[AUTH_CHECK_DEPLOY_ACCESS] = getFuncSelector(AUTH_CHECK_DEPLOY_ACCESS, _hashImpl);
 
-    /// init committee
-    name2Selector[AUTH_INIT_COMMITTEE] = getFuncSelector(AUTH_INIT_COMMITTEE, _hashImpl);
 }
 
 std::shared_ptr<PrecompiledExecResult> ContractAuthPrecompiled::call(
@@ -158,12 +153,6 @@ std::shared_ptr<PrecompiledExecResult> ContractAuthPrecompiled::call(
     else if (func == name2Selector[AUTH_CHECK_DEPLOY_ACCESS])
     {
         hasDeployAuth(_executive, data, callResult);
-    }
-    else if (func == name2Selector[AUTH_INIT_COMMITTEE])
-    {
-        // initCommittee()
-        // Note: this method can only call once in initialization
-        initCommittee(_executive, data, callResult, _origin, _sender, gasPricer);
     }
     else
     {
@@ -734,31 +723,4 @@ bool ContractAuthPrecompiled::checkDeployAuth(
         return type == (int)AuthType::BLACK_LIST_MODE;
     }
     return aclMap.at(_account);
-}
-
-void ContractAuthPrecompiled::initCommittee(
-    std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef& data,
-    const std::shared_ptr<PrecompiledExecResult>& callResult, const std::string& _origin,
-    const std::string& _sender, const PrecompiledGas::Ptr& gasPricer)
-{
-    (void)_executive;
-    (void)data;
-    (void)callResult;
-    (void)_origin;
-    (void)_sender;
-    (void)gasPricer;
-    // check first init
-    // check _sender == _origin
-    // get code in /sys/committeeManager
-    // FIXME: implement this
-    //    auto callParameters = std::make_unique<CallParameters>(CallParameters::Type::MESSAGE);
-    //    callParameters->senderAddress = _sender;
-    //    callParameters->origin = _origin;
-    //    callParameters->receiveAddress = "";
-    //    callParameters->create = true;
-    //    std::string authTableName = "";
-    //    auto hostContext =
-    //        std::make_unique<HostContext>(std::move(callParameters),
-    //            _executive, authTableName);
-    //    _executive->go(*hostContext);
 }

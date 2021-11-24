@@ -216,7 +216,7 @@ private:
         if (blockContext->isAuthCheck())
         {
             std::stringstream prefix;
-            prefix << std::setfill('0') << std::setw(35) << 1;
+            prefix << std::setfill('0') << std::setw(36) << 1;
             if (_address.find(prefix.str()) == 0)
             {
                 return std::string("/sys/").append(address);

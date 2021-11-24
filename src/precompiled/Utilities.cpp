@@ -260,6 +260,11 @@ bcos::precompiled::ContractStatus bcos::precompiled::getContractStatus(
     }
 
     auto codeHashEntry = table->getRow(executor::ACCOUNT_CODE_HASH);
+    if (!codeHashEntry)
+    {
+        // this may happen when register cns in contract constructor
+        return ContractStatus::Available;
+    }
     auto codeHashStr = std::string(codeHashEntry->getField(executor::STORAGE_VALUE));
     auto codeHash = HashType(codeHashStr, FixedBytes<32>::FromBinary);
 
