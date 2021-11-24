@@ -272,7 +272,6 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
 
     // set "fisco bcos"
     bytes txInput;
-    txInput.push_back(1);
     char inputBytes[] = "4ed3885e28666973636f2062636f73";
     boost::algorithm::unhex(
         &inputBytes[0], inputBytes + sizeof(inputBytes) - 1, std::back_inserter(txInput));
@@ -304,7 +303,6 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
 
     // read "fisco bcos"
     bytes queryBytes;
-    queryBytes.push_back(1);
 
     char inputBytes2[] = "6d4ce63c";
     boost::algorithm::unhex(
@@ -454,7 +452,6 @@ BOOST_AUTO_TEST_CASE(deployAndCall_100)
     auto helloSet = [&](size_t i) -> int64_t {
         // set "fisco bcos"
         bytes txInput;
-        txInput.push_back(1);
         boost::algorithm::unhex(
             &inputBytes[0], inputBytes + sizeof(inputBytes) - 1, std::back_inserter(txInput));
         auto params2 = std::make_unique<NativeExecutionMessage>();
@@ -487,7 +484,6 @@ BOOST_AUTO_TEST_CASE(deployAndCall_100)
     auto helloGet = [&](size_t i, const string& ret = string("fisco bcos")) -> int64_t {
         // read "fisco bcos"
         bytes queryBytes;
-        queryBytes.push_back(1);
 
         char inputBytes2[] = "6d4ce63c";
         boost::algorithm::unhex(
@@ -690,7 +686,6 @@ BOOST_AUTO_TEST_CASE(externalCall)
         params->setCreate(false);
 
         bytes data;
-        data.push_back(1);
         auto encodedParams = codec->encodeWithSig("set(string)", string("fisco bcos"));
         data.insert(data.end(), encodedParams.begin(), encodedParams.end());
 
@@ -717,7 +712,7 @@ BOOST_AUTO_TEST_CASE(externalCall)
 
         BOOST_CHECK(result);
         BOOST_CHECK_EQUAL(result->type(), ExecutionMessage::MESSAGE);
-        BOOST_CHECK_EQUAL(result->data().size(), 16);
+        BOOST_CHECK_EQUAL(result->data().size(), 15);
         BOOST_CHECK_EQUAL(result->contextID(), 300);
         BOOST_CHECK_EQUAL(result->seq(), 1003);
         BOOST_CHECK_EQUAL(result->create(), false);
@@ -827,7 +822,6 @@ BOOST_AUTO_TEST_CASE(performance)
         std::string to = "bob";
         uint32_t amount = 1;
         bytes data;
-        data.push_back(1);
         auto encodedParams =
             codec->encodeWithSig("transfer(string,string,uint32)", from, to, amount);
         data.insert(data.end(), encodedParams.begin(), encodedParams.end());
@@ -863,7 +857,6 @@ BOOST_AUTO_TEST_CASE(performance)
 
     {
         bytes queryBytes;
-        queryBytes.push_back(1);
 
         auto encodedParams = codec->encodeWithSig("query(string)", string("alice"));
         queryBytes.insert(queryBytes.end(), encodedParams.begin(), encodedParams.end());

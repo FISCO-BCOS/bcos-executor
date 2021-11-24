@@ -305,7 +305,6 @@ BOOST_AUTO_TEST_CASE(callWasmConcurrentlyTransfer)
             for (size_t i = 0; i < expected.size(); ++i)
             {
                 bytes queryBytes;
-                queryBytes.push_back(1);
                 auto encodedParams =
                     codec->encodeWithSig("query(string)", std::get<0>(expected[i]));
                 queryBytes.insert(queryBytes.end(), encodedParams.begin(), encodedParams.end());
@@ -510,7 +509,6 @@ BOOST_AUTO_TEST_CASE(callWasmConcurrentlyHelloWorld)
 
 
             bytes getBytes;
-            getBytes.push_back(1);
 
             auto encodedParams = codec->encodeWithSig("get()");
             getBytes.insert(getBytes.end(), encodedParams.begin(), encodedParams.end());
