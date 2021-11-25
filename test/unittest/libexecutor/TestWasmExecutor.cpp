@@ -303,7 +303,6 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
 
     // read "fisco bcos"
     bytes queryBytes;
-
     char inputBytes2[] = "6d4ce63c";
     boost::algorithm::unhex(
         &inputBytes2[0], inputBytes2 + sizeof(inputBytes2) - 1, std::back_inserter(queryBytes));
@@ -315,7 +314,7 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
     params3->setFrom(std::string(sender));
     params3->setTo(std::string(address));
     params3->setOrigin(std::string(sender));
-    params3->setStaticCall(false);
+    params3->setStaticCall(true);
     params3->setGasAvailable(gas);
     params3->setData(std::move(queryBytes));
     params3->setType(ExecutionMessage::MESSAGE);

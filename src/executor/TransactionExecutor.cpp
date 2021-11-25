@@ -1551,10 +1551,16 @@ std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
     }
     else
     {
-        assert(input.data().size() > 0);
         callParameters->create = false;
         input.setCreate(callParameters->create);
-        callParameters->data = input.takeData();
+        if (staticCall)
+        {
+            callParameters->data = input.data().getCroppedData(1).toBytes();
+        }
+        else
+        {
+            callParameters->data = input.takeData();
+        }
     }
 
     callParameters->gas = input.gasAvailable();
