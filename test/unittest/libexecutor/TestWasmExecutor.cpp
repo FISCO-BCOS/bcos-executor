@@ -133,7 +133,7 @@ struct WasmExecutorFixture
         assert(rootTable != std::nullopt);
         auto dirEntry = rootTable->newEntry();
         dirEntry.setField(FS_FIELD_TYPE, FS_TYPE_DIR);
-        dirEntry.setField(FS_ACL_TYPE , "0");
+        dirEntry.setField(FS_ACL_TYPE, "0");
         dirEntry.setField(FS_ACL_WHITE, "");
         dirEntry.setField(FS_ACL_BLACK, "");
         dirEntry.setField(FS_FIELD_EXTRA, "");
@@ -721,8 +721,13 @@ BOOST_AUTO_TEST_CASE(externalCall)
         BOOST_CHECK_EQUAL(result->from(), std::string(bobAddress));
         BOOST_CHECK_EQUAL(result->to(), aliceAddress);
         BOOST_CHECK_LT(result->gasAvailable(), gas);
+        BOOST_CHECK_GT(result->keyLocks().size(), 0);
 
         result->setSeq(1004);
+
+        // clear the keylock
+        result->setKeyLocks({});
+
         std::promise<ExecutionMessage::UniquePtr> executePromise2;
         executor->executeTransaction(
             std::move(result), [&](bcos::Error::UniquePtr&& error,

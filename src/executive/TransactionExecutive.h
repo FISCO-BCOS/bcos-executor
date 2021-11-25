@@ -161,11 +161,6 @@ public:
     std::shared_ptr<precompiled::PrecompiledExecResult> execPrecompiled(const std::string& address,
         bytesConstRef param, const std::string& origin, const std::string& sender);
 
-    void setInitKeyLocks(std::vector<std::string> initKeyLocks)
-    {
-        m_initKeyLocks = std::move(initKeyLocks);
-    }
-
     void setExchangeMessage(CallParameters::UniquePtr callParameters)
     {
         m_exchangeMessage = std::move(callParameters);
@@ -242,8 +237,6 @@ private:
     int64_t m_contextID;
     int64_t m_seq;
     crypto::Hash::Ptr m_hashImpl;
-
-    std::vector<std::string> m_initKeyLocks;
 
     std::shared_ptr<wasm::GasInjector> m_gasInjector = nullptr;
 

@@ -273,11 +273,14 @@ public:
         BOOST_CHECK_EQUAL(result->from(), addressString);
         BOOST_CHECK(result->to().empty());
         BOOST_CHECK_LT(result->gasAvailable(), gas);
+        BOOST_CHECK_GT(result->keyLocks().size(), 0);
 
         // --------------------------------
         // Message 1: Create contract HelloWorld, set new seq 1001
         // --------------------------------
         result->setSeq(1001);
+        result->setKeyLocks({});
+
         h256 addressCreate2(
             "ee6f30856ad3bae00b1169808488502786a13e3c174d85682135ffd51310310e");  // ee6f30856ad3bae00b1169808488502786a13e3c
         helloAddress = addressCreate2.hex().substr(0, 40);
@@ -328,12 +331,14 @@ public:
         BOOST_CHECK_EQUAL(result3->from(), addressString);
         BOOST_CHECK_EQUAL(
             result3->to(), boost::algorithm::to_lower_copy(std::string(helloAddress)));
+        BOOST_CHECK(!result3->keyLocks().empty());
 
         // --------------------------------
         // Message 3: TestCNS call HelloWorld's getThis(),
         // set new seq 1002
         // --------------------------------
         result3->setSeq(1002);
+        result3->setKeyLocks({});
         std::promise<ExecutionMessage::UniquePtr> executePromise4;
         executor->executeTransaction(
             std::move(result3), [&](bcos::Error::UniquePtr&& error,
@@ -361,6 +366,7 @@ public:
         // set previous seq 1000
         // --------------------------------
         result4->setSeq(1000);
+        result4->setKeyLocks({});
         std::promise<ExecutionMessage::UniquePtr> executePromise5;
         executor->executeTransaction(
             std::move(result4), [&](bcos::Error::UniquePtr&& error,

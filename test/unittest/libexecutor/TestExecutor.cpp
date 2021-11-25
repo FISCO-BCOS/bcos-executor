@@ -475,6 +475,9 @@ BOOST_AUTO_TEST_CASE(externalCall)
     // --------------------------------
     result2->setSeq(1002);
 
+    // Clear the key lock to avoid effect
+    result2->setKeyLocks({});
+
     h256 addressCreate2(
         "ee6f30856ad3bae00b1169808488502786a13e3c174d85682135ffd51310310e");  // ee6f30856ad3bae00b1169808488502786a13e3c
     std::string addressString2 = addressCreate2.hex().substr(0, 40);
@@ -537,6 +540,9 @@ BOOST_AUTO_TEST_CASE(externalCall)
     // A -> B
     // --------------------------------
     result4->setSeq(1003);
+    // Clear the keylock
+    result4->setKeyLocks({});
+
     std::promise<ExecutionMessage::UniquePtr> executePromise5;
     executor->executeTransaction(std::move(result4),
         [&](bcos::Error::UniquePtr&& error, bcos::protocol::ExecutionMessage::UniquePtr&& result) {

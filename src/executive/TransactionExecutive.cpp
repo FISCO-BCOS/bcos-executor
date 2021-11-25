@@ -71,10 +71,9 @@ CallParameters::UniquePtr TransactionExecutive::start(CallParameters::UniquePtr 
             std::bind(&TransactionExecutive::externalAcquireKeyLocks, this, std::placeholders::_1),
             m_recoder);
 
-        if (!m_initKeyLocks.empty())
+        if (!callParameters->keyLocks.empty())
         {
-            m_storageWrapper->importExistsKeyLocks(m_initKeyLocks);
-            m_initKeyLocks.clear();
+            m_storageWrapper->importExistsKeyLocks(callParameters->keyLocks);
         }
 
         m_exchangeMessage = execute(std::move(callParameters));

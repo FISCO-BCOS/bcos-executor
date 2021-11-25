@@ -1034,7 +1034,6 @@ void TransactionExecutor::asyncExecute(std::shared_ptr<BlockContext> blockContex
 
                 auto executive =
                     createExecutive(blockContext, callParameters->codeAddress, contextID, seq);
-                executive->setInitKeyLocks(input->takeKeyLocks());
                 blockContext->insertExecutive(contextID, seq, {executive});
 
                 try
@@ -1083,8 +1082,6 @@ void TransactionExecutor::asyncExecute(std::shared_ptr<BlockContext> blockContex
             // new external call MESSAGE
             auto executive =
                 createExecutive(blockContext, callParameters->codeAddress, contextID, seq);
-            executive->setInitKeyLocks(input->takeKeyLocks());
-
             blockContext->insertExecutive(contextID, seq, {executive});
 
             try
@@ -1594,6 +1591,7 @@ std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
         input.setCreate(callParameters->create);
         callParameters->data = txInput.getCroppedData(1).toBytes();
     }
+    callParameters->keyLocks = input.takeKeyLocks();
 
     return callParameters;
 }
