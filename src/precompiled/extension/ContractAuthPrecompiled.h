@@ -108,11 +108,6 @@ private:
         bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
         bool _isClose, const std::string& _sender, const PrecompiledGas::Ptr& gasPricer);
 
-    void initCommittee(std::shared_ptr<executor::TransactionExecutive> _executive,
-        bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
-        const std::string& _origin, const std::string& _sender,
-        const PrecompiledGas::Ptr& gasPricer);
-
     s256 getMethodAuthType(std::optional<storage::Table> _table, bytesConstRef _func);
 
     u256 getDeployAuthType(std::optional<storage::Table> _table);

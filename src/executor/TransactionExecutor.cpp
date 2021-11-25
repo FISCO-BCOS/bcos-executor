@@ -1350,17 +1350,7 @@ std::unique_ptr<ExecutionMessage> TransactionExecutor::toExecutionResult(
     message->setSeq(executive.seq());
     message->setOrigin(std::move(params->origin));
     message->setGasAvailable(params->gas);
-
-    if (m_isWasm && params->type == CallParameters::MESSAGE)
-    {
-        bytes data = {1};
-        data.insert(data.end(), params->data.begin(), params->data.end());
-        message->setData(std::move(data));
-    }
-    else
-    {
-        message->setData(std::move(params->data));
-    }
+    message->setData(std::move(params->data));
     message->setStaticCall(params->staticCall);
     message->setCreate(params->create);
     if (params->createSalt)
@@ -1562,9 +1552,9 @@ std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
     else
     {
         assert(input.data().size() > 0);
-        callParameters->create = (input.data()[0] == 0);
+        callParameters->create = false;
         input.setCreate(callParameters->create);
-        callParameters->data = input.data().getCroppedData(1).toBytes();
+        callParameters->data = input.takeData();
     }
 
     callParameters->gas = input.gasAvailable();

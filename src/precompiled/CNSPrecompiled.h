@@ -50,7 +50,7 @@ public:
     std::string toString() override;
 
     int checkCNSParam(std::shared_ptr<executor::TransactionExecutive> _executive,
-        Address const& _contractAddress, std::string& _contractName, std::string& _contractVersion,
+        std::string const& _contractAddress, std::string& _contractName, std::string& _contractVersion,
         std::string const& _contractAbi);
 
     std::shared_ptr<PrecompiledExecResult> call(
