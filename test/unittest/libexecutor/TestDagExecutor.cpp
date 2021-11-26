@@ -143,7 +143,6 @@ BOOST_AUTO_TEST_CASE(callWasmConcurrentlyTransfer)
         R"([{"inputs":[],"type":"constructor"},{"conflictFields":[{"kind":3,"path":[0],"read_only":false,"slot":0},{"kind":3,"path":[1],"read_only":false,"slot":0}],"constant":false,"inputs":[{"internalType":"string","name":"from","type":"string"},{"internalType":"string","name":"to","type":"string"},{"internalType":"uint32","name":"amount","type":"uint32"}],"name":"transfer","outputs":[{"internalType":"bool","type":"bool"}],"type":"function"},{"constant":true,"inputs":[{"internalType":"string","name":"name","type":"string"}],"name":"query","outputs":[{"internalType":"uint32","type":"uint32"}],"type":"function"}])"));
 
     bytes input;
-    input.push_back(0);
     input.insert(input.end(), transferBin.begin(), transferBin.end());
     input.push_back(0);
 
@@ -254,7 +253,6 @@ BOOST_AUTO_TEST_CASE(callWasmConcurrentlyTransfer)
         std::string to = std::get<1>(cases[i]);
         uint32_t amount = std::get<2>(cases[i]);
         bytes input;
-        input.push_back(1);
         auto encodedParams =
             codec->encodeWithSig("transfer(string,string,uint32)", from, to, amount);
         input.insert(input.end(), encodedParams.begin(), encodedParams.end());
@@ -356,7 +354,6 @@ BOOST_AUTO_TEST_CASE(callWasmConcurrentlyHelloWorld)
         R"([{"inputs":[{"internalType":"string","name":"name","type":"string"}],"type":"constructor"},{"conflictFields":[{"kind":0,"path":[],"read_only":false,"slot":0}],"constant":false,"inputs":[{"internalType":"string","name":"name","type":"string"}],"name":"set","outputs":[],"type":"function"},{"constant":true,"inputs":[],"name":"get","outputs":[{"internalType":"string","type":"string"}],"type":"function"}])"));
 
     bytes input;
-    input.push_back(0);
     input.insert(input.end(), helloWorldBin.begin(), helloWorldBin.end());
 
     bytes constructorParam = codec->encode(string("alice"));
@@ -468,7 +465,6 @@ BOOST_AUTO_TEST_CASE(callWasmConcurrentlyHelloWorld)
     {
         std::string name = cases[i];
         bytes input;
-        input.push_back(1);
 
         auto encodedParams = codec->encodeWithSig("set(string)", name);
         input.insert(input.end(), encodedParams.begin(), encodedParams.end());
