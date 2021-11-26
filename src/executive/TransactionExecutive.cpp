@@ -367,32 +367,27 @@ std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionE
         return {nullptr, std::move(callParameters)};
     }
 
+    // BFS recursive build parent dir and write meta data in parent table
+    if (!buildBfsPath(tableName))
+    {
+        revert();
+        auto callResults = std::move(callParameters);
+        callResults->type = CallParameters::REVERT;
+        callResults->status = (int32_t)TransactionStatus::RevertInstruction;
+        callResults->message = "Error occurs in build BFS dir";
+        EXECUTIVE_LOG(ERROR) << callResults->message << LOG_KV("tableName", tableName);
+        return {nullptr, std::move(callResults)};
+    }
+    auto hostContext =
+        std::make_unique<HostContext>(std::move(callParameters), shared_from_this(), tableName);
     if (blockContext->isWasm())
     {
-        // BFS recursive build parent dir and write meta data in parent table
-        if (!buildBfsPath(tableName))
-        {
-            revert();
-            auto callResults = std::move(callParameters);
-            callResults->type = CallParameters::REVERT;
-            callResults->status = (int32_t)TransactionStatus::RevertInstruction;
-            callResults->message = "Error occurs in build BFS dir";
-            EXECUTIVE_LOG(ERROR) << callResults->message << LOG_KV("tableName", tableName);
-            return {nullptr, std::move(callResults)};
-        }
         auto extraData = std::make_unique<CallParameters>(CallParameters::MESSAGE);
         extraData->data = params;
         extraData->origin = abi;
-        auto hostContext =
-            std::make_unique<HostContext>(std::move(callParameters), shared_from_this(), tableName);
         return {std::move(hostContext), std::move(extraData)};
     }
-    else
-    {
-        auto hostContext =
-            std::make_unique<HostContext>(std::move(callParameters), shared_from_this(), tableName);
-        return {std::move(hostContext), nullptr};
-    }
+    return {std::move(hostContext), nullptr};
 }
 
 CallParameters::UniquePtr TransactionExecutive::go(
@@ -404,7 +399,7 @@ CallParameters::UniquePtr TransactionExecutive::go(
                                   const HostContext& hostContext) -> evmc_message {
             // the block number will be larger than 0,
             // can be controlled by the programmers
-            assert(blockContext.number() > 0);
+            assert(!blockContext.isAuthCheck() && blockContext.number() > 0);
 
             evmc_call_kind kind = hostContext.isCreate() ? EVMC_CREATE : EVMC_CALL;
             uint32_t flags = hostContext.staticCall() ? EVMC_STATIC : 0;
