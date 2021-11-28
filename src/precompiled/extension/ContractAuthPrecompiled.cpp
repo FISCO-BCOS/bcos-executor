@@ -88,7 +88,7 @@ ContractAuthPrecompiled::ContractAuthPrecompiled(crypto::Hash::Ptr _hashImpl)
 
 std::shared_ptr<PrecompiledExecResult> ContractAuthPrecompiled::call(
     std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _param,
-    const std::string& _origin, const std::string& _sender)
+    const std::string&, const std::string& _sender)
 {
     // parse function name
     uint32_t func = getParamFunc(_param);
@@ -406,6 +406,9 @@ bool ContractAuthPrecompiled::checkMethodAuth(
         // if black list mode, return true
         return getMethodType == (int)AuthType::BLACK_LIST_MODE;
     }
+    if(getMethodType == (int)AuthType::BLACK_LIST_MODE){
+        return !authMap.at(func.toBytes()).at(account);
+    }
     return authMap.at(func.toBytes()).at(account);
 }
 
@@ -721,6 +724,9 @@ bool ContractAuthPrecompiled::checkDeployAuth(
         // if white list mode, return false
         // if black list mode, return true
         return type == (int)AuthType::BLACK_LIST_MODE;
+    }
+    if(type == (int)AuthType::BLACK_LIST_MODE){
+        return !aclMap.at(_account);
     }
     return aclMap.at(_account);
 }

@@ -101,6 +101,57 @@ public:
         commitBlock(2);
     }
 
+    ExecutionMessage::UniquePtr deployHelloInAuthCheck(std::string newAddress,
+        BlockNumber _number, Address _address = Address())
+    {
+        bytes input;
+        boost::algorithm::unhex(helloBin, std::back_inserter(input));
+        auto tx = fakeTransaction(cryptoSuite, keyPair, "", input, 101, 100001, "1", "1");
+        if (_address != Address())
+        {
+            tx->forceSender(_address.asBytes());
+        }
+        sender = boost::algorithm::hex_lower(std::string(tx->sender()));
+        auto hash = tx->hash();
+        // force cover write
+        txpool->hash2Transaction[hash] = tx;
+        auto params = std::make_unique<NativeExecutionMessage>();
+        params->setContextID(99);
+        params->setSeq(1000);
+        params->setDepth(0);
+
+        params->setOrigin(sender);
+        params->setFrom(sender);
+
+        // toChecksumAddress(addressString, hashImpl);
+        params->setTo(newAddress);
+        params->setStaticCall(false);
+        params->setGasAvailable(gas);
+        params->setData(input);
+        params->setType(NativeExecutionMessage::TXHASH);
+        params->setTransactionHash(hash);
+        params->setCreate(true);
+
+        NativeExecutionMessage paramsBak = *params;
+        nextBlock(_number);
+        // --------------------------------
+        // Create contract
+        // --------------------------------
+
+        std::promise<bcos::protocol::ExecutionMessage::UniquePtr> executePromise;
+        executor->executeTransaction(
+            std::move(params), [&](bcos::Error::UniquePtr&& error,
+                                   bcos::protocol::ExecutionMessage::UniquePtr&& result) {
+                BOOST_CHECK(!error);
+                executePromise.set_value(std::move(result));
+            });
+
+        auto result = executePromise.get_future().get();
+        commitBlock(_number);
+
+        return result;
+    }
+
     ExecutionMessage::UniquePtr helloGet(protocol::BlockNumber _number, int _contextId,
         int _errorCode = 0, Address _address = Address())
     {
@@ -320,6 +371,219 @@ public:
         return result2;
     };
 
+    ExecutionMessage::UniquePtr setDeployType(protocol::BlockNumber _number, int _contextId,
+        AuthType _authType, int _errorCode = 0)
+    {
+        nextBlock(_number);
+        uint8_t type = (_authType == AuthType::WHITE_LIST_MODE) ? 1 : 2;
+        auto t = toString32(h256(type));
+        bytes in = codec->encodeWithSig("setDeployAuthType(uint8)", t);
+        auto tx = fakeTransaction(cryptoSuite, keyPair, "", in, 101, 100001, "1", "1");
+        auto newSender = Address("0000000000000000000000000000000000010001");
+        tx->forceSender(newSender.asBytes());
+        auto hash = tx->hash();
+        txpool->hash2Transaction[hash] = tx;
+        sender = boost::algorithm::hex_lower(std::string(tx->sender()));
+        auto params2 = std::make_unique<NativeExecutionMessage>();
+        params2->setTransactionHash(hash);
+        params2->setContextID(_contextId);
+        params2->setSeq(1000);
+        params2->setDepth(0);
+        params2->setFrom(sender);
+        params2->setTo(precompiled::CONTRACT_AUTH_ADDRESS);
+        params2->setOrigin(sender);
+        params2->setStaticCall(false);
+        params2->setGasAvailable(gas);
+        params2->setData(std::move(in));
+        params2->setType(NativeExecutionMessage::TXHASH);
+
+        std::promise<ExecutionMessage::UniquePtr> executePromise2;
+        executor->executeTransaction(std::move(params2),
+            [&](bcos::Error::UniquePtr&& error, ExecutionMessage::UniquePtr&& result) {
+                BOOST_CHECK(!error);
+                executePromise2.set_value(std::move(result));
+            });
+        auto result2 = executePromise2.get_future().get();
+        // call precompiled
+        result2->setSeq(1001);
+        if (_errorCode != 0)
+        {
+            BOOST_CHECK(result2->data().toBytes() == codec->encode(s256(_errorCode)));
+        }
+
+        commitBlock(_number);
+        return result2;
+    };
+
+    ExecutionMessage::UniquePtr getDeployType(
+        protocol::BlockNumber _number, int _contextId, int _errorCode = 0)
+    {
+        nextBlock(_number);
+        bytes in = codec->encodeWithSig("deployType()");
+        auto tx = fakeTransaction(cryptoSuite, keyPair, "", in, 101, 100001, "1", "1");
+        auto newSender = Address("0000000000000000000000000000000000010001");
+        tx->forceSender(newSender.asBytes());
+        auto hash = tx->hash();
+        txpool->hash2Transaction[hash] = tx;
+        sender = boost::algorithm::hex_lower(std::string(tx->sender()));
+        auto params2 = std::make_unique<NativeExecutionMessage>();
+        params2->setTransactionHash(hash);
+        params2->setContextID(_contextId);
+        params2->setSeq(1000);
+        params2->setDepth(0);
+        params2->setFrom(sender);
+        params2->setTo(precompiled::CONTRACT_AUTH_ADDRESS);
+        params2->setOrigin(sender);
+        params2->setStaticCall(false);
+        params2->setGasAvailable(gas);
+        params2->setData(std::move(in));
+        params2->setType(NativeExecutionMessage::TXHASH);
+
+        std::promise<ExecutionMessage::UniquePtr> executePromise2;
+        executor->executeTransaction(std::move(params2),
+            [&](bcos::Error::UniquePtr&& error, ExecutionMessage::UniquePtr&& result) {
+                BOOST_CHECK(!error);
+                executePromise2.set_value(std::move(result));
+            });
+        auto result2 = executePromise2.get_future().get();
+        // call precompiled
+        result2->setSeq(1001);
+        if (_errorCode != 0)
+        {
+            BOOST_CHECK(result2->data().toBytes() == codec->encode(s256(_errorCode)));
+        }
+
+        commitBlock(_number);
+        return result2;
+    };
+
+    ExecutionMessage::UniquePtr openDeployAuth(protocol::BlockNumber _number, int _contextId,
+        Address const & _address, int _errorCode = 0)
+    {
+        nextBlock(_number);
+        bytes in = codec->encodeWithSig("openDeployAuth(address)", _address);
+        auto tx = fakeTransaction(cryptoSuite, keyPair, "", in, 101, 100001, "1", "1");
+        auto newSender = Address("0000000000000000000000000000000000010001");
+        tx->forceSender(newSender.asBytes());
+        auto hash = tx->hash();
+        txpool->hash2Transaction[hash] = tx;
+        sender = boost::algorithm::hex_lower(std::string(tx->sender()));
+        auto params2 = std::make_unique<NativeExecutionMessage>();
+        params2->setTransactionHash(hash);
+        params2->setContextID(_contextId);
+        params2->setSeq(1000);
+        params2->setDepth(0);
+        params2->setFrom(sender);
+        params2->setTo(precompiled::CONTRACT_AUTH_ADDRESS);
+        params2->setOrigin(sender);
+        params2->setStaticCall(false);
+        params2->setGasAvailable(gas);
+        params2->setData(std::move(in));
+        params2->setType(NativeExecutionMessage::TXHASH);
+
+        std::promise<ExecutionMessage::UniquePtr> executePromise2;
+        executor->executeTransaction(std::move(params2),
+            [&](bcos::Error::UniquePtr&& error, ExecutionMessage::UniquePtr&& result) {
+                BOOST_CHECK(!error);
+                executePromise2.set_value(std::move(result));
+            });
+        auto result2 = executePromise2.get_future().get();
+        // call precompiled
+        result2->setSeq(1001);
+        if (_errorCode != 0)
+        {
+            BOOST_CHECK(result2->data().toBytes() == codec->encode(s256(_errorCode)));
+        }
+
+        commitBlock(_number);
+        return result2;
+    };
+
+    ExecutionMessage::UniquePtr closeDeployAuth(protocol::BlockNumber _number, int _contextId,
+        Address const & _address, int _errorCode = 0)
+    {
+        nextBlock(_number);
+        bytes in = codec->encodeWithSig("closeDeployAuth(address)", _address);
+        auto tx = fakeTransaction(cryptoSuite, keyPair, "", in, 101, 100001, "1", "1");
+        auto newSender = Address("0000000000000000000000000000000000010001");
+        tx->forceSender(newSender.asBytes());
+        auto hash = tx->hash();
+        txpool->hash2Transaction[hash] = tx;
+        sender = boost::algorithm::hex_lower(std::string(tx->sender()));
+        auto params2 = std::make_unique<NativeExecutionMessage>();
+        params2->setTransactionHash(hash);
+        params2->setContextID(_contextId);
+        params2->setSeq(1000);
+        params2->setDepth(0);
+        params2->setFrom(sender);
+        params2->setTo(precompiled::CONTRACT_AUTH_ADDRESS);
+        params2->setOrigin(sender);
+        params2->setStaticCall(false);
+        params2->setGasAvailable(gas);
+        params2->setData(std::move(in));
+        params2->setType(NativeExecutionMessage::TXHASH);
+
+        std::promise<ExecutionMessage::UniquePtr> executePromise2;
+        executor->executeTransaction(std::move(params2),
+            [&](bcos::Error::UniquePtr&& error, ExecutionMessage::UniquePtr&& result) {
+                BOOST_CHECK(!error);
+                executePromise2.set_value(std::move(result));
+            });
+        auto result2 = executePromise2.get_future().get();
+        // call precompiled
+        result2->setSeq(1001);
+        if (_errorCode != 0)
+        {
+            BOOST_CHECK(result2->data().toBytes() == codec->encode(s256(_errorCode)));
+        }
+
+        commitBlock(_number);
+        return result2;
+    };
+
+    ExecutionMessage::UniquePtr hasDeployAuth(protocol::BlockNumber _number, int _contextId,
+        Address const & _address, int _errorCode = 0)
+    {
+        nextBlock(_number);
+        bytes in = codec->encodeWithSig("hasDeployAuth(address)", _address);
+        auto tx = fakeTransaction(cryptoSuite, keyPair, "", in, 101, 100001, "1", "1");
+        auto newSender = Address("0000000000000000000000000000000000010001");
+        tx->forceSender(newSender.asBytes());
+        auto hash = tx->hash();
+        txpool->hash2Transaction[hash] = tx;
+        sender = boost::algorithm::hex_lower(std::string(tx->sender()));
+        auto params2 = std::make_unique<NativeExecutionMessage>();
+        params2->setTransactionHash(hash);
+        params2->setContextID(_contextId);
+        params2->setSeq(1000);
+        params2->setDepth(0);
+        params2->setFrom(sender);
+        params2->setTo(precompiled::CONTRACT_AUTH_ADDRESS);
+        params2->setOrigin(sender);
+        params2->setStaticCall(false);
+        params2->setGasAvailable(gas);
+        params2->setData(std::move(in));
+        params2->setType(NativeExecutionMessage::TXHASH);
+
+        std::promise<ExecutionMessage::UniquePtr> executePromise2;
+        executor->executeTransaction(std::move(params2),
+            [&](bcos::Error::UniquePtr&& error, ExecutionMessage::UniquePtr&& result) {
+                BOOST_CHECK(!error);
+                executePromise2.set_value(std::move(result));
+            });
+        auto result2 = executePromise2.get_future().get();
+        // call precompiled
+        result2->setSeq(1001);
+        if (_errorCode != 0)
+        {
+            BOOST_CHECK(result2->data().toBytes() == codec->encode(s256(_errorCode)));
+        }
+
+        commitBlock(_number);
+        return result2;
+    };
+
+
     std::string sender;
     std::string helloAddress;
 
@@ -494,15 +758,14 @@ BOOST_AUTO_TEST_CASE(testMethodBlackList)
             BOOST_CHECK(result->data().toBytes() == codec->encode(std::string("test2")));
         }
 
-        // use address 0x1234567890123456789012345678901234567890, get permission denied
+        // use address 0x1234567890123456789012345678901234567890, still can get
         {
             auto result =
                 helloGet(_number++, 1000, 0, Address("0x1234567890123456789012345678901234567890"));
-            BOOST_CHECK(result->status() == (int32_t)TransactionStatus::PermissionDenied);
-            BOOST_CHECK(result->type() == ExecutionMessage::REVERT);
+            BOOST_CHECK(result->data().toBytes() == codec->encode(std::string("test2")));
         }
 
-        // close black list, 0x1234567890123456789012345678901234567890 address can use
+        // close black list, 0x1234567890123456789012345678901234567890 address block
         {
             auto result4 = authMethodAuth(_number++, 1000,
                 "closeMethodAuth(address,bytes4,address)", Address(helloAddress), "get()",
@@ -514,7 +777,8 @@ BOOST_AUTO_TEST_CASE(testMethodBlackList)
         {
             auto result =
                 helloGet(_number++, 1000, 0, Address("0x1234567890123456789012345678901234567890"));
-            BOOST_CHECK(result->data().toBytes() == codec->encode(std::string("test2")));
+            BOOST_CHECK(result->status() == (int32_t)TransactionStatus::PermissionDenied);
+            BOOST_CHECK(result->type() == ExecutionMessage::REVERT);
         }
     }
 }
@@ -538,9 +802,9 @@ BOOST_AUTO_TEST_CASE(testResetAdmin)
             BOOST_CHECK(result->data().toBytes() == codec->encode(u256(0)));
         }
 
-        // open black list, block 0x1234567890123456789012345678901234567890 address usage
+        // close black list, block 0x1234567890123456789012345678901234567890 address usage
         {
-            auto result = authMethodAuth(_number++, 1000, "openMethodAuth(address,bytes4,address)",
+            auto result = authMethodAuth(_number++, 1000, "closeMethodAuth(address,bytes4,address)",
                 Address(helloAddress), "get()",
                 Address("0x1234567890123456789012345678901234567890"));
             BOOST_CHECK(result->data().toBytes() == codec->encode(u256(0)));
@@ -573,10 +837,9 @@ BOOST_AUTO_TEST_CASE(testResetAdmin)
             BOOST_CHECK(result->data().toBytes() == codec->encode(u256(0)));
         }
 
-        // close black list, 0x1234567890123456789012345678901234567890 address can use
-        // permission denied
+        // open black list, permission denied, new admin effect
         {
-            auto result = authMethodAuth(_number++, 1000, "closeMethodAuth(address,bytes4,address)",
+            auto result = authMethodAuth(_number++, 1000, "openMethodAuth(address,bytes4,address)",
                 Address(helloAddress), "get()",
                 Address("0x1234567890123456789012345678901234567890"));
             BOOST_CHECK(result->data().toBytes() == codec->encode(s256((int)CODE_NO_AUTHORIZED)));
@@ -590,6 +853,141 @@ BOOST_AUTO_TEST_CASE(testResetAdmin)
             BOOST_CHECK(result->type() == ExecutionMessage::REVERT);
         }
     }
+}
+
+BOOST_AUTO_TEST_CASE(testDeployWhiteList)
+{
+    // simple deploy
+    deployHello();
+    Address admin = Address("0x1234567890123456789012345678901234567890");
+
+    // add deploy acl type
+    {
+        BlockNumber  _number = 3;
+        // set deploy acl type
+        {
+            auto result = setDeployType(_number++,1000,AuthType::WHITE_LIST_MODE);
+            BOOST_CHECK(result->data().toBytes() == codec->encode(s256(0)));
+        }
+        // cannot deploy
+        {
+            auto result = deployHelloInAuthCheck(
+                "1234654b49838bd3e9466c85a4cc3428c9601235", _number++, admin);
+            BOOST_CHECK(result->status() == (int32_t)TransactionStatus::PermissionDenied);
+            BOOST_CHECK(result->type() == ExecutionMessage::REVERT);
+        }
+        // has auth? no
+        {
+            auto result = hasDeployAuth(_number++, 1000, admin);
+            BOOST_CHECK(result->data().toBytes() == codec->encode(false));
+        }
+        // open deploy auth
+        {
+            auto result = openDeployAuth(_number++, 1000, admin);
+            BOOST_CHECK(result->data().toBytes() == codec->encode(s256(0)));
+        }
+        // has auth? yes
+        {
+            auto result = hasDeployAuth(_number++, 1000, admin);
+            BOOST_CHECK(result->data().toBytes() == codec->encode(true));
+        }
+        // deploy ok
+        {
+            auto result = deployHelloInAuthCheck(
+                "1234654b49838bd3e9466c85a4cc3428c9605431", _number++, admin);
+            BOOST_CHECK(result->newEVMContractAddress() == "1234654b49838bd3e9466c85a4cc3428c9605431");
+        }
+        // close auth
+        {
+            auto result = closeDeployAuth(_number++, 1000, admin);
+            BOOST_CHECK(result->data().toBytes() == codec->encode(s256(0)));
+        }
+        // has auth? no
+        {
+            auto result = hasDeployAuth(_number++, 1000, admin);
+            BOOST_CHECK(result->data().toBytes() == codec->encode(false));
+        }
+        // cannot deploy
+        {
+            auto result = deployHelloInAuthCheck(
+                "1234654b49838bd3e9466c85a4cc3428c9605430", _number++, admin);
+            BOOST_CHECK(result->status() == (int32_t)TransactionStatus::PermissionDenied);
+            BOOST_CHECK(result->type() == ExecutionMessage::REVERT);
+        }
+        // get deploy type
+        {
+            auto result = getDeployType(_number++, 1000);
+            BOOST_CHECK(result->data().toBytes() == codec->encode(u256(1)));
+        }
+    }
+
+}
+
+BOOST_AUTO_TEST_CASE(testDeployBlackList)
+{
+    // simple deploy
+    deployHello();
+    Address admin = Address("0x1234567890123456789012345678901234567890");
+
+    // add deploy acl type
+    {
+        BlockNumber  _number = 3;
+        // set deploy acl type
+        {
+            auto result = setDeployType(_number++,1000,AuthType::BLACK_LIST_MODE);
+            BOOST_CHECK(result->data().toBytes() == codec->encode(s256(0)));
+        }
+        // can still deploy
+        {
+            auto result = deployHelloInAuthCheck(
+                "1234654b49838bd3e9466c85a4cc3428c9601235", _number++, admin);
+            BOOST_CHECK(result->newEVMContractAddress() == "1234654b49838bd3e9466c85a4cc3428c9601235");
+        }
+        // has auth? yes
+        {
+            auto result = hasDeployAuth(_number++, 1000, admin);
+            BOOST_CHECK(result->data().toBytes() == codec->encode(true));
+        }
+        // close deploy auth
+        {
+            auto result = closeDeployAuth(_number++, 1000, admin);
+            BOOST_CHECK(result->data().toBytes() == codec->encode(s256(0)));
+        }
+        // has auth? no
+        {
+            auto result = hasDeployAuth(_number++, 1000, admin);
+            BOOST_CHECK(result->data().toBytes() == codec->encode(false));
+        }
+        // deploy permission denied
+        {
+            auto result = deployHelloInAuthCheck(
+                "1234654b49838bd3e9466c85a4cc3428c9605431", _number++, admin);
+            BOOST_CHECK(result->status() == (int32_t)TransactionStatus::PermissionDenied);
+            BOOST_CHECK(result->type() == ExecutionMessage::REVERT);
+        }
+        // open auth
+        {
+            auto result = openDeployAuth(_number++, 1000, admin);
+            BOOST_CHECK(result->data().toBytes() == codec->encode(s256(0)));
+        }
+        // has auth? yes
+        {
+            auto result = hasDeployAuth(_number++, 1000, admin);
+            BOOST_CHECK(result->data().toBytes() == codec->encode(true));
+        }
+        // deploy ok
+        {
+            auto result = deployHelloInAuthCheck(
+                "1234654b49838bd3e9466c85a4cc3428c9605430", _number++, admin);
+            BOOST_CHECK(result->newEVMContractAddress() == "1234654b49838bd3e9466c85a4cc3428c9605430");
+        }
+        // get deploy type
+        {
+            auto result = getDeployType(_number++, 1000);
+            BOOST_CHECK(result->data().toBytes() == codec->encode(u256(2)));
+        }
+    }
+
 }
 
 BOOST_AUTO_TEST_CASE(testDeployAndCall)
