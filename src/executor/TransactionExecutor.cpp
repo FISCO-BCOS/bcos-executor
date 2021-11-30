@@ -238,7 +238,7 @@ void TransactionExecutor::dagExecuteTransactions(
                 for (size_t i = 0; i < transactions->size(); ++i)
                 {
                     callParametersList->at(indexes[i]) =
-                        createCallParameters(*fillInputs->at(i), std::move(*transactions->at(i)));
+                        createCallParameters(*fillInputs->at(i), *transactions->at(i));
                 }
 
                 if (m_isWasm)
