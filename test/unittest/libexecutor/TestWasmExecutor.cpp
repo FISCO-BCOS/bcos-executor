@@ -165,7 +165,6 @@ BOOST_FIXTURE_TEST_SUITE(TestWasmExecutor, WasmExecutorFixture)
 BOOST_AUTO_TEST_CASE(deployAndCall)
 {
     bytes input;
-    input.push_back(0);
 
     input.insert(input.end(), helloWorldBin.begin(), helloWorldBin.end());
 
@@ -342,7 +341,6 @@ BOOST_AUTO_TEST_CASE(deployAndCall)
 BOOST_AUTO_TEST_CASE(deployAndCall_100)
 {
     bytes input;
-    input.push_back(0);
 
     input.insert(input.end(), helloWorldBin.begin(), helloWorldBin.end());
 
@@ -554,7 +552,6 @@ BOOST_AUTO_TEST_CASE(externalCall)
     // --------------------------------
     {
         bytes input;
-        input.push_back(0);
 
         input.insert(input.end(), helloWorldBin.begin(), helloWorldBin.end());
 
@@ -614,7 +611,6 @@ BOOST_AUTO_TEST_CASE(externalCall)
     // --------------------------------
     {
         bytes input;
-        input.push_back(0);
 
         input.insert(input.end(), helloWorldCallerBin.begin(), helloWorldCallerBin.end());
 
@@ -754,7 +750,6 @@ BOOST_AUTO_TEST_CASE(performance)
     size_t count = 10 * 1000;
 
     bytes input;
-    input.push_back(0);
     input.insert(input.end(), transferBin.begin(), transferBin.end());
 
     input.push_back(0);

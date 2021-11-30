@@ -367,27 +367,32 @@ std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionE
         return {nullptr, std::move(callParameters)};
     }
 
-    // BFS recursive build parent dir and write meta data in parent table
-    if (!buildBfsPath(tableName))
-    {
-        revert();
-        auto callResults = std::move(callParameters);
-        callResults->type = CallParameters::REVERT;
-        callResults->status = (int32_t)TransactionStatus::RevertInstruction;
-        callResults->message = "Error occurs in build BFS dir";
-        EXECUTIVE_LOG(ERROR) << callResults->message << LOG_KV("tableName", tableName);
-        return {nullptr, std::move(callResults)};
-    }
-    auto hostContext =
-        std::make_unique<HostContext>(std::move(callParameters), shared_from_this(), tableName);
     if (blockContext->isWasm())
     {
+        // BFS recursive build parent dir and write metadata in parent table
+        if (!buildBfsPath(tableName))
+        {
+            revert();
+            auto callResults = std::move(callParameters);
+            callResults->type = CallParameters::REVERT;
+            callResults->status = (int32_t)TransactionStatus::RevertInstruction;
+            callResults->message = "Error occurs in build BFS dir";
+            EXECUTIVE_LOG(ERROR) << callResults->message << LOG_KV("tableName", tableName);
+            return {nullptr, std::move(callResults)};
+        }
         auto extraData = std::make_unique<CallParameters>(CallParameters::MESSAGE);
         extraData->data = params;
         extraData->origin = abi;
+        auto hostContext =
+            std::make_unique<HostContext>(std::move(callParameters), shared_from_this(), tableName);
         return {std::move(hostContext), std::move(extraData)};
     }
-    return {std::move(hostContext), nullptr};
+    else
+    {
+        auto hostContext =
+            std::make_unique<HostContext>(std::move(callParameters), shared_from_this(), tableName);
+        return {std::move(hostContext), nullptr};
+    }
 }
 
 CallParameters::UniquePtr TransactionExecutive::go(
@@ -492,8 +497,6 @@ CallParameters::UniquePtr TransactionExecutive::go(
                 callResults->type = CallParameters::REVERT;
                 // Clear the creation flag
                 callResults->create = false;
-                // Clear the data
-                callResults->data.clear();
                 return callResults;
             }
 
@@ -904,8 +907,11 @@ void TransactionExecutive::creatAuthTable(
 {
     // Create the access table
     //  /sys/ not create
-    if (_tableName.substr(0, 5) == "/sys/")
+    if (_tableName.substr(0, 5) == "/sys/" ||
+        getContractTableName(_sender).substr(0, 5) == "/sys/")
+    {
         return;
+    }
     auto authTableName = std::string(_tableName).append(CONTRACT_SUFFIX);
     // if contract external create contract, then inheritance admin
     std::string_view admin;

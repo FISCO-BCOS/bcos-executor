@@ -22,13 +22,7 @@
 #include "../../vm/Precompiled.h"
 #include "../Common.h"
 #include "../Utilities.h"
-
-#if 0
-function agent(string path) public returns(string);
-function setAgent(string path,string agent) public returns(int256);
-function setAuth(string path,bytes interface,string user,bool) public constant returns(int256);
-function checkAuth(string path,bytes interface,string user) public constant returns(bool);
-#endif
+#include <bcos-framework/interfaces/executor/PrecompiledTypeDef.h>
 
 namespace bcos::precompiled
 {
@@ -112,10 +106,9 @@ private:
 
     u256 getDeployAuthType(std::optional<storage::Table> _table);
 
-    // FIXME: move it to framework
     inline bool checkSender(std::string_view _sender)
     {
-        return _sender == "0000000000000000000000000000000000010001";
+        return _sender ==  precompiled::AUTH_COMMITTEE_ADDRESS;
     }
 
     inline std::string getAuthTableName(const std::string& _name)

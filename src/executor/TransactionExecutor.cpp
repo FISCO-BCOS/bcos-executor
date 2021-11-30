@@ -1540,26 +1540,8 @@ std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
     callParameters->senderAddress = input.from();
     callParameters->receiveAddress = input.to();
     callParameters->codeAddress = input.to();
-
-    if (!m_isWasm)
-    {
-        callParameters->create = input.create();
-        callParameters->data = input.takeData();
-    }
-    else
-    {
-        callParameters->create = false;
-        input.setCreate(callParameters->create);
-        if (staticCall)
-        {
-            callParameters->data = input.data().getCroppedData(1).toBytes();
-        }
-        else
-        {
-            callParameters->data = input.takeData();
-        }
-    }
-
+    callParameters->create = input.create();
+    callParameters->data = input.takeData();
     callParameters->gas = input.gasAvailable();
     callParameters->staticCall = staticCall;
     callParameters->newEVMContractAddress = input.newEVMContractAddress();
@@ -1582,21 +1564,8 @@ std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
     callParameters->codeAddress = input.to();
     callParameters->gas = input.gasAvailable();
     callParameters->staticCall = input.staticCall();
-
-    if (!m_isWasm)
-    {
-        callParameters->create = input.create();
-        callParameters->data = tx.input().toBytes();  // TODO: add take data
-    }
-    else
-    {
-        auto txInput = tx.input();
-        assert(txInput.size() > 0);
-
-        callParameters->create = (txInput[0] == 0);
-        input.setCreate(callParameters->create);
-        callParameters->data = txInput.getCroppedData(1).toBytes();
-    }
+    callParameters->create = input.create();
+    callParameters->data = tx.input().toBytes();
     callParameters->keyLocks = input.takeKeyLocks();
 
     return callParameters;
