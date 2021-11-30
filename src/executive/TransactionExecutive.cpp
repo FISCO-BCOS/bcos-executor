@@ -808,10 +808,18 @@ CallParameters::UniquePtr TransactionExecutive::parseEVMCResult(
         break;
     }
     case EVMC_OUT_OF_GAS:
+    {
+        revert();
+        EXECUTIVE_LOG(WARNING) << LOG_DESC("OutOfGas") << LOG_KV("gas", _result.gasLeft());
+        callResults->status = (int32_t)TransactionStatus::OutOfGas;
+        callResults->gas = _result.gasLeft();
+        break;
+    }
     case EVMC_FAILURE:
     {
         revert();
-        callResults->status = (int32_t)TransactionStatus::OutOfGas;
+        EXECUTIVE_LOG(WARNING) << LOG_DESC("WASMTrap");
+        callResults->status = (int32_t)TransactionStatus::WASMTrap;
         callResults->gas = _result.gasLeft();
         break;
     }
@@ -907,8 +915,7 @@ void TransactionExecutive::creatAuthTable(
 {
     // Create the access table
     //  /sys/ not create
-    if (_tableName.substr(0, 5) == "/sys/" ||
-        getContractTableName(_sender).substr(0, 5) == "/sys/")
+    if (_tableName.substr(0, 5) == "/sys/" || getContractTableName(_sender).substr(0, 5) == "/sys/")
     {
         return;
     }
