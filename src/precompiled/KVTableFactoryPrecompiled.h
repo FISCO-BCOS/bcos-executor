@@ -54,6 +54,9 @@ private:
     void set(const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& data,
         const std::shared_ptr<PrecompiledExecResult>& callResult,
         const PrecompiledGas::Ptr& gasPricer);
+    void desc(const std::shared_ptr<executor::TransactionExecutive>& _executive,
+        bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
+        const PrecompiledGas::Ptr& gasPricer);
 };
 
 }  // namespace bcos::precompiled

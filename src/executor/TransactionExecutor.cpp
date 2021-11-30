@@ -1438,8 +1438,8 @@ void TransactionExecutor::initPrecompiled()
         std::make_shared<precompiled::ParallelConfigPrecompiled>(m_hashImpl);
     auto consensusPrecompiled = std::make_shared<precompiled::ConsensusPrecompiled>(m_hashImpl);
     auto cnsPrecompiled = std::make_shared<precompiled::CNSPrecompiled>(m_hashImpl);
-    auto tableFactoryPrecompiled =
-        std::make_shared<precompiled::TableFactoryPrecompiled>(m_hashImpl);
+    // FIXME: not support crud now
+    // auto tableFactoryPrecompiled = std::make_shared<precompiled::TableFactoryPrecompiled>(m_hashImpl);
     auto kvTableFactoryPrecompiled =
         std::make_shared<precompiled::KVTableFactoryPrecompiled>(m_hashImpl);
 
@@ -1449,7 +1449,8 @@ void TransactionExecutor::initPrecompiled()
         m_constantPrecompiled.insert({CONSENSUS_NAME, consensusPrecompiled});
         m_constantPrecompiled.insert({CNS_NAME, cnsPrecompiled});
         m_constantPrecompiled.insert({PARALLEL_CONFIG_NAME, parallelConfigPrecompiled});
-        m_constantPrecompiled.insert({TABLE_NAME, tableFactoryPrecompiled});
+        // FIXME: not support crud now
+        // m_constantPrecompiled.insert({TABLE_NAME, tableFactoryPrecompiled});
         m_constantPrecompiled.insert({KV_TABLE_NAME, kvTableFactoryPrecompiled});
         m_constantPrecompiled.insert(
             {DAG_TRANSFER_NAME, std::make_shared<precompiled::DagTransferPrecompiled>(m_hashImpl)});
@@ -1469,7 +1470,8 @@ void TransactionExecutor::initPrecompiled()
         m_constantPrecompiled.insert({CONSENSUS_ADDRESS, consensusPrecompiled});
         m_constantPrecompiled.insert({CNS_ADDRESS, cnsPrecompiled});
         m_constantPrecompiled.insert({PARALLEL_CONFIG_ADDRESS, parallelConfigPrecompiled});
-        m_constantPrecompiled.insert({TABLE_ADDRESS, tableFactoryPrecompiled});
+        // FIXME: not support crud now
+        // m_constantPrecompiled.insert({TABLE_ADDRESS, tableFactoryPrecompiled});
         m_constantPrecompiled.insert({KV_TABLE_ADDRESS, kvTableFactoryPrecompiled});
         m_constantPrecompiled.insert({DAG_TRANSFER_ADDRESS,
             std::make_shared<precompiled::DagTransferPrecompiled>(m_hashImpl)});

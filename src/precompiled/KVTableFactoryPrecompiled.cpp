@@ -37,6 +37,7 @@ using namespace bcos::protocol;
 const char* const KV_TABLE_METHOD_CREATE = "createTable(string,string,string)";
 const char* const KV_TABLE_METHOD_SET = "set(string,string,((string,string)[]))";
 const char* const KV_TABLE_METHOD_GET = "get(string,string)";
+const char* const KV_TABLE_METHOD_DESC = "desc(string)";
 
 KVTableFactoryPrecompiled::KVTableFactoryPrecompiled(crypto::Hash::Ptr _hashImpl)
   : Precompiled(_hashImpl)
@@ -44,6 +45,7 @@ KVTableFactoryPrecompiled::KVTableFactoryPrecompiled(crypto::Hash::Ptr _hashImpl
     name2Selector[KV_TABLE_METHOD_CREATE] = getFuncSelector(KV_TABLE_METHOD_CREATE, _hashImpl);
     name2Selector[KV_TABLE_METHOD_SET] = getFuncSelector(KV_TABLE_METHOD_SET, _hashImpl);
     name2Selector[KV_TABLE_METHOD_GET] = getFuncSelector(KV_TABLE_METHOD_GET, _hashImpl);
+    name2Selector[KV_TABLE_METHOD_DESC] = getFuncSelector(KV_TABLE_METHOD_DESC, _hashImpl);
 }
 
 std::shared_ptr<PrecompiledExecResult> KVTableFactoryPrecompiled::call(
@@ -73,6 +75,11 @@ std::shared_ptr<PrecompiledExecResult> KVTableFactoryPrecompiled::call(
     {
         // get(string,string)
         get(_executive, data, callResult, gasPricer);
+    }
+    else if (func == name2Selector[KV_TABLE_METHOD_DESC])
+    {
+        // desc(string)
+        desc(_executive, data, callResult, gasPricer);
     }
     else
     {
@@ -226,4 +233,38 @@ void KVTableFactoryPrecompiled::set(
     callResult->setExecResult(codec->encode(s256(1)));
     gasPricer->setMemUsed(entry.capacityOfHashField());
     gasPricer->appendOperation(InterfaceOpcode::Insert, 1);
+}
+
+void KVTableFactoryPrecompiled::desc(
+    const std::shared_ptr<executor::TransactionExecutive>& _executive, bytesConstRef& data,
+    const std::shared_ptr<PrecompiledExecResult>& callResult, const PrecompiledGas::Ptr& gasPricer)
+{
+    std::string tableName;
+    auto blockContext = _executive->blockContext().lock();
+    auto codec =
+        std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
+    codec->decode(data, tableName);
+    tableName = getTableName(tableName);
+    PRECOMPILED_LOG(DEBUG) << LOG_DESC("Table desc") << LOG_KV("tableName", tableName);
+
+    std::string keyField;
+    std::string valueFields;
+
+    auto table = _executive->storage().openTable(tableName);
+    auto sysTable = _executive->storage().openTable(storage::StorageInterface::SYS_TABLES);
+    auto sysEntry = sysTable->getRow(tableName);
+    if (!table || !sysEntry)
+    {
+        PRECOMPILED_LOG(WARNING) << LOG_BADGE("KVTableFactoryPrecompiled")
+                                 << LOG_DESC("Open table failed") << LOG_KV("tableName", tableName);
+        gasPricer->appendOperation(InterfaceOpcode::OpenTable);
+        callResult->setExecResult(codec->encode(keyField, valueFields));
+        return;
+    }
+    auto valueKey = sysEntry->getField(StorageInterface::SYS_TABLE_VALUE_FIELDS);
+    keyField = std::string(valueKey.substr(valueKey.find_last_of(',') + 1));
+    valueFields = std::string(valueKey.substr(0, valueKey.find_last_of(',')));
+
+    gasPricer->appendOperation(InterfaceOpcode::OpenTable);
+    callResult->setExecResult(codec->encode(keyField, valueFields));
 }

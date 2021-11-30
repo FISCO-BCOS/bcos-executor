@@ -30,6 +30,12 @@ using namespace bcos::storage;
 using namespace bcos::precompiled;
 using namespace bcos::protocol;
 
+/*
+ * FIXME: change cns storage structure
+ * ("name,version","abi","address") ==>
+ * ("name",{"version","abi","address"})
+ */
+
 const char* const CNS_METHOD_INS_STR4 = "insert(string,string,address,string)";
 const char* const CNS_METHOD_SLT_STR = "selectByName(string)";
 const char* const CNS_METHOD_SLT_STR2 = "selectByNameAndVersion(string,string)";
@@ -76,7 +82,7 @@ int CNSPrecompiled::checkCNSParam(TransactionExecutive::Ptr _executive,
             break;
         case ContractStatus::AddressNonExistent:
             errorMessage << "the contract \"" << _contractName << "\" with address "
-                         << _contractAddress<< " does not exist";
+                         << _contractAddress << " does not exist";
             break;
         case ContractStatus::NotContractAddress:
             errorMessage << "invalid address " << _contractAddress
@@ -84,8 +90,7 @@ int CNSPrecompiled::checkCNSParam(TransactionExecutive::Ptr _executive,
             break;
         default:
             errorMessage << "invalid contract \"" << _contractName << "\" with address "
-                         << _contractAddress
-                         << ", error code:" << std::to_string(contractStatus);
+                         << _contractAddress << ", error code:" << std::to_string(contractStatus);
             break;
         }
         PRECOMPILED_LOG(INFO) << LOG_BADGE("CNSPrecompiled") << LOG_DESC(errorMessage.str())
@@ -132,7 +137,8 @@ std::shared_ptr<PrecompiledExecResult> CNSPrecompiled::call(
 
     gasPricer->setMemUsed(_param.size());
 
-    if (func == name2Selector[CNS_METHOD_INS_STR4] || func == name2Selector[CNS_METHOD_INS_STR4_WASM])
+    if (func == name2Selector[CNS_METHOD_INS_STR4] ||
+        func == name2Selector[CNS_METHOD_INS_STR4_WASM])
     {
         // insert(name, version, address, abi), 4 fields in table, the key of table is name field
         insert(_executive, data, callResult, gasPricer);
@@ -335,8 +341,7 @@ void CNSPrecompiled::selectByNameAndVersion(
             callResult->setExecResult(codec->encode(toAddress(contractAddress), abi));
         }
         PRECOMPILED_LOG(TRACE) << LOG_BADGE("CNSPrecompiled") << LOG_DESC("selectByNameAndVersion")
-                               << LOG_KV("contractAddress", contractAddress)
-                               << LOG_KV("abi", abi);
+                               << LOG_KV("contractAddress", contractAddress) << LOG_KV("abi", abi);
     }
 }
 

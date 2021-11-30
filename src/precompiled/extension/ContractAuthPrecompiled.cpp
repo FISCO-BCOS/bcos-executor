@@ -83,7 +83,6 @@ ContractAuthPrecompiled::ContractAuthPrecompiled(crypto::Hash::Ptr _hashImpl)
     name2Selector[AUTH_CLOSE_DEPLOY_ACCOUNT] =
         getFuncSelector(AUTH_CLOSE_DEPLOY_ACCOUNT, _hashImpl);
     name2Selector[AUTH_CHECK_DEPLOY_ACCESS] = getFuncSelector(AUTH_CHECK_DEPLOY_ACCESS, _hashImpl);
-
 }
 
 std::shared_ptr<PrecompiledExecResult> ContractAuthPrecompiled::call(
@@ -173,14 +172,23 @@ void ContractAuthPrecompiled::getAdmin(
     auto blockContext = _executive->blockContext().lock();
     auto codec =
         std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
-    codec->decode(data, path);
+    if (blockContext->isWasm())
+    {
+        codec->decode(data, path);
+    }
+    else
+    {
+        Address contractAddress;
+        codec->decode(data, contractAddress);
+        path = contractAddress.hex();
+    }
     path = getAuthTableName(path);
     auto table = _executive->storage().openTable(path);
     if (!table)
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled") << LOG_DESC("path not found")
                                << LOG_KV("path", path);
-        callResult->setExecResult(codec->encode(std::string("")));
+        callResult->setExecResult(codec->encode(Address()));
         return;
     }
     auto entry = table->getRow(ADMIN_FIELD);
@@ -188,10 +196,10 @@ void ContractAuthPrecompiled::getAdmin(
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled")
                                << LOG_DESC("entry not found") << LOG_KV("path", path);
-        callResult->setExecResult(codec->encode(std::string("")));
+        callResult->setExecResult(codec->encode(Address()));
         return;
     }
-    admin = Address(std::string(entry->getField(0)), Address::FromBinary);
+    admin = Address(std::string(entry->getField(0)));
     gasPricer->updateMemUsed(1);
     callResult->setExecResult(codec->encode(admin));
 }
@@ -406,7 +414,8 @@ bool ContractAuthPrecompiled::checkMethodAuth(
         // if black list mode, return true
         return getMethodType == (int)AuthType::BLACK_LIST_MODE;
     }
-    if(getMethodType == (int)AuthType::BLACK_LIST_MODE){
+    if (getMethodType == (int)AuthType::BLACK_LIST_MODE)
+    {
         return !authMap.at(func.toBytes()).at(account);
     }
     return authMap.at(func.toBytes()).at(account);
@@ -725,7 +734,8 @@ bool ContractAuthPrecompiled::checkDeployAuth(
         // if black list mode, return true
         return type == (int)AuthType::BLACK_LIST_MODE;
     }
-    if(type == (int)AuthType::BLACK_LIST_MODE){
+    if (type == (int)AuthType::BLACK_LIST_MODE)
+    {
         return !aclMap.at(_account);
     }
     return aclMap.at(_account);
