@@ -200,8 +200,8 @@ void CNSPrecompiled::insert(const std::shared_ptr<executor::TransactionExecutive
     {
         // decode map, check version
         CNSInfoMap cnsInfo;
-        codec::scale::decode(
-            cnsInfo, gsl::make_span(asBytes(std::string(entry->getField(SYS_VALUE)))));
+        auto && out = asBytes(std::string(entry->getField(SYS_VALUE)));
+        codec::scale::decode(cnsInfo, gsl::make_span(out));
         if (cnsInfo.find(contractVersion) != cnsInfo.end())
         {
             PRECOMPILED_LOG(ERROR)
@@ -258,8 +258,8 @@ void CNSPrecompiled::selectByName(const std::shared_ptr<executor::TransactionExe
     if (entry)
     {
         CNSInfoMap cnsInfoMap;
-        codec::scale::decode(
-            cnsInfoMap, gsl::make_span(asBytes(std::string(entry->getField(SYS_VALUE)))));
+        auto&& out = asBytes(std::string(entry->getField(SYS_VALUE)));
+        codec::scale::decode(cnsInfoMap, gsl::make_span(out));
         gasPricer->appendOperation(InterfaceOpcode::Select, cnsInfoMap.size());
         for (const auto& cnsInfo : cnsInfoMap)
         {
@@ -321,8 +321,8 @@ void CNSPrecompiled::selectByNameAndVersion(
         return;
     }
     CNSInfoMap cnsInfoMap;
-    codec::scale::decode(
-        cnsInfoMap, gsl::make_span(asBytes(std::string(entry->getField(SYS_VALUE)))));
+    auto&& out = asBytes(std::string(entry->getField(SYS_VALUE)));
+    codec::scale::decode(cnsInfoMap, gsl::make_span(out));
     if (cnsInfoMap.find(contractVersion) == cnsInfoMap.end())
     {
         notFindReturn();
@@ -386,8 +386,8 @@ void CNSPrecompiled::getContractAddress(
         return;
     }
     CNSInfoMap cnsInfoMap;
-    codec::scale::decode(
-        cnsInfoMap, gsl::make_span(asBytes(std::string(entry->getField(SYS_VALUE)))));
+    auto && out = asBytes(std::string(entry->getField(SYS_VALUE)));
+    codec::scale::decode(cnsInfoMap, gsl::make_span(out));
     if (cnsInfoMap.find(contractVersion) == cnsInfoMap.end())
     {
         notFindReturn();
