@@ -628,10 +628,14 @@ BOOST_AUTO_TEST_CASE(insertTest)
                 BOOST_CHECK(table);
                 tablePromise.set_value(std::move(*table));
             });
-        auto entry = tablePromise.get_future().get().getRow(contractName + "," + contractVersion);
+        auto entry = tablePromise.get_future().get().getRow(contractName);
         BOOST_CHECK(entry.has_value());
+        CNSInfoMap cnsInfoMap;
+
+        codec::scale::decode(
+            cnsInfoMap, gsl::make_span(asBytes(std::string(entry->getField(SYS_VALUE)))));
         BOOST_CHECK_EQUAL(
-            entry->getField(SYS_CNS_FIELD_ADDRESS), "420f853b49838bd3e9466c85a4cc3428c960dde2");
+            cnsInfoMap.at(contractVersion).first, "420f853b49838bd3e9466c85a4cc3428c960dde2");
     }
 
     // insert again with same item
@@ -777,8 +781,12 @@ BOOST_AUTO_TEST_CASE(insertTest)
 
         // query
         auto table2 = memoryTableFactory->openTable(SYS_CNS);
-        auto entry2 = table2->getRow(contractName + "," + contractVersion);
+        auto entry2 = table2->getRow(contractName);
         BOOST_TEST(entry2.has_value());
+        CNSInfoMap cnsInfoMap;
+        codec::scale::decode(
+            cnsInfoMap, gsl::make_span(asBytes(std::string(entry2->getField(SYS_VALUE)))));
+        BOOST_CHECK(cnsInfoMap.find(contractVersion) != cnsInfoMap.end());
     }
 }
 
