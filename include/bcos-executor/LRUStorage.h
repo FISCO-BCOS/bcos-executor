@@ -76,7 +76,7 @@ private:
         m_mru;
     tbb::concurrent_queue<EntryKeyWrapper> m_mruQueue;
 
-    size_t m_maxCapacity = 256 * 1024 * 1024;  // default 256MB for cache
+    size_t m_maxCapacity = 32 * 1024 * 1024;  // default 32 for cache
 
     std::unique_ptr<std::thread> m_worker;
     std::atomic_bool m_running = false;
