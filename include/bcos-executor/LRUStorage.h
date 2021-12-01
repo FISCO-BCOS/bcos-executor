@@ -16,7 +16,7 @@ class LRUStorage : public virtual bcos::storage::StateStorage,
                    public std::enable_shared_from_this<LRUStorage>
 {
 public:
-    LRUStorage(std::shared_ptr<StorageInterface> prev) : StateStorage(std::move(prev)) {}
+    using StateStorage::StateStorage;
     ~LRUStorage() noexcept override { stop(); }
 
     void asyncGetPrimaryKeys(std::string_view table,

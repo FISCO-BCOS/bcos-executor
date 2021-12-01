@@ -140,7 +140,8 @@ void LRUStorage::startLoop()
                 size_t clearedCount = 0;
                 size_t clearedCapacity = 0;
                 // Clear the out date items
-                while (storage::StateStorage::capacity() > m_maxCapacity && !m_mru.empty())
+                while ((storage::StateStorage::capacity() > ((m_maxCapacity * 2) / 3)) &&
+                       !m_mru.empty())
                 {
                     auto currentCapacity = storage::StateStorage::capacity();
                     auto& item = m_mru.front();
@@ -152,7 +153,7 @@ void LRUStorage::startLoop()
                         item.table(), item.key(), std::move(entry), [](Error::UniquePtr) {});
 
                     ++clearedCount;
-                    clearedCapacity += currentCapacity - storage::StateStorage::capacity();
+                    clearedCapacity += (currentCapacity - storage::StateStorage::capacity());
 
                     m_mru.pop_front();
                 }
