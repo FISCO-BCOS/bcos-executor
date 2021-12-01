@@ -30,12 +30,6 @@ using namespace bcos::storage;
 using namespace bcos::precompiled;
 using namespace bcos::protocol;
 
-/*
- * FIXME: change cns storage structure
- * ("name,version","abi","address") ==>
- * ("name",{"version","abi","address"})
- */
-
 const char* const CNS_METHOD_INS_STR4 = "insert(string,string,address,string)";
 const char* const CNS_METHOD_SLT_STR = "selectByName(string)";
 const char* const CNS_METHOD_SLT_STR2 = "selectByNameAndVersion(string,string)";
@@ -53,12 +47,6 @@ CNSPrecompiled::CNSPrecompiled(crypto::Hash::Ptr _hashImpl) : Precompiled(_hashI
 
     name2Selector[CNS_METHOD_INS_STR4_WASM] = getFuncSelector(CNS_METHOD_INS_STR4_WASM, _hashImpl);
 }
-
-std::string CNSPrecompiled::toString()
-{
-    return "CNS";
-}
-
 // check param of the cns
 int CNSPrecompiled::checkCNSParam(TransactionExecutive::Ptr _executive,
     std::string const& _contractAddress, std::string& _contractName, std::string& _contractVersion,
@@ -194,44 +182,56 @@ void CNSPrecompiled::insert(const std::shared_ptr<executor::TransactionExecutive
                            << LOG_KV("contractAddress", contractAddress);
     int validCode =
         checkCNSParam(_executive, contractAddress, contractName, contractVersion, contractAbi);
-
-    auto table = _executive->storage().openTable(SYS_CNS);
-    if (!table)
-    {
-        table = _executive->storage().createTable(
-            SYS_CNS, SYS_CNS_FIELD_ADDRESS + "," + SYS_CNS_FIELD_ABI);
-    }
-    gasPricer->appendOperation(InterfaceOpcode::OpenTable);
-    auto entry = table->getRow(contractName + "," + contractVersion);
-    int result;
-    if (entry)
-    {
-        PRECOMPILED_LOG(ERROR) << LOG_BADGE("CNSPrecompiled")
-                               << LOG_DESC("address and version exist")
-                               << LOG_KV("contractName", contractName)
-                               << LOG_KV("address", contractAddress)
-                               << LOG_KV("version", contractVersion);
-        gasPricer->appendOperation(InterfaceOpcode::Select, 1);
-        result = CODE_ADDRESS_AND_VERSION_EXIST;
-    }
-    else if (validCode < 0)
+    if (validCode < 0)
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("CNSPrecompiled") << LOG_DESC("address invalid")
                                << LOG_KV("address", contractAddress);
-        result = validCode;
+        getErrorCodeOut(callResult->mutableExecResult(), CODE_VERSION_LENGTH_OVERFLOW, *codec);
+        return;
+    }
+    auto table = _executive->storage().openTable(SYS_CNS);
+    if (!table)
+    {
+        table = _executive->storage().createTable(SYS_CNS, SYS_VALUE);
+    }
+    gasPricer->appendOperation(InterfaceOpcode::OpenTable);
+    auto entry = table->getRow(contractName);
+    if (entry)
+    {
+        // decode map, check version
+        CNSInfoMap cnsInfo;
+        auto && out = asBytes(std::string(entry->getField(SYS_VALUE)));
+        codec::scale::decode(cnsInfo, gsl::make_span(out));
+        if (cnsInfo.find(contractVersion) != cnsInfo.end())
+        {
+            PRECOMPILED_LOG(ERROR)
+                << LOG_BADGE("CNSPrecompiled") << LOG_DESC("address and version exist")
+                << LOG_KV("contractName", contractName) << LOG_KV("address", contractAddress)
+                << LOG_KV("version", contractVersion);
+            gasPricer->appendOperation(InterfaceOpcode::Select, 1);
+            getErrorCodeOut(
+                callResult->mutableExecResult(), CODE_ADDRESS_AND_VERSION_EXIST, *codec);
+            return;
+        }
+        cnsInfo.insert(
+            std::make_pair(contractVersion, std::make_pair(contractAddress, contractAbi)));
+        entry->setField(SYS_VALUE, asString(codec::scale::encode(cnsInfo)));
+        table->setRow(contractName, entry.value());
     }
     else
     {
+        // first insert, make new map to encode
+        CNSInfoMap cnsInfo = {};
+        cnsInfo.insert(
+            std::make_pair(contractVersion, std::make_pair(contractAddress, contractAbi)));
         auto newEntry = table->newEntry();
-        newEntry.setField(SYS_CNS_FIELD_ADDRESS, contractAddress);
-        newEntry.setField(SYS_CNS_FIELD_ABI, contractAbi);
-        table->setRow(contractName + "," + contractVersion, newEntry);
-        gasPricer->updateMemUsed(1);
-        gasPricer->appendOperation(InterfaceOpcode::Insert, 1);
-        PRECOMPILED_LOG(DEBUG) << LOG_BADGE("CNSPrecompiled") << LOG_DESC("insert successfully");
-        result = CODE_SUCCESS;
+        newEntry.importFields({asString(codec::scale::encode(cnsInfo))});
+        table->setRow(contractName, std::move(newEntry));
     }
-    getErrorCodeOut(callResult->mutableExecResult(), result, *codec);
+    gasPricer->updateMemUsed(1);
+    gasPricer->appendOperation(InterfaceOpcode::Insert, 1);
+    PRECOMPILED_LOG(DEBUG) << LOG_BADGE("CNSPrecompiled") << LOG_DESC("insert successfully");
+    getErrorCodeOut(callResult->mutableExecResult(), CODE_SUCCESS, *codec);
 }
 
 void CNSPrecompiled::selectByName(const std::shared_ptr<executor::TransactionExecutive>& _executive,
@@ -251,33 +251,23 @@ void CNSPrecompiled::selectByName(const std::shared_ptr<executor::TransactionExe
     gasPricer->appendOperation(InterfaceOpcode::OpenTable);
     if (!table)
     {
-        table = _executive->storage().createTable(
-            SYS_CNS, SYS_CNS_FIELD_ADDRESS + "," + SYS_CNS_FIELD_ABI);
+        table = _executive->storage().createTable(SYS_CNS, SYS_VALUE);
     }
     Json::Value CNSInfos(Json::arrayValue);
-    auto keys = table->getPrimaryKeys(std::nullopt);
-    // Note: Because the selected data has been returned as cnsInfo,
-    // the memory is not updated here
-    gasPricer->appendOperation(InterfaceOpcode::Set, keys.size());
-
-    for (auto& key : keys)
+    auto entry = table->getRow(contractName);
+    if (entry)
     {
-        auto index = key.find(',');
-        // "," must exist, and name,version must be trimmed
-        std::pair<std::string, std::string> nameVersionPair{
-            key.substr(0, index), key.substr(index + 1)};
-        if (nameVersionPair.first == contractName)
+        CNSInfoMap cnsInfoMap;
+        auto&& out = asBytes(std::string(entry->getField(SYS_VALUE)));
+        codec::scale::decode(cnsInfoMap, gsl::make_span(out));
+        gasPricer->appendOperation(InterfaceOpcode::Select, cnsInfoMap.size());
+        for (const auto& cnsInfo : cnsInfoMap)
         {
-            auto entry = table->getRow(key);
-            if (!entry)
-            {
-                continue;
-            }
             Json::Value CNSInfo;
             CNSInfo[SYS_CNS_FIELD_NAME] = contractName;
-            CNSInfo[SYS_CNS_FIELD_VERSION] = nameVersionPair.second;
-            CNSInfo[SYS_CNS_FIELD_ADDRESS] = std::string(entry->getField(SYS_CNS_FIELD_ADDRESS));
-            CNSInfo[SYS_CNS_FIELD_ABI] = std::string(entry->getField(SYS_CNS_FIELD_ABI));
+            CNSInfo[SYS_CNS_FIELD_VERSION] = cnsInfo.first;
+            CNSInfo[SYS_CNS_FIELD_ADDRESS] = cnsInfo.second.first;
+            CNSInfo[SYS_CNS_FIELD_ABI] = cnsInfo.second.second;
             CNSInfos.append(CNSInfo);
         }
     }
@@ -306,14 +296,12 @@ void CNSPrecompiled::selectByNameAndVersion(
     gasPricer->appendOperation(InterfaceOpcode::OpenTable);
     if (!table)
     {
-        table = _executive->storage().createTable(
-            SYS_CNS, SYS_CNS_FIELD_ADDRESS + "," + SYS_CNS_FIELD_ABI);
+        table = _executive->storage().createTable(SYS_CNS, SYS_VALUE);
     }
     boost::trim(contractName);
     boost::trim(contractVersion);
-    auto entry = table->getRow(contractName + "," + contractVersion);
-    if (!entry)
-    {
+    auto entry = table->getRow(contractName);
+    auto notFindReturn = [&]() {
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("CNSPrecompiled")
                                << LOG_DESC("can't get cns selectByNameAndVersion")
                                << LOG_KV("contractName", contractName)
@@ -326,23 +314,33 @@ void CNSPrecompiled::selectByNameAndVersion(
         {
             callResult->setExecResult(codec->encode(Address(), std::string("")));
         }
+    };
+    if (!entry)
+    {
+        notFindReturn();
+        return;
+    }
+    CNSInfoMap cnsInfoMap;
+    auto&& out = asBytes(std::string(entry->getField(SYS_VALUE)));
+    codec::scale::decode(cnsInfoMap, gsl::make_span(out));
+    if (cnsInfoMap.find(contractVersion) == cnsInfoMap.end())
+    {
+        notFindReturn();
+        return;
+    }
+    gasPricer->appendOperation(InterfaceOpcode::Select, cnsInfoMap.size());
+    std::string contractAddress = cnsInfoMap.at(contractVersion).first;
+    std::string abi = cnsInfoMap.at(contractVersion).second;
+    if (blockContext->isWasm())
+    {
+        callResult->setExecResult(codec->encode(contractAddress, abi));
     }
     else
     {
-        gasPricer->appendOperation(InterfaceOpcode::Select, entry->capacityOfHashField());
-        std::string abi = std::string(entry->getField(SYS_CNS_FIELD_ABI));
-        std::string contractAddress = std::string(entry->getField(SYS_CNS_FIELD_ADDRESS));
-        if (blockContext->isWasm())
-        {
-            callResult->setExecResult(codec->encode(contractAddress, abi));
-        }
-        else
-        {
-            callResult->setExecResult(codec->encode(toAddress(contractAddress), abi));
-        }
-        PRECOMPILED_LOG(TRACE) << LOG_BADGE("CNSPrecompiled") << LOG_DESC("selectByNameAndVersion")
-                               << LOG_KV("contractAddress", contractAddress) << LOG_KV("abi", abi);
+        callResult->setExecResult(codec->encode(toAddress(contractAddress), abi));
     }
+    PRECOMPILED_LOG(TRACE) << LOG_BADGE("CNSPrecompiled") << LOG_DESC("selectByNameAndVersion")
+                           << LOG_KV("contractAddress", contractAddress) << LOG_KV("abi", abi);
 }
 
 void CNSPrecompiled::getContractAddress(
@@ -360,42 +358,51 @@ void CNSPrecompiled::getContractAddress(
                            << LOG_KV("contractName", contractName)
                            << LOG_KV("contractVersion", contractVersion);
     auto table = _executive->storage().openTable(SYS_CNS);
+    gasPricer->appendOperation(InterfaceOpcode::OpenTable);
     if (!table)
     {
-        table = _executive->storage().createTable(
-            SYS_CNS, SYS_CNS_FIELD_ADDRESS + "," + SYS_CNS_FIELD_ABI);
+        table = _executive->storage().createTable(SYS_CNS, SYS_VALUE);
     }
-    gasPricer->appendOperation(InterfaceOpcode::OpenTable);
-    Json::Value CNSInfos(Json::arrayValue);
     boost::trim(contractName);
     boost::trim(contractVersion);
-    auto entry = table->getRow(contractName + "," + contractVersion);
-    if (!entry)
-    {
+    auto entry = table->getRow(contractName);
+    auto notFindReturn = [&]() {
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("CNSPrecompiled")
                                << LOG_DESC("can't get cns selectByNameAndVersion")
                                << LOG_KV("contractName", contractName)
                                << LOG_KV("contractVersion", contractVersion);
         if (blockContext->isWasm())
         {
-            callResult->setExecResult(codec->encode(std::string("")));
+            callResult->setExecResult(codec->encode(std::string(""), std::string("")));
         }
         else
         {
-            callResult->setExecResult(codec->encode(Address()));
+            callResult->setExecResult(codec->encode(Address(), std::string("")));
         }
+    };
+    if (!entry)
+    {
+        notFindReturn();
+        return;
+    }
+    CNSInfoMap cnsInfoMap;
+    auto && out = asBytes(std::string(entry->getField(SYS_VALUE)));
+    codec::scale::decode(cnsInfoMap, gsl::make_span(out));
+    if (cnsInfoMap.find(contractVersion) == cnsInfoMap.end())
+    {
+        notFindReturn();
+        return;
+    }
+    gasPricer->appendOperation(InterfaceOpcode::Select, cnsInfoMap.size());
+    std::string contractAddress = cnsInfoMap.at(contractVersion).first;
+    if (blockContext->isWasm())
+    {
+        callResult->setExecResult(codec->encode(contractAddress));
     }
     else
     {
-        gasPricer->appendOperation(InterfaceOpcode::Select, entry->capacityOfHashField());
-        std::string contractAddress = std::string(entry->getField(SYS_CNS_FIELD_ADDRESS));
-        if (blockContext->isWasm())
-        {
-            callResult->setExecResult(codec->encode(contractAddress));
-        }
-        else
-        {
-            callResult->setExecResult(codec->encode(toAddress(contractAddress)));
-        }
+        callResult->setExecResult(codec->encode(toAddress(contractAddress)));
     }
+    PRECOMPILED_LOG(TRACE) << LOG_BADGE("CNSPrecompiled") << LOG_DESC("getContractAddress")
+                           << LOG_KV("contractAddress", contractAddress);
 }

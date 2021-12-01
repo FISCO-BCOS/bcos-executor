@@ -38,6 +38,8 @@ const std::string SYS_CNS_FIELD_VERSION = "version";
 const std::string SYS_CNS_FIELD_ADDRESS = "address";
 const std::string SYS_CNS_FIELD_ABI = "abi";
 
+using CNSInfoMap = std::map<std::string, std::pair<std::string, std::string>>;
+
 namespace precompiled
 {
 class CNSPrecompiled : public bcos::precompiled::Precompiled
@@ -46,8 +48,6 @@ public:
     typedef std::shared_ptr<CNSPrecompiled> Ptr;
     CNSPrecompiled(crypto::Hash::Ptr _hashImpl);
     virtual ~CNSPrecompiled(){};
-
-    std::string toString() override;
 
     int checkCNSParam(std::shared_ptr<executor::TransactionExecutive> _executive,
         std::string const& _contractAddress, std::string& _contractName,

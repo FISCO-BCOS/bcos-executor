@@ -306,7 +306,8 @@ void ContractAuthPrecompiled::setMethodAuthType(
     std::map<bytes, u256> methAuthTypeMap;
     if (!authTypeStr.empty())
     {
-        codec::scale::decode(methAuthTypeMap, gsl::make_span(asBytes(authTypeStr)));
+        auto&& out = asBytes(authTypeStr);
+        codec::scale::decode(methAuthTypeMap, gsl::make_span(out));
     }
     // covered writing
     methAuthTypeMap[func] = type;
@@ -401,7 +402,8 @@ bool ContractAuthPrecompiled::checkMethodAuth(
         return getMethodType == (int)AuthType::BLACK_LIST_MODE;
     }
     MethodAuthMap authMap;
-    codec::scale::decode(authMap, gsl::make_span(asBytes(std::string(entry->getField(SYS_VALUE)))));
+    bytes&& out = asBytes(std::string(entry->getField(SYS_VALUE)));
+    codec::scale::decode(authMap, gsl::make_span(out));
     if (authMap.find(func.toBytes()) == authMap.end())
     {
         // func not set acl, pass through
@@ -509,8 +511,8 @@ void ContractAuthPrecompiled::setMethodAuth(
     {
         try
         {
-            codec::scale::decode(
-                authMap, gsl::make_span(asBytes(std::string(entry->getField(SYS_VALUE)))));
+            auto && out = asBytes(std::string(entry->getField(SYS_VALUE)));
+            codec::scale::decode(authMap, gsl::make_span(out));
             if (authMap.find(func) != authMap.end())
             {
                 authMap.at(func)[account] = access;
@@ -551,7 +553,8 @@ s256 ContractAuthPrecompiled::getMethodAuthType(
     s256 type = -1;
     try
     {
-        codec::scale::decode(authTypeMap, gsl::make_span(asBytes(authTypeStr)));
+        auto && out = asBytes(authTypeStr);
+        codec::scale::decode(authTypeMap, gsl::make_span(out));
         if (authTypeMap.find(_func.toBytes()) == authTypeMap.end())
         {
             return (int)CODE_TABLE_AUTH_TYPE_NOT_EXIST;
@@ -677,7 +680,8 @@ void ContractAuthPrecompiled::setDeployAuth(
     auto mapStr = std::string(entry->getField(getAclStr));
     if (!mapStr.empty())
     {
-        codec::scale::decode(aclMap, gsl::make_span(asBytes(mapStr)));
+        auto && out = asBytes(mapStr);
+        codec::scale::decode(aclMap, gsl::make_span(out));
     }
     bool access = _isClose ? (type == (int)AuthType::BLACK_LIST_MODE) :
                              (type == (int)AuthType::WHITE_LIST_MODE);
@@ -726,7 +730,8 @@ bool ContractAuthPrecompiled::checkDeployAuth(
         return type == (int)AuthType::BLACK_LIST_MODE;
     }
     std::map<Address, bool> aclMap;
-    codec::scale::decode(aclMap, gsl::make_span(asBytes(std::string(entry->getField(getAclType)))));
+    auto && out = asBytes(std::string(entry->getField(getAclType)));
+    codec::scale::decode(aclMap, gsl::make_span(out));
     if (aclMap.find(_account) == aclMap.end())
     {
         // can't find account in map
