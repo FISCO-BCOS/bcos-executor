@@ -247,7 +247,8 @@ void TransactionExecutor::dagExecuteTransactions(
                 }
                 else
                 {
-                    dagExecuteTransactionsForEvm(*callParametersList, std::move(callback));
+                    dagExecuteTransactionsForEvm(
+                        *callParametersList, *txHashes, std::move(callback));
                 }
             });
     }
@@ -259,7 +260,7 @@ void TransactionExecutor::dagExecuteTransactions(
         }
         else
         {
-            dagExecuteTransactionsForEvm(*callParametersList, std::move(callback));
+            dagExecuteTransactionsForEvm(*callParametersList, *txHashes, std::move(callback));
         }
     }
 }
@@ -287,7 +288,10 @@ void TransactionExecutor::dagExecuteTransactionsForEvm(gsl::span<CallParameters:
                     serialTransactionsNum++;
                     executionResults[i] = toExecutionResult(std::move(inputs[i]));
                     executionResults[i]->setType(ExecutionMessage::SEND_BACK);
-                    executionResults[i]->setTransactionHash(txHashList[i]);
+                    if (txHashList.size() > i)
+                    {
+                        executionResults[i]->setTransactionHash(txHashList[i]);
+                    }
                 }
             }
         });
