@@ -284,6 +284,7 @@ void TransactionExecutor::dagExecuteTransactionsForEvm(gsl::span<CallParameters:
                 if (txsCriticals[i].empty())
                 {
                     serialTransactionsNum++;
+                    executionResults[i] = toExecutionResult(std::move(inputs[i]));
                     executionResults[i]->setType(ExecutionMessage::SEND_BACK);
                 }
             }
@@ -395,6 +396,7 @@ void TransactionExecutor::dagExecuteTransactionsForWasm(
 
                 if (params->create)
                 {
+                    executionResults[i] = toExecutionResult(std::move(inputs[i]));
                     executionResults[i]->setType(ExecutionMessage::SEND_BACK);
                     continue;
                 }
@@ -439,6 +441,7 @@ void TransactionExecutor::dagExecuteTransactionsForWasm(
                             FunctionAbi::deserialize(abiStr, selector.toBytes(), m_hashImpl);
                         if (!functionAbi)
                         {
+                            executionResults[i] = toExecutionResult(std::move(inputs[i]));
                             executionResults[i]->setType(ExecutionMessage::SEND_BACK);
                             // If abi is not valid, we don't impact the cache. In such a
                             // situation, if the caller invokes this method over and over
@@ -1312,6 +1315,17 @@ TransactionExecutor::createExternalFunctionCall(
 std::unique_ptr<ExecutionMessage> TransactionExecutor::toExecutionResult(
     const TransactionExecutive& executive, std::unique_ptr<CallParameters> params)
 {
+    auto message = toExecutionResult(std::move(params));
+
+    message->setContextID(executive.contextID());
+    message->setSeq(executive.seq());
+
+    return message;
+}
+
+std::unique_ptr<protocol::ExecutionMessage> TransactionExecutor::toExecutionResult(
+    std::unique_ptr<CallParameters> params)
+{
     auto message = m_executionMessageFactory->createExecutionMessage();
     switch (params->type)
     {
@@ -1343,8 +1357,8 @@ std::unique_ptr<ExecutionMessage> TransactionExecutor::toExecutionResult(
         break;
     }
 
-    message->setContextID(executive.contextID());
-    message->setSeq(executive.seq());
+    message->setContextID(params->contextID);
+    message->setSeq(params->seq);
     message->setOrigin(std::move(params->origin));
     message->setGasAvailable(params->gas);
     message->setData(std::move(params->data));
