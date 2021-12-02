@@ -91,8 +91,13 @@ int TxDAG::executeUnit(const vector<TransactionExecutive::Ptr>& allExecutives,
     {
         do
         {
+            if (!allExecutives[id])
+            {
+                continue;
+            }
+
             exeCnt += 1;
-            assert(allExecutives[id] && allCallParameters.at(id));
+            // assert(allExecutives[id] && allCallParameters.at(id));
             f_executeTx(allExecutives[id], std::move(allCallParameters.at(id)), allIndex[id]);
             id = m_dag.consume(id);
         } while (id != INVALID_ID);
