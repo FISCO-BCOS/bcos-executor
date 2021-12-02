@@ -223,8 +223,8 @@ void TransactionExecutor::dagExecuteTransactions(
     {
         m_txpool->asyncFillBlock(txHashes,
             [this, indexes = std::move(indexes), fillInputs = std::move(fillInputs),
-                callParametersList = std::move(callParametersList), callback = std::move(callback)](
-                Error::Ptr error, protocol::TransactionsPtr transactions) mutable {
+                callParametersList = std::move(callParametersList), callback = std::move(callback),
+                txHashes](Error::Ptr error, protocol::TransactionsPtr transactions) mutable {
                 if (error)
                 {
                     auto errorMessage = "asyncFillBlock failed";
@@ -265,6 +265,7 @@ void TransactionExecutor::dagExecuteTransactions(
 }
 
 void TransactionExecutor::dagExecuteTransactionsForEvm(gsl::span<CallParameters::UniquePtr> inputs,
+    const bcos::crypto::HashList& txHashList,
     std::function<void(
         bcos::Error::UniquePtr, std::vector<bcos::protocol::ExecutionMessage::UniquePtr>)>
         callback)
@@ -286,6 +287,7 @@ void TransactionExecutor::dagExecuteTransactionsForEvm(gsl::span<CallParameters:
                     serialTransactionsNum++;
                     executionResults[i] = toExecutionResult(std::move(inputs[i]));
                     executionResults[i]->setType(ExecutionMessage::SEND_BACK);
+                    executionResults[i]->setTransactionHash(txHashList[i]);
                 }
             }
         });
