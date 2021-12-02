@@ -1534,6 +1534,31 @@ std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
 {
     auto callParameters = std::make_unique<CallParameters>(CallParameters::MESSAGE);
 
+    switch (input.type())
+    {
+    case ExecutionMessage::MESSAGE:
+    {
+        break;
+    }
+    case ExecutionMessage::REVERT:
+    case ExecutionMessage::REVERT_KEY_LOCK:
+    {
+        callParameters->type = CallParameters::REVERT;
+        break;
+    }
+    case ExecutionMessage::FINISHED:
+    {
+        callParameters->type = CallParameters::FINISHED;
+        break;
+    }
+    case ExecutionMessage::KEY_LOCK:
+    {
+        BOOST_THROW_EXCEPTION(BCOS_ERROR(
+            ExecuteError::EXECUTE_ERROR, "Unexpected execution message type: " +
+                                             boost::lexical_cast<std::string>(input.type())));
+    }
+    }
+
     callParameters->contextID = input.contextID();
     callParameters->seq = input.seq();
     callParameters->origin = input.origin();
@@ -1545,7 +1570,7 @@ std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
     callParameters->gas = input.gasAvailable();
     callParameters->staticCall = staticCall;
     callParameters->newEVMContractAddress = input.newEVMContractAddress();
-    callParameters->status = 0;
+    callParameters->status = input.status();
     callParameters->keyLocks = input.takeKeyLocks();
 
     return callParameters;

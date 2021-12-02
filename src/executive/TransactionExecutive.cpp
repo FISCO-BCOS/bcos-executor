@@ -30,6 +30,7 @@
 #include "BlockContext.h"
 #include "bcos-framework/interfaces/protocol/Exceptions.h"
 #include "bcos-framework/libcodec/abi/ContractABICodec.h"
+#include "interfaces/executor/ExecutionMessage.h"
 #include "libprotocol/TransactionStatus.h"
 #include "libutilities/Common.h"
 #include <boost/algorithm/hex.hpp>
@@ -153,11 +154,11 @@ void TransactionExecutive::externalAcquireKeyLocks(std::string acquireKeyLock)
                      ResumeHandler) { m_exchangeMessage = CallParameters::UniquePtr(inputPtr); });
 
     auto output = std::move(m_exchangeMessage);
-    if (output->status == CallParameters::REVERT)
+    if (output->type == CallParameters::REVERT)
     {
         // Dead lock, revert
         BOOST_THROW_EXCEPTION(
-            BCOS_ERROR(ExecuteError::DEAD_LOCK, "Dead lock detected, revert transaction"));
+            BCOS_ERROR(ExecuteError::DEAD_LOCK, "Dead lock detected, revert transaction: " + boost::lexical_cast<std::string>(output->status)));
     }
 
     // After coroutine switch, set the recoder
@@ -907,8 +908,7 @@ void TransactionExecutive::creatAuthTable(
 {
     // Create the access table
     //  /sys/ not create
-    if (_tableName.substr(0, 5) == "/sys/" ||
-        getContractTableName(_sender).substr(0, 5) == "/sys/")
+    if (_tableName.substr(0, 5) == "/sys/" || getContractTableName(_sender).substr(0, 5) == "/sys/")
     {
         return;
     }
