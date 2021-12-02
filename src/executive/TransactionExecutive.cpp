@@ -157,8 +157,9 @@ void TransactionExecutive::externalAcquireKeyLocks(std::string acquireKeyLock)
     if (output->type == CallParameters::REVERT)
     {
         // Dead lock, revert
-        BOOST_THROW_EXCEPTION(
-            BCOS_ERROR(ExecuteError::DEAD_LOCK, "Dead lock detected, revert transaction: " + boost::lexical_cast<std::string>(output->status)));
+        BOOST_THROW_EXCEPTION(BCOS_ERROR(
+            ExecuteError::DEAD_LOCK, "Dead lock detected, revert transaction: " +
+                                         boost::lexical_cast<std::string>(output->type)));
     }
 
     // After coroutine switch, set the recoder
@@ -603,6 +604,8 @@ CallParameters::UniquePtr TransactionExecutive::go(
         callResults->type = CallParameters::REVERT;
         callResults->status = (int32_t)TransactionStatus::PermissionDenied;
         revert();
+
+        return callResults;
     }
     catch (PrecompiledError const& _e)
     {
@@ -610,21 +613,33 @@ CallParameters::UniquePtr TransactionExecutive::go(
         callResults->type = CallParameters::REVERT;
         callResults->status = (int32_t)TransactionStatus::PrecompiledError;
         revert();
+
+        return callResults;
     }
     catch (OutOfGas& _e)
     {
         auto callResults = hostContext.takeCallParameters();
         callResults->type = CallParameters::REVERT;
         callResults->status = (int32_t)TransactionStatus::OutOfGas;
+        revert();
         EXECUTIVE_LOG(ERROR) << "Out of gas (" << *boost::get_error_info<errinfo_evmcStatusCode>(_e)
                              << ")\n"
                              << diagnostic_information(_e);
+
+        return callResults;
     }
     catch (bcos::Error& e)
     {
+        auto callResults = hostContext.takeCallParameters();
+        callResults->type = CallParameters::REVERT;
+        callResults->status = (int32_t)TransactionStatus::Unknown;
+        callResults->message = e.errorMessage();
+
         EXECUTIVE_LOG(ERROR) << "bcos::Error: (" << e.errorMessage() << ")\n"
                              << diagnostic_information(e);
         revert();
+
+        return callResults;
     }
     catch (InternalVMError const& _e)
     {
@@ -657,8 +672,6 @@ CallParameters::UniquePtr TransactionExecutive::go(
         // Another solution would be to reject this transaction, but that also
         // has drawbacks. Essentially, the amount of ram has to be increased here.
     }
-
-    return nullptr;
 }
 
 void TransactionExecutive::spawnAndCall(std::function<void(ResumeHandler)> function)
@@ -1034,7 +1047,8 @@ bool TransactionExecutive::buildBfsPath(std::string const& _absoluteDir)
 bool TransactionExecutive::checkAuth(
     const CallParameters::UniquePtr& callParameters, bool _isCreate)
 {
-    if(callParameters->staticCall) return true;
+    if (callParameters->staticCall)
+        return true;
     auto blockContext = m_blockContext.lock();
     auto contractAuthPrecompiled =
         std::make_shared<ContractAuthPrecompiled>(blockContext->hashHandler());
