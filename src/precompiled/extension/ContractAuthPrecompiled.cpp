@@ -573,12 +573,12 @@ s256 ContractAuthPrecompiled::getMethodAuthType(
 u256 ContractAuthPrecompiled::getDeployAuthType(std::optional<storage::Table> _table)
 {
     // table must exist
-    auto entry = _table->getRow("apps");
+    auto entry = _table->getRow(FS_ACL_TYPE);
     // entry must exist
     u256 type = 0;
     try
     {
-        type = boost::lexical_cast<u256>(std::string(entry->getField(FS_ACL_TYPE)));
+        type = boost::lexical_cast<u256>(std::string(entry->getField(0)));
     }
     catch (...)
     {
@@ -596,7 +596,7 @@ void ContractAuthPrecompiled::getDeployType(
     auto codec =
         std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
 
-    auto table = _executive->storage().openTable("/");
+    auto table = _executive->storage().openTable("/apps");
     // table must exist
     u256 type = getDeployAuthType(table);
     gasPricer->updateMemUsed(1);
@@ -628,10 +628,10 @@ void ContractAuthPrecompiled::setDeployType(
         getErrorCodeOut(callResult->mutableExecResult(), CODE_TABLE_ERROR_AUTH_TYPE, *codec);
         return;
     }
-    auto table = _executive->storage().openTable("/");
-    auto entry = table->getRow("apps");
-    entry->setField(FS_ACL_TYPE, boost::lexical_cast<std::string>(type));
-    table->setRow("apps", std::move(entry.value()));
+    auto table = _executive->storage().openTable("/apps");
+    Entry entry;
+    entry.importFields({boost::lexical_cast<std::string>(type)});
+    table->setRow(FS_ACL_TYPE, std::move(entry));
 
     gasPricer->updateMemUsed(1);
     gasPricer->appendOperation(InterfaceOpcode::Set);
@@ -671,13 +671,13 @@ void ContractAuthPrecompiled::setDeployAuth(
     }
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ContractAuthPrecompiled") << LOG_DESC("openDeployAuth")
                            << LOG_KV("account", account.hex());
-    auto table = _executive->storage().openTable("/");
+    auto table = _executive->storage().openTable("/apps");
     auto type = getDeployAuthType(table);
     auto getAclStr = (type == (int)AuthType::BLACK_LIST_MODE) ? FS_ACL_BLACK : FS_ACL_WHITE;
 
     std::map<Address, bool> aclMap;
-    auto entry = table->getRow("apps");
-    auto mapStr = std::string(entry->getField(getAclStr));
+    auto entry = table->getRow(getAclStr);
+    auto mapStr = std::string(entry->getField(0));
     if (!mapStr.empty())
     {
         auto && out = asBytes(mapStr);
@@ -687,8 +687,8 @@ void ContractAuthPrecompiled::setDeployAuth(
                              (type == (int)AuthType::WHITE_LIST_MODE);
     // covered writing
     aclMap[account] = access;
-    entry->setField(getAclStr, asString(codec::scale::encode(aclMap)));
-    table->setRow("apps", std::move(entry.value()));
+    entry->setField(0, asString(codec::scale::encode(aclMap)));
+    table->setRow(getAclStr, std::move(entry.value()));
 
     gasPricer->updateMemUsed(1);
     gasPricer->appendOperation(InterfaceOpcode::Set);
@@ -711,7 +711,7 @@ void ContractAuthPrecompiled::hasDeployAuth(
 bool ContractAuthPrecompiled::checkDeployAuth(
     const std::shared_ptr<executor::TransactionExecutive>& _executive, const Address& _account)
 {
-    auto table = _executive->storage().openTable("/");
+    auto table = _executive->storage().openTable("/apps");
     // table must exist
     auto type = getDeployAuthType(table);
     if (type == 0)
@@ -719,8 +719,8 @@ bool ContractAuthPrecompiled::checkDeployAuth(
         return true;
     }
     auto getAclType = (type == (int)AuthType::WHITE_LIST_MODE) ? FS_ACL_WHITE : FS_ACL_BLACK;
-    auto entry = table->getRow("apps");
-    if (entry->getField(getAclType).empty())
+    auto entry = table->getRow(getAclType);
+    if (entry->getField(0).empty())
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled")
                                << LOG_DESC("deploy auth row not found");
@@ -730,7 +730,7 @@ bool ContractAuthPrecompiled::checkDeployAuth(
         return type == (int)AuthType::BLACK_LIST_MODE;
     }
     std::map<Address, bool> aclMap;
-    auto && out = asBytes(std::string(entry->getField(getAclType)));
+    auto && out = asBytes(std::string(entry->getField(0)));
     codec::scale::decode(aclMap, gsl::make_span(out));
     if (aclMap.find(_account) == aclMap.end())
     {

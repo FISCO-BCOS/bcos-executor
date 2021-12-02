@@ -41,11 +41,6 @@ FileSystemPrecompiled::FileSystemPrecompiled(crypto::Hash::Ptr _hashImpl) : Prec
     name2Selector[FILE_SYSTEM_METHOD_MKDIR] = getFuncSelector(FILE_SYSTEM_METHOD_MKDIR, _hashImpl);
 }
 
-std::string FileSystemPrecompiled::toString()
-{
-    return "FileSystem";
-}
-
 std::shared_ptr<PrecompiledExecResult> FileSystemPrecompiled::call(
     std::shared_ptr<executor::TransactionExecutive> _executive, bytesConstRef _param,
     const std::string&, const std::string&)
@@ -98,7 +93,7 @@ void FileSystemPrecompiled::makeDir(
         callResult->setExecResult(codec->encode(s256((int)CODE_FILE_INVALID_PATH)));
         return;
     }
-    if (absolutePath.find("/sys/") == 0)
+    if (absolutePath.find(USER_SYS_PREFIX) == 0)
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("FileSystemPrecompiled")
                                << LOG_DESC("can't mkdir in /sys/ dir");
@@ -137,8 +132,8 @@ void FileSystemPrecompiled::listDir(
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("FileSystemPrecompiled") << LOG_KV("ls", absolutePath);
     if (!checkPathValid(absolutePath))
     {
-        PRECOMPILED_LOG(ERROR) << LOG_BADGE("FileSystemPrecompiled")
-                               << LOG_DESC("directory exists");
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("FileSystemPrecompiled") << LOG_DESC("invalid path")
+                               << LOG_KV("path", absolutePath);
         callResult->setExecResult(codec->encode(s256((int)CODE_FILE_INVALID_PATH)));
         return;
     }
@@ -147,44 +142,21 @@ void FileSystemPrecompiled::listDir(
 
     if (table)
     {
-        // file exists, query parent dir
-        auto parentDirAndBaseName = getParentDirAndBaseName(absolutePath);
-        auto parentDir = parentDirAndBaseName.first;
-        auto baseName = parentDirAndBaseName.second;
-        auto parentTable = _executive->storage().openTable(parentDir);
-        assert(parentTable);
-        auto baseEntry = parentTable->getRow(baseName);
-        if (!baseEntry)
+        // file exists, try to get type
+        auto typeEntry = table->getRow(FS_KEY_TYPE);
+        if (typeEntry)
         {
-            PRECOMPILED_LOG(ERROR)
-                << LOG_BADGE("FileSystemPrecompiled")
-                << LOG_DESC("file exists, but not found in parentDir")
-                << LOG_KV("parentDir", parentDir) << LOG_KV("fileName", baseName);
-            callResult->setExecResult(codec->encode(s256((int)CODE_FILE_NOT_EXIST)));
-            return;
-        }
-        auto type = baseEntry->getField(FS_FIELD_TYPE);
-        if (type == FS_TYPE_DIR)
-        {
-            // directory
+            // get type success, this is dir
+            auto subEntry = table->getRow(FS_KEY_SUB);
             Json::Value subdirectory(Json::arrayValue);
-            auto fileNameList = table->getPrimaryKeys({});
-            auto fileInfoMap = table->getRows(fileNameList);
-            for (size_t i = 0; i < fileNameList.size(); ++i)
+            std::map<std::string, std::string> bfsInfo;
+            auto&& out = asBytes(std::string(subEntry->getField(0)));
+            codec::scale::decode(bfsInfo, gsl::make_span(out));
+            for (const auto& bfs : bfsInfo)
             {
-                auto fileName = fileNameList[i];
-                auto entry = fileInfoMap[i];
-                if (!entry)
-                {
-                    PRECOMPILED_LOG(WARNING)
-                        << LOG_BADGE("FileSystemPrecompiled")
-                        << LOG_DESC("getRows return null entry") << LOG_KV("fileName", fileName);
-                    continue;
-                }
                 Json::Value file;
-                file[FS_KEY_NAME] = fileName;
-                file[FS_FIELD_TYPE] = std::string(entry->getField(FS_FIELD_TYPE));
-                file[FS_FIELD_EXTRA] = std::string(entry->getField(FS_FIELD_EXTRA));
+                file[FS_KEY_NAME] = bfs.first;
+                file[FS_KEY_TYPE] = bfs.second;
                 subdirectory.append(file);
             }
             Json::FastWriter fastWriter;
@@ -192,20 +164,19 @@ void FileSystemPrecompiled::listDir(
             PRECOMPILED_LOG(TRACE)
                 << LOG_BADGE("FileSystemPrecompiled") << LOG_DESC("ls dir, return subdirectories");
             callResult->setExecResult(codec->encode(str));
+            return;
         }
-        else
-        {
-            // contract
-            Json::Value fileList(Json::arrayValue);
-            Json::Value file;
-            file[FS_KEY_NAME] = baseName;
-            file[FS_FIELD_TYPE] = std::string(baseEntry->getField(FS_FIELD_TYPE));
-            file[FS_FIELD_EXTRA] = std::string(baseEntry->getField(FS_FIELD_EXTRA));
-            fileList.append(file);
-            Json::FastWriter fastWriter;
-            std::string str = fastWriter.write(fileList);
-            callResult->setExecResult(codec->encode(str));
-        }
+        // fail to get type, this is contract
+        auto parentDirAndBaseName = getParentDirAndBaseName(absolutePath);
+        auto baseName = parentDirAndBaseName.second;
+        Json::Value fileList(Json::arrayValue);
+        Json::Value file;
+        file[FS_KEY_NAME] = baseName;
+        file[FS_KEY_TYPE] = FS_TYPE_CONTRACT;
+        fileList.append(file);
+        Json::FastWriter fastWriter;
+        std::string str = fastWriter.write(fileList);
+        callResult->setExecResult(codec->encode(str));
     }
     else
     {

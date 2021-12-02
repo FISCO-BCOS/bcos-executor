@@ -632,8 +632,8 @@ BOOST_AUTO_TEST_CASE(insertTest)
         BOOST_CHECK(entry.has_value());
         CNSInfoMap cnsInfoMap;
 
-        codec::scale::decode(
-            cnsInfoMap, gsl::make_span(asBytes(std::string(entry->getField(SYS_VALUE)))));
+        auto&& out = asBytes(std::string(entry->getField(SYS_VALUE)));
+        codec::scale::decode(cnsInfoMap, gsl::make_span(out));
         BOOST_CHECK_EQUAL(
             cnsInfoMap.at(contractVersion).first, "420f853b49838bd3e9466c85a4cc3428c960dde2");
     }
@@ -784,8 +784,8 @@ BOOST_AUTO_TEST_CASE(insertTest)
         auto entry2 = table2->getRow(contractName);
         BOOST_TEST(entry2.has_value());
         CNSInfoMap cnsInfoMap;
-        codec::scale::decode(
-            cnsInfoMap, gsl::make_span(asBytes(std::string(entry2->getField(SYS_VALUE)))));
+        auto&& out = asBytes(std::string(entry2->getField(SYS_VALUE)));
+        codec::scale::decode(cnsInfoMap, gsl::make_span(out));
         BOOST_CHECK(cnsInfoMap.find(contractVersion) != cnsInfoMap.end());
     }
 }

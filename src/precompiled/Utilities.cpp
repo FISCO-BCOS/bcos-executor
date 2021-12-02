@@ -515,6 +515,8 @@ uint64_t precompiled::getEntriesCapacity(precompiled::EntriesPtr _entries)
 
 bool precompiled::checkPathValid(std::string const& _path)
 {
+    if (_path.empty())
+        return false;
     if (_path.length() > FS_PATH_MAX_LENGTH)
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("checkPathValid") << LOG_DESC("path too long")
@@ -550,7 +552,8 @@ bool precompiled::checkPathValid(std::string const& _path)
             errorMessage << "Invalid field \"" + fieldName
                          << "\", the size of the field must be larger than 0 and "
                             "the field can't start with \"_\"";
-            STORAGE_LOG(ERROR) << LOG_DESC(errorMessage.str()) << LOG_KV("field name", fieldName);
+            PRECOMPILED_LOG(ERROR)
+                << LOG_DESC(errorMessage.str()) << LOG_KV("field name", fieldName);
             return false;
         }
         for (size_t i = 0; i < fieldName.size(); i++)
@@ -561,7 +564,7 @@ bool precompiled::checkPathValid(std::string const& _path)
                 std::stringstream errorMessage;
                 errorMessage << "Invalid field \"" << fieldName
                              << "\", the field name must be letters or numbers.";
-                STORAGE_LOG(ERROR)
+                PRECOMPILED_LOG(ERROR)
                     << LOG_DESC(errorMessage.str()) << LOG_KV("field name", fieldName);
                 return false;
             }
@@ -636,7 +639,7 @@ bool precompiled::recursiveBuildDir(
         return false;
     }
     // transfer /usr/local/bin => ["usr", "local", "bin"]
-    auto dirList = std::make_shared<std::vector<std::string>>();
+    std::vector<std::string> dirList;
     std::string absoluteDir = _absoluteDir;
     if (absoluteDir[0] == '/')
     {
@@ -646,50 +649,93 @@ bool precompiled::recursiveBuildDir(
     {
         absoluteDir = absoluteDir.substr(0, absoluteDir.size() - 1);
     }
-    boost::split(*dirList, absoluteDir, boost::is_any_of("/"), boost::token_compress_on);
+    boost::split(dirList, absoluteDir, boost::is_any_of("/"), boost::token_compress_on);
     std::string root = "/";
-    for (auto& dir : *dirList)
+
+    for (size_t i = 0; i < dirList.size(); i++)
     {
+        auto dir = dirList.at(i);
         auto table = _executive->storage().openTable(root);
         if (!table)
         {
-            PRECOMPILED_LOG(ERROR)
-                << LOG_BADGE("recursiveBuildDir") << LOG_DESC("can not open path table")
-                << LOG_KV("tableName", root);
+            EXECUTIVE_LOG(ERROR) << LOG_BADGE("recursiveBuildDir")
+                                 << LOG_DESC("can not open path table")
+                                 << LOG_KV("tableName", root);
             return false;
         }
         if (root != "/")
         {
             root += "/";
         }
-        auto entry = table->getRow(dir);
-        if (entry)
+        auto typeEntry = table->getRow(FS_KEY_TYPE);
+        if (typeEntry)
         {
-            if (entry->getField(FS_FIELD_TYPE) != FS_TYPE_DIR)
+            // can get type, then this type is directory
+            // try open root + dir
+            auto nextDirTable = _executive->storage().openTable(root + dir);
+            if (nextDirTable.has_value())
             {
-                PRECOMPILED_LOG(ERROR)
-                    << LOG_BADGE("recursiveBuildDir")
-                    << LOG_DESC("file had already existed, and not directory type")
-                    << LOG_KV("parentDir", root) << LOG_KV("dir", dir);
-                return false;
+                // root + dir table exist, try to get type entry
+                auto tryGetTypeEntry = nextDirTable->getRow(FS_KEY_TYPE);
+                if (tryGetTypeEntry.has_value() && tryGetTypeEntry->getField(0) == FS_TYPE_DIR)
+                {
+                    // if success and dir is directory, continue
+                    root += dir;
+                    continue;
+                }
+                else
+                {
+                    // can not get type, it means this dir is not a directory
+                    EXECUTIVE_LOG(ERROR)
+                        << LOG_BADGE("recursiveBuildDir")
+                        << LOG_DESC("file had already existed, and not directory type")
+                        << LOG_KV("parentDir", root) << LOG_KV("dir", dir);
+                    return false;
+                }
             }
-            PRECOMPILED_LOG(DEBUG) << LOG_BADGE("recursiveBuildDir")
-                                   << LOG_DESC("dir already existed in parent dir, continue")
-                                   << LOG_KV("parentDir", root) << LOG_KV("dir", dir);
-            root += dir;
-            continue;
-        }
-        // not exist, then create table and write in parent dir
-        auto newFileEntry = table->newEntry();
-        newFileEntry.setField(FS_FIELD_TYPE, FS_TYPE_DIR);
-        newFileEntry.setField(FS_ACL_TYPE, "0");
-        newFileEntry.setField(FS_ACL_WHITE, "");
-        newFileEntry.setField(FS_ACL_BLACK, "");
-        newFileEntry.setField(FS_FIELD_EXTRA, "");
-        table->setRow(dir, std::move(newFileEntry));
 
-        _executive->storage().createTable(root + dir, FS_FIELD_COMBINED);
-        root += dir;
+            // root + dir not exist, create root + dir and build bfs info in root table
+            auto subEntry = table->getRow(FS_KEY_SUB);
+            auto&& out = asBytes(std::string(subEntry->getField(0)));
+            // codec to map
+            std::map<std::string, std::string> bfsInfo;
+            codec::scale::decode(bfsInfo, gsl::make_span(out));
+            if (i == dirList.size() - 1)
+            {
+                // add bfs contract info to root
+                bfsInfo.insert(std::make_pair(dir, FS_TYPE_CONTRACT));
+            }
+            else
+            {
+                /// create table and build bfs info
+                bfsInfo.insert(std::make_pair(dir, FS_TYPE_DIR));
+                auto newTable = _executive->storage().createTable(root + dir, SYS_VALUE);
+                storage::Entry tEntry, newSubEntry, aclTypeEntry, aclWEntry, aclBEntry, extraEntry;
+                std::map<std::string, std::string> newSubMap;
+                tEntry.importFields({FS_TYPE_DIR});
+                newSubEntry.importFields({asString(codec::scale::encode(newSubMap))});
+                aclTypeEntry.importFields({"0"});
+                aclWEntry.importFields({""});
+                aclBEntry.importFields({""});
+                extraEntry.importFields({""});
+                newTable->setRow(FS_KEY_TYPE, std::move(tEntry));
+                newTable->setRow(FS_KEY_SUB, std::move(newSubEntry));
+                newTable->setRow(FS_ACL_TYPE, std::move(aclTypeEntry));
+                newTable->setRow(FS_ACL_WHITE, std::move(aclWEntry));
+                newTable->setRow(FS_ACL_BLACK, std::move(aclBEntry));
+                newTable->setRow(FS_KEY_EXTRA, std::move(extraEntry));
+            }
+            subEntry->setField(0, asString(codec::scale::encode(bfsInfo)));
+            table->setRow(FS_KEY_SUB, std::move(subEntry.value()));
+            root += dir;
+        }
+        else
+        {
+            EXECUTIVE_LOG(ERROR) << LOG_BADGE("recursiveBuildDir")
+                                 << LOG_DESC("file had already existed, and not directory type")
+                                 << LOG_KV("parentDir", root) << LOG_KV("dir", dir);
+            return false;
+        }
     }
     return true;
 }

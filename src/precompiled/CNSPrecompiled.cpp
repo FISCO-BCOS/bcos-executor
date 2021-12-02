@@ -200,7 +200,7 @@ void CNSPrecompiled::insert(const std::shared_ptr<executor::TransactionExecutive
     {
         // decode map, check version
         CNSInfoMap cnsInfo;
-        auto && out = asBytes(std::string(entry->getField(SYS_VALUE)));
+        auto&& out = asBytes(std::string(entry->getField(SYS_VALUE)));
         codec::scale::decode(cnsInfo, gsl::make_span(out));
         if (cnsInfo.find(contractVersion) != cnsInfo.end())
         {
@@ -386,7 +386,7 @@ void CNSPrecompiled::getContractAddress(
         return;
     }
     CNSInfoMap cnsInfoMap;
-    auto && out = asBytes(std::string(entry->getField(SYS_VALUE)));
+    auto&& out = asBytes(std::string(entry->getField(SYS_VALUE)));
     codec::scale::decode(cnsInfoMap, gsl::make_span(out));
     if (cnsInfoMap.find(contractVersion) == cnsInfoMap.end())
     {

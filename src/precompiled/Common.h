@@ -49,11 +49,6 @@ static const char* const SYS_CONFIG_ENABLE_BLOCK_NUMBER = "enable_number";
 static const size_t FS_PATH_MAX_LENGTH = 56;
 static const size_t FS_PATH_MAX_LEVEL = 6;
 
-/// SYS_CONSENSUS table fields
-static const char* const NODE_TYPE = "type";
-static const char* const NODE_WEIGHT = "weight";
-static const char* const NODE_ENABLE_NUMBER = "enable_number";
-
 const int SYS_TABLE_KEY_FIELD_NAME_MAX_LENGTH = 64;
 const int SYS_TABLE_KEY_FIELD_MAX_LENGTH = 1024;
 const int SYS_TABLE_VALUE_FIELD_MAX_LENGTH = 1024;

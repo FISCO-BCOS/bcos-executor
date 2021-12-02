@@ -40,6 +40,7 @@ using EntryTuple = std::tuple<std::vector<std::tuple<std::string, std::string>>>
 
 static const std::string USER_TABLE_PREFIX = "/tables/";
 static const std::string USER_APPS_PREFIX = "/apps/";
+static const std::string USER_SYS_PREFIX = "/sys/";
 
 enum class Comparator : int
 {
