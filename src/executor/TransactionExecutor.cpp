@@ -1554,6 +1554,9 @@ std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
         break;
     }
     case ExecutionMessage::KEY_LOCK:
+    {
+        break;
+    }
     case ExecutionMessage::SEND_BACK:
     case ExecutionMessage::REVERT_KEY_LOCK:
     case ExecutionMessage::TXHASH:
