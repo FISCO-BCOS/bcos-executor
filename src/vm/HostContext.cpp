@@ -166,7 +166,7 @@ evmc_result HostContext::externalRequest(const evmc_message* _msg)
     {
         return callBuiltInPrecompiled(request, false);
     }
-    if (m_executive->isEthereumPrecompiled(request->receiveAddress))
+    if (m_executive->isEthereumPrecompiled(request->receiveAddress) && !blockContext->isWasm())
     {
         return callBuiltInPrecompiled(request, true);
     }

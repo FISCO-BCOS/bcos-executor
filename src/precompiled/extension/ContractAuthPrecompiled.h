@@ -108,7 +108,7 @@ private:
 
     inline bool checkSender(std::string_view _sender)
     {
-        return _sender ==  precompiled::AUTH_COMMITTEE_ADDRESS;
+        return _sender == precompiled::AUTH_COMMITTEE_ADDRESS;
     }
 
     inline std::string getAuthTableName(const std::string& _name)

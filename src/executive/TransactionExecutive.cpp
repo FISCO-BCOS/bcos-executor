@@ -214,7 +214,7 @@ std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionE
     {
         auto tableName = getContractTableName(callParameters->codeAddress);
         // check permission first
-        if (blockContext->isAuthCheck())
+        if (blockContext->isAuthCheck() && !blockContext->isWasm())
         {
             if (!checkAuth(callParameters, false))
             {
@@ -228,7 +228,6 @@ std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionE
         }
         auto hostContext = make_unique<HostContext>(
             std::move(callParameters), shared_from_this(), std::move(tableName));
-
         return {std::move(hostContext), nullptr};
     }
 }
@@ -809,10 +808,18 @@ CallParameters::UniquePtr TransactionExecutive::parseEVMCResult(
         break;
     }
     case EVMC_OUT_OF_GAS:
+    {
+        revert();
+        EXECUTIVE_LOG(WARNING) << LOG_DESC("OutOfGas") << LOG_KV("gas", _result.gasLeft());
+        callResults->status = (int32_t)TransactionStatus::OutOfGas;
+        callResults->gas = _result.gasLeft();
+        break;
+    }
     case EVMC_FAILURE:
     {
         revert();
-        callResults->status = (int32_t)TransactionStatus::OutOfGas;
+        EXECUTIVE_LOG(WARNING) << LOG_DESC("WASMTrap");
+        callResults->status = (int32_t)TransactionStatus::WASMTrap;
         callResults->gas = _result.gasLeft();
         break;
     }
@@ -1027,6 +1034,7 @@ bool TransactionExecutive::buildBfsPath(std::string const& _absoluteDir)
 bool TransactionExecutive::checkAuth(
     const CallParameters::UniquePtr& callParameters, bool _isCreate)
 {
+    if(callParameters->staticCall) return true;
     auto blockContext = m_blockContext.lock();
     auto contractAuthPrecompiled =
         std::make_shared<ContractAuthPrecompiled>(blockContext->hashHandler());

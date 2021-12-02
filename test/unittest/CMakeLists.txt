@@ -28,6 +28,7 @@ add_executable(${TEST_BINARY_NAME} ${SOURCES})
 target_include_directories(${TEST_BINARY_NAME} PRIVATE ./ ../../src ../../include)
 
 find_package(Boost CONFIG QUIET REQUIRED unit_test_framework)
+find_package(TBB CONFIG QUIET REQUIRED)
 
 target_link_libraries(${TEST_BINARY_NAME} executor bcos-framework::protocol-pb bcos-framework::protocol bcos-framework::utilities bcos-framework::storage wedpr-crypto::crypto)
 # config_test_cases("" "${SOURCES}" bin/${TEST_BINARY_NAME} "")

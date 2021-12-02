@@ -4,7 +4,6 @@
 #include <bcos-framework/libstorage/StateStorage.h>
 #include <tbb/concurrent_queue.h>
 #include <tbb/task_group.h>
-#include <tbb/tbb_thread.h>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/mem_fun.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
@@ -17,7 +16,7 @@ class LRUStorage : public virtual bcos::storage::StateStorage,
                    public std::enable_shared_from_this<LRUStorage>
 {
 public:
-    LRUStorage(std::shared_ptr<StorageInterface> prev) : StateStorage(std::move(prev)) {}
+    using StateStorage::StateStorage;
     ~LRUStorage() noexcept override { stop(); }
 
     void asyncGetPrimaryKeys(std::string_view table,
@@ -77,12 +76,12 @@ private:
         m_mru;
     tbb::concurrent_queue<EntryKeyWrapper> m_mruQueue;
 
-    size_t m_maxCapacity = 256 * 1024 * 1024;  // default 256MB for cache
+    size_t m_maxCapacity = 32 * 1024 * 1024;  // default 32 for cache
 
     std::unique_ptr<std::thread> m_worker;
     std::atomic_bool m_running = false;
 
-    tbb::atomic<uint64_t> m_hitTimes;
-    tbb::atomic<uint64_t> m_queryTimes;
+    std::atomic<uint64_t> m_hitTimes;
+    std::atomic<uint64_t> m_queryTimes;
 };
 }  // namespace bcos::executor

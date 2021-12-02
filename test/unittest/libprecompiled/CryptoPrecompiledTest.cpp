@@ -425,8 +425,9 @@ BOOST_AUTO_TEST_CASE(testEVMPrecompiled)
         auto rData = result2->data().toBytes();
         string32 re;
         codec->decode(ref(rData), re);
-        BOOST_CHECK_EQUAL("0x88d4266fd4e6338d13b845fcf289579d209c897823b9217da3e161936f031589",toHexStringWithPrefix(fromString32(re).asBytes()));
-        BOOST_CHECK_EQUAL(result2->status(),(int32_t)TransactionStatus::None);
+        BOOST_CHECK_EQUAL("0x88d4266fd4e6338d13b845fcf289579d209c897823b9217da3e161936f031589",
+            toHexStringWithPrefix(fromString32(re).asBytes()));
+        BOOST_CHECK_EQUAL(result2->status(), (int32_t)TransactionStatus::None);
         commitBlock(2);
     }
 }

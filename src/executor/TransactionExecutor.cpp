@@ -338,7 +338,7 @@ void TransactionExecutor::dagExecuteTransactionsForEvm(gsl::span<CallParameters:
     auto parallelTimeOut = utcSteadyTime() + 30000;  // 30 timeout
     try
     {
-        tbb::atomic<bool> isWarnedTimeout(false);
+        std::atomic<bool> isWarnedTimeout(false);
         tbb::parallel_for(tbb::blocked_range<unsigned int>(0, m_DAGThreadNum),
             [&](const tbb::blocked_range<unsigned int>& _r) {
                 (void)_r;
@@ -1030,7 +1030,7 @@ void TransactionExecutor::asyncExecute(std::shared_ptr<BlockContext> blockContex
 
                 auto contextID = input->contextID();
                 auto seq = input->seq();
-                auto callParameters = createCallParameters(*input, std::move(*tx));
+                auto callParameters = createCallParameters(*input, *tx);
 
                 auto executive =
                     createExecutive(blockContext, callParameters->codeAddress, contextID, seq);
@@ -1438,8 +1438,9 @@ void TransactionExecutor::initPrecompiled()
         std::make_shared<precompiled::ParallelConfigPrecompiled>(m_hashImpl);
     auto consensusPrecompiled = std::make_shared<precompiled::ConsensusPrecompiled>(m_hashImpl);
     auto cnsPrecompiled = std::make_shared<precompiled::CNSPrecompiled>(m_hashImpl);
-    auto tableFactoryPrecompiled =
-        std::make_shared<precompiled::TableFactoryPrecompiled>(m_hashImpl);
+    // FIXME: not support crud now
+    // auto tableFactoryPrecompiled =
+    // std::make_shared<precompiled::TableFactoryPrecompiled>(m_hashImpl);
     auto kvTableFactoryPrecompiled =
         std::make_shared<precompiled::KVTableFactoryPrecompiled>(m_hashImpl);
 
@@ -1449,7 +1450,8 @@ void TransactionExecutor::initPrecompiled()
         m_constantPrecompiled.insert({CONSENSUS_NAME, consensusPrecompiled});
         m_constantPrecompiled.insert({CNS_NAME, cnsPrecompiled});
         m_constantPrecompiled.insert({PARALLEL_CONFIG_NAME, parallelConfigPrecompiled});
-        m_constantPrecompiled.insert({TABLE_NAME, tableFactoryPrecompiled});
+        // FIXME: not support crud now
+        // m_constantPrecompiled.insert({TABLE_NAME, tableFactoryPrecompiled});
         m_constantPrecompiled.insert({KV_TABLE_NAME, kvTableFactoryPrecompiled});
         m_constantPrecompiled.insert(
             {DAG_TRANSFER_NAME, std::make_shared<precompiled::DagTransferPrecompiled>(m_hashImpl)});
@@ -1469,7 +1471,8 @@ void TransactionExecutor::initPrecompiled()
         m_constantPrecompiled.insert({CONSENSUS_ADDRESS, consensusPrecompiled});
         m_constantPrecompiled.insert({CNS_ADDRESS, cnsPrecompiled});
         m_constantPrecompiled.insert({PARALLEL_CONFIG_ADDRESS, parallelConfigPrecompiled});
-        m_constantPrecompiled.insert({TABLE_ADDRESS, tableFactoryPrecompiled});
+        // FIXME: not support crud now
+        // m_constantPrecompiled.insert({TABLE_ADDRESS, tableFactoryPrecompiled});
         m_constantPrecompiled.insert({KV_TABLE_ADDRESS, kvTableFactoryPrecompiled});
         m_constantPrecompiled.insert({DAG_TRANSFER_ADDRESS,
             std::make_shared<precompiled::DagTransferPrecompiled>(m_hashImpl)});
@@ -1541,7 +1544,6 @@ std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
         break;
     }
     case ExecutionMessage::REVERT:
-    case ExecutionMessage::REVERT_KEY_LOCK:
     {
         callParameters->type = CallParameters::REVERT;
         break;
@@ -1552,6 +1554,9 @@ std::unique_ptr<CallParameters> TransactionExecutor::createCallParameters(
         break;
     }
     case ExecutionMessage::KEY_LOCK:
+    case ExecutionMessage::SEND_BACK:
+    case ExecutionMessage::REVERT_KEY_LOCK:
+    case ExecutionMessage::TXHASH:
     {
         BOOST_THROW_EXCEPTION(BCOS_ERROR(
             ExecuteError::EXECUTE_ERROR, "Unexpected execution message type: " +
