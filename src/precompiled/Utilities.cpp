@@ -598,38 +598,6 @@ std::pair<std::string, std::string> precompiled::getParentDirAndBaseName(
     return {parentDir, baseName};
 }
 
-/// /usr/test => /usr
-std::string precompiled::getParentDir(const std::string& _absolutePath)
-{
-    if (_absolutePath == "/" || _absolutePath.empty())
-    {
-        return _absolutePath;
-    }
-    // /usr/test/ => /usr/test
-    std::string ret = (_absolutePath.at(_absolutePath.length() - 1) == '/') ?
-                          _absolutePath.substr(0, _absolutePath.find_last_of('/') - 1) :
-                          _absolutePath;
-    if (_absolutePath.find_last_of('/') == 0)
-    {
-        return "/";
-    }
-    return ret.substr(0, _absolutePath.find_last_of('/'));
-}
-
-/// /usr/test => test
-std::string precompiled::getDirBaseName(const std::string& _absolutePath)
-{
-    if (_absolutePath == "/" || _absolutePath.empty())
-    {
-        return _absolutePath;
-    }
-    // /usr/test/ => /usr/test
-    std::string ret = (_absolutePath.at(_absolutePath.length() - 1) == '/') ?
-                          _absolutePath.substr(0, _absolutePath.find_last_of('/') - 1) :
-                          _absolutePath;
-    return ret.substr(_absolutePath.find_last_of('/') + 1);
-}
-
 bool precompiled::recursiveBuildDir(
     const std::shared_ptr<executor::TransactionExecutive>& _executive,
     const std::string& _absoluteDir)
@@ -652,9 +620,8 @@ bool precompiled::recursiveBuildDir(
     boost::split(dirList, absoluteDir, boost::is_any_of("/"), boost::token_compress_on);
     std::string root = "/";
 
-    for (size_t i = 0; i < dirList.size(); i++)
+    for (auto dir : dirList)
     {
-        auto dir = dirList.at(i);
         auto table = _executive->storage().openTable(root);
         if (!table)
         {
@@ -700,31 +667,24 @@ bool precompiled::recursiveBuildDir(
             // codec to map
             std::map<std::string, std::string> bfsInfo;
             codec::scale::decode(bfsInfo, gsl::make_span(out));
-            if (i == dirList.size() - 1)
-            {
-                // add bfs contract info to root
-                bfsInfo.insert(std::make_pair(dir, FS_TYPE_CONTRACT));
-            }
-            else
-            {
-                /// create table and build bfs info
-                bfsInfo.insert(std::make_pair(dir, FS_TYPE_DIR));
-                auto newTable = _executive->storage().createTable(root + dir, SYS_VALUE);
-                storage::Entry tEntry, newSubEntry, aclTypeEntry, aclWEntry, aclBEntry, extraEntry;
-                std::map<std::string, std::string> newSubMap;
-                tEntry.importFields({FS_TYPE_DIR});
-                newSubEntry.importFields({asString(codec::scale::encode(newSubMap))});
-                aclTypeEntry.importFields({"0"});
-                aclWEntry.importFields({""});
-                aclBEntry.importFields({""});
-                extraEntry.importFields({""});
-                newTable->setRow(FS_KEY_TYPE, std::move(tEntry));
-                newTable->setRow(FS_KEY_SUB, std::move(newSubEntry));
-                newTable->setRow(FS_ACL_TYPE, std::move(aclTypeEntry));
-                newTable->setRow(FS_ACL_WHITE, std::move(aclWEntry));
-                newTable->setRow(FS_ACL_BLACK, std::move(aclBEntry));
-                newTable->setRow(FS_KEY_EXTRA, std::move(extraEntry));
-            }
+
+            /// create table and build bfs info
+            bfsInfo.insert(std::make_pair(dir, FS_TYPE_DIR));
+            auto newTable = _executive->storage().createTable(root + dir, SYS_VALUE);
+            storage::Entry tEntry, newSubEntry, aclTypeEntry, aclWEntry, aclBEntry, extraEntry;
+            std::map<std::string, std::string> newSubMap;
+            tEntry.importFields({FS_TYPE_DIR});
+            newSubEntry.importFields({asString(codec::scale::encode(newSubMap))});
+            aclTypeEntry.importFields({"0"});
+            aclWEntry.importFields({""});
+            aclBEntry.importFields({""});
+            extraEntry.importFields({""});
+            newTable->setRow(FS_KEY_TYPE, std::move(tEntry));
+            newTable->setRow(FS_KEY_SUB, std::move(newSubEntry));
+            newTable->setRow(FS_ACL_TYPE, std::move(aclTypeEntry));
+            newTable->setRow(FS_ACL_WHITE, std::move(aclWEntry));
+            newTable->setRow(FS_ACL_BLACK, std::move(aclBEntry));
+            newTable->setRow(FS_KEY_EXTRA, std::move(extraEntry));
             subEntry->setField(0, asString(codec::scale::encode(bfsInfo)));
             table->setRow(FS_KEY_SUB, std::move(subEntry.value()));
             root += dir;

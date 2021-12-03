@@ -93,10 +93,10 @@ void FileSystemPrecompiled::makeDir(
         callResult->setExecResult(codec->encode(s256((int)CODE_FILE_INVALID_PATH)));
         return;
     }
-    if (absolutePath.find(USER_SYS_PREFIX) == 0)
+    if (absolutePath.find(USER_APPS_PREFIX) != 0 && absolutePath.find(USER_TABLE_PREFIX) != 0)
     {
-        PRECOMPILED_LOG(ERROR) << LOG_BADGE("FileSystemPrecompiled")
-                               << LOG_DESC("can't mkdir in /sys/ dir");
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("FileSystemPrecompiled") << LOG_DESC("mkdir in system dir")
+                               << LOG_KV("absolutePath", absolutePath);
         callResult->setExecResult(codec->encode(s256((int)CODE_FILE_INVALID_PATH)));
         return;
     }
@@ -162,7 +162,8 @@ void FileSystemPrecompiled::listDir(
             Json::FastWriter fastWriter;
             std::string str = fastWriter.write(subdirectory);
             PRECOMPILED_LOG(TRACE)
-                << LOG_BADGE("FileSystemPrecompiled") << LOG_DESC("ls dir, return subdirectories");
+                << LOG_BADGE("FileSystemPrecompiled") << LOG_DESC("ls dir, return subdirectories")
+                << LOG_KV("str", str);
             callResult->setExecResult(codec->encode(str));
             return;
         }

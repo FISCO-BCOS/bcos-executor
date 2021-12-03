@@ -118,8 +118,6 @@ public:
                 executePromise2.set_value(std::move(result));
             });
         auto result2 = executePromise2.get_future().get();
-        // call precompiled
-        result2->setSeq(1001);
         if (_errorCode != 0)
         {
             BOOST_CHECK(result2->data().toBytes() == codec->encode(s256(_errorCode)));
@@ -249,6 +247,15 @@ BOOST_AUTO_TEST_CASE(mkdirTest)
         Json::Reader reader;
         BOOST_CHECK(reader.parse(ls, retJson) == true);
         BOOST_CHECK(retJson.size() == 3);
+
+        auto lsResult2 = list(_number++, "/tables/temp");
+        std::string ls2;
+        codec->decode(lsResult2->data(), ls2);
+        Json::Value retJson2;
+        Json::Reader reader2;
+        BOOST_CHECK(reader2.parse(ls2, retJson2) == true);
+        BOOST_CHECK(retJson2.size() == 1);
+        BOOST_CHECK(retJson2[0][FS_KEY_TYPE] == FS_TYPE_DIR);
     }
 
     // mkdir /tables/test1/test
@@ -263,7 +270,14 @@ BOOST_AUTO_TEST_CASE(mkdirTest)
 
     // mkdir /tables
     {
-        auto result = mkdir(_number++, "/tables", CODE_FILE_ALREADY_EXIST);
+        auto result = mkdir(_number++, "/tables", CODE_FILE_INVALID_PATH);
+    }
+
+    // mkdir in wrong path
+    {
+        auto result = mkdir(_number++, "/sys/test1", CODE_FILE_INVALID_PATH);
+        auto result2 = mkdir(_number++, "/user/test1", CODE_FILE_INVALID_PATH);
+        auto result3 = mkdir(_number++, "/test1", CODE_FILE_INVALID_PATH);
     }
 
     // mkdir invalid path
