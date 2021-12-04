@@ -42,7 +42,8 @@ using EntriesPtr = std::shared_ptr<Entries>;
 const char* const SYS_CNS = "s_cns";
 
 /// SYS_CONFIG table fields
-static const char* const SYS_VALUE = "value";
+static constexpr size_t SYS_VALUE = 0;
+static constexpr const char* SYS_VALUE_FIELDS = "value";
 static const char* const SYS_CONFIG_ENABLE_BLOCK_NUMBER = "enable_number";
 
 /// FileSystem path limit

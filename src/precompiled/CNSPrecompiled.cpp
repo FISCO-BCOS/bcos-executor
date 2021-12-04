@@ -192,7 +192,7 @@ void CNSPrecompiled::insert(const std::shared_ptr<executor::TransactionExecutive
     auto table = _executive->storage().openTable(SYS_CNS);
     if (!table)
     {
-        table = _executive->storage().createTable(SYS_CNS, SYS_VALUE);
+        table = _executive->storage().createTable(SYS_CNS, SYS_VALUE_FIELDS);
     }
     gasPricer->appendOperation(InterfaceOpcode::OpenTable);
     auto entry = table->getRow(contractName);
@@ -200,7 +200,7 @@ void CNSPrecompiled::insert(const std::shared_ptr<executor::TransactionExecutive
     {
         // decode map, check version
         CNSInfoMap cnsInfo;
-        auto && out = asBytes(std::string(entry->getField(SYS_VALUE)));
+        auto&& out = asBytes(std::string(entry->getField(SYS_VALUE)));
         codec::scale::decode(cnsInfo, gsl::make_span(out));
         if (cnsInfo.find(contractVersion) != cnsInfo.end())
         {
@@ -251,7 +251,7 @@ void CNSPrecompiled::selectByName(const std::shared_ptr<executor::TransactionExe
     gasPricer->appendOperation(InterfaceOpcode::OpenTable);
     if (!table)
     {
-        table = _executive->storage().createTable(SYS_CNS, SYS_VALUE);
+        table = _executive->storage().createTable(SYS_CNS, SYS_VALUE_FIELDS);
     }
     Json::Value CNSInfos(Json::arrayValue);
     auto entry = table->getRow(contractName);
@@ -296,7 +296,7 @@ void CNSPrecompiled::selectByNameAndVersion(
     gasPricer->appendOperation(InterfaceOpcode::OpenTable);
     if (!table)
     {
-        table = _executive->storage().createTable(SYS_CNS, SYS_VALUE);
+        table = _executive->storage().createTable(SYS_CNS, SYS_VALUE_FIELDS);
     }
     boost::trim(contractName);
     boost::trim(contractVersion);
@@ -361,7 +361,7 @@ void CNSPrecompiled::getContractAddress(
     gasPricer->appendOperation(InterfaceOpcode::OpenTable);
     if (!table)
     {
-        table = _executive->storage().createTable(SYS_CNS, SYS_VALUE);
+        table = _executive->storage().createTable(SYS_CNS, SYS_VALUE_FIELDS);
     }
     boost::trim(contractName);
     boost::trim(contractVersion);
@@ -386,7 +386,7 @@ void CNSPrecompiled::getContractAddress(
         return;
     }
     CNSInfoMap cnsInfoMap;
-    auto && out = asBytes(std::string(entry->getField(SYS_VALUE)));
+    auto&& out = asBytes(std::string(entry->getField(SYS_VALUE)));
     codec::scale::decode(cnsInfoMap, gsl::make_span(out));
     if (cnsInfoMap.find(contractVersion) == cnsInfoMap.end())
     {
