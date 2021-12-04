@@ -114,31 +114,82 @@ struct WasmExecutorFixture
     void createSysTable()
     {
         // create / table
-        std::promise<std::optional<Table>> promise2;
-        backend->asyncCreateTable(
-            "/", FS_FIELD_COMBINED, [&](Error::UniquePtr&& _error, std::optional<Table>&& _table) {
-                BOOST_CHECK(!_error);
-                promise2.set_value(std::move(_table));
-            });
+        {
+            std::promise<std::optional<Table>> promise2;
+            backend->asyncCreateTable(
+                "/", "value", [&](Error::UniquePtr&& _error, std::optional<Table>&& _table) {
+                    BOOST_CHECK(!_error);
+                    promise2.set_value(std::move(_table));
+                });
+            auto rootTable = promise2.get_future().get();
+            storage::Entry tEntry, newSubEntry, aclTypeEntry, aclWEntry, aclBEntry, extraEntry;
+            std::map<std::string, std::string> newSubMap;
+            newSubMap.insert(std::make_pair("apps", FS_TYPE_DIR));
+            newSubMap.insert(std::make_pair("/", FS_TYPE_DIR));
+            newSubMap.insert(std::make_pair("tables", FS_TYPE_DIR));
+            tEntry.importFields({FS_TYPE_DIR});
+            newSubEntry.importFields({asString(codec::scale::encode(newSubMap))});
+            aclTypeEntry.importFields({"0"});
+            aclWEntry.importFields({""});
+            aclBEntry.importFields({""});
+            extraEntry.importFields({""});
+            rootTable->setRow(FS_KEY_TYPE, std::move(tEntry));
+            rootTable->setRow(FS_KEY_SUB, std::move(newSubEntry));
+            rootTable->setRow(FS_ACL_TYPE, std::move(aclTypeEntry));
+            rootTable->setRow(FS_ACL_WHITE, std::move(aclWEntry));
+            rootTable->setRow(FS_ACL_BLACK, std::move(aclBEntry));
+            rootTable->setRow(FS_KEY_EXTRA, std::move(extraEntry));
+        }
+
+        // create /tables table
+        {
+            std::promise<std::optional<Table>> promise3;
+            backend->asyncCreateTable(
+                "/tables", "value", [&](Error::UniquePtr&& _error, std::optional<Table>&& _table) {
+                    BOOST_CHECK(!_error);
+                    promise3.set_value(std::move(_table));
+                });
+            auto tablesTable = promise3.get_future().get();
+            storage::Entry tEntry, newSubEntry, aclTypeEntry, aclWEntry, aclBEntry, extraEntry;
+            std::map<std::string, std::string> newSubMap;
+            tEntry.importFields({FS_TYPE_DIR});
+            newSubEntry.importFields({asString(codec::scale::encode(newSubMap))});
+            aclTypeEntry.importFields({"0"});
+            aclWEntry.importFields({""});
+            aclBEntry.importFields({""});
+            extraEntry.importFields({""});
+            tablesTable->setRow(FS_KEY_TYPE, std::move(tEntry));
+            tablesTable->setRow(FS_KEY_SUB, std::move(newSubEntry));
+            tablesTable->setRow(FS_ACL_TYPE, std::move(aclTypeEntry));
+            tablesTable->setRow(FS_ACL_WHITE, std::move(aclWEntry));
+            tablesTable->setRow(FS_ACL_BLACK, std::move(aclBEntry));
+            tablesTable->setRow(FS_KEY_EXTRA, std::move(extraEntry));
+        }
 
         // create /apps table
-        std::promise<std::optional<Table>> promise3;
-        backend->asyncCreateTable("/apps", FS_FIELD_COMBINED,
-            [&](Error::UniquePtr&& _error, std::optional<Table>&& _table) {
-                BOOST_CHECK(!_error);
-                promise3.set_value(std::move(_table));
-            });
-        promise3.get_future().get();
-        auto rootTable = promise2.get_future().get();
-        assert(rootTable != std::nullopt);
-        auto dirEntry = rootTable->newEntry();
-        dirEntry.setField(FS_FIELD_TYPE, FS_TYPE_DIR);
-        dirEntry.setField(FS_ACL_TYPE, "0");
-        dirEntry.setField(FS_ACL_WHITE, "");
-        dirEntry.setField(FS_ACL_BLACK, "");
-        dirEntry.setField(FS_FIELD_EXTRA, "");
-        rootTable->setRow("apps", dirEntry);
-        rootTable->setRow("/", dirEntry);
+        {
+            std::promise<std::optional<Table>> promise4;
+            backend->asyncCreateTable(
+                "/apps", "value", [&](Error::UniquePtr&& _error, std::optional<Table>&& _table) {
+                    BOOST_CHECK(!_error);
+                    promise4.set_value(std::move(_table));
+                });
+            auto appsTable = promise4.get_future().get();
+            storage::Entry tEntry, newSubEntry, aclTypeEntry, aclWEntry, aclBEntry, extraEntry;
+            std::map<std::string, std::string> newSubMap;
+            tEntry.importFields({FS_TYPE_DIR});
+            newSubEntry.importFields({asString(codec::scale::encode(newSubMap))});
+            aclTypeEntry.importFields({"0"});
+            aclWEntry.importFields({""});
+            aclBEntry.importFields({""});
+            extraEntry.importFields({""});
+            appsTable->setRow(FS_KEY_TYPE, std::move(tEntry));
+            appsTable->setRow(FS_KEY_SUB, std::move(newSubEntry));
+            appsTable->setRow(FS_ACL_TYPE, std::move(aclTypeEntry));
+            appsTable->setRow(FS_ACL_WHITE, std::move(aclWEntry));
+            appsTable->setRow(FS_ACL_BLACK, std::move(aclBEntry));
+            appsTable->setRow(FS_KEY_EXTRA, std::move(extraEntry));
+        }
     }
 
     TransactionExecutor::Ptr executor;

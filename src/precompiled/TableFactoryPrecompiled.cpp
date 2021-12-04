@@ -207,13 +207,14 @@ void TableFactoryPrecompiled::createTable(
             // parentPath table must exist
             // update parentDir
             auto parentTable = _executive->storage().openTable(parentDir);
-            auto newEntry = parentTable->newEntry();
-            newEntry.setField(FS_FIELD_TYPE, FS_TYPE_CONTRACT);
-            newEntry.setField(FS_ACL_TYPE, "0");
-            newEntry.setField(FS_ACL_WHITE, "");
-            newEntry.setField(FS_ACL_BLACK, "");
-            newEntry.setField(FS_FIELD_EXTRA, "");
-            parentTable->setRow(tableBaseName, std::move(newEntry));
+            // decode sub
+            std::map<std::string, std::string> bfsInfo;
+            auto stubEntry = parentTable->getRow(FS_KEY_SUB);
+            auto&& out = asBytes(std::string(stubEntry->getField(0)));
+            codec::scale::decode(bfsInfo, gsl::make_span(out));
+            bfsInfo.insert(std::make_pair(tableBaseName, FS_TYPE_CONTRACT));
+            stubEntry->setField(0, asString(codec::scale::encode(bfsInfo)));
+            parentTable->setRow(tableBaseName, std::move(stubEntry.value()));
         }
     }
     getErrorCodeOut(callResult->mutableExecResult(), result, *codec);

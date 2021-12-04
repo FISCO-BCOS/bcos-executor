@@ -275,7 +275,7 @@ int ConsensusPrecompiled::removeNode(
         [&nodeID](const ConsensusNode& node) { return node.nodeID == nodeID; });
     if (it != consensusList.end())
     {
-        it = consensusList.erase(it);
+        consensusList.erase(it);
     }
 
     auto sealerSize = std::count_if(consensusList.begin(), consensusList.end(),
@@ -363,7 +363,7 @@ void ConsensusPrecompiled::showConsensusTable(
     auto& storage = _executive->storage();
     if (!storage.openTable(SYS_CONSENSUS))
     {
-        storage.createTable(SYS_CONSENSUS, "type,weight,enable_number");
+        storage.createTable(SYS_CONSENSUS, SYS_VALUE);
     }
 
     auto entry = storage.getRow(SYS_CONSENSUS, "key");

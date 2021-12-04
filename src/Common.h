@@ -64,36 +64,30 @@ enum ExecuteError : int32_t
     DEAD_LOCK,
 };
 
-const char STORAGE_VALUE[] = "value";
-const char ACCOUNT_CODE_HASH[] = "codeHash";
-const char ACCOUNT_CODE[] = "code";
-const char ACCOUNT_BALANCE[] = "balance";
-const char ACCOUNT_ABI[] = "abi";
-const char ACCOUNT_NONCE[] = "nonce";
-const char ACCOUNT_ALIVE[] = "alive";
-const char ACCOUNT_AUTHORITY[] = "authority";
-const char ACCOUNT_FROZEN[] = "frozen";
+static const char* const STORAGE_VALUE = "value";
+static const char* const ACCOUNT_CODE_HASH = "codeHash";
+static const char* const ACCOUNT_CODE = "code";
+static const char* const ACCOUNT_BALANCE = "balance";
+static const char* const ACCOUNT_ABI = "abi";
+static const char* const ACCOUNT_NONCE = "nonce";
+static const char* const ACCOUNT_ALIVE = "alive";
+static const char* const ACCOUNT_FROZEN = "frozen";
 
 /// auth
-const char CONTRACT_SUFFIX[] = "_accessAuth";
-const char ADMIN_FIELD[] = "admin";
-const char METHOD_AUTH_TYPE[] = "method_auth_type";
-const char METHOD_AUTH_WHITE[] = "method_auth_white";
-const char METHOD_AUTH_BLACK[] = "method_auth_black";
-
-/// deploy auth
-const char DEPLOY_TYPE[] = "deploy_type";
-const char DEPLOY_AUTH_WHITE[] = "deploy_auth_white";
-const char DEPLOY_AUTH_BLACK[] = "deploy_auth_black";
+static const char* const CONTRACT_SUFFIX = "_accessAuth";
+static const char* const ADMIN_FIELD = "admin";
+static const char* const METHOD_AUTH_TYPE = "method_auth_type";
+static const char* const METHOD_AUTH_WHITE = "method_auth_white";
+static const char* const METHOD_AUTH_BLACK = "method_auth_black";
 
 /// FileSystem table keys
 static const char* const FS_KEY_NAME = "name";
-static const char* const FS_FIELD_TYPE = "type";
+static const char* const FS_KEY_TYPE = "type";
+static const char* const FS_KEY_SUB = "sub";
 static const char* const FS_ACL_TYPE = "acl_type";
 static const char* const FS_ACL_WHITE = "acl_white";
 static const char* const FS_ACL_BLACK = "acl_black";
-static const char* const FS_FIELD_EXTRA = "extra";
-static const char* const FS_FIELD_COMBINED = "type,acl_type,acl_white,acl_black,extra";
+static const char* const FS_KEY_EXTRA = "extra";
 
 /// FileSystem file type
 static const char* const FS_TYPE_DIR = "directory";
