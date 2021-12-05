@@ -153,6 +153,9 @@ void TransactionExecutive::externalAcquireKeyLocks(std::string acquireKeyLock)
     spawnAndCall([this, inputPtr = callParameters.release()](
                      ResumeHandler) { m_exchangeMessage = CallParameters::UniquePtr(inputPtr); });
 
+    // After coroutine switch, set the recoder, before the exception throw
+    m_storageWrapper->setRecoder(m_recoder);
+
     auto output = std::move(m_exchangeMessage);
     if (output->type == CallParameters::REVERT)
     {
@@ -161,9 +164,6 @@ void TransactionExecutive::externalAcquireKeyLocks(std::string acquireKeyLock)
             ExecuteError::DEAD_LOCK, "Dead lock detected, revert transaction: " +
                                          boost::lexical_cast<std::string>(output->type)));
     }
-
-    // After coroutine switch, set the recoder
-    m_storageWrapper->setRecoder(m_recoder);
 
     // Set the keyLocks
     m_storageWrapper->importExistsKeyLocks(output->keyLocks);

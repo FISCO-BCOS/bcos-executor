@@ -44,7 +44,6 @@ const char* const SYS_CNS = "s_cns";
 /// SYS_CONFIG table fields
 static constexpr size_t SYS_VALUE = 0;
 static constexpr const char* SYS_VALUE_FIELDS = "value";
-using SystemConfigEntry = std::tuple<std::string, bcos::protocol::BlockNumber>;
 
 /// FileSystem path limit
 static const size_t FS_PATH_MAX_LENGTH = 56;
