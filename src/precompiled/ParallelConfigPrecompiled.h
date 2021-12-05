@@ -34,6 +34,14 @@ struct ParallelConfig
     using Ptr = std::shared_ptr<ParallelConfig>;
     std::string functionName;
     u256 criticalSize;
+
+    template <typename Archive>
+    void serialize(Archive& ar, const unsigned int version)
+    {
+        boost::ignore_unused(version);
+        ar& functionName;
+        ar& criticalSize;
+    }
 };
 const std::string PARA_CONFIG_TABLE_PREFIX_SHORT = "cp_";
 

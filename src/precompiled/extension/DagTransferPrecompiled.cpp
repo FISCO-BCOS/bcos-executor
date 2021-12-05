@@ -48,7 +48,7 @@ const char* const DAG_TRANSFER_METHOD_BAL_STR = "userBalance(string)";
 
 // fields of table '_dag_transfer_'
 // const char* const DAG_TRANSFER_FIELD_NAME = "user_name";
-const char* const DAG_TRANSFER_FIELD_BALANCE = "user_balance";
+const size_t DAG_TRANSFER_FIELD_BALANCE = 0;
 
 DagTransferPrecompiled::DagTransferPrecompiled(crypto::Hash::Ptr _hashImpl) : Precompiled(_hashImpl)
 {
@@ -144,7 +144,7 @@ std::optional<storage::Table> DagTransferPrecompiled::openTable(
                                << LOG_DESC("openTable: ready to create table")
                                << LOG_KV("tableName", dagTableName);
         //__dag_transfer__ is not exist, then create it first.
-        table = _executive->storage().createTable(dagTableName, DAG_TRANSFER_FIELD_BALANCE);
+        table = _executive->storage().createTable(dagTableName, "balance");
         // table already exists
         if (!table)
         {

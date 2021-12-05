@@ -48,23 +48,15 @@ private:
 
     struct EntryKeyWrapper : public EntryKey
     {
-        EntryKeyWrapper() : EntryKey() {}
-        EntryKeyWrapper(std::string table, std::string key)
-          : EntryKey(std::move(table), std::move(key))
-        {}
-
-        EntryKeyWrapper(const EntryKeyWrapper&) = default;
-        EntryKeyWrapper& operator=(const EntryKeyWrapper&) = default;
-
-        EntryKeyWrapper(EntryKeyWrapper&&) noexcept = default;
-        EntryKeyWrapper& operator=(EntryKeyWrapper&&) noexcept = default;
+        using EntryKey::tuple;
 
         std::tuple<std::string_view, std::string_view> tableKeyView() const
         {
-            return {table(), key()};
+            return std::make_tuple(
+                std::string_view(std::get<0>(*this)), std::string_view(std::get<1>(*this)));
         }
 
-        bool isStop() const { return table().empty() && key().empty(); }
+        bool isStop() const { return std::get<0>(*this).empty() && std::get<1>(*this).empty(); }
     };
 
     void updateMRU(EntryKeyWrapper entryKey);

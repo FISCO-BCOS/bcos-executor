@@ -24,6 +24,8 @@
 #include "Utilities.h"
 #include <json/json.h>
 #include <boost/algorithm/string/split.hpp>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/binary_oarchive.hpp>
 #include <boost/throw_exception.hpp>
 
 using namespace bcos;
@@ -95,7 +97,8 @@ void FileSystemPrecompiled::makeDir(
     }
     if (absolutePath.find(USER_APPS_PREFIX) != 0 && absolutePath.find(USER_TABLE_PREFIX) != 0)
     {
-        PRECOMPILED_LOG(ERROR) << LOG_BADGE("FileSystemPrecompiled") << LOG_DESC("mkdir in system dir")
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("FileSystemPrecompiled")
+                               << LOG_DESC("mkdir in system dir")
                                << LOG_KV("absolutePath", absolutePath);
         callResult->setExecResult(codec->encode(s256((int)CODE_FILE_INVALID_PATH)));
         return;

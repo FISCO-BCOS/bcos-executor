@@ -25,6 +25,8 @@
 #include <bcos-framework/interfaces/protocol/Exceptions.h>
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/binary_oarchive.hpp>
 #include <boost/throw_exception.hpp>
 
 
@@ -117,7 +119,7 @@ std::tuple<std::string, std::string> TableFactoryPrecompiled::getTableField(
         BOOST_THROW_EXCEPTION(
             PrecompiledError() << errinfo_comment(_tableName + " does not exist"));
     }
-    auto valueKey = sysEntry->getField(StorageInterface::SYS_TABLE_VALUE_FIELDS);
+    auto valueKey = sysEntry->getField(0);
     auto keyField = std::string(valueKey.substr(valueKey.find_last_of(',') + 1));
     auto valueFields = std::string(valueKey.substr(0, valueKey.find_last_of(',')));
     return {std::move(keyField), std::move(valueFields)};
@@ -199,8 +201,7 @@ void TableFactoryPrecompiled::createTable(
                 getErrorCodeOut(callResult->mutableExecResult(), result, *codec);
                 return;
             }
-            sysEntry->setField(
-                StorageInterface::SYS_TABLE_VALUE_FIELDS, valueField + "," + keyField);
+            sysEntry->setField(0, valueField + "," + keyField);
             sysTable->setRow(newTableName, sysEntry.value());
             gasPricer->appendOperation(InterfaceOpcode::CreateTable);
 
@@ -263,13 +264,7 @@ void TableFactoryPrecompiled::select(
         auto entry = table->getRow(key);
         if (entryCondition->filter(entry))
         {
-            std::vector<std::tuple<std::string, std::string>> kvEntry({});
-            for (const auto& keyName : valueFieldList)
-            {
-                kvEntry.emplace_back(
-                    std::make_tuple(keyName, std::string(entry->getField(keyName))));
-            }
-            entries.emplace_back(std::make_tuple(std::move(kvEntry)));
+            entries.emplace_back(entry->getObject<EntryTuple>());
         }
     }
     PRECOMPILED_LOG(DEBUG) << LOG_DESC("Table select") << LOG_KV("entries.size", entries.size());
@@ -328,11 +323,11 @@ void TableFactoryPrecompiled::insert(
     else
     {
         // auto entry = table->newEntry();
-        Entry entry(tableInfo);
-        transferEntry(insertEntry, entry);
+        Entry entry;
+        entry.setObject(insertEntry);
+
         gasPricer->appendOperation(InterfaceOpcode::Insert, 1);
-        gasPricer->updateMemUsed(entry.capacityOfHashField());
-        // table->setRow(keyValue, std::move(entry));
+        gasPricer->updateMemUsed(entry.size());
         _executive->storage().setRow(tableName, keyValue, std::move(entry));
         callResult->setExecResult(codec->encode(u256(1)));
     }
@@ -388,25 +383,21 @@ void TableFactoryPrecompiled::update(
     tableKeySet.insert(eqKeyList.begin(), eqKeyList.end());
     u256 updateCount = 0;
     auto updateEntry = table->newEntry();
-    precompiled::transferEntry(entry, updateEntry);
+    // updateEntry->getObject<>();
+    updateEntry.setObject(entry);
     for (auto& tableKey : tableKeySet)
     {
         auto tableEntry = table->getRow(tableKey);
         if (entryCondition->filter(tableEntry))
         {
-            for (auto const& field : updateEntry.tableInfo()->fields())
-            {
-                auto value = updateEntry.getField(field);
-                if (value.empty())
-                    continue;
-                tableEntry->setField(field, std::string(value));
-            }
-            table->setRow(tableKey, std::move(tableEntry.value()));
+            tableEntry = updateEntry;
+
+            table->setRow(tableKey, std::move(*tableEntry));
             PRECOMPILED_LOG(DEBUG) << LOG_DESC("Table update") << LOG_KV("key", tableKey);
             updateCount++;
         }
     }
-    gasPricer->setMemUsed(updateEntry.capacityOfHashField());
+    gasPricer->setMemUsed(updateEntry.size());
     gasPricer->appendOperation(InterfaceOpcode::Update, (unsigned int)updateCount);
     callResult->setExecResult(codec->encode(updateCount));
 }

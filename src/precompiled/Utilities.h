@@ -88,7 +88,7 @@ void addCondition(const std::string& key, const std::string& value,
 void transferKeyCond(
     Comparator& _cmp, const std::string& _value, std::shared_ptr<storage::Condition>& _keyCond);
 
-bool transferEntry(const EntryTuple& _entryTuple, storage::Entry& _storageEntry);
+// bool transferEntry(const EntryTuple& _entryTuple, storage::Entry& _storageEntry);
 
 inline void getErrorCodeOut(bytes& out, int const& result, const PrecompiledCodec& _codec)
 {

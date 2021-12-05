@@ -65,11 +65,6 @@ public:
             true, [&](const std::string_view& table, const std::string_view& key,
                       const storage::Entry& entry) {
                 std::unique_lock<std::mutex> lock(mutex);
-                std::string fields;
-                for (auto it : entry)
-                {
-                    fields.append(boost::algorithm::hex_lower(std::string(it))).append(",");
-                }
 
                 auto keyHex = boost::algorithm::hex_lower(std::string(key));
                 // EXECUTOR_LOG(TRACE) << "Merge data" << LOG_KV("table", table)

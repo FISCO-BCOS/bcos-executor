@@ -43,6 +43,8 @@
 #include <unistd.h>
 #include <boost/algorithm/hex.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/binary_oarchive.hpp>
 #include <boost/exception/diagnostic_information.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/test/tools/old/interface.hpp>
@@ -767,8 +769,7 @@ BOOST_AUTO_TEST_CASE(callEvmConcurrentlyTransfer)
     auto table = tablePromise.get_future().get();
 
     Entry entry = table->newEntry();
-    entry.setField(PARA_FUNC_NAME, "transfer(string,string,uint256)");
-    entry.setField(PARA_CRITICAL_SIZE, boost::lexical_cast<std::string>(2));
+    entry.setObject(ParallelConfig{"transfer(string,string,uint256)", 2});
     auto selector = getFuncSelector("transfer(string,string,uint256)", hashImpl);
     table->setRow(to_string(selector), entry);
 
@@ -1001,8 +1002,7 @@ BOOST_AUTO_TEST_CASE(callEvmConcurrentlyTransferByMessage)
     auto table = tablePromise.get_future().get();
 
     Entry entry = table->newEntry();
-    entry.setField(PARA_FUNC_NAME, "transfer(string,string,uint256)");
-    entry.setField(PARA_CRITICAL_SIZE, boost::lexical_cast<std::string>(2));
+    entry.setObject(ParallelConfig{"transfer(string,string,uint256)", 2});
     auto selector = getFuncSelector("transfer(string,string,uint256)", hashImpl);
     table->setRow(to_string(selector), entry);
 

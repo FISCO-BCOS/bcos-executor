@@ -22,6 +22,8 @@
 #include "PrecompiledResult.h"
 #include "Utilities.h"
 #include <bcos-framework/interfaces/ledger/LedgerTypeDef.h>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/binary_oarchive.hpp>
 
 using namespace bcos;
 using namespace bcos::storage;
@@ -83,9 +85,9 @@ std::shared_ptr<PrecompiledExecResult> SystemConfigPrecompiled::call(
         auto table = _executive->storage().openTable(ledger::SYS_CONFIG);
 
         auto entry = table->newEntry();
-        entry.setField(SYS_VALUE, configValue);
-        entry.setField(SYS_CONFIG_ENABLE_BLOCK_NUMBER,
-            boost::lexical_cast<std::string>(blockContext->number() + 1));
+        auto systemConfigEntry = SystemConfigEntry{configValue, blockContext->number() + 1};
+        entry.setObject(systemConfigEntry);
+
         table->setRow(configKey, std::move(entry));
 
         PRECOMPILED_LOG(INFO) << LOG_BADGE("SystemConfigPrecompiled")
@@ -156,9 +158,7 @@ std::pair<std::string, protocol::BlockNumber> SystemConfigPrecompiled::getSysCon
     {
         try
         {
-            auto value = std::string(entry->getField(SYS_VALUE));
-            auto enableNumber = boost::lexical_cast<protocol::BlockNumber>(
-                entry->getField(SYS_CONFIG_ENABLE_BLOCK_NUMBER));
+            auto [value, enableNumber] = entry->getObject<SystemConfigEntry>();
             return {value, enableNumber};
         }
         catch (std::exception const& e)

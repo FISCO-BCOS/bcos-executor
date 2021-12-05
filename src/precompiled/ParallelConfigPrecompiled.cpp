@@ -26,6 +26,8 @@
 #include <bcos-framework/interfaces/protocol/Exceptions.h>
 #include <bcos-framework/interfaces/storage/Table.h>
 #include <boost/algorithm/string.hpp>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/binary_oarchive.hpp>
 
 using namespace std;
 using namespace bcos;
@@ -146,8 +148,8 @@ void ParallelConfigPrecompiled::registerParallelFunction(PrecompiledCodec::Ptr _
     if (table)
     {
         Entry entry = table->newEntry();
-        entry.setField(PARA_FUNC_NAME, functionName);
-        entry.setField(PARA_CRITICAL_SIZE, boost::lexical_cast<std::string>(criticalSize));
+        ParallelConfig config{functionName, criticalSize};
+        entry.setObject(config);
 
         table->setRow(std::to_string(selector), entry);
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ParallelConfigPrecompiled")
@@ -207,9 +209,7 @@ ParallelConfig::Ptr ParallelConfigPrecompiled::getParallelConfig(
     }
     else
     {
-        std::string functionName = std::string(entry->getField(PARA_FUNC_NAME));
-        u256 criticalSize;
-        criticalSize = boost::lexical_cast<u256>(entry->getField(PARA_CRITICAL_SIZE));
-        return std::make_shared<ParallelConfig>(ParallelConfig{functionName, criticalSize});
+        auto config = entry->getObject<ParallelConfig>();
+        return std::make_shared<ParallelConfig>(std::move(config));
     }
 }

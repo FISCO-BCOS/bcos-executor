@@ -21,6 +21,7 @@
 #pragma once
 #include "../vm/Precompiled.h"
 #include "Common.h"
+#include "interfaces/protocol/ProtocolTypeDef.h"
 namespace bcos
 {
 namespace precompiled
@@ -37,6 +38,7 @@ class SystemConfigPrecompiled : public bcos::precompiled::Precompiled
 {
 public:
     using Ptr = std::shared_ptr<SystemConfigPrecompiled>;
+
     SystemConfigPrecompiled(crypto::Hash::Ptr _hashImpl);
     virtual ~SystemConfigPrecompiled(){};
     std::shared_ptr<PrecompiledExecResult> call(

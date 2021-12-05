@@ -100,10 +100,10 @@ std::shared_ptr<PrecompiledExecResult> HelloWorldPrecompiled::call(
         auto entry = table->getRow(HELLO_WORLD_KEY_FIELD_NAME);
         if (!entry)
         {
-            gasPricer->updateMemUsed(entry->capacityOfHashField());
+            gasPricer->updateMemUsed(entry->size());
             gasPricer->appendOperation(InterfaceOpcode::Select, 1);
 
-            retValue = entry->getField(HELLO_WORLD_VALUE_FIELD);
+            retValue = entry->getField(0);
             PRECOMPILED_LOG(ERROR) << LOG_BADGE("HelloWorldPrecompiled") << LOG_DESC("get")
                                    << LOG_KV("value", retValue);
         }
@@ -115,13 +115,13 @@ std::shared_ptr<PrecompiledExecResult> HelloWorldPrecompiled::call(
         std::string strValue;
         codec->decode(data, strValue);
         auto entry = table->getRow(HELLO_WORLD_KEY_FIELD_NAME);
-        gasPricer->updateMemUsed(entry->capacityOfHashField());
+        gasPricer->updateMemUsed(entry->size());
         gasPricer->appendOperation(InterfaceOpcode::Select, 1);
-        entry->setField(HELLO_WORLD_VALUE_FIELD, strValue);
+        entry->setField(0, strValue);
 
         table->setRow(HELLO_WORLD_KEY_FIELD_NAME, *entry);
         gasPricer->appendOperation(InterfaceOpcode::Update, 1);
-        gasPricer->updateMemUsed(entry->capacityOfHashField());
+        gasPricer->updateMemUsed(entry->size());
         getErrorCodeOut(callResult->mutableExecResult(), 1, *codec);
     }
     else

@@ -149,8 +149,9 @@ void LRUStorage::startLoop()
                     bcos::storage::Entry entry;
                     entry.setStatus(bcos::storage::Entry::PURGED);
 
+                    auto [tableViw, keyView] = item.tableKeyView();
                     storage::StateStorage::asyncSetRow(
-                        item.table(), item.key(), std::move(entry), [](Error::UniquePtr) {});
+                        tableViw, keyView, std::move(entry), [](Error::UniquePtr) {});
 
                     ++clearedCount;
                     clearedCapacity += (currentCapacity - storage::StateStorage::capacity());

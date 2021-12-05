@@ -1044,7 +1044,7 @@ bool TransactionExecutive::buildBfsPath(std::string const& _absoluteDir)
             {
                 /// create table and build bfs info
                 bfsInfo.insert(std::make_pair(dir, FS_TYPE_DIR));
-                auto newTable = m_storageWrapper->createTable(root + dir, SYS_VALUE);
+                auto newTable = m_storageWrapper->createTable(root + dir, SYS_VALUE_FIELDS);
                 Entry tEntry, newSubEntry, aclTypeEntry, aclWEntry, aclBEntry, extraEntry;
                 std::map<std::string, std::string> newSubMap;
                 tEntry.importFields({FS_TYPE_DIR});

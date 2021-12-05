@@ -26,6 +26,8 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/binary_oarchive.hpp>
 #include <boost/throw_exception.hpp>
 
 using namespace bcos;
@@ -145,7 +147,7 @@ void KVTableFactoryPrecompiled::createTable(
             getErrorCodeOut(callResult->mutableExecResult(), result, *codec);
             return;
         }
-        sysEntry->setField(StorageInterface::SYS_TABLE_VALUE_FIELDS, valueField + "," + keyField);
+        sysEntry->setField(0, valueField + "," + keyField);
         sysTable->setRow(newTableName, sysEntry.value());
         gasPricer->appendOperation(InterfaceOpcode::CreateTable);
 
@@ -186,17 +188,20 @@ void KVTableFactoryPrecompiled::get(
     auto entry = table->getRow(key);
     gasPricer->appendOperation(InterfaceOpcode::Select, 1);
     EntryTuple entryTuple({});
-    if (entry == std::nullopt)
+    if (!entry)
     {
         callResult->setExecResult(codec->encode(false, entryTuple));
         return;
     }
-    gasPricer->updateMemUsed(entry->capacityOfHashField());
-    for (const auto& fieldName : entry->tableInfo()->fields())
-    {
-        std::get<0>(entryTuple)
-            .emplace_back(std::make_tuple(fieldName, entry->getField(fieldName)));
-    }
+
+    gasPricer->updateMemUsed(entry->size());
+    entryTuple = entry->getObject<EntryTuple>();
+
+    // for (const auto& fieldName : table->tableInfo()->fields())
+    // {
+    //     std::get<0>(entryTuple)
+    //         .emplace_back(std::make_tuple(fieldName, entry->getField(fieldName)));
+    // }
     callResult->setExecResult(codec->encode(true, entryTuple));
 }
 
@@ -228,10 +233,11 @@ void KVTableFactoryPrecompiled::set(
         checkLengthValidate(std::get<1>(kv), USER_TABLE_FIELD_VALUE_MAX_LENGTH,
             CODE_TABLE_KEY_VALUE_LENGTH_OVERFLOW);
     }
-    transferEntry(entryTuple, entry);
+    // transferEntry(entryTuple, entry);
+    entry.setObject(entryTuple);
     table->setRow(key, entry);
     callResult->setExecResult(codec->encode(s256(1)));
-    gasPricer->setMemUsed(entry.capacityOfHashField());
+    gasPricer->setMemUsed(entry.size());
     gasPricer->appendOperation(InterfaceOpcode::Insert, 1);
 }
 
@@ -261,7 +267,7 @@ void KVTableFactoryPrecompiled::desc(
         callResult->setExecResult(codec->encode(keyField, valueFields));
         return;
     }
-    auto valueKey = sysEntry->getField(StorageInterface::SYS_TABLE_VALUE_FIELDS);
+    auto valueKey = sysEntry->getField(0);
     keyField = std::string(valueKey.substr(valueKey.find_last_of(',') + 1));
     valueFields = std::string(valueKey.substr(0, valueKey.find_last_of(',')));
 

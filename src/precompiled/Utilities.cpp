@@ -23,6 +23,7 @@
 #include <bcos-framework/interfaces/crypto/Hash.h>
 #include <json/json.h>
 #include <tbb/concurrent_unordered_map.h>
+#include <boost/core/ignore_unused.hpp>
 
 using namespace bcos;
 using namespace bcos::executor;
@@ -265,7 +266,7 @@ bcos::precompiled::ContractStatus bcos::precompiled::getContractStatus(
         // this may happen when register cns in contract constructor
         return ContractStatus::Available;
     }
-    auto codeHashStr = std::string(codeHashEntry->getField(executor::STORAGE_VALUE));
+    auto codeHashStr = std::string(codeHashEntry->getField(0));
     auto codeHash = HashType(codeHashStr, FixedBytes<32>::FromBinary);
 
     if (codeHash == HashType())
@@ -275,7 +276,7 @@ bcos::precompiled::ContractStatus bcos::precompiled::getContractStatus(
 
     // FIXME: frozen in BFS
     auto frozenEntry = table->getRow(executor::ACCOUNT_FROZEN);
-    if (frozenEntry != std::nullopt && "true" == frozenEntry->getField(executor::STORAGE_VALUE))
+    if (frozenEntry != std::nullopt && "true" == frozenEntry->getField(0))
     {
         return ContractStatus::Frozen;
     }
@@ -320,116 +321,117 @@ void Condition::LE(const std::string& key, const std::string& value)
 
 bool Condition::filter(std::optional<storage::Entry> _entry)
 {
-    if (_entry == std::nullopt || _entry->tableInfo() == nullptr)
-    {
-        return false;
-    }
-    if (_entry->status() == storage::Entry::Status::DELETED)
-    {
-        return false;
-    }
-    try
-    {
-        if (!m_conditions.empty())
-        {
-            for (auto& condition : m_conditions)
-            {
-                auto fieldIt = std::find(_entry->tableInfo()->fields().begin(),
-                    _entry->tableInfo()->fields().end(), condition.left);
-                if (fieldIt != _entry->tableInfo()->fields().end())
-                {
-                    switch (condition.cmp)
-                    {
-                    case Comparator::EQ:
-                    {
-                        if (_entry->getField(*fieldIt) != condition.right)
-                        {
-                            return false;
-                        }
-                        break;
-                    }
-                    case Comparator::NE:
-                    {
-                        if (_entry->getField(*fieldIt) == condition.right)
-                        {
-                            return false;
-                        }
-                        break;
-                    }
-                    case Comparator::GT:
-                    {
-                        int64_t lhs = INT64_MIN;
-                        auto rhs = boost::lexical_cast<int64_t>(condition.right);
-                        auto value = _entry->getField(*fieldIt);
-                        if (!value.empty())
-                        {
-                            lhs = boost::lexical_cast<int64_t>(value);
-                        }
-                        if (lhs <= rhs)
-                        {
-                            return false;
-                        }
-                        break;
-                    }
-                    case Comparator::GE:
-                    {
-                        int64_t lhs = INT64_MIN;
-                        auto rhs = boost::lexical_cast<int64_t>(condition.right);
-                        auto value = _entry->getField(*fieldIt);
-                        if (!value.empty())
-                        {
-                            lhs = boost::lexical_cast<int64_t>(value);
-                        }
-                        if (lhs < rhs)
-                        {
-                            return false;
-                        }
-                        break;
-                    }
-                    case Comparator::LT:
-                    {
-                        int64_t lhs = INT64_MAX;
-                        auto rhs = boost::lexical_cast<int64_t>(condition.right);
-                        auto value = _entry->getField(*fieldIt);
-                        if (!value.empty())
-                        {
-                            lhs = boost::lexical_cast<int64_t>(value);
-                        }
-                        if (lhs >= rhs)
-                        {
-                            return false;
-                        }
-                        break;
-                    }
-                    case Comparator::LE:
-                    {
-                        int64_t lhs = INT64_MAX;
-                        auto rhs = boost::lexical_cast<int64_t>(condition.right);
-                        auto value = _entry->getField(*fieldIt);
-                        if (!value.empty())
-                        {
-                            lhs = boost::lexical_cast<int64_t>(value);
-                        }
-                        if (lhs > rhs)
-                        {
-                            return false;
-                        }
-                        break;
-                    }
-                    default:
-                    {
-                    }
-                    }
-                }
-            }
-        }
-        else
-            return false;
-    }
-    catch (...)
-    {
-        return false;
-    }
+    boost::ignore_unused(_entry);
+    // if (_entry == std::nullopt || _entry->tableInfo() == nullptr)
+    // {
+    //     return false;
+    // }
+    // if (_entry->status() == storage::Entry::Status::DELETED)
+    // {
+    //     return false;
+    // }
+    // try
+    // {
+    //     if (!m_conditions.empty())
+    //     {
+    //         for (auto& condition : m_conditions)
+    //         {
+    //             auto fieldIt = std::find(_entry->tableInfo()->fields().begin(),
+    //                 _entry->tableInfo()->fields().end(), condition.left);
+    //             if (fieldIt != _entry->tableInfo()->fields().end())
+    //             {
+    //                 switch (condition.cmp)
+    //                 {
+    //                 case Comparator::EQ:
+    //                 {
+    //                     if (_entry->getField(*fieldIt) != condition.right)
+    //                     {
+    //                         return false;
+    //                     }
+    //                     break;
+    //                 }
+    //                 case Comparator::NE:
+    //                 {
+    //                     if (_entry->getField(*fieldIt) == condition.right)
+    //                     {
+    //                         return false;
+    //                     }
+    //                     break;
+    //                 }
+    //                 case Comparator::GT:
+    //                 {
+    //                     int64_t lhs = INT64_MIN;
+    //                     auto rhs = boost::lexical_cast<int64_t>(condition.right);
+    //                     auto value = _entry->getField(*fieldIt);
+    //                     if (!value.empty())
+    //                     {
+    //                         lhs = boost::lexical_cast<int64_t>(value);
+    //                     }
+    //                     if (lhs <= rhs)
+    //                     {
+    //                         return false;
+    //                     }
+    //                     break;
+    //                 }
+    //                 case Comparator::GE:
+    //                 {
+    //                     int64_t lhs = INT64_MIN;
+    //                     auto rhs = boost::lexical_cast<int64_t>(condition.right);
+    //                     auto value = _entry->getField(*fieldIt);
+    //                     if (!value.empty())
+    //                     {
+    //                         lhs = boost::lexical_cast<int64_t>(value);
+    //                     }
+    //                     if (lhs < rhs)
+    //                     {
+    //                         return false;
+    //                     }
+    //                     break;
+    //                 }
+    //                 case Comparator::LT:
+    //                 {
+    //                     int64_t lhs = INT64_MAX;
+    //                     auto rhs = boost::lexical_cast<int64_t>(condition.right);
+    //                     auto value = _entry->getField(*fieldIt);
+    //                     if (!value.empty())
+    //                     {
+    //                         lhs = boost::lexical_cast<int64_t>(value);
+    //                     }
+    //                     if (lhs >= rhs)
+    //                     {
+    //                         return false;
+    //                     }
+    //                     break;
+    //                 }
+    //                 case Comparator::LE:
+    //                 {
+    //                     int64_t lhs = INT64_MAX;
+    //                     auto rhs = boost::lexical_cast<int64_t>(condition.right);
+    //                     auto value = _entry->getField(*fieldIt);
+    //                     if (!value.empty())
+    //                     {
+    //                         lhs = boost::lexical_cast<int64_t>(value);
+    //                     }
+    //                     if (lhs > rhs)
+    //                     {
+    //                         return false;
+    //                     }
+    //                     break;
+    //                 }
+    //                 default:
+    //                 {
+    //                 }
+    //                 }
+    //             }
+    //         }
+    //     }
+    //     else
+    //         return false;
+    // }
+    // catch (...)
+    // {
+    //     return false;
+    // }
     return true;
 }
 
@@ -468,26 +470,27 @@ void precompiled::transferKeyCond(
     }
 }
 
-bool precompiled::transferEntry(const EntryTuple& _entryTuple, storage::Entry& _storageEntry)
-{
-    // _storageEntry must be a table new entry
-    bool transferFlag = true;
-    for (const auto& kvValue : std::get<0>(_entryTuple))
-    {
-        try
-        {
-            _storageEntry.setField(std::get<0>(kvValue), std::get<1>(kvValue));
-        }
-        catch (...)
-        {
-            PRECOMPILED_LOG(WARNING) << LOG_DESC("entry set field fail, field name doesnt exist.")
-                                     << LOG_KV("keyField", std::get<0>(kvValue));
-            transferFlag = false;
-            continue;
-        }
-    }
-    return transferFlag;
-}
+// bool precompiled::transferEntry(const EntryTuple& _entryTuple, storage::Entry& _storageEntry)
+// {
+//     // _storageEntry must be a table new entry
+//     bool transferFlag = true;
+//     for (const auto& kvValue : std::get<0>(_entryTuple))
+//     {
+//         try
+//         {
+//             _storageEntry.setField(std::get<0>(kvValue), std::get<1>(kvValue));
+//         }
+//         catch (...)
+//         {
+//             PRECOMPILED_LOG(WARNING) << LOG_DESC("entry set field fail, field name doesnt
+//             exist.")
+//                                      << LOG_KV("keyField", std::get<0>(kvValue));
+//             transferFlag = false;
+//             continue;
+//         }
+//     }
+//     return transferFlag;
+// }
 
 void precompiled::addCondition(const std::string& key, const std::string& value,
     std::vector<CompareTriple>& _cond, Comparator _cmp)
@@ -508,7 +511,7 @@ uint64_t precompiled::getEntriesCapacity(precompiled::EntriesPtr _entries)
     int64_t totalCapacity = 0;
     for (auto& entry : *_entries)
     {
-        totalCapacity += entry.capacityOfHashField();
+        totalCapacity += entry.size();
     }
     return totalCapacity;
 }
@@ -670,7 +673,7 @@ bool precompiled::recursiveBuildDir(
 
             /// create table and build bfs info
             bfsInfo.insert(std::make_pair(dir, FS_TYPE_DIR));
-            auto newTable = _executive->storage().createTable(root + dir, SYS_VALUE);
+            auto newTable = _executive->storage().createTable(root + dir, SYS_VALUE_FIELDS);
             storage::Entry tEntry, newSubEntry, aclTypeEntry, aclWEntry, aclBEntry, extraEntry;
             std::map<std::string, std::string> newSubMap;
             tEntry.importFields({FS_TYPE_DIR});

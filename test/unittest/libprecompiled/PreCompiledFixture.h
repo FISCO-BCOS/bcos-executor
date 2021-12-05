@@ -34,6 +34,8 @@
 #include <bcos-framework/testutils/TestPromptFixture.h>
 #include <bcos-framework/testutils/crypto/HashImpl.h>
 #include <bcos-framework/testutils/crypto/SignatureImpl.h>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/binary_oarchive.hpp>
 #include <string>
 
 using namespace bcos;
@@ -126,23 +128,23 @@ public:
     {
         // create sys table
         std::promise<std::optional<Table>> promise1;
-        storage->asyncCreateTable(ledger::SYS_CONFIG, "value,enable_number",
+        storage->asyncCreateTable(ledger::SYS_CONFIG, "value",
             [&](Error::UniquePtr&& _error, std::optional<Table>&& _table) {
                 BOOST_CHECK(!_error);
                 promise1.set_value(std::move(_table));
             });
         auto table = promise1.get_future().get();
         auto entry = table->newEntry();
-        entry.setField(SYS_VALUE, "3000000");
-        entry.setField(SYS_CONFIG_ENABLE_BLOCK_NUMBER, "0");
-        table->setRow(SYSTEM_KEY_TX_GAS_LIMIT, std::move(entry));
 
+        entry.setObject(SystemConfigEntry{"3000000", 0});
+
+        table->setRow(SYSTEM_KEY_TX_GAS_LIMIT, std::move(entry));
 
         // create / table
         {
             std::promise<std::optional<Table>> promise2;
             storage->asyncCreateTable(
-                "/", SYS_VALUE, [&](Error::UniquePtr&& _error, std::optional<Table>&& _table) {
+                "/", "value", [&](Error::UniquePtr&& _error, std::optional<Table>&& _table) {
                     BOOST_CHECK(!_error);
                     promise2.set_value(std::move(_table));
                 });
@@ -169,8 +171,8 @@ public:
         // create /tables table
         {
             std::promise<std::optional<Table>> promise3;
-            storage->asyncCreateTable("/tables", SYS_VALUE,
-                [&](Error::UniquePtr&& _error, std::optional<Table>&& _table) {
+            storage->asyncCreateTable(
+                "/tables", "value", [&](Error::UniquePtr&& _error, std::optional<Table>&& _table) {
                     BOOST_CHECK(!_error);
                     promise3.set_value(std::move(_table));
                 });
@@ -195,7 +197,7 @@ public:
         {
             std::promise<std::optional<Table>> promise4;
             storage->asyncCreateTable(
-                "/apps", SYS_VALUE, [&](Error::UniquePtr&& _error, std::optional<Table>&& _table) {
+                "/apps", "value", [&](Error::UniquePtr&& _error, std::optional<Table>&& _table) {
                     BOOST_CHECK(!_error);
                     promise4.set_value(std::move(_table));
                 });

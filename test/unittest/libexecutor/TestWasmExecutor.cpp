@@ -481,7 +481,7 @@ BOOST_AUTO_TEST_CASE(deployAndCall_100)
 
     auto entry = table.getRow("code");
     BOOST_CHECK(entry);
-    BOOST_CHECK_GT(entry->getField(STORAGE_VALUE).size(), 0);
+    BOOST_CHECK_GT(entry->getField(0).size(), 0);
 
     // start new block
     auto blockHeader2 = std::make_shared<bcos::protocol::PBBlockHeader>(cryptoSuite);

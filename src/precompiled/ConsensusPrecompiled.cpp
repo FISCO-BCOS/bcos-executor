@@ -27,7 +27,6 @@
 #include <boost/archive/basic_archive.hpp>
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/archive/binary_oarchive.hpp>
-#include <boost/archive/text_oarchive.hpp>
 #include <boost/core/ignore_unused.hpp>
 #include <boost/iostreams/device/back_inserter.hpp>
 #include <boost/iostreams/stream.hpp>
@@ -138,8 +137,7 @@ int ConsensusPrecompiled::addSealer(
     auto entry = storage.getRow(SYS_CONSENSUS, "key");
     if (entry)
     {
-        auto value = entry->getField(0);
-        consensusList = decodeConsensusList(value);
+        consensusList = entry->getObject<ConsensusNodeList>();
     }
     else
     {
@@ -160,8 +158,7 @@ int ConsensusPrecompiled::addSealer(
             boost::lexical_cast<std::string>(blockContext->number() + 1));
     }
 
-    auto encodedValue = encodeConsensusList(consensusList);
-    entry->importFields({std::move(encodedValue)});
+    entry->setObject(consensusList);
 
     storage.setRow(SYS_CONSENSUS, "key", std::move(*entry));
 
@@ -197,8 +194,7 @@ int ConsensusPrecompiled::addObserver(
     ConsensusNodeList consensusList;
     if (entry)
     {
-        auto value = entry->getField(0);
-        consensusList = decodeConsensusList(value);
+        consensusList = entry->getObject<ConsensusNodeList>();
     }
     else
     {
@@ -228,8 +224,7 @@ int ConsensusPrecompiled::addObserver(
         return CODE_LAST_SEALER;
     }
 
-    auto encodedValue = encodeConsensusList(consensusList);
-    entry->importFields({std::move(encodedValue)});
+    entry->setObject(consensusList);
 
     storage.setRow(SYS_CONSENSUS, "key", std::move(*entry));
 
@@ -263,9 +258,7 @@ int ConsensusPrecompiled::removeNode(
     auto entry = storage.getRow(SYS_CONSENSUS, "key");
     if (entry)
     {
-        auto value = entry->getField(0);
-
-        consensusList = decodeConsensusList(value);
+        consensusList = entry->getObject<ConsensusNodeList>();
     }
     else
     {
@@ -288,8 +281,7 @@ int ConsensusPrecompiled::removeNode(
         return CODE_LAST_SEALER;
     }
 
-    auto encodedValue = encodeConsensusList(consensusList);
-    entry->importFields({std::move(encodedValue)});
+    entry->setObject(consensusList);
 
     storage.setRow(SYS_CONSENSUS, "key", std::move(*entry));
 
@@ -347,8 +339,7 @@ int ConsensusPrecompiled::setWeight(
         return CODE_NODE_NOT_EXIST;  // Not found
     }
 
-    auto encodedValue = encodeConsensusList(consensusList);
-    entry->importFields({std::move(encodedValue)});
+    entry->setObject(consensusList);
 
     storage.setRow(SYS_CONSENSUS, "key", std::move(*entry));
 
@@ -363,7 +354,7 @@ void ConsensusPrecompiled::showConsensusTable(
     auto& storage = _executive->storage();
     if (!storage.openTable(SYS_CONSENSUS))
     {
-        storage.createTable(SYS_CONSENSUS, SYS_VALUE);
+        storage.createTable(SYS_CONSENSUS, SYS_VALUE_FIELDS);
     }
 
     auto entry = storage.getRow(SYS_CONSENSUS, "key");
@@ -375,9 +366,7 @@ void ConsensusPrecompiled::showConsensusTable(
         return;
     }
 
-    auto value = entry->getField(0);
-
-    auto consensusList = decodeConsensusList(value);
+    auto consensusList = entry->getObject<ConsensusNodeList>();
 
     std::stringstream s;
     s << "ConsensusPrecompiled show table:\n";
