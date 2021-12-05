@@ -110,7 +110,7 @@ public:
     CallParameters::UniquePtr externalCall(CallParameters::UniquePtr input);  // call by
                                                                               // hostContext
 
-    // External request key locks
+    // External request key locks, throw exception if dead lock detected
     void externalAcquireKeyLocks(std::string acquireKeyLock);
 
     auto& storage()
