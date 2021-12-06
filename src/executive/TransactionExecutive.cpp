@@ -784,6 +784,8 @@ void TransactionExecutive::setConstantPrecompiled(
 
 void TransactionExecutive::revert()
 {
+    EXECUTOR_LOG(INFO) << "Revert transaction";
+
     auto blockContext = m_blockContext.lock();
     if (!blockContext)
     {
@@ -791,6 +793,7 @@ void TransactionExecutive::revert()
     }
 
     blockContext->storage()->rollback(*m_recoder);
+    m_recoder->clear();
 }
 
 CallParameters::UniquePtr TransactionExecutive::parseEVMCResult(
