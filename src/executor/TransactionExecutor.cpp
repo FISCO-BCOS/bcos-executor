@@ -1408,7 +1408,6 @@ TransactionExecutive::Ptr TransactionExecutor::createExecutive(
 {
     auto executive = std::make_shared<TransactionExecutive>(
         _blockContext, _contractAddress, contextID, seq, m_gasInjector);
-
     executive->setConstantPrecompiled(m_constantPrecompiled);
     executive->setEVMPrecompiled(m_precompiledContract);
     executive->setBuiltInPrecompiled(m_builtInPrecompiled);

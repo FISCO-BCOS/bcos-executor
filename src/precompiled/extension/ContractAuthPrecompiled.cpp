@@ -237,8 +237,7 @@ void ContractAuthPrecompiled::resetAdmin(
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled") << LOG_DESC("path not found")
                                << LOG_KV("path", path);
-        getErrorCodeOut(callResult->mutableExecResult(), CODE_TABLE_AGENT_ROW_NOT_EXIST, *codec);
-        return;
+        BOOST_THROW_EXCEPTION(protocol::PrecompiledError() << errinfo_comment("Contract address not found."));
     }
     auto newEntry = table->newEntry();
     newEntry.setField(SYS_VALUE, admin.hex());
@@ -669,8 +668,8 @@ void ContractAuthPrecompiled::setDeployAuth(
         getErrorCodeOut(callResult->mutableExecResult(), CODE_NO_AUTHORIZED, *codec);
         return;
     }
-    PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ContractAuthPrecompiled") << LOG_DESC("openDeployAuth")
-                           << LOG_KV("account", account.hex());
+    PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ContractAuthPrecompiled") << LOG_DESC("setDeployAuth")
+                           << LOG_KV("account", account.hex()) << LOG_KV("isClose", _isClose);
     auto table = _executive->storage().openTable("/apps");
     auto type = getDeployAuthType(table);
     auto getAclStr = (type == (int)AuthType::BLACK_LIST_MODE) ? FS_ACL_BLACK : FS_ACL_WHITE;

@@ -222,8 +222,9 @@ std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionE
                 revert();
                 callParameters->status = (int32_t)TransactionStatus::PermissionDenied;
                 callParameters->type = CallParameters::REVERT;
-                callParameters->message = "Permission denied.";
-                EXECUTIVE_LOG(ERROR) << callParameters->message << LOG_KV("tableName", tableName);
+                callParameters->message = "Call permission denied";
+                EXECUTIVE_LOG(ERROR) << callParameters->message << LOG_KV("tableName", tableName)
+                                     << LOG_KV("origin", callParameters->origin);
                 return {nullptr, std::move(callParameters)};
             }
         }
@@ -258,18 +259,21 @@ TransactionExecutive::callPrecompiled(CallParameters::UniquePtr callParameters)
         writeErrInfoToOutput(_msg ? *_msg : "error occurs in precompiled, but error_info is empty",
             callParameters->data);
         revert();
+        callParameters->type = CallParameters::REVERT;
         callParameters->status = (int32_t)TransactionStatus::PrecompiledError;
     }
     catch (Exception& e)
     {
         writeErrInfoToOutput(e.what(), callParameters->data);
         revert();
+        callParameters->type = CallParameters::REVERT;
         callParameters->status = (int32_t)executor::toTransactionStatus(e);
     }
     catch (std::exception& e)
     {
         writeErrInfoToOutput(e.what(), callParameters->data);
         revert();
+        callParameters->type = CallParameters::REVERT;
         callParameters->status = (int32_t)TransactionStatus::Unknown;
     }
     return {nullptr, std::move(callParameters)};
@@ -339,9 +343,9 @@ std::tuple<std::unique_ptr<HostContext>, CallParameters::UniquePtr> TransactionE
             revert();
             callParameters->status = (int32_t)TransactionStatus::PermissionDenied;
             callParameters->type = CallParameters::REVERT;
-            callParameters->message = "Permission denied.";
-            EXECUTIVE_LOG(ERROR) << callParameters->message
-                                 << LOG_KV("originAddress", callParameters->origin);
+            callParameters->message = "Create permission denied";
+            EXECUTIVE_LOG(ERROR) << callParameters->message << LOG_KV("newAddress", newAddress)
+                                 << LOG_KV("origin", callParameters->origin);
             return {nullptr, std::move(callParameters)};
         }
     }
@@ -1095,7 +1099,7 @@ bool TransactionExecutive::checkAuth(
     Address address(callParameters->origin);
     auto path = string(callParameters->codeAddress);
     EXECUTIVE_LOG(DEBUG) << "check auth" << LOG_KV("codeAddress", path)
-                         << LOG_KV("originAddress", address.hex());
+                         << LOG_KV("isCreate", _isCreate) << LOG_KV("originAddress", address.hex());
     if (_isCreate)
     {
         return contractAuthPrecompiled->checkDeployAuth(shared_from_this(), address);
