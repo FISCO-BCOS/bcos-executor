@@ -125,6 +125,7 @@ void TransactionExecutor::nextBlockHeader(const bcos::protocol::BlockHeader::Con
         {
             std::unique_lock<std::shared_mutex> lock(m_stateStoragesMutex);
             bcos::storage::StateStorage::Ptr stateStorage;
+            bcos::storage::StorageInterface::Ptr lastStateStorage;
             if (m_stateStorages.empty())
             {
                 if (m_cachedStorage)
@@ -135,6 +136,7 @@ void TransactionExecutor::nextBlockHeader(const bcos::protocol::BlockHeader::Con
                 {
                     stateStorage = std::make_shared<bcos::storage::StateStorage>(m_backendStorage);
                 }
+                lastStateStorage = m_lastStateStorage;
             }
             else
             {
@@ -151,10 +153,11 @@ void TransactionExecutor::nextBlockHeader(const bcos::protocol::BlockHeader::Con
                 }
 
                 prev.storage->setReadOnly(true);
+                lastStateStorage = prev.storage;
                 stateStorage = std::make_shared<bcos::storage::StateStorage>(prev.storage);
             }
             // set last commit state storage to blockContext, to auth read last block state
-            m_blockContext = createBlockContext(blockHeader, stateStorage, m_lastStateStorage);
+            m_blockContext = createBlockContext(blockHeader, stateStorage, lastStateStorage);
             m_stateStorages.emplace_back(blockHeader->number(), stateStorage);
         }
 
@@ -1533,7 +1536,10 @@ void TransactionExecutor::removeCommittedState()
 
         std::unique_lock<std::shared_mutex> lock(m_stateStoragesMutex);
         auto it = m_stateStorages.begin();
-        m_lastStateStorage = it->storage;
+        m_lastStateStorage = m_stateStorages.back().storage;
+        EXECUTOR_LOG(DEBUG) << "LatestStateStorage"
+                            << LOG_KV("storageNumber", m_stateStorages.back().number)
+                            << LOG_KV("commitNumber", number);
         it = m_stateStorages.erase(it);
         if (it != m_stateStorages.end())
         {
@@ -1545,7 +1551,10 @@ void TransactionExecutor::removeCommittedState()
     {
         std::unique_lock<std::shared_mutex> lock(m_stateStoragesMutex);
         auto it = m_stateStorages.begin();
-        m_lastStateStorage = it->storage;
+        m_lastStateStorage = m_stateStorages.back().storage;
+        EXECUTOR_LOG(DEBUG) << "LatestStateStorage"
+                            << LOG_KV("storageNumber", m_stateStorages.back().number)
+                            << LOG_KV("commitNumber", number);
         it = m_stateStorages.erase(it);
         if (it != m_stateStorages.end())
         {
