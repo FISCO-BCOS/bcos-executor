@@ -51,7 +51,8 @@ public:
         bcos::protocol::BlockNumber blockNumber, h256 blockHash, uint64_t timestamp,
         int32_t blockVersion, const EVMSchedule& _schedule, bool _isWasm, bool _isAuthCheck);
 
-    BlockContext(std::shared_ptr<storage::StateStorage> storage, crypto::Hash::Ptr _hashImpl,
+    BlockContext(std::shared_ptr<storage::StateStorage> storage,
+        storage::StorageInterface::Ptr _lastStorage, crypto::Hash::Ptr _hashImpl,
         protocol::BlockHeader::ConstPtr _current, const EVMSchedule& _schedule, bool _isWasm,
         bool _isAuthCheck);
 
@@ -60,6 +61,8 @@ public:
     virtual ~BlockContext(){};
 
     std::shared_ptr<storage::StateStorage> storage() { return m_storage; }
+
+    bcos::storage::StorageInterface::Ptr lastStorage() { return m_lastStorage; }
 
     uint64_t txGasLimit() const { return m_txGasLimit; }
     void setTxGasLimit(uint64_t _txGasLimit) { m_txGasLimit = _txGasLimit; }
@@ -118,6 +121,7 @@ private:
 
     uint64_t m_txGasLimit = 3000000000;
     std::shared_ptr<storage::StateStorage> m_storage;
+    bcos::storage::StorageInterface::Ptr m_lastStorage = nullptr;
     crypto::Hash::Ptr m_hashImpl;
 };
 

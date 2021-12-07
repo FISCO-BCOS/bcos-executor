@@ -141,7 +141,7 @@ public:
 private:
     std::shared_ptr<BlockContext> createBlockContext(
         const protocol::BlockHeader::ConstPtr& currentHeader,
-        storage::StateStorage::Ptr tableFactory);
+        storage::StateStorage::Ptr tableFactory, storage::StorageInterface::Ptr lastStorage);
 
     std::shared_ptr<BlockContext> createBlockContext(bcos::protocol::BlockNumber blockNumber,
         h256 blockHash, uint64_t timestamp, int32_t blockVersion,
@@ -214,7 +214,8 @@ private:
         bcos::storage::StateStorage::Ptr storage;
     };
     std::list<State> m_stateStorages;
-    bcos::protocol::BlockNumber m_lastCommitedBlockNumber = 1;
+    bcos::storage::StorageInterface::Ptr m_lastStateStorage;
+    bcos::protocol::BlockNumber m_lastCommittedBlockNumber = 1;
 
     struct HashCombine
     {

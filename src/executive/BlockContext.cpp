@@ -55,11 +55,14 @@ BlockContext::BlockContext(std::shared_ptr<storage::StateStorage> storage,
 {}
 
 BlockContext::BlockContext(std::shared_ptr<storage::StateStorage> storage,
-    crypto::Hash::Ptr _hashImpl, protocol::BlockHeader::ConstPtr _current,
-    const EVMSchedule& _schedule, bool _isWasm, bool _isAuthCheck)
+    storage::StorageInterface::Ptr _lastStorage, crypto::Hash::Ptr _hashImpl,
+    protocol::BlockHeader::ConstPtr _current, const EVMSchedule& _schedule, bool _isWasm,
+    bool _isAuthCheck)
   : BlockContext(storage, _hashImpl, _current->number(), _current->hash(), _current->timestamp(),
         _current->version(), _schedule, _isWasm, _isAuthCheck)
-{}
+{
+    m_lastStorage = std::move(_lastStorage);
+}
 
 void BlockContext::insertExecutive(int64_t contextID, int64_t seq, ExecutiveState state)
 {

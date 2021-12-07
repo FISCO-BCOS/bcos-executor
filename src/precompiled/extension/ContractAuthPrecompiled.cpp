@@ -183,23 +183,13 @@ void ContractAuthPrecompiled::getAdmin(
         path = contractAddress.hex();
     }
     path = getAuthTableName(path);
-    auto table = _executive->storage().openTable(path);
-    if (!table)
+    std::string adminStr = getContractAdmin(_executive, path);
+    if (adminStr.empty())
     {
-        PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled") << LOG_DESC("path not found")
-                               << LOG_KV("path", path);
         callResult->setExecResult(codec->encode(Address()));
         return;
     }
-    auto entry = table->getRow(ADMIN_FIELD);
-    if (!entry)
-    {
-        PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled")
-                               << LOG_DESC("entry not found") << LOG_KV("path", path);
-        callResult->setExecResult(codec->encode(Address()));
-        return;
-    }
-    admin = Address(std::string(entry->getField(0)));
+    admin = Address(std::string(adminStr));
     gasPricer->updateMemUsed(1);
     callResult->setExecResult(codec->encode(admin));
 }
@@ -237,7 +227,8 @@ void ContractAuthPrecompiled::resetAdmin(
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled") << LOG_DESC("path not found")
                                << LOG_KV("path", path);
-        BOOST_THROW_EXCEPTION(protocol::PrecompiledError() << errinfo_comment("Contract address not found."));
+        BOOST_THROW_EXCEPTION(
+            protocol::PrecompiledError() << errinfo_comment("Contract address not found."));
     }
     auto newEntry = table->newEntry();
     newEntry.setField(SYS_VALUE, admin.hex());
@@ -282,7 +273,7 @@ void ContractAuthPrecompiled::setMethodAuthType(
         getErrorCodeOut(callResult->mutableExecResult(), CODE_TABLE_NOT_EXIST, *codec);
         return;
     }
-    auto admin = Address(std::string(table->getRow(ADMIN_FIELD)->getField(0)));
+    auto admin = Address(getContractAdmin(_executive, path));
     if (Address(_sender) != admin)
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled")
@@ -363,7 +354,9 @@ bool ContractAuthPrecompiled::checkMethodAuth(
 {
     auto path = _path;
     path = getAuthTableName(path);
-    auto table = _executive->storage().openTable(path);
+    auto lastStorage = _executive->lastStorage();
+    auto table =
+        (lastStorage) ? lastStorage->openTable(path) : _executive->storage().openTable(path);
     if (!table)
     {
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ContractAuthPrecompiled")
@@ -371,7 +364,7 @@ bool ContractAuthPrecompiled::checkMethodAuth(
                                << LOG_KV("path", path);
         return true;
     }
-    auto getMethodType = getMethodAuthType(table, func);
+    auto getMethodType = getMethodAuthType(_executive, path, func);
     if (getMethodType == (int)CODE_TABLE_AUTH_TYPE_NOT_EXIST)
     {
         // this method not set type
@@ -457,19 +450,19 @@ void ContractAuthPrecompiled::setMethodAuth(
         getErrorCodeOut(callResult->mutableExecResult(), CODE_TABLE_NOT_EXIST, *codec);
         return;
     }
-    auto admin = Address(std::string(table->getRow(ADMIN_FIELD)->getField(0)));
+    s256 authType = getMethodAuthType(_executive, path, ref(func));
+    if (authType <= 0)
+    {
+        callResult->setExecResult(codec->encode(authType));
+        return;
+    }
+    auto admin = Address(getContractAdmin(_executive, path));
     if (Address(_sender) != admin)
     {
         PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled")
                                << LOG_DESC("Permission denied, only admin can set contract access.")
                                << LOG_KV("address", path) << LOG_KV("sender", _sender);
         getErrorCodeOut(callResult->mutableExecResult(), CODE_NO_AUTHORIZED, *codec);
-        return;
-    }
-    s256 authType = getMethodAuthType(table, ref(func));
-    if (authType <= 0)
-    {
-        callResult->setExecResult(codec->encode(authType));
         return;
     }
     std::string getTypeStr;
@@ -510,7 +503,7 @@ void ContractAuthPrecompiled::setMethodAuth(
     {
         try
         {
-            auto && out = asBytes(std::string(entry->getField(SYS_VALUE)));
+            auto&& out = asBytes(std::string(entry->getField(SYS_VALUE)));
             codec::scale::decode(authMap, gsl::make_span(out));
             if (authMap.find(func) != authMap.end())
             {
@@ -537,10 +530,14 @@ void ContractAuthPrecompiled::setMethodAuth(
 }
 
 s256 ContractAuthPrecompiled::getMethodAuthType(
-    std::optional<storage::Table> _table, bytesConstRef _func)
+    const std::shared_ptr<executor::TransactionExecutive>& _executive, const std::string& _path,
+    bytesConstRef _func)
 {
+    auto lastStorage = _executive->lastStorage();
+    auto table =
+        (lastStorage) ? lastStorage->openTable(_path) : _executive->storage().openTable(_path);
     // _table can't be nullopt
-    auto entry = _table->getRow(METHOD_AUTH_TYPE);
+    auto entry = table->getRow(METHOD_AUTH_TYPE);
     if (!entry || entry->getField(SYS_VALUE).empty())
     {
         PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ContractAuthPrecompiled")
@@ -552,7 +549,7 @@ s256 ContractAuthPrecompiled::getMethodAuthType(
     s256 type = -1;
     try
     {
-        auto && out = asBytes(authTypeStr);
+        auto&& out = asBytes(authTypeStr);
         codec::scale::decode(authTypeMap, gsl::make_span(out));
         if (authTypeMap.find(_func.toBytes()) == authTypeMap.end())
         {
@@ -569,10 +566,36 @@ s256 ContractAuthPrecompiled::getMethodAuthType(
     return type;
 }
 
-u256 ContractAuthPrecompiled::getDeployAuthType(std::optional<storage::Table> _table)
+std::string ContractAuthPrecompiled::getContractAdmin(
+    const std::shared_ptr<executor::TransactionExecutive>& _executive, const std::string& _path)
 {
+    auto lastStorage = _executive->lastStorage();
+    auto table =
+        (lastStorage) ? lastStorage->openTable(_path) : _executive->storage().openTable(_path);
+    if (!table)
+    {
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled") << LOG_DESC("path not found")
+                               << LOG_KV("path", _path);
+        return "";
+    }
+    auto entry = table->getRow(ADMIN_FIELD);
+    if (!entry)
+    {
+        PRECOMPILED_LOG(ERROR) << LOG_BADGE("ContractAuthPrecompiled")
+                               << LOG_DESC("entry not found") << LOG_KV("path", _path);
+        return "";
+    }
+    return std::string(entry->getField(0));
+}
+
+u256 ContractAuthPrecompiled::getDeployAuthType(
+    const std::shared_ptr<executor::TransactionExecutive>& _executive)
+{
+    auto lastStorage = _executive->lastStorage();
+    auto table =
+        (lastStorage) ? lastStorage->openTable("/apps") : _executive->storage().openTable("/apps");
     // table must exist
-    auto entry = _table->getRow(FS_ACL_TYPE);
+    auto entry = table->getRow(FS_ACL_TYPE);
     // entry must exist
     u256 type = 0;
     try
@@ -595,9 +618,7 @@ void ContractAuthPrecompiled::getDeployType(
     auto codec =
         std::make_shared<PrecompiledCodec>(blockContext->hashHandler(), blockContext->isWasm());
 
-    auto table = _executive->storage().openTable("/apps");
-    // table must exist
-    u256 type = getDeployAuthType(table);
+    u256 type = getDeployAuthType(_executive);
     gasPricer->updateMemUsed(1);
     callResult->setExecResult(codec->encode(type));
 }
@@ -671,7 +692,7 @@ void ContractAuthPrecompiled::setDeployAuth(
     PRECOMPILED_LOG(DEBUG) << LOG_BADGE("ContractAuthPrecompiled") << LOG_DESC("setDeployAuth")
                            << LOG_KV("account", account.hex()) << LOG_KV("isClose", _isClose);
     auto table = _executive->storage().openTable("/apps");
-    auto type = getDeployAuthType(table);
+    auto type = getDeployAuthType(_executive);
     auto getAclStr = (type == (int)AuthType::BLACK_LIST_MODE) ? FS_ACL_BLACK : FS_ACL_WHITE;
 
     std::map<Address, bool> aclMap;
@@ -679,7 +700,7 @@ void ContractAuthPrecompiled::setDeployAuth(
     auto mapStr = std::string(entry->getField(0));
     if (!mapStr.empty())
     {
-        auto && out = asBytes(mapStr);
+        auto&& out = asBytes(mapStr);
         codec::scale::decode(aclMap, gsl::make_span(out));
     }
     bool access = _isClose ? (type == (int)AuthType::BLACK_LIST_MODE) :
@@ -710,9 +731,11 @@ void ContractAuthPrecompiled::hasDeployAuth(
 bool ContractAuthPrecompiled::checkDeployAuth(
     const std::shared_ptr<executor::TransactionExecutive>& _executive, const Address& _account)
 {
-    auto table = _executive->storage().openTable("/apps");
+    auto lastStorage = _executive->lastStorage();
+    auto table =
+        (lastStorage) ? lastStorage->openTable("/apps") : _executive->storage().openTable("/apps");
     // table must exist
-    auto type = getDeployAuthType(table);
+    auto type = getDeployAuthType(_executive);
     if (type == 0)
     {
         return true;
@@ -729,7 +752,7 @@ bool ContractAuthPrecompiled::checkDeployAuth(
         return type == (int)AuthType::BLACK_LIST_MODE;
     }
     std::map<Address, bool> aclMap;
-    auto && out = asBytes(std::string(entry->getField(0)));
+    auto&& out = asBytes(std::string(entry->getField(0)));
     codec::scale::decode(aclMap, gsl::make_span(out));
     if (aclMap.find(_account) == aclMap.end())
     {

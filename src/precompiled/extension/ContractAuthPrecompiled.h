@@ -102,9 +102,13 @@ private:
         bytesConstRef& data, const std::shared_ptr<PrecompiledExecResult>& callResult,
         bool _isClose, const std::string& _sender, const PrecompiledGas::Ptr& gasPricer);
 
-    s256 getMethodAuthType(std::optional<storage::Table> _table, bytesConstRef _func);
+    s256 getMethodAuthType(const std::shared_ptr<executor::TransactionExecutive>& _executive,
+        const std::string& _path, bytesConstRef _func);
 
-    u256 getDeployAuthType(std::optional<storage::Table> _table);
+    std::string getContractAdmin(const std::shared_ptr<executor::TransactionExecutive>& _executive,
+        const std::string& _path);
+
+    u256 getDeployAuthType(const std::shared_ptr<executor::TransactionExecutive>& _executive);
 
     inline bool checkSender(std::string_view _sender)
     {
