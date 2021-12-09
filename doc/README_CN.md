@@ -2,9 +2,9 @@
 
 [English](../README.md) / 中文
 
-# 调度器
+# 执行器
 
-bcos-executor是[FISCO BCOS 3.0](https://github.com/FISCO-BCOS/FISCO-BCOS)的执行模块实现
+bcos-executor是[FISCO BCOS 3.0](https://github.com/FISCO-BCOS/FISCO-BCOS)的执行器实现
 
 
 ## 文档
